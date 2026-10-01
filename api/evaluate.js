@@ -1,8 +1,10 @@
+import {guard} from "./_guard.js";
 export default async function handler(req,res){
   if(req.method==="GET"){
-    return res.status(200).json({ok:true,configured:Boolean(process.env.OPENAI_API_KEY),model:"gpt-5.6-luna",version:"2.0.0"});
+    return res.status(200).json({ok:true,configured:Boolean(process.env.OPENAI_API_KEY),model:"gpt-5.6-luna",version:"3.0.0"});
   }
   if(req.method!=="POST") return res.status(405).json({error:"POST_ONLY",code:"POST_ONLY"});
+  if(!guard(req,res,{limit:70})) return;
   if(!process.env.OPENAI_API_KEY) return res.status(503).json({error:"AI_NOT_CONFIGURED",code:"AI_NOT_CONFIGURED"});
 
   const {answer,question,goal,level="A1",mode="lesson"}=req.body||{};
