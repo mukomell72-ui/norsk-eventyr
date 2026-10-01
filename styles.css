@@ -61,3 +61,46 @@ hr{border:0;border-top:1px solid #ffffff12;margin:18px 0}small{color:var(--muted
   .nav.nav6 button{font-size:10px;padding:7px 2px}
   .nav.nav6 b{font-size:17px}
 }
+
+
+/* Samtale — Norwegian conversation partner */
+.nav.nav7{grid-template-columns:repeat(7,1fr)}
+.chat-layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:14px;align-items:start}
+.chat-settings{position:sticky;top:72px}
+.field-label{display:block;margin:15px 0 7px;color:var(--muted);font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:.05em}
+.input.compact{min-height:0;padding:11px 12px}
+.topic-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.topic-chips button,.chat-actions button{border:1px solid #355a7e;background:#132943;color:#e6f1ff;border-radius:999px;padding:7px 10px;font-size:12px;font-weight:800}
+.switch-row{display:flex;align-items:center;gap:8px;margin:14px 0;color:#dce9fb;font-size:13px}
+.chat-main{padding:0;overflow:hidden;min-height:650px;display:flex;flex-direction:column}
+.chat-messages{height:min(66vh,640px);min-height:420px;overflow:auto;padding:18px;display:flex;flex-direction:column;gap:13px;scroll-behavior:smooth}
+.chat-row{display:flex;gap:9px;max-width:88%}
+.chat-row.user{align-self:flex-end;justify-content:flex-end}
+.chat-row.assistant{align-self:flex-start}
+.chat-avatar{width:34px;height:34px;flex:0 0 34px;border-radius:12px;display:grid;place-items:center;background:linear-gradient(145deg,#6be9b7,#4ba2ff);color:#07101f;font-weight:950}
+.chat-stack{min-width:0}
+.chat-bubble{padding:12px 14px;border-radius:18px;line-height:1.5;white-space:pre-wrap}
+.user-bubble{background:#235a83;color:#fff;border-bottom-right-radius:5px}
+.ai-bubble{background:#102a45;border:1px solid #ffffff14;color:#f7fbff;border-bottom-left-radius:5px}
+.chat-actions{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0}
+.chat-actions button{padding:5px 8px}
+.chat-translation{padding:9px 11px;margin-top:5px;border-left:3px solid var(--blue);background:#5aa9ff10;border-radius:0 10px 10px 0;color:#dce9fb;font-size:13px}
+.chat-correction{padding:9px 11px;margin-top:6px;border:1px solid #ffd36a35;background:#ffd36a0d;border-radius:11px;color:#ffe6a1;font-size:13px}
+.chat-score{display:block;margin-top:5px}
+.chat-composer{border-top:1px solid #ffffff12;padding:14px;background:#09172a}
+.chat-composer textarea.input{min-height:78px;resize:vertical}
+.chat-empty{text-align:center;margin:auto;max-width:460px;color:var(--muted)}
+.chat-empty .chat-avatar{margin:0 auto 12px;width:54px;height:54px;border-radius:18px}
+.chat-thinking{align-self:flex-start;padding:10px 13px;border-radius:15px;background:#0c2038;color:var(--muted);font-size:13px}
+@media(max-width:820px){
+  .chat-layout{grid-template-columns:1fr}
+  .chat-settings{position:static}
+  .chat-main{min-height:590px}
+  .chat-messages{height:56vh;min-height:340px}
+}
+@media(max-width:560px){
+  .nav.nav7{grid-template-columns:repeat(7,1fr);gap:1px;padding:5px}
+  .nav.nav7 button{font-size:9px;padding:7px 1px}
+  .nav.nav7 b{font-size:16px}
+  .chat-row{max-width:95%}
+}
