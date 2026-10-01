@@ -14,8 +14,8 @@ export default async function handler(req,res){
   if(!guard(req,res,{limit:90})) return;
   if(!process.env.OPENAI_API_KEY) return res.status(503).json({error:"AI_NOT_CONFIGURED",code:"AI_NOT_CONFIGURED"});
 
-  const {message="",level="A1",mode="free",topic="",scenario="",history=[]}=req.body||{};
-  if(typeof message!=="string"||!message.trim()) return res.status(400).json({error:"MISSING_MESSAGE",code:"MISSING_MESSAGE"});
+  const {message="",level="A1",mode="free",topic="",scenario="",history=[],start=false}=req.body||{};
+  if(!start&&(typeof message!=="string"||!message.trim())) return res.status(400).json({error:"MISSING_MESSAGE",code:"MISSING_MESSAGE"});
   if(message.length>1800) return res.status(413).json({error:"MESSAGE_TOO_LONG",code:"MESSAGE_TOO_LONG"});
   const allowedLevels=["A1","A2","B1","B2"];
   const target=allowedLevels.includes(level)?level:"A1";
@@ -57,7 +57,7 @@ export default async function handler(req,res){
     "Оцени ответ учебно по 0–100, где score отражает понятность и соответствие уровню, но не является официальной оценкой.",
     "suggested_level может быть A1/A2/B1/B2 или пустой строкой. Меняй его только если по нескольким репликам очевидно, что текущий уровень слишком лёгкий или слишком трудный.",
     transcript?"Предыдущий разговор:\n"+transcript:"",
-    "Новая реплика ученика: "+message,
+    start?"Начни разговор первым: естественно поздоровайся и задай один вопрос по выбранной теме на нужном уровне.":"Новая реплика ученика: "+message,
     "",
     "Верни ТОЛЬКО JSON без markdown:",
     '{"reply_no":"...","translation_ru":"","corrected":"","explanation_ru":"","score":0,"error_tag":"","suggested_level":""}',
