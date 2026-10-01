@@ -360,7 +360,7 @@
   function answerReview(key,i,c){
     const it=state.srs[key],ok=i===c,interval=[0,1,3,7,14,30,60];
     it.seen=(it.seen||0)+1;if(ok){it.correct=(it.correct||0)+1;it.stage=Math.min(6,(it.stage||0)+1)}else{it.stage=Math.max(0,(it.stage||0)-1);rememberError("vocabulary")}
-    const days=ok?interval[it.stage]:1;it.due=Date.now()+days*86400000;updateSkill("vocabulary",ok?100:15);saveState();reviewSession.i++;renderReviewCard();
+    const days=ok?interval[it.stage]:1;it.due=Date.now()+days*86400000;updateSkill("vocabulary",ok?100:15);if(state.dailyDictionary[key])updateDailyStrength([key],ok?100:15);saveState();reviewSession.i++;renderReviewCard();
   }
   function finishReview(){state.xp+=10;saveState();shell('<section class="card" style="max-width:620px;margin:40px auto;text-align:center"><div style="font-size:56px">↻</div><h1>Повторение завершено</h1><p class="muted">Следующие даты пересчитаны по твоим ответам.</p><button class="btn" onclick="renderReview()">Готово</button></section>',"review")}
 
