@@ -8,10 +8,12 @@
   state.generatedLessons=state.generatedLessons||{};
   state.placement=state.placement||null;
   state.completedTopics=state.completedTopics||{};
+  state.chatHistory=Array.isArray(state.chatHistory)?state.chatHistory.slice(-40):[];
+  state.chatPrefs=state.chatPrefs||{level:state.level||"A1",mode:"free",topic:"",scenario:"butikk",autoSpeak:true};
   saveState();
 
   let neSession=sessionStorage.getItem("ne_session")||"";
-  let placementSession=null,reviewSession=null,examV3=null,mediaRecorder=null,mediaStream=null,recordChunks=[],recordTimer=null;
+  let placementSession=null,reviewSession=null,examV3=null,mediaRecorder=null,mediaStream=null,recordChunks=[],recordTimer=null,chatInputWasVoice=false;
 
   function skillLabel(k){return SKILL_NAMES[k]||k}
   function updateSkill(k,score){
@@ -92,7 +94,7 @@
     await ac.close();let bin="",u=new Uint8Array(out);for(let i=0;i<u.length;i+=0x8000)bin+=String.fromCharCode(...u.subarray(i,i+0x8000));return btoa(bin);
   }
   toggleMic=async function(target="freeAnswer",expected=""){
-    const btn=document.getElementById("micBtn")||document.getElementById("pronBtn");
+    const btn=target==="chatInput"?document.getElementById("chatMicBtn"):(document.getElementById("micBtn")||document.getElementById("pronBtn"));
     if(mediaRecorder&&mediaRecorder.state==="recording"){mediaRecorder.stop();return}
     if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){
       const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
@@ -114,7 +116,7 @@
         const pronouncePromise=expected?blobToWavBase64(blob).then(wav=>apiPost("/api/pronounce",{audioBase64:wav,expected})).catch(()=>null):Promise.resolve(null);
         const [r,pron]=await Promise.all([transcribePromise,pronouncePromise]);
         if(r.ok){
-          const text=r.data.text||"",f=document.getElementById(target);if(f)f.value=text;
+          const text=r.data.text||"",f=document.getElementById(target);if(f)f.value=text;if(target==="chatInput")chatInputWasVoice=true;
           if(expected){
             const fallback=similarity(text,expected),box=document.getElementById("pronFb"),p=pron&&pron.ok?pron.data:null,sc=p?.score??fallback;
             if(box)box.innerHTML='<div class="feedback '+(sc>=70?"good":"bad")+'"><b>Произношение: '+sc+'/100</b><br>'+(p?esc(p.pronunciation_ru||""):'Речь оценена по точности распознавания.')+(p?'<br><small>Разборчивость '+p.clarity+' · ритм '+p.rhythm+' · соответствие образцу '+p.accuracy+'</small>':'')+(p?.difficult_words?.length?'<br><b>Потренировать:</b> '+p.difficult_words.map(esc).join(", "):'')+'<br><small>AI-оценка аудиозаписи для тренировки, не оценка официального экзаменатора.</small></div>';
@@ -133,22 +135,23 @@
     stopTimer();
     if(view==="placement")return renderPlacement();
     if(view==="review")return renderReview();
+    if(view==="chat")return renderChat();
     if(view==="topic")return startTopic(data);
     if(view==="exampart")return startExamPart(data?.part||data,data?.band||null);
     return oldNavigate(view,data);
   };
   nav=function(active){
-    const a=[["home","⌂","Главная"],["course","▤","Курс"],["review","↻","Повтор"],["tests","✓","Тесты"],["exam","★","Экзамен"],["progress","↗","Прогресс"]];
-    return '<nav class="nav nav6">'+a.map(x=>'<button class="'+(active===x[0]?"active":"")+'" onclick="navigate(\''+x[0]+'\')"><b>'+x[1]+'</b>'+x[2]+'</button>').join("")+'</nav>';
+    const a=[["home","⌂","Главная"],["course","▤","Курс"],["chat","◉","Разговор"],["review","↻","Повтор"],["tests","✓","Тесты"],["exam","★","Экзамен"],["progress","↗","Прогресс"]];
+    return '<nav class="nav nav7">'+a.map(x=>'<button class="'+(active===x[0]?"active":"")+'" onclick="navigate(\''+x[0]+'\')"><b>'+x[1]+'</b>'+x[2]+'</button>').join("")+'</nav>';
   };
 
   renderHome=function(){
     const next=COURSE.find(x=>x.level===state.level&&!state.completed[x.id])||lessons(state.level)[0],due=dueWords().length,weak=weakSkills(),gen=Object.keys(state.completedTopics).length,last=state.examHistory.at(-1);
-    shell('<section class="hero"><div class="card hero-main"><div class="eyebrow">Norsk Eventyr 3.0 · адаптивный Bokmål</div><h1>Учись своими ответами, а не угадыванием.</h1><p class="muted">Свободное письмо и речь, интервальное повторение, естественное AI-аудирование, входной тест и экзаменационная практика.</p><div class="row"><button class="btn" onclick="navigate(\'lesson\',\''+next.id+'\')">Продолжить: '+esc(next.title)+'</button><button class="btn secondary" onclick="navigate(\'review\')">Повторить слова · '+due+'</button>'+(state.placement?'':'<button class="btn ghost" onclick="navigate(\'placement\')">Определить уровень</button>')+'</div></div>'+
+    shell('<section class="hero"><div class="card hero-main"><div class="eyebrow">Norsk Eventyr 3.0 · адаптивный Bokmål</div><h1>Учись своими ответами, а не угадыванием.</h1><p class="muted">Свободное письмо и речь, интервальное повторение, естественное AI-аудирование, входной тест и экзаменационная практика.</p><div class="row"><button class="btn" onclick="navigate(\'lesson\',\''+next.id+'\')">Продолжить: '+esc(next.title)+'</button><button class="btn secondary" onclick="navigate(\'chat\')">◉ Норвежский собеседник</button><button class="btn secondary" onclick="navigate(\'review\')">Повторить слова · '+due+'</button>'+(state.placement?'':'<button class="btn ghost" onclick="navigate(\'placement\')">Определить уровень</button>')+'</div></div>'+
     '<div class="card"><div class="metric"><span>Основные уроки</span><strong>'+Object.keys(state.completed).length+'/'+COURSE.length+'</strong></div><div class="metric"><span>Расширенные темы</span><strong>'+gen+'/'+TOPIC_CATALOG.length+'</strong></div><div class="metric"><span>Серия</span><strong>'+state.streak+' дн.</strong></div><div class="metric"><span>Последний экзамен</span><strong>'+(last?(last.score??last.ai??"—")+"%":"—")+'</strong></div></div></section>'+
     '<div class="section-title"><div><div class="eyebrow">Адаптивный план</div><h2>Слабые навыки</h2></div></div><section class="grid3">'+weak.map(k=>'<article class="card"><div class="eyebrow">'+skillLabel(k)+'</div><div class="big">'+state.skills[k]+'%</div><div class="progress"><i style="width:'+state.skills[k]+'%"></i></div></article>').join("")+'</section>'+
     '<div class="section-title"><h2>Уровни</h2></div><section class="grid">'+LEVELS.map(l=>'<article class="card level-card"><div class="row"><span class="level-badge">'+l+'</span><span class="tag">'+completed(l)+'/'+lessons(l).length+' основных</span></div><div class="big">'+l+'</div><p class="muted">'+levelDesc(l)+'</p><div class="progress"><i style="width:'+levelProgress(l)+'%"></i></div><br><button class="btn secondary" onclick="state.level=\''+l+'\';saveState();navigate(\'course\',\''+l+'\')">Открыть уровень</button></article>').join("")+'</section>'+
-    '<div class="section-title"><h2>Что изменилось</h2></div><section class="grid3"><article class="card"><h3>↻ Повторение</h3><p class="muted">Слова возвращаются по интервалам 1–3–7–14–30–60 дней.</p></article><article class="card"><h3>🎧 Живая речь</h3><p class="muted">Аудирование использует AI-голоса; голос синтетический, не запись человека.</p></article><article class="card"><h3>🧭 Входной тест</h3><p class="muted">Определяет стартовый уровень и отдельные слабые навыки.</p></article></section>',"home");
+    '<div class="section-title"><h2>Что изменилось</h2></div><section class="grid3"><article class="card"><h3>↻ Повторение</h3><p class="muted">Слова возвращаются по интервалам 1–3–7–14–30–60 дней.</p></article><article class="card"><h3>🎧 Живая речь</h3><p class="muted">Аудирование использует AI-голоса; голос синтетический, не запись человека.</p></article><article class="card"><h3>🧭 Входной тест</h3><p class="muted">Определяет стартовый уровень и отдельные слабые навыки.</p></article><article class="card"><h3>◉ Samtale</h3><p class="muted">Свободный норвежский собеседник на любую тему, A1–B2, текстом или голосом.</p></article></section>',"home");
   };
 
   renderCourse=function(level=state.level){
@@ -344,6 +347,69 @@
   }
   function exitExamV3(){if(confirm("Завершить эту тренировку без результата?")){examV3=null;navigate("exam")}}
 
+
+  const CHAT_SCENARIOS={
+    butikk:"Магазин: собеседник — продавец, ученик — покупатель.",
+    lege:"Врач: собеседник — сотрудник регистратуры или врач.",
+    jobb:"Работа: собеседник — работодатель или коллега.",
+    intervju:"Собеседование: собеседник — работодатель.",
+    kommune:"Коммуна: собеседник — сотрудник servicetorg.",
+    skole:"Школа/курс: собеседник — преподаватель или сотрудник школы.",
+    transport:"Транспорт: собеседник — сотрудник или попутчик.",
+    nabo:"Сосед: бытовой разговор и договорённости.",
+    kafé:"Кафе: собеседник — официант.",
+    tilfeldig:"Случайная жизненная ситуация в Норвегии."
+  };
+  const CHAT_TOPICS=["Работа","Семья","Норвегия","Путешествия","Еда","Здоровье","Хобби","Погода","Новости","Технологии","Учёба","Планы"];
+
+  function renderChat(){
+    const p=state.chatPrefs,h=state.chatHistory;
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Samtale · норвежский собеседник</div><h2 style="margin:0">Свободная практика '+esc(p.level)+'</h2></div></div>'+
+    '<section class="chat-layout"><aside class="card chat-settings"><div class="eyebrow">Настройки разговора</div><label class="field-label">Уровень</label><div class="row">'+LEVELS.map(l=>'<button class="btn '+(p.level===l?"":"ghost")+'" onclick="setChatPref(\'level\',\''+l+'\')">'+l+'</button>').join("")+'</div>'+
+    '<label class="field-label">Режим</label><select class="input compact" onchange="setChatPref(\'mode\',this.value)"><option value="free" '+(p.mode==="free"?"selected":"")+'>Свободный разговор</option><option value="corrections" '+(p.mode==="corrections"?"selected":"")+'>Исправляй мои ошибки</option><option value="exam" '+(p.mode==="exam"?"selected":"")+'>Как на устной практике</option><option value="roleplay" '+(p.mode==="roleplay"?"selected":"")+'>Ролевая ситуация</option></select>'+
+    '<label class="field-label">Тема — любая</label><input id="chatTopic" class="input compact" value="'+esc(p.topic||"")+'" placeholder="Например: работа, машины, жизнь в Норвегии…" onchange="setChatPref(\'topic\',this.value)">'+
+    '<div class="topic-chips">'+CHAT_TOPICS.map(t=>'<button onclick="setChatTopic(\''+escJs(t)+'\')">'+esc(t)+'</button>').join("")+'</div>'+
+    '<div id="roleScenario" style="'+(p.mode==="roleplay"?"":"display:none")+'"><label class="field-label">Ролевая ситуация</label><select class="input compact" onchange="setChatPref(\'scenario\',this.value)">'+Object.entries(CHAT_SCENARIOS).map(([k,v])=>'<option value="'+k+'" '+(p.scenario===k?"selected":"")+'>'+esc(v.split(":")[0])+'</option>').join("")+'</select></div>'+
+    '<label class="switch-row"><input type="checkbox" '+(p.autoSpeak?"checked":"")+' onchange="setChatPref(\'autoSpeak\',this.checked)"> Автоматически озвучивать ответы</label>'+
+    '<div class="row"><button class="btn secondary" onclick="startChat()">Начать новый разговор</button><button class="btn ghost" onclick="clearChat()">Очистить</button></div></aside>'+
+    '<div class="chat-main card"><div id="chatMessages" class="chat-messages">'+(h.length?renderChatMessages(h):'<div class="chat-empty"><div class="chat-avatar">N</div><h2>Hei!</h2><p>Выбери уровень и тему. Можно написать первую фразу самому или нажать «Начать новый разговор» — собеседник заговорит первым.</p></div>')+'</div>'+
+    '<div class="chat-composer"><textarea id="chatInput" class="input" rows="2" placeholder="Напиши по-норвежски или нажми микрофон…"></textarea><div class="row"><button id="chatMicBtn" class="btn secondary" onclick="toggleMic(\'chatInput\')">🎤 Говорить</button><button id="chatSendBtn" class="btn" onclick="sendChat()">Отправить →</button></div><small>AI-собеседник. В режиме речи микрофон сначала превращает твою речь в текст, затем собеседник отвечает.</small></div></div></section>',"chat");
+    setTimeout(()=>{const box=document.getElementById("chatMessages");if(box)box.scrollTop=box.scrollHeight},0);
+  }
+  function renderChatMessages(h){
+    return h.map((m,i)=>{
+      if(m.role==="user")return '<div class="chat-row user"><div class="chat-bubble user-bubble">'+esc(m.text)+'</div></div>';
+      const meta=m.meta||{};
+      return '<div class="chat-row assistant"><div class="chat-avatar">N</div><div class="chat-stack"><div class="chat-bubble ai-bubble">'+esc(m.text)+'</div><div class="chat-actions"><button onclick="speakText(\''+escJs(m.text)+'\')">🔊 Слушать</button>'+(meta.translation_ru?'<button onclick="toggleChatTranslation('+i+')">RU перевод</button>':'')+'</div>'+(meta.translation_ru?'<div id="chatTr'+i+'" class="chat-translation" style="display:none">'+esc(meta.translation_ru)+'</div>':'')+(meta.corrected?'<div class="chat-correction"><b>Лучше сказать:</b> '+esc(meta.corrected)+(meta.explanation_ru?'<br><small>'+esc(meta.explanation_ru)+'</small>':'')+'</div>':'')+(meta.score!==undefined?'<small class="chat-score">Учебная оценка ответа: '+meta.score+'/100</small>':'')+'</div></div>';
+    }).join("");
+  }
+  function setChatPref(key,value){
+    state.chatPrefs[key]=value;if(key==="level")state.level=value;saveState();renderChat();
+  }
+  function setChatTopic(topic){state.chatPrefs.topic=topic;saveState();renderChat()}
+  function toggleChatTranslation(i){const e=document.getElementById("chatTr"+i);if(e)e.style.display=e.style.display==="none"?"block":"none"}
+  function clearChat(){if(!state.chatHistory.length||confirm("Очистить историю этого разговора?")){state.chatHistory=[];saveState();renderChat()}}
+  async function startChat(){
+    state.chatHistory=[];saveState();renderChat();
+    const box=document.getElementById("chatMessages");if(box)box.innerHTML='<div class="chat-thinking">Собеседник начинает разговор…</div>';
+    const p=state.chatPrefs,r=await apiPost("/api/chat",{start:true,message:"",level:p.level,mode:p.mode,topic:p.topic,scenario:CHAT_SCENARIOS[p.scenario]||"",history:[]});
+    if(!r.ok){if(box)box.innerHTML='<div class="feedback bad">Собеседник временно недоступен: '+esc(r.error)+'</div>';return}
+    const d=r.data;state.chatHistory=[{role:"assistant",text:d.reply_no,meta:d}];saveState();renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);
+  }
+  async function sendChat(){
+    const input=document.getElementById("chatInput"),btn=document.getElementById("chatSendBtn"),msg=input?.value.trim();if(!msg)return;
+    const p=state.chatPrefs,wasVoice=chatInputWasVoice;chatInputWasVoice=false;
+    state.chatHistory.push({role:"user",text:msg,voice:wasVoice});state.chatHistory=state.chatHistory.slice(-40);saveState();renderChat();
+    const box=document.getElementById("chatMessages");if(box){box.insertAdjacentHTML("beforeend",'<div class="chat-thinking">Norsk samtalepartner skriver…</div>');box.scrollTop=box.scrollHeight}
+    const hist=state.chatHistory.slice(0,-1).slice(-16).map(x=>({role:x.role,text:x.text}));
+    const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:CHAT_SCENARIOS[p.scenario]||"",history:hist});
+    if(!r.ok){state.chatHistory.push({role:"assistant",text:"Beklager, jeg fikk et teknisk problem. Prøv igjen.",meta:{translation_ru:"Извините, произошла техническая ошибка. Попробуйте ещё раз."}});saveState();return renderChat()}
+    const d=r.data;state.chatHistory.push({role:"assistant",text:d.reply_no,meta:d});state.chatHistory=state.chatHistory.slice(-40);
+    updateSkill(wasVoice?"speaking":"writing",d.score||50);if(d.error_tag){rememberError(d.error_tag);updateSkill("grammar",Math.max(20,(d.score||50)-8))}
+    if(d.suggested_level&&d.suggested_level!==p.level)state.chatPrefs.level=d.suggested_level;
+    state.xp+=2;saveState();renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);
+  }
+
   renderProgress=function(){
     const t=state.testHistory.slice(-8).reverse(),e=state.examHistory.slice(-8).reverse(),errs=Object.entries(state.errors).sort((a,b)=>b[1]-a[1]).slice(0,8);
     shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Аналитика</div><h2 style="margin:0">Твой прогресс</h2></div></div>'+
@@ -361,7 +427,7 @@
     if(!file)return;try{const d=JSON.parse(await file.text());if(!d.state)throw 0;state={...state,...d.state};saveState();alert("Прогресс восстановлен.");renderProgress()}catch{alert("Файл прогресса повреждён или не подходит.")}
   }
 
-  Object.assign(window,{startTopic,renderReview,startReview,answerReview,renderPlacement,startPlacement,answerPlacement,checkGrammar,startExamPart,playExamAudio,answerExamObjectiveV3,submitExamProductive,nextExamProductive,exitExamV3,exportProgress,importProgressFile});
+  Object.assign(window,{startTopic,renderChat,setChatPref,setChatTopic,toggleChatTranslation,clearChat,startChat,sendChat,renderReview,startReview,answerReview,renderPlacement,startPlacement,answerPlacement,checkGrammar,startExamPart,playExamAudio,answerExamObjectiveV3,submitExamProductive,nextExamProductive,exitExamV3,exportProgress,importProgressFile});
   ensureSession().catch(()=>{});
   renderHome();
 })();
