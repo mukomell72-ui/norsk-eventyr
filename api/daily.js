@@ -38,7 +38,7 @@ export default async function handler(req,res){
     "Сгенерируй 7 кандидатов новых полезных единиц; сервер выберет первые 5 уникальных.",
     "Состав новых пяти: 2 обычных глагола + 1 модальный/вспомогательный или важная служебная конструкция + 1 существительное + 1 прилагательное/наречие.",
     "Не повторяй старые слова как новые. Не используй редкую книжную лексику ниже B2.",
-    "Для обычных глаголов: infinitiv, presens, preteritum, perfektum partisipp, perfektum с har, будущее как КОНСТРУКЦИЯ (skal/vil/kommer til å + infinitiv).",
+    "Для обычных глаголов обязательно дай: infinitiv, presens, preteritum, perfektum partisipp, presens perfektum (har + partisipp), preteritum perfektum/pluskvamperfektum (hadde + partisipp), будущее как КОНСТРУКЦИЯ (skal/vil/kommer til å + infinitiv) и framtid perfektum (skal/vil ha + partisipp), где это естественно.",
     "В Bokmål нет отдельного морфологического будущего времени. Всегда пиши 'будущее (конструкция)', не 'future form'.",
     "Для модальных глаголов дай реальные употребительные формы и естественные конструкции настоящего, прошлого и будущего.",
     "Для существительных: род, ubestemt entall, bestemt entall, ubestemt flertall, bestemt flertall.",
