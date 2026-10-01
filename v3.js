@@ -13,6 +13,7 @@
   state.dailyPacks=state.dailyPacks||{};
   state.dailyDictionary=state.dailyDictionary||{};
   state.dailyProgress=state.dailyProgress||{};
+  state.dailyDayCount=Number(state.dailyDayCount)||Object.keys(state.dailyPacks).length;
   saveState();
 
   let neSession=sessionStorage.getItem("ne_session")||"";
@@ -294,10 +295,10 @@
     const date=localDateKey();if(state.dailyPacks[date])return renderDaily();
     shell('<section class="card loading-card"><div class="spinner"></div><h2>Подбираю 5 новых слов</h2><p class="muted">Проверяю словарь, чтобы не повторить уже изученное, и добавляю слова прошлых дней в новые примеры.</p></section>',"home");
     const review=reinforcementEntries(12).map(x=>({word:x.lemma||x.word,translation_ru:x.translation_ru,daysAgo:x.daysAgo,strength:x.strength||20}));
-    const dayNumber=Object.keys(state.dailyPacks).length+1;
+    const dayNumber=(state.dailyDayCount||0)+1;
     const r=await apiPost("/api/daily",{level:state.level||"A1",date,knownWords:knownDailyWords(),reviewWords:review,weakSkills:weakSkills(),dayNumber});
     if(!r.ok){shell('<section class="card"><h2>Не удалось создать слова на сегодня</h2><p class="muted">'+esc(r.error)+'</p><button class="btn" onclick="renderDaily()">Назад</button></section>',"home");return}
-    const pack=r.data;pack.date=date;pack.level=state.level||"A1";state.dailyPacks[date]=pack;state.dailyProgress[date]={completed:false,scores:[]};registerDailyPack(pack);renderDaily();
+    const pack=r.data;pack.date=date;pack.level=state.level||"A1";state.dailyPacks[date]=pack;state.dailyProgress[date]={completed:false,scores:[]};state.dailyDayCount=dayNumber;const oldDates=Object.keys(state.dailyPacks).sort();while(oldDates.length>120){const old=oldDates.shift();delete state.dailyPacks[old];delete state.dailyProgress[old]}registerDailyPack(pack);renderDaily();
   }
   function startDailyPractice(date=localDateKey()){
     const pack=state.dailyPacks[date];if(!pack||!(pack.practice||[]).length)return renderDaily();
