@@ -14,7 +14,7 @@ export default async function handler(req,res){
   if(!guard(req,res,{limit:90})) return;
   if(!process.env.OPENAI_API_KEY) return res.status(503).json({error:"AI_NOT_CONFIGURED",code:"AI_NOT_CONFIGURED"});
 
-  const {message="",level="A1",mode="free",topic="",scenario="",history=[],start=false}=req.body||{};
+  const {message="",level="A1",mode="free",topic="",scenario="",history=[],start=false,practiceWords=[]}=req.body||{};
   if(!start&&(typeof message!=="string"||!message.trim())) return res.status(400).json({error:"MISSING_MESSAGE",code:"MISSING_MESSAGE"});
   if(message.length>1800) return res.status(413).json({error:"MESSAGE_TOO_LONG",code:"MESSAGE_TOO_LONG"});
   const allowedLevels=["A1","A2","B1","B2"];
@@ -39,7 +39,7 @@ export default async function handler(req,res){
     roleplay:"Оставайся в выбранной роли и поддерживай правдоподобный бытовой или рабочий диалог."
   };
 
-  const transcript=cleanHistory.map(x=>(x.role==="assistant"?"Собеседник":"Ученик")+": "+x.text).join("\n");
+  const transcript=cleanHistory.map(x=>(x.role==="assistant"?"Собеседник":"Ученик")+": "+x.text).join("\n");const learned=Array.isArray(practiceWords)?practiceWords.slice(0,12).map(x=>String(x).slice(0,100)).filter(Boolean):[];
   const prompt=[
     "Ты норвежский собеседник для практики Bokmål с русскоязычным взрослым учеником.",
     "Уровень ученика: "+target+".",
@@ -50,6 +50,7 @@ export default async function handler(req,res){
     modeRules[chatMode],
     "Основной язык разговора — норвежский Bokmål.",
     "Не требуй дословных ответов. Реагируй на смысл того, что сказал ученик.",
+    learned.length?"Слова, которые ученик недавно изучил: "+learned.join(", ")+". Естественно используй 1–3 из них в своих репликах и вопросах, чтобы они регулярно повторялись в контексте. Не вставляй их насильно.":"",
     "Не задавай два-три новых вопроса одновременно: максимум один основной вопрос в конце.",
     "Если ученик явно просит объяснение по-русски, можно кратко объяснить по-русски и затем вернуться к норвежскому.",
     "Если ошибка есть, corrected должен содержать естественный исправленный вариант ответа ученика целиком или пустую строку, если исправление не нужно.",
