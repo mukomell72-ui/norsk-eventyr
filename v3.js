@@ -81,6 +81,16 @@
     return Math.max(0,Math.round((1-dp[x.length][y.length]/Math.max(x.length,y.length))*100));
   }
   async function blobToBase64(blob){return new Promise((resolve,reject)=>{const fr=new FileReader();fr.onload=()=>resolve(String(fr.result).split(",")[1]);fr.onerror=reject;fr.readAsDataURL(blob)})}
+  async function blobToWavBase64(blob){
+    const AC=window.AudioContext||window.webkitAudioContext;if(!AC)throw new Error("NO_AUDIO_CONTEXT");
+    const ac=new AC(),buf=await ac.decodeAudioData((await blob.arrayBuffer()).slice(0)),len=buf.length,channels=buf.numberOfChannels,sr=buf.sampleRate;
+    const out=new ArrayBuffer(44+len*2),v=new DataView(out);
+    const w=(o,s)=>{for(let i=0;i<s.length;i++)v.setUint8(o+i,s.charCodeAt(i))};
+    w(0,"RIFF");v.setUint32(4,36+len*2,true);w(8,"WAVE");w(12,"fmt ");v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,1,true);v.setUint32(24,sr,true);v.setUint32(28,sr*2,true);v.setUint16(32,2,true);v.setUint16(34,16,true);w(36,"data");v.setUint32(40,len*2,true);
+    const data=Array.from({length:channels},(_,i)=>buf.getChannelData(i));let o=44;
+    for(let i=0;i<len;i++){let s=0;for(let c=0;c<channels;c++)s+=data[c][i];s=Math.max(-1,Math.min(1,s/channels));v.setInt16(o,s<0?s*0x8000:s*0x7fff,true);o+=2}
+    await ac.close();let bin="",u=new Uint8Array(out);for(let i=0;i<u.length;i+=0x8000)bin+=String.fromCharCode(...u.subarray(i,i+0x8000));return btoa(bin);
+  }
   toggleMic=async function(target="freeAnswer",expected=""){
     const btn=document.getElementById("micBtn")||document.getElementById("pronBtn");
     if(mediaRecorder&&mediaRecorder.state==="recording"){mediaRecorder.stop();return}
@@ -99,12 +109,15 @@
         clearTimeout(recordTimer);if(btn)btn.textContent="⏳ Распознаю…";
         const blob=new Blob(recordChunks,{type:mediaRecorder.mimeType||"audio/webm"});
         mediaStream?.getTracks().forEach(t=>t.stop());mediaStream=null;mediaRecorder=null;
-        const b64=await blobToBase64(blob),r=await apiPost("/api/transcribe",{audioBase64:b64,mime:blob.type,expected});
+        const b64=await blobToBase64(blob);
+        const transcribePromise=apiPost("/api/transcribe",{audioBase64:b64,mime:blob.type,expected});
+        const pronouncePromise=expected?blobToWavBase64(blob).then(wav=>apiPost("/api/pronounce",{audioBase64:wav,expected})).catch(()=>null):Promise.resolve(null);
+        const [r,pron]=await Promise.all([transcribePromise,pronouncePromise]);
         if(r.ok){
           const text=r.data.text||"",f=document.getElementById(target);if(f)f.value=text;
           if(expected){
-            const sc=similarity(text,expected),box=document.getElementById("pronFb");
-            if(box)box.innerHTML='<div class="feedback '+(sc>=75?"good":"bad")+'"><b>Распознаваемость: '+sc+'%</b><br>Распознано: '+esc(text)+'<br><small>Это сравнение распознанного текста с образцом, а не фонетическая оценка произношения.</small></div>';
+            const fallback=similarity(text,expected),box=document.getElementById("pronFb"),p=pron&&pron.ok?pron.data:null,sc=p?.score??fallback;
+            if(box)box.innerHTML='<div class="feedback '+(sc>=70?"good":"bad")+'"><b>Произношение: '+sc+'/100</b><br>'+(p?esc(p.pronunciation_ru||""):'Речь оценена по точности распознавания.')+(p?'<br><small>Разборчивость '+p.clarity+' · ритм '+p.rhythm+' · соответствие образцу '+p.accuracy+'</small>':'')+(p?.difficult_words?.length?'<br><b>Потренировать:</b> '+p.difficult_words.map(esc).join(", "):'')+'<br><small>AI-оценка аудиозаписи для тренировки, не оценка официального экзаменатора.</small></div>';
             updateSkill("speaking",sc);
           }
         }else alert("Не удалось распознать запись: "+r.error);
