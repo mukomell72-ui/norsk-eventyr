@@ -88,3 +88,135 @@ listening:[
 writing:["Напиши аргументированный текст о цифровизации общественных услуг: позиция, контраргумент, вывод.","Напиши формальное обращение, где просишь разъяснить основания решения."],
 speaking:["Обсуди цифровизацию: преимущества, риски и поддержку.","Сделай выступление о хорошем рабочем месте.","Выскажи позицию и ответь на сильный контраргумент."]}
 };
+
+// ---- Norsk Eventyr 3.0: expanded curriculum, grammar, placement and exam metadata ----
+const SKILL_NAMES={reading:"Чтение",listening:"Аудирование",writing:"Письмо",speaking:"Устная речь",grammar:"Грамматика",vocabulary:"Словарь"};
+
+const TOPIC_CATALOG=[
+{id:"a1-t01",level:"A1",title:"Знакомство и личные данные",goal:"представляться, задавать простые личные вопросы",grammar:"личные местоимения и presens"},
+{id:"a1-t02",level:"A1",title:"Семья и дом",goal:"рассказывать о семье и жилье",grammar:"en/ei/et и притяжательные формы"},
+{id:"a1-t03",level:"A1",title:"Еда и магазин",goal:"покупать продукты, спрашивать цену и количество",grammar:"vil ha, tall и måleenheter"},
+{id:"a1-t04",level:"A1",title:"Время и распорядок дня",goal:"говорить о времени и ежедневных делах",grammar:"klokka, presens и наречия времени"},
+{id:"a1-t05",level:"A1",title:"Транспорт и дорога",goal:"спрашивать маршрут и понимать простые сообщения",grammar:"til, fra, med и порядок слов"},
+{id:"a1-t06",level:"A1",title:"Врач и здоровье",goal:"называть симптомы и договариваться о приёме",grammar:"har vondt i, må, kan"},
+{id:"a1-t07",level:"A1",title:"Погода и одежда",goal:"описывать погоду и выбирать одежду",grammar:"det er, adjective"},
+{id:"a1-t08",level:"A1",title:"Школа и курс",goal:"говорить об учёбе, расписании и заданиях",grammar:"skal, må, ikke"},
+{id:"a1-t09",level:"A1",title:"Свободное время",goal:"говорить о хобби и предпочтениях",grammar:"liker å + infinitiv"},
+{id:"a1-t10",level:"A1",title:"Телефон и сообщения",goal:"оставлять короткие сообщения и просить перезвонить",grammar:"kan du, jeg ringer"},
+{id:"a1-t11",level:"A1",title:"Город и направления",goal:"спрашивать и объяснять, где находится место",grammar:"her, der, ved siden av, til venstre"},
+{id:"a1-t12",level:"A1",title:"Встречи и договорённости",goal:"назначать простую встречу",grammar:"på, i, klokka, passer det"},
+
+{id:"a2-t01",level:"A2",title:"Работа и график",goal:"рассказывать об опыте и обсуждать рабочее время",grammar:"modalverb + infinitiv"},
+{id:"a2-t02",level:"A2",title:"Жильё и коммунальные услуги",goal:"сообщать о проблеме и просить помощь",grammar:"må, bør, kan"},
+{id:"a2-t03",level:"A2",title:"Прошлое и планы",goal:"сравнивать прошлое, настоящее и планы",grammar:"preteritum, perfektum, skal"},
+{id:"a2-t04",level:"A2",title:"Мнение и причины",goal:"выражать мнение и объяснять причины",grammar:"fordi, derfor, men"},
+{id:"a2-t05",level:"A2",title:"Банк и счета",goal:"понимать счёт и задавать вопросы об оплате",grammar:"beløp, frist, har betalt"},
+{id:"a2-t06",level:"A2",title:"Дети, школа и SFO",goal:"общаться со школой о расписании и ребёнке",grammar:"leddsetninger med at"},
+{id:"a2-t07",level:"A2",title:"Здоровье и аптека",goal:"объяснять симптомы и понимать рекомендации",grammar:"bør, må, hvis"},
+{id:"a2-t08",level:"A2",title:"Путешествия и гостиница",goal:"бронировать, менять и уточнять детали поездки",grammar:"ønsker å, vil gjerne"},
+{id:"a2-t09",level:"A2",title:"Цифровые услуги",goal:"объяснять проблему с приложением, BankID или формой",grammar:"har prøvd å, får ikke"},
+{id:"a2-t10",level:"A2",title:"Соседи и бытовые вопросы",goal:"вежливо просить и договариваться",grammar:"kunne du, hadde det vært mulig"},
+{id:"a2-t11",level:"A2",title:"Праздники и традиции",goal:"рассказывать о событии и сравнивать традиции",grammar:"da, når, før, etter"},
+{id:"a2-t12",level:"A2",title:"Собеседование",goal:"отвечать на типичные вопросы работодателя",grammar:"erfaring med, har jobbet, kan bidra"},
+
+{id:"b1-t01",level:"B1",title:"Рабочая жизнь и права",goal:"обсуждать обязанности, график и рабочую среду",grammar:"сложные предложения и инверсия"},
+{id:"b1-t02",level:"B1",title:"Официальные обращения",goal:"писать и говорить в нейтрально-формальном стиле",grammar:"пассив и формальные конструкции"},
+{id:"b1-t03",level:"B1",title:"Аргументы и контраргументы",goal:"строить связную аргументацию",grammar:"derimot, samtidig, på den ene siden"},
+{id:"b1-t04",level:"B1",title:"Новости и источники",goal:"пересказывать новости и указывать источник",grammar:"ifølge, indirekte tale"},
+{id:"b1-t05",level:"B1",title:"Жалоба и решение проблемы",goal:"описывать проблему, последствия и желаемое решение",grammar:"dersom, selv om, derfor"},
+{id:"b1-t06",level:"B1",title:"CV и заявление на работу",goal:"обосновывать соответствие вакансии",grammar:"relative setninger"},
+{id:"b1-t07",level:"B1",title:"Договор аренды",goal:"понимать условия и уточнять обязанности сторон",grammar:"vilkår, dersom, skal"},
+{id:"b1-t08",level:"B1",title:"Система здравоохранения",goal:"структурированно объяснять ситуацию и задавать уточняющие вопросы",grammar:"perfektum и временные связки"},
+{id:"b1-t09",level:"B1",title:"Образование и обучение",goal:"сравнивать варианты и объяснять цели",grammar:"for å, slik at"},
+{id:"b1-t10",level:"B1",title:"Культура и общество",goal:"описывать различия без категоричных обобщений",grammar:"ofte, vanligvis, kan"},
+{id:"b1-t11",level:"B1",title:"Экология и транспорт",goal:"обсуждать последствия и решения",grammar:"bør, kunne, dersom"},
+{id:"b1-t12",level:"B1",title:"Медиа и цифровая жизнь",goal:"рассуждать о плюсах, рисках и привычках",grammar:"mens, samtidig som, på grunn av"},
+
+{id:"b2-t01",level:"B2",title:"Нюансированная аргументация",goal:"взвешивать несколько факторов и оговаривать неопределённость",grammar:"уступка и оговорки"},
+{id:"b2-t02",level:"B2",title:"Формальный язык и решения",goal:"точно запрашивать основания и обоснование",grammar:"nominalisering и пассив"},
+{id:"b2-t03",level:"B2",title:"Презентация и структура",goal:"строить логичное выступление с переходами",grammar:"текстовые связки"},
+{id:"b2-t04",level:"B2",title:"Данные и выводы",goal:"различать факт, интерпретацию и вывод",grammar:"модальность и степень уверенности"},
+{id:"b2-t05",level:"B2",title:"Дебаты",goal:"реагировать на аргумент и строить контраргумент",grammar:"selv om, riktignok, likevel"},
+{id:"b2-t06",level:"B2",title:"Отчёты и рекомендации",goal:"резюмировать данные и формулировать рекомендации",grammar:"формальный регистр"},
+{id:"b2-t07",level:"B2",title:"Профессиональная коммуникация",goal:"смягчать несогласие и уточнять ответственность",grammar:"høflig modalitet"},
+{id:"b2-t08",level:"B2",title:"Общественная политика",goal:"обсуждать компромиссы и последствия решений",grammar:"årsaks- og konsekvensledd"},
+{id:"b2-t09",level:"B2",title:"Критика источников",goal:"оценивать надёжность и ограничения источника",grammar:"forbehold og kildehenvisning"},
+{id:"b2-t10",level:"B2",title:"Академический стиль",goal:"писать нейтрально, связно и точно",grammar:"nominalisering и связность"},
+{id:"b2-t11",level:"B2",title:"Переговоры и конфликт",goal:"формулировать интересы, уступки и компромисс",grammar:"betingelser og høflig uenighet"},
+{id:"b2-t12",level:"B2",title:"Абстрактные темы",goal:"развивать позицию на общественную или этическую тему",grammar:"nyansering og presisjon"}
+];
+
+const GRAMMAR_GUIDE={
+A1:[
+{title:"Настоящее время",rule:"В обычном утверждении сказуемое стоит на втором месте. У большинства глаголов в настоящем времени окончание -r.",examples:["Jeg bor i Norge.","Hun jobber i dag.","Vi snakker norsk."],q:"Выбери правильную фразу.",opts:["Jeg bor i Norge.","Jeg bo i Norge.","Jeg i Norge bor.","Jeg er bor i Norge."],correct:0},
+{title:"Вопросы",rule:"В вопросе с вопросительным словом глагол обычно идёт перед подлежащим.",examples:["Hva heter du?","Hvor bor du?","Når kommer bussen?"],q:"Как правильно спросить «Где ты живёшь?»",opts:["Hvor du bor?","Hvor bor du?","Du bor hvor?","Bor hvor du?"],correct:1},
+{title:"Артикли en/ei/et",rule:"Существительные учат вместе с родом: en bil, ei bok, et hus.",examples:["en jobb","ei dør","et barn"],q:"Какой артикль у слова barn?",opts:["en","ei","et","den"],correct:2},
+{title:"Отрицание ikke",rule:"В простом главном предложении ikke обычно стоит после спрягаемого глагола.",examples:["Jeg jobber ikke i dag.","Hun kommer ikke.","Vi har ikke bil."],q:"Выбери правильный порядок слов.",opts:["Jeg ikke jobber i dag.","Jeg jobber ikke i dag.","Ikke jeg jobber i dag.","Jeg i dag ikke jobber."],correct:1},
+{title:"Модальные глаголы",rule:"После kan, må, skal, vil используется инфинитив без å.",examples:["Jeg kan jobbe.","Du må vente.","Vi skal reise."],q:"Выбери правильную форму.",opts:["Jeg kan å jobbe.","Jeg kan jobber.","Jeg kan jobbe.","Jeg kan jobbet."],correct:2},
+{title:"Притяжательные формы",rule:"Притяжательное слово часто ставится после существительного в определённой форме.",examples:["familien min","jobben min","huset vårt"],q:"Как естественно сказать «моя работа»?",opts:["min jobb","jobben min","jobben meg","mitt jobben"],correct:1},
+{title:"Предлоги времени",rule:"Используются klokka для времени, på для дней, i для месяцев/лет.",examples:["klokka åtte","på mandag","i oktober"],q:"Выбери правильную фразу.",opts:["på klokka åtte","i mandag","på mandag","klokka mandag"],correct:2},
+{title:"liker å + infinitiv",rule:"После liker å используется инфинитив.",examples:["Jeg liker å gå tur.","Hun liker å lese.","Vi liker å lage mat."],q:"Выбери правильный вариант.",opts:["Jeg liker går tur.","Jeg liker å gå tur.","Jeg liker å går tur.","Jeg å liker gå tur."],correct:1}
+],
+A2:[
+{title:"Preteritum",rule:"Для завершённых событий в прошлом часто используется preteritum.",examples:["I går jobbet jeg.","Hun kom sent.","Vi kjøpte mat."],q:"I går ___ jeg på jobb.",opts:["går","gikk","gått","gå"],correct:1},
+{title:"Perfektum",rule:"har + perfektum причастие связывает прошлое с настоящим.",examples:["Jeg har bodd her i to år.","Hun har jobbet mye.","Vi har sett filmen."],q:"Jeg har ___ i Norge lenge.",opts:["bo","bodde","bodd","bor"],correct:2},
+{title:"fordi / derfor",rule:"fordi вводит причину; derfor обычно начинает следствие и вызывает инверсию.",examples:["Jeg går hjem fordi jeg er trøtt.","Jeg er trøtt. Derfor går jeg hjem."],q:"Jeg tar bussen ___ det regner.",opts:["derfor","fordi","mens","eller"],correct:1},
+{title:"Придаточные с at",rule:"После at в придаточном подлежащее идёт перед глаголом; ikke обычно перед глаголом.",examples:["Jeg tror at han kommer.","Hun sier at hun ikke kan."],q:"Выбери правильный вариант.",opts:["Jeg tror at kommer han.","Jeg tror at han kommer.","Jeg tror han at kommer.","Jeg at tror han kommer."],correct:1},
+{title:"Если — hvis",rule:"Hvis вводит условие; если придаточное стоит первым, в главном предложении появляется инверсия.",examples:["Hvis det regner, tar jeg bussen.","Jeg blir hjemme hvis jeg er syk."],q:"Если фраза начинается с «Hvis det regner», что естественно дальше?",opts:["jeg tar bussen","tar jeg bussen","jeg bussen tar","tar bussen jeg"],correct:1},
+{title:"Сравнение",rule:"Прилагательные образуют сравнительную степень: billigere, bedre, større.",examples:["Bussen er billigere.","Denne er bedre.","Leiligheten er større."],q:"Поезд быстрее автобуса.",opts:["Toget er rask.","Toget er raskere enn bussen.","Toget raskere bussen.","Toget er mest rask."],correct:1},
+{title:"Вежливые просьбы",rule:"vil gjerne, kunne du и kan jeg делают просьбу естественнее.",examples:["Jeg vil gjerne bestille en time.","Kunne du hjelpe meg?","Kan jeg få kvitteringen?"],q:"Выбери наиболее вежливую просьбу.",opts:["Hjelp meg.","Du hjelper.","Kunne du hjelpe meg?","Hjelpe nå."],correct:2},
+{title:"Временные связки",rule:"før, etter at, da и når связывают события во времени.",examples:["Etter at jeg kom hjem, spiste jeg.","Da jeg var barn, bodde jeg i Ukraina."],q:"Что лучше для однократного события в прошлом?",opts:["da","når","derfor","fordi"],correct:0}
+],
+B1:[
+{title:"Инверсия после придаточного",rule:"Если придаточное стоит первым, сказуемое главного предложения идёт перед подлежащим.",examples:["Selv om det regner, går jeg på jobb.","Hvis jeg har tid, ringer jeg."],q:"Selv om det regner, ___ jeg på jobb.",opts:["jeg går","går jeg","jeg på jobb går","gå jeg"],correct:1},
+{title:"Пассив",rule:"Пассив часто образуется blir + perfektum partisipp или -s в формальном стиле.",examples:["Søknaden blir behandlet.","Skjemaet sendes digitalt."],q:"Søknaden ___ behandlet i morgen.",opts:["blir","har","gjør","kommer"],correct:0},
+{title:"Relative setninger",rule:"som связывает существительное с уточняющим придаточным.",examples:["Jeg søker en jobb som passer erfaringen min.","Det er kurset som starter i august."],q:"Выбери правильную связь.",opts:["jobben hvem jeg søker","jobben som jeg søker","jobben hvor jeg søker den","jobben at jeg søker"],correct:1},
+{title:"Цель: for å / slik at",rule:"for å + infinitiv — цель одного субъекта; slik at — придаточное с отдельным сказуемым.",examples:["Jeg øver for å bli bedre.","Jeg skriver tydelig slik at alle forstår."],q:"Jeg øver hver dag ___ bestå prøven.",opts:["for å","fordi","derfor","selv om"],correct:0},
+{title:"Противопоставление",rule:"derimot, samtidig и på den andre siden помогают строить контраст.",examples:["Det er dyrt. Derimot er kvaliteten god.","På den andre siden tar det lang tid."],q:"Какая связка выражает контраст?",opts:["derfor","dessuten","derimot","fordi"],correct:2},
+{title:"Косвенная речь",rule:"После sier at / mener at сохраняется порядок слов придаточного.",examples:["Hun sier at hun kommer senere.","Avisen skriver at tilbudet blir utvidet."],q:"Выбери правильный вариант.",opts:["Han sier at kommer han.","Han sier at han kommer.","Han at sier han kommer.","Han sier kommer at han."],correct:1},
+{title:"Причина и следствие",rule:"på grunn av + существительное; fordi + предложение; derfor — следствие.",examples:["Bussen er sen på grunn av snø.","Jeg kom sent fordi bussen var forsinket."],q:"___ snøen var veien stengt.",opts:["På grunn av","Fordi","Derfor","Selv om"],correct:0},
+{title:"Формальный регистр",rule:"В официальной переписке предпочтительны нейтральные просьбы и точные формулировки.",examples:["Jeg ber om en skriftlig bekreftelse.","Jeg viser til tidligere henvendelse."],q:"Выбери наиболее формальную фразу.",opts:["Svar meg nå.","Jeg ønsker en skriftlig bekreftelse.","Gi meg svar.","Du må skrive."],correct:1}
+],
+B2:[
+{title:"Уступка и оговорка",rule:"selv om, riktignok и til tross for позволяют признать аргумент, не отказываясь от позиции.",examples:["Selv om tiltaket hjelper noen, kan det skape andre problemer.","Riktignok er løsningen billig, men den er ikke varig."],q:"Какая связка выражает уступку?",opts:["selv om","derfor","dessuten","slik at"],correct:0},
+{title:"Модальность",rule:"kan tyde på, synes å и trolig снижают категоричность и отражают степень уверенности.",examples:["Tallene kan tyde på en bedring.","Det synes å være en sammenheng."],q:"Выбери наиболее осторожный вывод.",opts:["Dette beviser alt.","Tallene kan tyde på en sammenheng.","Det er helt sikkert.","Ingen annen forklaring finnes."],correct:1},
+{title:"Nominalisering",rule:"В формальном стиле действие часто выражается существительным, но чрезмерная номинализация ухудшает ясность.",examples:["vurdering av saken","gjennomføring av tiltaket","behandling av søknaden"],q:"Какой вариант наиболее формальный?",opts:["vi ser på saken","vurdering av saken","vi kikker på saken","vi sjekker litt"],correct:1},
+{title:"Kildehenvisning",rule:"Источник отделяется от собственной оценки с помощью ifølge, rapporten viser и forfatteren hevder.",examples:["Ifølge rapporten har kostnadene økt.","Forfatteren hevder at tiltaket virker."],q:"Что явно указывает источник?",opts:["Alle vet at","Ifølge rapporten","Jeg føler at","Det er åpenbart at"],correct:1},
+{title:"Контраргумент",rule:"Сильный текст сначала точно передаёт противоположный аргумент, затем отвечает на него.",examples:["Et mulig motargument er at ordningen er dyr. Likevel kan gevinsten over tid være større."],q:"Какая связка подходит для ответа на контраргумент?",opts:["likevel","fordi","slik at","dessuten"],correct:0},
+{title:"Причинность с оговоркой",rule:"Корреляция не всегда означает причинность; формулировка должна отражать ограничения данных.",examples:["Sammenhengen kan skyldes flere forhold.","Resultatet bør tolkes med forsiktighet."],q:"Выбери корректную осторожную формулировку.",opts:["A fører alltid til B.","A kan være en av flere forklaringer.","B beviser A.","Andre faktorer er umulige."],correct:1},
+{title:"Связность текста",rule:"dermed, samtidig, imidlertid, på den annen side и avslutningsvis связывают части аргумента.",examples:["Imidlertid finnes det også ulemper.","Avslutningsvis vil jeg understreke …"],q:"Какая связка естественно вводит оговорку?",opts:["imidlertid","fordi","for å","da"],correct:0},
+{title:"Точность формального запроса",rule:"Хороший официальный запрос содержит контекст, конкретный вопрос и желаемое действие.",examples:["Jeg viser til vedtaket av 3. mai og ber om en skriftlig avklaring av vurderingsgrunnlaget."],q:"Выбери наиболее точную формулировку.",opts:["Hva skjer?","Jeg ber om en nærmere avklaring av grunnlaget for beslutningen.","Svar.","Dette er feil."],correct:1}
+]};
+
+const PLACEMENT_BANK=[
+{level:"A1",skill:"grammar",q:"Выбери правильную фразу.",opts:["Jeg bor i Norge.","Jeg bo i Norge.","Jeg i Norge bor.","Jeg er bor i Norge."],correct:0},
+{level:"A1",skill:"vocabulary",q:"Что означает «arbeid»?",opts:["работа","семья","еда","дорога"],correct:0},
+{level:"A1",skill:"reading",context:"Bussen går klokka 08.15. Anna kommer til holdeplassen klokka 08.05.",q:"Анна успевает на автобус?",opts:["Ja","Nei","Только вечером","Неизвестно"],correct:0},
+{level:"A1",skill:"grammar",q:"Как правильно спросить имя?",opts:["Hva du heter?","Hva heter du?","Heter hva du?","Du hva heter?"],correct:1},
+{level:"A1",skill:"listening",audio:"Jeg kommer fra Ukraina.",q:"Откуда человек?",opts:["Ukraina","Norge","Polen","Sverige"],correct:0},
+
+{level:"A2",skill:"grammar",q:"I går ___ jeg på jobb.",opts:["går","gikk","gått","gå"],correct:1},
+{level:"A2",skill:"grammar",q:"Jeg har ___ her i to år.",opts:["bo","bodde","bodd","bor"],correct:2},
+{level:"A2",skill:"reading",context:"Fristen er fredag. Dokumentene kan leveres digitalt eller på servicetorget.",q:"Как можно подать документы?",opts:["Bare post","Digitalt eller på servicetorget","Kun telefon","Bare fredag"],correct:1},
+{level:"A2",skill:"vocabulary",q:"Что означает «frist»?",opts:["решение","срок","счёт","договор"],correct:1},
+{level:"A2",skill:"listening",audio:"Møtet er flyttet til torsdag fordi lederen er syk.",q:"Что изменилось?",opts:["Møtet er avlyst.","Møtet er flyttet.","Lederen kommer tidligere.","Ingenting."],correct:1},
+
+{level:"B1",skill:"grammar",q:"Selv om det regner, ___ jeg på jobb.",opts:["jeg går","går jeg","jeg på jobb går","gå jeg"],correct:1},
+{level:"B1",skill:"reading",context:"Ansatte kan starte mellom 7 og 9, men må være tilgjengelige mellom 9 og 14.",q:"Что обязательно?",opts:["Start kl. 7","Tilgjengelig 9–14","Overtid","Hjemmekontor"],correct:1},
+{level:"B1",skill:"grammar",q:"Søknaden ___ behandlet når dokumentene er mottatt.",opts:["blir","har","gjør","får"],correct:0},
+{level:"B1",skill:"vocabulary",q:"Что означает «ulempe»?",opts:["преимущество","недостаток","источник","решение"],correct:1},
+{level:"B1",skill:"listening",audio:"Jeg er enig i målet, men mener at planen blir for dyr.",q:"Что выражает говорящий?",opts:["Полное согласие","Согласие с целью, но критика плана","Полный отказ","Только вопрос о времени"],correct:1},
+
+{level:"B2",skill:"grammar",q:"Выбери наиболее нюансированный вывод.",opts:["Dette beviser at tiltaket virker.","Tallene kan tyde på en effekt, men grunnlaget er begrenset.","Tiltaket virker alltid.","Det finnes ingen annen forklaring."],correct:1},
+{level:"B2",skill:"reading",context:"Undersøkelsen viser en moderat økning, men svarprosenten var lav. Resultatene bør derfor tolkes med forsiktighet.",q:"Почему вывод ограничен?",opts:["Ingen data","Lav svarprosent","For mange svar","Feil språk"],correct:1},
+{level:"B2",skill:"vocabulary",q:"Что лучше соответствует «forbehold»?",opts:["оговорка","доказательство","запрет","итог"],correct:0},
+{level:"B2",skill:"grammar",q:"Какая фраза явно отделяет источник от собственной оценки?",opts:["Alle vet at …","Ifølge rapporten …","Jeg føler at …","Det er åpenbart at …"],correct:1},
+{level:"B2",skill:"listening",audio:"Riktignok kan ordningen redusere kostnader, men den kan samtidig gjøre tjenesten mindre tilgjengelig for enkelte grupper.",q:"Какова позиция?",opts:["Только преимущества","Только недостатки","Взвешиваются два последствия","Тема не связана с услугами"],correct:2}
+];
+
+const EXAM_CONFIG={
+reading:{minutes:75,label:"Чтение",officialNote:"Официальная leseprøve длится до 75 минут и адаптируется по уровню."},
+listening:{minutes:45,label:"Аудирование",officialNote:"Официальная lytteprøve длится примерно 30–60 минут и адаптируется по уровню."},
+writing:{"A1-A2":90,"A2-B1":90,"B1-B2":120},
+speaking:{minutes:25,label:"Устная речь",officialNote:"Официальная muntlig prøve обычно длится около 20–25 минут и включает индивидуальные и парные задания."}
+};
