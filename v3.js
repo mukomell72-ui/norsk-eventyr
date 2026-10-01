@@ -10,10 +10,13 @@
   state.completedTopics=state.completedTopics||{};
   state.chatHistory=Array.isArray(state.chatHistory)?state.chatHistory.slice(-40):[];
   state.chatPrefs=state.chatPrefs||{level:state.level||"A1",mode:"free",topic:"",scenario:"butikk",autoSpeak:true};
+  state.dailyPacks=state.dailyPacks||{};
+  state.dailyDictionary=state.dailyDictionary||{};
+  state.dailyProgress=state.dailyProgress||{};
   saveState();
 
   let neSession=sessionStorage.getItem("ne_session")||"";
-  let placementSession=null,reviewSession=null,examV3=null,mediaRecorder=null,mediaStream=null,recordChunks=[],recordTimer=null,chatInputWasVoice=false;
+  let placementSession=null,reviewSession=null,examV3=null,dailyTaskSession=null,mediaRecorder=null,mediaStream=null,recordChunks=[],recordTimer=null,chatInputWasVoice=false;
 
   function skillLabel(k){return SKILL_NAMES[k]||k}
   function updateSkill(k,score){
@@ -29,6 +32,40 @@
   function weakSkills(){return [...SKILLS].sort((a,b)=>state.skills[a]-state.skills[b]).slice(0,3)}
   function todayMs(){const d=new Date();d.setHours(0,0,0,0);return d.getTime()}
   function dueWords(){return Object.entries(state.srs).filter(([,v])=>(v.due||0)<=Date.now()).sort((a,b)=>(a[1].due||0)-(b[1].due||0))}
+  function localDateKey(d=new Date()){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");return y+"-"+m+"-"+day}
+  function daysBetween(a,b=localDateKey()){const x=new Date(a+"T12:00:00"),y=new Date(b+"T12:00:00");return Math.max(0,Math.round((y-x)/86400000))}
+  function dictionaryEntries(){return Object.values(state.dailyDictionary||{})}
+  function knownDailyWords(){return Object.keys(state.dailyDictionary||{})}
+  function reinforcementEntries(limit=12){
+    const now=Date.now(),today=localDateKey();
+    return dictionaryEntries().map(x=>{
+      const daysAgo=daysBetween(x.firstDate||today,today),due=(x.nextDue||0)<=now?1:0,weak=100-(x.strength||20),recent=Math.max(0,8-daysAgo);
+      return {...x,daysAgo,_priority:due*120+weak+recent*4+(x.wrong||0)*10};
+    }).sort((a,b)=>b._priority-a._priority).slice(0,limit);
+  }
+  function reinforcementWordList(limit=12){return reinforcementEntries(limit).map(x=>x.lemma||x.word)}
+  function registerDailyPack(pack){
+    const date=pack.date||localDateKey(),now=Date.now();
+    (pack.words||[]).forEach(w=>{
+      const key=String(w.lemma||w.word).toLowerCase().trim();if(!key)return;
+      const old=state.dailyDictionary[key]||{};
+      state.dailyDictionary[key]={...old,...w,key,firstDate:old.firstDate||date,lastSeen:date,exposures:(old.exposures||0)+1,correct:old.correct||0,wrong:old.wrong||0,strength:old.strength??20,nextDue:old.nextDue||now+86400000};
+      if(!state.srs[key])state.srs[key]={word:w.lemma||w.word,translation:w.translation_ru,level:pack.level,stage:0,due:now,seen:0,correct:0};
+    });
+    (pack.review_words||[]).forEach(word=>{
+      const key=String(word).toLowerCase().trim(),e=state.dailyDictionary[key];if(e){e.exposures=(e.exposures||0)+1;e.lastSeen=date}
+    });
+    saveState();
+  }
+  function updateDailyStrength(words,score){
+    const now=Date.now(),days=score>=85?7:score>=70?4:score>=55?2:1;
+    (words||[]).forEach(word=>{
+      const key=String(word).toLowerCase().trim(),e=state.dailyDictionary[key];if(!e)return;
+      e.exposures=(e.exposures||0)+1;e.strength=Math.max(0,Math.min(100,Math.round((e.strength||20)*.72+score*.28)));
+      if(score>=55)e.correct=(e.correct||0)+1;else e.wrong=(e.wrong||0)+1;
+      e.nextDue=now+days*86400000;e.lastSeen=localDateKey();
+    });saveState();
+  }
   function seedSrs(lesson){
     (lesson.vocab||[]).forEach(([word,translation])=>{
       const key=String(word).toLowerCase();
@@ -135,6 +172,9 @@
     stopTimer();
     if(view==="placement")return renderPlacement();
     if(view==="review")return renderReview();
+    if(view==="daily")return renderDaily();
+    if(view==="dictionary")return renderDictionary();
+    if(view==="dailypractice")return startDailyPractice(data);
     if(view==="chat")return renderChat();
     if(view==="topic")return startTopic(data);
     if(view==="exampart")return startExamPart(data?.part||data,data?.band||null);
@@ -147,11 +187,11 @@
 
   renderHome=function(){
     const next=COURSE.find(x=>x.level===state.level&&!state.completed[x.id])||lessons(state.level)[0],due=dueWords().length,weak=weakSkills(),gen=Object.keys(state.completedTopics).length,last=state.examHistory.at(-1);
-    shell('<section class="hero"><div class="card hero-main"><div class="eyebrow">Norsk Eventyr 3.0 · адаптивный Bokmål</div><h1>Учись своими ответами, а не угадыванием.</h1><p class="muted">Свободное письмо и речь, интервальное повторение, естественное AI-аудирование, входной тест и экзаменационная практика.</p><div class="row"><button class="btn" onclick="navigate(\'lesson\',\''+next.id+'\')">Продолжить: '+esc(next.title)+'</button><button class="btn secondary" onclick="navigate(\'chat\')">◉ Норвежский собеседник</button><button class="btn secondary" onclick="navigate(\'review\')">Повторить слова · '+due+'</button>'+(state.placement?'':'<button class="btn ghost" onclick="navigate(\'placement\')">Определить уровень</button>')+'</div></div>'+
+    shell('<section class="hero"><div class="card hero-main"><div class="eyebrow">Norsk Eventyr 3.0 · адаптивный Bokmål</div><h1>Учись своими ответами, а не угадыванием.</h1><p class="muted">Свободное письмо и речь, интервальное повторение, естественное AI-аудирование, входной тест и экзаменационная практика.</p><div class="row"><button class="btn" onclick="navigate(\'lesson\',\''+next.id+'\')">Продолжить: '+esc(next.title)+'</button><button class="btn secondary" onclick="navigate(\'daily\')">5 новых слов сегодня</button><button class="btn secondary" onclick="navigate(\'chat\')">◉ Норвежский собеседник</button><button class="btn secondary" onclick="navigate(\'review\')">Повторить слова · '+due+'</button>'+(state.placement?'':'<button class="btn ghost" onclick="navigate(\'placement\')">Определить уровень</button>')+'</div></div>'+
     '<div class="card"><div class="metric"><span>Основные уроки</span><strong>'+Object.keys(state.completed).length+'/'+COURSE.length+'</strong></div><div class="metric"><span>Расширенные темы</span><strong>'+gen+'/'+TOPIC_CATALOG.length+'</strong></div><div class="metric"><span>Серия</span><strong>'+state.streak+' дн.</strong></div><div class="metric"><span>Последний экзамен</span><strong>'+(last?(last.score??last.ai??"—")+"%":"—")+'</strong></div></div></section>'+
     '<div class="section-title"><div><div class="eyebrow">Адаптивный план</div><h2>Слабые навыки</h2></div></div><section class="grid3">'+weak.map(k=>'<article class="card"><div class="eyebrow">'+skillLabel(k)+'</div><div class="big">'+state.skills[k]+'%</div><div class="progress"><i style="width:'+state.skills[k]+'%"></i></div></article>').join("")+'</section>'+
     '<div class="section-title"><h2>Уровни</h2></div><section class="grid">'+LEVELS.map(l=>'<article class="card level-card"><div class="row"><span class="level-badge">'+l+'</span><span class="tag">'+completed(l)+'/'+lessons(l).length+' основных</span></div><div class="big">'+l+'</div><p class="muted">'+levelDesc(l)+'</p><div class="progress"><i style="width:'+levelProgress(l)+'%"></i></div><br><button class="btn secondary" onclick="state.level=\''+l+'\';saveState();navigate(\'course\',\''+l+'\')">Открыть уровень</button></article>').join("")+'</section>'+
-    '<div class="section-title"><h2>Что изменилось</h2></div><section class="grid3"><article class="card"><h3>↻ Повторение</h3><p class="muted">Слова возвращаются по интервалам 1–3–7–14–30–60 дней.</p></article><article class="card"><h3>🎧 Живая речь</h3><p class="muted">Аудирование использует AI-голоса; голос синтетический, не запись человека.</p></article><article class="card"><h3>🧭 Входной тест</h3><p class="muted">Определяет стартовый уровень и отдельные слабые навыки.</p></article><article class="card"><h3>◉ Samtale</h3><p class="muted">Свободный норвежский собеседник на любую тему, A1–B2, текстом или голосом.</p></article></section>',"home");
+    '<div class="section-title"><h2>Что изменилось</h2></div><section class="grid3"><article class="card"><h3>↻ Повторение</h3><p class="muted">Слова возвращаются по интервалам 1–3–7–14–30–60 дней.</p></article><article class="card"><h3>🎧 Живая речь</h3><p class="muted">Аудирование использует AI-голоса; голос синтетический, не запись человека.</p></article><article class="card"><h3>🧭 Входной тест</h3><p class="muted">Определяет стартовый уровень и отдельные слабые навыки.</p></article><article class="card"><h3>◉ Samtale</h3><p class="muted">Свободный норвежский собеседник на любую тему, A1–B2, текстом или голосом.</p></article><article class="card"><h3>5 слов в день</h3><p class="muted">Каждый день 5 новых слов с формами и временами; старые слова постоянно возвращаются в следующих заданиях.</p></article></section>',"home");
   };
 
   renderCourse=function(level=state.level){
@@ -166,7 +206,7 @@
     const topic=TOPIC_CATALOG.find(x=>x.id===id);if(!topic)return;
     shell('<section class="card loading-card"><div class="spinner"></div><h2>Создаю урок «'+esc(topic.title)+'»</h2><p class="muted">Новый текст, словарь, грамматика, письмо и устная практика.</p></section>',"course");
     let lesson=state.generatedLessons[id];
-    const r=await apiPost("/api/generate",{kind:"lesson",level:topic.level,topic:topic.title,goal:topic.goal,weakSkills:weakSkills()});
+    const r=await apiPost("/api/generate",{kind:"lesson",level:topic.level,topic:topic.title,goal:topic.goal,weakSkills:weakSkills(),reviewWords:reinforcementWordList(10)});
     if(r.ok){
       const d=r.data;
       if(d&&Array.isArray(d.vocab)&&Array.isArray(d.opts)){
@@ -222,9 +262,90 @@
     shell('<section class="card" style="text-align:center;max-width:680px;margin:40px auto"><div style="font-size:64px">🏆</div><div class="eyebrow">'+l.level+' · урок завершён</div><h1>'+esc(l.title)+'</h1><p class="muted">Слова добавлены в интервальное повторение. Навыки обновлены по фактическим ответам.</p><div class="row" style="justify-content:center"><button class="btn" onclick="navigate(\'review\')">Повторить слова</button><button class="btn secondary" onclick="navigate(\'course\',\''+l.level+'\')">К курсу</button></div></section>',"course");
   };
 
+
+  const POS_LABEL={verb:"глагол",modal:"модальный/вспомогательный",noun:"существительное",adjective:"прилагательное",adverb:"наречие",function:"служебная единица"};
+
+  function renderDaily(){
+    const date=localDateKey(),pack=state.dailyPacks[date],total=dictionaryEntries().length,review=reinforcementEntries(10);
+    if(!pack){
+      shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Ежедневная программа</div><h2 style="margin:0">5 новых слов в день</h2></div></div>'+
+      '<section class="card daily-hero"><div class="eyebrow">Сегодня · '+date+'</div><h1>5 новых полезных слов</h1><p class="muted">В каждый день входят глаголы, модальные/служебные конструкции и другая частотная лексика. Для глаголов показываются настоящее, прошедшее, perfektum и будущее как конструкция.</p><div class="notice"><b>Закрепление:</b> слова прошлых дней будут специально возвращаться в сегодняшних примерах, заданиях, расширенных уроках, тестах и Samtale.</div><br><div class="row"><button class="btn" onclick="generateDailyPack()">Получить сегодняшние 5 слов</button><button class="btn secondary" onclick="navigate(\'dictionary\')">Мой словарь · '+total+'</button></div></section>'+
+      (review.length?'<div class="section-title"><h2>Сегодня повторим</h2></div><section class="card"><div class="wordchips">'+review.map(x=>'<span class="wordchip"><b>'+esc(x.lemma||x.word)+'</b> · '+esc(x.translation_ru)+'</span>').join("")+'</div></section>':''),"home");return;
+    }
+    const done=state.dailyProgress[date]?.completed;
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">5 слов в день · '+pack.level+'</div><h2 style="margin:0">'+date+'</h2></div></div>'+
+    '<section class="grid3"><div class="kpi"><small>Сегодня</small><strong>5</strong></div><div class="kpi"><small>Всего в словаре</small><strong>'+total+'</strong></div><div class="kpi"><small>Задания</small><strong>'+(done?"✓":"—")+'</strong></div></section>'+
+    '<div class="section-title"><div><div class="eyebrow">Новые слова</div><h2>Сегодняшняя пятёрка</h2></div><button class="btn ghost" onclick="navigate(\'dictionary\')">Открыть словарь</button></div>'+
+    '<section class="daily-word-list">'+(pack.words||[]).map((w,i)=>dailyWordCard(w,i)).join("")+'</section>'+
+    ((pack.review_words||[]).length?'<div class="section-title"><h2>Закрепляем слова прошлых дней</h2></div><section class="card"><div class="wordchips">'+pack.review_words.map(x=>'<span class="wordchip">'+esc(x)+'</span>').join("")+'</div></section>':'')+
+    ((pack.reinforcement_sentences||[]).length?'<div class="section-title"><h2>Новые + старые слова вместе</h2></div><section class="card reinforcement-list">'+pack.reinforcement_sentences.map(x=>'<div class="reinforcement-row"><button class="mini-audio" onclick="speakText(\''+escJs(x.no)+'\')">🔊</button><div><b>'+esc(x.no)+'</b><br><span class="muted">'+esc(x.ru)+'</span></div></div>').join("")+'</section>':'')+
+    '<div class="section-title"><h2>Практика</h2></div><section class="card"><p class="muted">Задания смешивают сегодняшние слова со словами предыдущих дней. Так старые слова не исчезают после одного урока.</p><div class="row"><button class="btn" onclick="navigate(\'dailypractice\',\''+date+'\')">'+(done?"Пройти задания ещё раз":"Начать задания")+'</button><button class="btn secondary" onclick="navigate(\'review\')">Интервальное повторение</button></div></section>',"home");
+  }
+  function dailyWordCard(w,i){
+    const forms=(w.forms||[]).map(x=>'<tr><td>'+esc(x.label)+'</td><td><b>'+esc(x.form)+'</b></td></tr>').join("");
+    const examples=(w.examples||[]).map(x=>'<div class="daily-example"><span class="tag">'+esc(x.label)+'</span><button class="mini-audio" onclick="speakText(\''+escJs(x.no)+'\')">🔊</button><b>'+esc(x.no)+'</b><div class="muted">'+esc(x.ru)+'</div></div>').join("");
+    return '<article class="card daily-word-card"><div class="row"><span class="lesson-num">'+(i+1)+'</span><div><div class="eyebrow">'+esc(POS_LABEL[w.pos]||w.pos)+(w.gender?" · "+esc(w.gender):"")+'</div><h2>'+esc(w.lemma||w.word)+' <button class="mini-audio" onclick="speakText(\''+escJs(w.lemma||w.word)+'\')">🔊</button></h2><div class="daily-translation">'+esc(w.translation_ru)+'</div></div></div>'+
+    (forms?'<table class="forms-table"><tbody>'+forms+'</tbody></table>':'')+
+    '<div class="daily-examples">'+examples+'</div>'+
+    (w.collocation?'<div class="notice"><b>Часто вместе:</b> '+esc(w.collocation)+'</div>':'')+
+    (w.note_ru?'<p class="muted daily-note">'+esc(w.note_ru)+'</p>':'')+'</article>';
+  }
+  async function generateDailyPack(){
+    const date=localDateKey();if(state.dailyPacks[date])return renderDaily();
+    shell('<section class="card loading-card"><div class="spinner"></div><h2>Подбираю 5 новых слов</h2><p class="muted">Проверяю словарь, чтобы не повторить уже изученное, и добавляю слова прошлых дней в новые примеры.</p></section>',"home");
+    const review=reinforcementEntries(12).map(x=>({word:x.lemma||x.word,translation_ru:x.translation_ru,daysAgo:x.daysAgo,strength:x.strength||20}));
+    const dayNumber=Object.keys(state.dailyPacks).length+1;
+    const r=await apiPost("/api/daily",{level:state.level||"A1",date,knownWords:knownDailyWords(),reviewWords:review,weakSkills:weakSkills(),dayNumber});
+    if(!r.ok){shell('<section class="card"><h2>Не удалось создать слова на сегодня</h2><p class="muted">'+esc(r.error)+'</p><button class="btn" onclick="renderDaily()">Назад</button></section>',"home");return}
+    const pack=r.data;pack.date=date;pack.level=state.level||"A1";state.dailyPacks[date]=pack;state.dailyProgress[date]={completed:false,scores:[]};registerDailyPack(pack);renderDaily();
+  }
+  function startDailyPractice(date=localDateKey()){
+    const pack=state.dailyPacks[date];if(!pack||!(pack.practice||[]).length)return renderDaily();
+    dailyTaskSession={date,pack,i:0,scores:[]};renderDailyPractice();
+  }
+  function renderDailyPractice(){
+    const s=dailyTaskSession,t=s.pack.practice[s.i];if(!t)return finishDailyPractice();
+    shell('<div class="screen-head"><button class="back" onclick="renderDaily()">←</button><div><div class="eyebrow">Ежедневная практика</div><h2 style="margin:0">Задание '+(s.i+1)+'/'+s.pack.practice.length+'</h2></div></div><div class="progress"><i style="width:'+pct(s.i,s.pack.practice.length)+'%"></i></div><section class="exercise"><article class="card"><div class="prompt">'+esc(t.prompt_ru)+'</div>'+
+    ((t.review_words||[]).length?'<div class="wordchips"><span class="tag">Повторяем</span>'+t.review_words.map(x=>'<span class="wordchip">'+esc(x)+'</span>').join("")+'</div>':'')+
+    ((t.new_words||[]).length?'<div class="wordchips"><span class="tag">Новые</span>'+t.new_words.map(x=>'<span class="wordchip">'+esc(x)+'</span>').join("")+'</div>':'')+
+    '<textarea id="dailyAnswer" class="input" placeholder="Напиши ответ по-норвежски…"></textarea><div class="row" style="margin-top:10px"><button id="micBtn" class="btn secondary" onclick="toggleMic(\'dailyAnswer\')">🎤 Сказать</button><button class="btn" onclick="checkDailyTask()">🧠 Проверить</button></div><div id="dailyFb"></div></article></section>',"home");
+  }
+  async function checkDailyTask(){
+    const s=dailyTaskSession,t=s.pack.practice[s.i],a=document.getElementById("dailyAnswer").value.trim();if(!a)return;const b=document.getElementById("dailyFb");b.innerHTML='<div class="feedback">🧠 Проверяю…</div>';
+    const goal=(t.goal_ru||t.prompt_ru)+(t.model_answer_no?" Пример естественного ответа: "+t.model_answer_no:"");
+    const r=await aiEvaluate({answer:a,question:t.prompt_ru,goal,level:s.pack.level,mode:"daily_vocabulary"});
+    const score=r.ok?Number(r.data.score||0):0;s.scores.push(score);
+    updateDailyStrength([...(t.review_words||[]),...(t.new_words||[])],score);updateSkill("vocabulary",score);if(r.ok){updateSkill("grammar",r.data.breakdown?.grammar??score);rememberError(r.data.error_tag)}
+    b.innerHTML='<div class="feedback '+(score>=55?"good":"bad")+'"><b>'+(r.ok?score+"/100":"Проверка недоступна")+'</b>'+(r.ok?'<br>'+esc(r.data.explanation_ru||""):'')+(r.ok&&r.data.corrected?'<br><br><b>Улучшенный вариант:</b><br>'+esc(r.data.corrected):'')+'<br><br><b>Пример:</b> '+esc(t.model_answer_no||"")+'</div><button class="btn" style="width:100%;margin-top:10px" onclick="nextDailyTask()">Дальше →</button>';
+  }
+  function nextDailyTask(){dailyTaskSession.i++;renderDailyPractice()}
+  function finishDailyPractice(){
+    const s=dailyTaskSession,avg=s.scores.length?Math.round(s.scores.reduce((a,b)=>a+b,0)/s.scores.length):0;
+    state.dailyProgress[s.date]={completed:true,scores:s.scores,average:avg,completedAt:new Date().toISOString()};state.xp+=15;saveState();
+    shell('<section class="card" style="max-width:680px;margin:40px auto;text-align:center"><div style="font-size:58px">5</div><div class="eyebrow">Дневная пятёрка завершена</div><h1>'+avg+'%</h1><p class="muted">Эти слова не исчезнут завтра: приложение будет возвращать их в следующих дневных заданиях, Samtale, тестах и AI-уроках.</p><div class="row" style="justify-content:center"><button class="btn" onclick="renderDaily()">К словам</button><button class="btn secondary" onclick="navigate(\'dictionary\')">Открыть словарь</button></div></section>',"home");dailyTaskSession=null;
+  }
+
+  let dictionaryFilter={q:"",pos:"all"};
+  function renderDictionary(){
+    const list=dictionaryEntries().sort((a,b)=>String(b.firstDate||"").localeCompare(String(a.firstDate||"")));
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'daily\')">←</button><div><div class="eyebrow">Личный словарь</div><h2 style="margin:0">'+list.length+' изученных слов</h2></div></div>'+
+    '<section class="card dictionary-tools"><input id="dictSearch" class="input compact" placeholder="Найти слово или перевод…" value="'+esc(dictionaryFilter.q)+'" oninput="filterDictionary(this.value)"><div class="row" style="margin-top:10px">'+["all","verb","modal","noun","adjective","adverb","function"].map(p=>'<button class="btn '+(dictionaryFilter.pos===p?"":"ghost")+'" onclick="setDictionaryPos(\''+p+'\')">'+(p==="all"?"Все":esc(POS_LABEL[p]||p))+'</button>').join("")+'</div></section><div id="dictionaryList">'+dictionaryListHtml(list)+'</div>',"home");
+  }
+  function dictionaryListHtml(list){
+    const q=dictionaryFilter.q.toLowerCase().trim(),filtered=list.filter(x=>(dictionaryFilter.pos==="all"||x.pos===dictionaryFilter.pos)&&(!q||String(x.lemma||x.word).toLowerCase().includes(q)||String(x.translation_ru||"").toLowerCase().includes(q)));
+    if(!filtered.length)return '<section class="card" style="margin-top:14px"><div class="empty">Ничего не найдено.</div></section>';
+    return '<section class="dictionary-list">'+filtered.map(x=>{
+      const forms=(x.forms||[]).map(f=>'<span><small>'+esc(f.label)+'</small><b>'+esc(f.form)+'</b></span>').join("");
+      const ex=(x.examples||[]).map(e=>'<div><button class="mini-audio" onclick="speakText(\''+escJs(e.no)+'\')">🔊</button> '+esc(e.no)+' <span class="muted">— '+esc(e.ru)+'</span></div>').join("");
+      return '<details class="card dictionary-entry"><summary><div><b class="dictionary-word">'+esc(x.lemma||x.word)+'</b><span class="muted"> · '+esc(x.translation_ru)+'</span></div><div class="row"><span class="tag">'+esc(POS_LABEL[x.pos]||x.pos)+'</span><span class="tag">'+Math.round(x.strength||20)+'%</span></div></summary><div class="dictionary-body"><button class="btn ghost" onclick="event.preventDefault();speakText(\''+escJs(x.lemma||x.word)+'\')">🔊 Произношение</button><div class="forms-grid">'+forms+'</div>'+(x.collocation?'<p><b>Сочетание:</b> '+esc(x.collocation)+'</p>':'')+'<div class="dictionary-examples">'+ex+'</div><small>Изучено: '+esc(x.firstDate||"—")+' · встречалось: '+(x.exposures||1)+' раз</small></div></details>';
+    }).join("")+'</section>';
+  }
+  function filterDictionary(q){dictionaryFilter.q=q;const e=document.getElementById("dictionaryList");if(e)e.innerHTML=dictionaryListHtml(dictionaryEntries().sort((a,b)=>String(b.firstDate||"").localeCompare(String(a.firstDate||""))))}
+  function setDictionaryPos(pos){dictionaryFilter.pos=pos;renderDictionary()}
+
   function renderReview(){
     const due=dueWords(),all=Object.values(state.srs);
-    shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Интервальное повторение</div><h2 style="margin:0">Словарь</h2></div></div><section class="grid3"><div class="kpi"><small>Слов в базе</small><strong>'+all.length+'</strong></div><div class="kpi"><small>Нужно сегодня</small><strong>'+due.length+'</strong></div><div class="kpi"><small>Освоено</small><strong>'+all.filter(x=>x.stage>=5).length+'</strong></div></section><section class="card" style="margin-top:14px">'+(all.length?'<p class="muted">Интервалы: сегодня → 1 → 3 → 7 → 14 → 30 → 60 дней. Ошибки возвращают слово раньше.</p><button class="btn" onclick="startReview()">'+(due.length?"Начать повторение":"Повторить самые слабые")+'</button>':'<div class="empty">Слова появятся после первого урока.</div>')+'</section>',"review");
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Интервальное повторение</div><h2 style="margin:0">Словарь</h2></div></div><section class="grid3"><div class="kpi"><small>Слов в базе</small><strong>'+all.length+'</strong></div><div class="kpi"><small>Нужно сегодня</small><strong>'+due.length+'</strong></div><div class="kpi"><small>Освоено</small><strong>'+all.filter(x=>x.stage>=5).length+'</strong></div></section><section class="card" style="margin-top:14px">'+(all.length?'<p class="muted">Интервалы: сегодня → 1 → 3 → 7 → 14 → 30 → 60 дней. Ошибки возвращают слово раньше.</p><div class="row"><button class="btn" onclick="startReview()">'+(due.length?"Начать повторение":"Повторить самые слабые")+'</button><button class="btn secondary" onclick="navigate(\'dictionary\')">Личный словарь</button><button class="btn ghost" onclick="navigate(\'daily\')">5 слов сегодня</button></div>':'<div class="empty">Слова появятся после первого урока.</div>')+'</section>',"review");
   }
   function startReview(){
     let items=dueWords();if(!items.length)items=Object.entries(state.srs).sort((a,b)=>(a[1].stage||0)-(b[1].stage||0)).slice(0,12);
@@ -267,7 +388,7 @@
   };
   startTest=async function(level){
     touchStudy();state.level=level;saveState();shell('<section class="card loading-card"><div class="spinner"></div><h2>Создаю новый тест '+level+'</h2><p class="muted">Учитываю слабые навыки: '+weakSkills().map(skillLabel).join(", ")+'</p></section>',"tests");
-    const topic="Разные бытовые и общественные темы уровня "+level,r=await apiPost("/api/generate",{kind:"test",level,topic,goal:"проверка общего уровня",weakSkills:weakSkills()});
+    const topic="Разные бытовые и общественные темы уровня "+level,r=await apiPost("/api/generate",{kind:"test",level,topic,goal:"проверка общего уровня",weakSkills:weakSkills(),reviewWords:reinforcementWordList(10)});
     let qs=[];
     if(r.ok&&Array.isArray(r.data.questions)){
       qs=r.data.questions.map(q=>({type:q.type==="listening"?"listen":"mc",subskill:q.type,text:q.q,context:q.context||"",audio:q.audio||"",opts:q.opts,correct:Number(q.correct)||0}));
@@ -392,7 +513,7 @@
   async function startChat(){
     state.chatHistory=[];saveState();renderChat();
     const box=document.getElementById("chatMessages");if(box)box.innerHTML='<div class="chat-thinking">Собеседник начинает разговор…</div>';
-    const p=state.chatPrefs,r=await apiPost("/api/chat",{start:true,message:"",level:p.level,mode:p.mode,topic:p.topic,scenario:CHAT_SCENARIOS[p.scenario]||"",history:[]});
+    const p=state.chatPrefs,r=await apiPost("/api/chat",{start:true,message:"",level:p.level,mode:p.mode,topic:p.topic,scenario:CHAT_SCENARIOS[p.scenario]||"",history:[],practiceWords:reinforcementWordList(10)});
     if(!r.ok){if(box)box.innerHTML='<div class="feedback bad">Собеседник временно недоступен: '+esc(r.error)+'</div>';return}
     const d=r.data;state.chatHistory=[{role:"assistant",text:d.reply_no,meta:d}];saveState();renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);
   }
@@ -402,7 +523,7 @@
     state.chatHistory.push({role:"user",text:msg,voice:wasVoice});state.chatHistory=state.chatHistory.slice(-40);saveState();renderChat();
     const box=document.getElementById("chatMessages");if(box){box.insertAdjacentHTML("beforeend",'<div class="chat-thinking">Norsk samtalepartner skriver…</div>');box.scrollTop=box.scrollHeight}
     const hist=state.chatHistory.slice(0,-1).slice(-16).map(x=>({role:x.role,text:x.text}));
-    const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:CHAT_SCENARIOS[p.scenario]||"",history:hist});
+    const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:CHAT_SCENARIOS[p.scenario]||"",history:hist,practiceWords:reinforcementWordList(10)});
     if(!r.ok){state.chatHistory.push({role:"assistant",text:"Beklager, jeg fikk et teknisk problem. Prøv igjen.",meta:{translation_ru:"Извините, произошла техническая ошибка. Попробуйте ещё раз."}});saveState();return renderChat()}
     const d=r.data;state.chatHistory.push({role:"assistant",text:d.reply_no,meta:d});state.chatHistory=state.chatHistory.slice(-40);
     updateSkill(wasVoice?"speaking":"writing",d.score||50);if(d.error_tag){rememberError(d.error_tag);updateSkill("grammar",Math.max(20,(d.score||50)-8))}
@@ -427,7 +548,7 @@
     if(!file)return;try{const d=JSON.parse(await file.text());if(!d.state)throw 0;state={...state,...d.state};saveState();alert("Прогресс восстановлен.");renderProgress()}catch{alert("Файл прогресса повреждён или не подходит.")}
   }
 
-  Object.assign(window,{startTopic,renderChat,setChatPref,setChatTopic,toggleChatTranslation,clearChat,startChat,sendChat,renderReview,startReview,answerReview,renderPlacement,startPlacement,answerPlacement,checkGrammar,startExamPart,playExamAudio,answerExamObjectiveV3,submitExamProductive,nextExamProductive,exitExamV3,exportProgress,importProgressFile});
+  Object.assign(window,{startTopic,renderDaily,generateDailyPack,startDailyPractice,checkDailyTask,nextDailyTask,renderDictionary,filterDictionary,setDictionaryPos,renderChat,setChatPref,setChatTopic,toggleChatTranslation,clearChat,startChat,sendChat,renderReview,startReview,answerReview,renderPlacement,startPlacement,answerPlacement,checkGrammar,startExamPart,playExamAudio,answerExamObjectiveV3,submitExamProductive,nextExamProductive,exitExamV3,exportProgress,importProgressFile});
   ensureSession().catch(()=>{});
   renderHome();
 })();
