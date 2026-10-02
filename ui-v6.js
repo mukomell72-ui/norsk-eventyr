@@ -151,11 +151,11 @@
 
   function chatMessagesV6(){
     const h=state.chatHistory||[];
-    if(!h.length)return '<div class="chat-empty-v6"><span>◉</span><strong>Начни разговор</strong><small>Напиши фразу или нажми «Новый диалог».</small></div>';
+    if(!h.length)return '<div class="chat-partner-empty-v622"><div class="chat-partner-avatar-v622">N</div><div><small>Nora · norsk samtalepartner</small><strong>Hei! Jeg heter Nora.</strong><p>Hva heter du?</p></div><button onclick="v6StartChat()">Начать разговор</button></div>';
     return h.map((m,i)=>{
       if(m.role==="user")return '<div class="bubble-v6 user">'+esc(m.text)+'</div>';
       const meta=m.meta||{};
-      return '<div class="ai-line-v6"><span>N</span><div><div class="bubble-v6 ai">'+esc(m.text)+'</div>'+
+      return '<div class="ai-line-v6"><span>N</span><div><div class="ai-name-v622">Nora</div><div class="bubble-v6 ai">'+esc(m.text)+'</div>'+
         '<div class="bubble-actions-v6"><button onclick="speakText(\''+escJs(m.text)+'\')">🔊</button>'+(meta.translation_ru?'<button onclick="v6ToggleTranslation('+i+')">RU</button>':'')+'</div>'+
         (meta.translation_ru?'<div id="v6tr'+i+'" class="mini-translation-v6" hidden>'+esc(meta.translation_ru)+'</div>':'')+
         (meta.corrected?'<div class="mini-correction-v6"><b>Лучше:</b> '+esc(meta.corrected)+'</div>':'')+
@@ -166,7 +166,7 @@
   function renderChatV6(){currentRoute="chat";
     const p=state.chatPrefs||{level:state.level||"A1",mode:"free",topic:"",scenario:"butikk",autoSpeak:true};
     shell(
-      compactHeader("Samtale","Разговор",'<button class="round-action-v6" onclick="v6ToggleChatSetup()">⚙</button>')+
+      compactHeader("Nora","Норвежский собеседник",'<button class="round-action-v6" onclick="v6ToggleChatSetup()">⚙</button>')+
       '<section id="chatSetupV6" class="chat-setup-v6">'+
         '<div class="chat-selects-v6"><select onchange="v6ChatPref(\'level\',this.value)">'+LEVELS.map(l=>'<option '+(p.level===l?"selected":"")+'>'+l+'</option>').join("")+'</select>'+
         '<select onchange="v6ChatPref(\'mode\',this.value)"><option value="free" '+(p.mode==="free"?"selected":"")+'>Свободно</option><option value="corrections" '+(p.mode==="corrections"?"selected":"")+'>Исправлять</option><option value="exam" '+(p.mode==="exam"?"selected":"")+'>Устная практика</option><option value="roleplay" '+(p.mode==="roleplay"?"selected":"")+'>Роль</option></select></div>'+
@@ -175,7 +175,7 @@
       '</section>'+
       '<section class="chat-card-v6">'+
         '<div id="chatMessages" class="chat-messages-v6">'+chatMessagesV6()+'</div>'+
-        '<div class="composer-v6"><textarea id="chatInput" rows="2" placeholder="Скажи или напиши по-норвежски…"></textarea><div><button id="chatMicBtn" onclick="toggleMic(\'chatInput\')">🎤</button><button onclick="v6SendChat()">↑</button></div></div>'+
+        '<div class="composer-v6"><textarea id="chatInput" rows="2" placeholder="Ответь Норе по-норвежски…"></textarea><div><button id="chatMicBtn" aria-label="Говорить" onclick="toggleMic(\'chatInput\')">🎤</button><button aria-label="Отправить" onclick="v6SendChat()">↑</button></div></div>'+
       '</section>'+
       '<div class="chat-footer-v6"><button class="today-return-v61" onclick="navigate(\'home\')">← Сегодня</button><button onclick="v6StartChat()">＋ Новый диалог</button><button onclick="v6ClearChat()">Очистить</button></div>',
     "chat");
