@@ -330,7 +330,7 @@
   function finishDailyPractice(){
     const s=dailyTaskSession,avg=s.scores.length?Math.round(s.scores.reduce((a,b)=>a+b,0)/s.scores.length):0;
     state.dailyProgress[s.date]={completed:true,scores:s.scores,average:avg,completedAt:new Date().toISOString()};state.xp+=15;saveState();
-    shell('<section class="card" style="max-width:680px;margin:40px auto;text-align:center"><div style="font-size:58px">5</div><div class="eyebrow">Дневная пятёрка завершена</div><h1>'+avg+'%</h1><p class="muted">Эти слова не исчезнут завтра: приложение будет возвращать их в следующих дневных заданиях, Samtale, тестах и AI-уроках.</p><div class="row" style="justify-content:center"><button class="btn" onclick="renderDaily()">К словам</button><button class="btn secondary" onclick="navigate(\'dictionary\')">Открыть словарь</button></div></section>',"home");dailyTaskSession=null;
+    shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">5 слов · готово</div><h1>'+avg+'%</h1><p class="muted">Новые слова останутся активными в следующих заданиях и разговоре.</p><button class="btn" onclick="navigate(\'home\')">Продолжить день →</button><button class="btn ghost" onclick="navigate(\'dictionary\')">Словарь</button></section>',"home");dailyTaskSession=null;
   }
 
   let dictionaryFilter={q:"",pos:"all"};
@@ -369,7 +369,7 @@
     it.seen=(it.seen||0)+1;if(ok){it.correct=(it.correct||0)+1;it.stage=Math.min(6,(it.stage||0)+1)}else{it.stage=Math.max(0,(it.stage||0)-1);rememberError("vocabulary")}
     const days=ok?interval[it.stage]:1;it.due=Date.now()+days*86400000;updateSkill("vocabulary",ok?100:15);if(state.dailyDictionary[key])updateDailyStrength([key],ok?100:15);saveState();reviewSession.i++;renderReviewCard();
   }
-  function finishReview(){state.xp+=10;saveState();shell('<section class="card" style="max-width:620px;margin:40px auto;text-align:center"><div style="font-size:56px">↻</div><h1>Повторение завершено</h1><p class="muted">Следующие даты пересчитаны по твоим ответам.</p><button class="btn" onclick="renderReview()">Готово</button></section>',"review")}
+  function finishReview(){state.xp+=10;const today=localDateKey();state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.reviewDates=state.guidedJourney.reviewDates||{};state.guidedJourney.reviewDates[today]=true;saveState();shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">Повторение завершено</div><h1>Готово</h1><p class="muted">Следующие даты пересчитаны. Возвращаемся к сегодняшнему маршруту.</p><button class="btn" onclick="navigate(\'home\')">Продолжить день →</button></section>',"home")}
 
   function renderPlacement(){
     shell('<section class="card" style="max-width:760px;margin:30px auto"><div class="eyebrow">Входная диагностика</div><h1>Определим стартовый уровень</h1><p class="muted">20 заданий A1–B2: грамматика, словарь, чтение и аудирование. Результат нужен только для учебного маршрута.</p><div class="notice">Это не официальный Norskprøven и не подтверждение уровня CEFR.</div><br><button class="btn" onclick="startPlacement()">Начать</button></section>',"home");
