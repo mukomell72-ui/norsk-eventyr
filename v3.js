@@ -144,13 +144,15 @@
       rec.onend=()=>{if(btn)btn.textContent="🎤 Говорить"};rec.start();return;
     }
     try{
-      mediaStream=await navigator.mediaDevices.getUserMedia({audio:true});recordChunks=[];
-      mediaRecorder=new MediaRecorder(mediaStream);
+      mediaStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});recordChunks=[];
+      const preferredMime=["audio/webm;codecs=opus","audio/webm","audio/mp4"].find(x=>MediaRecorder.isTypeSupported?.(x));
+      mediaRecorder=preferredMime?new MediaRecorder(mediaStream,{mimeType:preferredMime}):new MediaRecorder(mediaStream);
       mediaRecorder.ondataavailable=e=>{if(e.data.size)recordChunks.push(e.data)};
       mediaRecorder.onstop=async()=>{
         clearTimeout(recordTimer);if(btn)btn.textContent="⏳ Распознаю…";
-        const blob=new Blob(recordChunks,{type:mediaRecorder.mimeType||"audio/webm"});
+        const blob=new Blob(recordChunks,{type:(mediaRecorder.mimeType||"audio/webm").split(";")[0]});
         mediaStream?.getTracks().forEach(t=>t.stop());mediaStream=null;mediaRecorder=null;
+        if(blob.size<600){if(btn)btn.textContent="🎤 Говорить";alert("Запись получилась слишком короткой. Нажми микрофон, скажи фразу и затем останови запись.");return}
         const b64=await blobToBase64(blob);
         const transcribePromise=apiPost("/api/transcribe",{audioBase64:b64,mime:blob.type,expected});
         const pronouncePromise=expected?blobToWavBase64(blob).then(wav=>apiPost("/api/pronounce",{audioBase64:wav,expected})).catch(()=>null):Promise.resolve(null);
@@ -162,7 +164,10 @@
             if(box)box.innerHTML='<div class="feedback '+(sc>=70?"good":"bad")+'"><b>Произношение: '+sc+'/100</b><br>'+(p?esc(p.pronunciation_ru||""):'Речь оценена по точности распознавания.')+(p?'<br><small>Разборчивость '+p.clarity+' · ритм '+p.rhythm+' · соответствие образцу '+p.accuracy+'</small>':'')+(p?.difficult_words?.length?'<br><b>Потренировать:</b> '+p.difficult_words.map(esc).join(", "):'')+'<br><small>AI-оценка аудиозаписи для тренировки, не оценка официального экзаменатора.</small></div>';
             updateSkill("speaking",sc);
           }
-        }else alert("Не удалось распознать запись: "+r.error);
+        }else{
+          const msg=r.error==="NO_SPEECH"?"Речь не распознана. Попробуй говорить чуть громче и ближе к телефону.":"Не удалось обработать запись. Попробуй записать фразу ещё раз.";
+          alert(msg);
+        }
         if(btn)btn.textContent="🎤 Говорить";
       };
       mediaRecorder.start();if(btn)btn.textContent="■ Остановить запись";
