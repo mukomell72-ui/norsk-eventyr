@@ -88,20 +88,31 @@
     return '<article class="card story-dialogue-card"><div class="story-npc"><span>'+npcAvatar(ep.npc)+'</span><div><b>'+esc(ep.npc)+'</b><small>'+esc(ep.role)+'</small></div></div><div class="prompt">'+esc(ep.choiceQ)+'</div><div class="choice-list">'+ep.choices.map((x,i)=>'<button class="choice" onclick="answerStoryChoice('+i+')">'+esc(x)+'</button>').join("")+'</div><div id="storyFb"></div></article>';
   }
   function answerStoryChoice(i){
-    const s=storySession,ep=s.episode,ok=i===ep.correct;s.choiceScore=ok?100:35;
-    if(window.neUpdateSkill){neUpdateSkill("grammar",ok?100:35);neUpdateSkill("speaking",ok?90:45)}
-    document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===ep.correct)b.classList.add("good");if(j===i&&!ok)b.classList.add("bad")});
-    document.getElementById("storyFb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'"><b>'+(ok?"✅ Отлично":"↻ Запомни естественный вариант")+'</b><br>'+esc(ep.choiceExplain)+'</div><button class="btn story-primary wide" style="margin-top:10px" onclick="storyNext()">Дальше →</button>';
+    const s=storySession,ep=s.episode,ok=i===ep.correct,buttons=[...document.querySelectorAll(".choice")],box=document.getElementById("storyFb");
+    if(ok){
+      s.choiceScore=s.choiceMistakes?75:100;
+      if(window.neUpdateSkill){neUpdateSkill("grammar",s.choiceScore);neUpdateSkill("speaking",s.choiceScore)}
+      buttons.forEach(b=>b.disabled=true);buttons[i]?.classList.add("good");box.innerHTML='<div class="feedback good"><b>✓ Отлично</b></div>';
+      setTimeout(()=>storyNext(),450);return;
+    }
+    s.choiceMistakes=(s.choiceMistakes||0)+1;if(window.neUpdateSkill)neUpdateSkill("grammar",35);
+    buttons[i]?.classList.add("bad");buttons[i].disabled=true;
+    box.innerHTML='<div class="feedback bad"><b>Не совсем.</b><br>'+esc(ep.choiceExplain)+'<br><small>Попробуй другой вариант.</small></div>';
   }
 
   function storyListen(ep){
     return '<article class="card story-dialogue-card"><div class="eyebrow">Слушай, а не читай</div><div class="prompt">'+esc(ep.listenQ)+'</div><div class="story-audio-panel"><button class="btn story-primary" onclick="speakText(\''+escJs(ep.listen)+'\')">▶ Нормальная скорость</button><button class="btn ghost" onclick="speakText(\''+escJs(ep.listen)+'\',.72)">🐢 Медленнее</button></div><div class="choice-list">'+ep.listenOpts.map((x,i)=>'<button class="choice" onclick="answerStoryListen('+i+')">'+esc(x)+'</button>').join("")+'</div><div id="storyFb"></div></article>';
   }
   function answerStoryListen(i){
-    const s=storySession,ep=s.episode,ok=i===ep.listenCorrect;s.listenScore=ok?100:30;
-    if(window.neUpdateSkill)neUpdateSkill("listening",ok?100:30);
-    document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===ep.listenCorrect)b.classList.add("good");if(j===i&&!ok)b.classList.add("bad")});
-    document.getElementById("storyFb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'">'+(ok?"✅ Ты понял смысл.":"❌ Прослушай ещё раз и свяжи ключевые слова со смыслом.")+'</div><button class="btn story-primary wide" style="margin-top:10px" onclick="storyNext()">Дальше →</button>';
+    const s=storySession,ep=s.episode,ok=i===ep.listenCorrect,buttons=[...document.querySelectorAll(".choice")],box=document.getElementById("storyFb");
+    if(ok){
+      s.listenScore=s.listenMistakes?75:100;if(window.neUpdateSkill)neUpdateSkill("listening",s.listenScore);
+      buttons.forEach(b=>b.disabled=true);buttons[i]?.classList.add("good");box.innerHTML='<div class="feedback good"><b>✓ Понял</b></div>';
+      setTimeout(()=>storyNext(),450);return;
+    }
+    s.listenMistakes=(s.listenMistakes||0)+1;if(window.neUpdateSkill)neUpdateSkill("listening",30);
+    buttons[i]?.classList.add("bad");buttons[i].disabled=true;
+    box.innerHTML='<div class="feedback bad"><b>Неверно.</b> Прослушай ещё раз и выбери другой вариант.</div>';
   }
 
   function storyFree(ep){
@@ -110,14 +121,18 @@
   }
   async function checkStoryFree(){
     const s=storySession,ep=s.episode,a=document.getElementById("storyAnswer")?.value.trim();if(!a)return;
-    const box=document.getElementById("storyFb");box.innerHTML='<div class="feedback">🧠 Персонаж слушает и оценивает смысл…</div>';
+    const box=document.getElementById("storyFb");box.innerHTML='<div class="feedback">Проверяю ответ…</div>';
     const words=activeWords().slice(0,5),goal=ep.freeGoal+(words.length?" Если естественно, приветствуется использование знакомой лексики: "+words.join(", "):"");
     const r=await aiEvaluate({answer:a,question:ep.freePrompt,goal,level:ep.level,mode:"story_speaking"});
-    if(!r.ok){s.freeScore=null;box.innerHTML='<div class="feedback bad">AI сейчас недоступен. Ответ сохранён как попытка, но не снижает результат.</div><button class="btn story-primary wide" style="margin-top:10px" onclick="storyNext()">Продолжить →</button>';return}
-    const d=r.data,score=Math.max(0,Math.min(100,Number(d.score)||0));s.freeScore=score;
+    if(!r.ok){box.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
+    const d=r.data,score=Math.max(0,Math.min(100,Number(d.score)||0)),ok=d.accepted!==false&&score>=60;
     if(window.neUpdateSkill){neUpdateSkill("speaking",score);neUpdateSkill("grammar",d.breakdown?.grammar??score);neUpdateSkill("vocabulary",d.breakdown?.vocabulary??score)}
-    const html='<div class="feedback '+(score>=60?"good":"bad")+'"><b>'+score+'/100</b><br>'+esc(d.explanation_ru||"")+(d.corrected?'<br><br><b>Естественнее:</b><br>'+esc(d.corrected):"")+'</div><button class="btn story-primary wide" style="margin-top:10px" onclick="storyNext()">Продолжить историю →</button>';
-    s.freeFeedback=html;box.innerHTML=html;
+    if(ok){
+      s.freeScore=score;box.innerHTML='<div class="feedback good"><b>✓ '+score+'/100</b></div>';setTimeout(()=>storyNext(),520);return;
+    }
+    s.freeAttempts=(s.freeAttempts||0)+1;
+    box.innerHTML='<div class="feedback bad"><b>Переделай ответ</b><br>'+esc(d.explanation_ru||"")+(d.corrected?'<br><br><b>Возможный вариант:</b><br>'+esc(d.corrected):"")+'</div>';
+    document.getElementById("storyAnswer")?.focus();
   }
 
   function storyDecision(ep){
@@ -144,7 +159,7 @@
   function renderStorySideQuest(){
     const day=localDay(),done=state.story.sideQuests[day],words=activeWords().slice(0,4),npcs=["Nora","Amir","Liv","Ingrid","Sofie","Maja"],npc=npcs[new Date(day+"T12:00:00").getDate()%npcs.length];
     if(done){
-      shell('<section class="card story-side-complete"><div style="font-size:56px">🎲</div><div class="eyebrow">Миссия дня выполнена</div><h1>'+done.score+'%</h1><p class="muted">Завтра появится новая короткая ситуация с другими активными словами.</p><button class="btn" onclick="navigate(\'story\')">К истории</button></section>',"home");return;
+      shell('<section class="card story-side-complete"><div style="font-size:56px">🎲</div><div class="eyebrow">Миссия дня выполнена</div><h1>'+done.score+'%</h1><p class="muted">Завтра появится новая короткая ситуация с другими активными словами.</p><button class="btn" onclick="navigate(\'home\')">К сегодняшнему маршруту</button><button class="btn ghost" onclick="navigate(\'story\')">К истории</button></section>',"home");return;
     }
     const prompt=sideQuestPrompt(npc,words);
     shell('<div class="screen-head"><button class="back" onclick="navigate(\'story\')">←</button><div><div class="eyebrow">Миссия дня · 3–5 минут</div><h2 style="margin:0">Случайная встреча с '+npc+'</h2></div></div><section class="card story-side"><div class="story-npc"><span>'+npcAvatar(npc)+'</span><div><b>'+npc+'</b><small>Fjordvik</small></div></div><div class="prompt">'+esc(prompt)+'</div>'+(words.length?'<div class="wordchips">'+words.map(w=>'<span class="wordchip">'+esc(w)+'</span>').join("")+'</div>':'')+'<textarea id="sideAnswer" class="input" placeholder="Ответь своими словами по-норвежски…"></textarea><div class="row" style="margin-top:10px"><button id="micBtn" class="btn secondary" onclick="toggleMic(\'sideAnswer\')">🎤 Голосом</button><button class="btn story-primary" onclick="checkStorySide()">Ответить</button></div><div id="sideFb"></div></section>',"home");
@@ -156,11 +171,15 @@
   }
   async function checkStorySide(){
     const day=localDay(),a=document.getElementById("sideAnswer")?.value.trim();if(!a)return;
-    const box=document.getElementById("sideFb"),words=activeWords().slice(0,4),q=sideQuestPrompt("Собеседник",words);box.innerHTML='<div class="feedback">🧠 Проверяю…</div>';
+    const box=document.getElementById("sideFb"),words=activeWords().slice(0,4),q=sideQuestPrompt("Собеседник",words);box.innerHTML='<div class="feedback">Проверяю…</div>';
     const r=await aiEvaluate({answer:a,question:q,goal:"Естественно ответить в короткой реальной ситуации. Смысл важнее дословного совпадения.",level:state.level||"A1",mode:"story_side"});
-    if(!r.ok){box.innerHTML='<div class="feedback bad">Проверка временно недоступна.</div>';return}
-    const d=r.data,score=Number(d.score||0);state.story.sideQuests[day]={score,date:new Date().toISOString()};state.xp=(state.xp||0)+10;touchStudy();saveState();
-    box.innerHTML='<div class="feedback '+(score>=60?"good":"bad")+'"><b>'+score+'/100</b><br>'+esc(d.explanation_ru||"")+(d.corrected?'<br><br><b>Естественнее:</b> '+esc(d.corrected):"")+'</div><button class="btn wide" style="margin-top:10px" onclick="navigate(\'story\')">Готово</button>';
+    if(!r.ok){box.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
+    const d=r.data,score=Number(d.score||0),ok=d.accepted!==false&&score>=60;
+    if(!ok){
+      box.innerHTML='<div class="feedback bad"><b>Исправь и попробуй ещё раз</b><br>'+esc(d.explanation_ru||"")+(d.corrected?'<br><br><b>Возможный вариант:</b> '+esc(d.corrected):"")+'</div>';document.getElementById("sideAnswer")?.focus();return;
+    }
+    state.story.sideQuests[day]={score,date:new Date().toISOString()};state.xp=(state.xp||0)+10;touchStudy();saveState();
+    box.innerHTML='<div class="feedback good"><b>✓ '+score+'/100</b></div>';setTimeout(()=>navigate("home"),650);
   }
 
   function renderStoryJournal(){
