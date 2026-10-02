@@ -15,10 +15,11 @@ function audioMeta(rawMime=""){
   return map[base]||["audio/webm","speech.webm"];
 }
 
-async function transcribe(bytes,type,name,model){
+async function transcribe(bytes,type,name,model,prompt=""){
   const fd=new FormData();
   fd.append("model",model);
   fd.append("language","no");
+  fd.append("prompt",prompt||"Norwegian Bokmål spoken by a language learner. Prefer normal Norwegian orthography and common everyday words.");
   fd.append("file",new Blob([bytes],{type}),name);
   const r=await fetch("https://api.openai.com/v1/audio/transcriptions",{
     method:"POST",
@@ -34,7 +35,7 @@ export default async function handler(req,res){
   if(!guard(req,res,{limit:40}))return;
   if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED",code:"AI_NOT_CONFIGURED"});
 
-  const {audioBase64="",mime="audio/webm"}=req.body||{};
+  const {audioBase64="",mime="audio/webm",expected=""}=req.body||{};
   if(typeof audioBase64!=="string"||audioBase64.length<100||audioBase64.length>9000000){
     return res.status(400).json({error:"BAD_AUDIO",code:"BAD_AUDIO"});
   }
@@ -46,9 +47,10 @@ export default async function handler(req,res){
 
     // Use the broadly supported transcription model first. If the account
     // temporarily rejects it, retry once with the full-size transcription model.
-    let r=await transcribe(bytes,type,name,"gpt-4o-mini-transcribe");
+    const hint=expected?("Norwegian Bokmål. The learner is practicing this target phrase: "+String(expected).slice(0,260)):"Norwegian Bokmål spoken by a learner. Prefer Norwegian words and spelling; do not switch languages unless clearly spoken.";
+    let r=await transcribe(bytes,type,name,"gpt-4o-mini-transcribe",hint);
     if(!r.ok&&(r.status===400||r.status===404||r.data?.error?.code==="invalid_value"||r.data?.error?.code==="model_not_found")){
-      r=await transcribe(bytes,type,name,"gpt-4o-transcribe");
+      r=await transcribe(bytes,type,name,"gpt-4o-transcribe",hint);
     }
 
     if(!r.ok){
