@@ -48,7 +48,7 @@
     document.getElementById("app").innerHTML=
       '<div class="shell shell-v6">'+
         '<header class="topbar topbar-v6">'+
-          '<button class="brand-v6" onclick="navigate(\'home\')" aria-label="Главная"><span>N</span><strong>Norsk Eventyr</strong></button>'+
+          '<button class="brand-v6" onclick="navigate(\'home\')" aria-label="Главная"><span>N</span><strong>Norsk</strong></button>'+
           '<div class="top-status-v6"><span>'+level+'</span><span>'+xp+' XP</span><button onclick="navigate(\'hub\')" aria-label="Меню">•••</button></div>'+
         '</header>'+
         '<main class="main-v6">'+content+'</main>'+
