@@ -3,7 +3,7 @@
   const baseNavigateV7=window.navigate;
   const baseStartChatV7=window.startChat;
   const baseSendChatV7=window.sendChat;
-  let currentRouteV7="home",courseModeV7="route";
+  let currentRouteV7="home",courseModeV7="route",chatBusyV7=false;
 
   const LEVELS_V7=Array.isArray(window.LEVELS)?window.LEVELS:["A1","A2","B1","B2"];
   const PLACE_NAMES=["Вокзал","Кафе","Магазин","Автобус","Работа","Kommune"];
@@ -183,9 +183,17 @@
       if(String(document.getElementById("chatInput")?.value||"").trim())v7SendChat();
     }
   }
-  async function v7SendChat(){if(!baseSendChatV7)return;await baseSendChatV7();renderChatV7()}
-  async function v7StartChat(){if(!baseStartChatV7)return;await baseStartChatV7();renderChatV7()}
-  function v7ClearChat(){if((state.chatHistory||[]).length&&!confirm("Очистить этот разговор?"))return;state.chatHistory=[];saveState();renderChatV7()}
+  async function v7SendChat(){
+    if(chatBusyV7||!baseSendChatV7||!document.getElementById("chatInput")?.value.trim())return;
+    chatBusyV7=true;
+    try{const request=baseSendChatV7();renderChatV7();await request}finally{chatBusyV7=false;renderChatV7()}
+  }
+  async function v7StartChat(){
+    if(chatBusyV7||!baseStartChatV7)return;
+    chatBusyV7=true;
+    try{const request=baseStartChatV7();renderChatV7();await request}finally{chatBusyV7=false;renderChatV7()}
+  }
+  function v7ClearChat(){if(chatBusyV7)return;if((state.chatHistory||[]).length&&!confirm("Очистить этот разговор?"))return;state.chatHistory=[];saveState();renderChatV7()}
 
   function renderChatV7(){
     currentRouteV7="chat";
@@ -201,6 +209,12 @@
       '</section>',
     "chat");
     setTimeout(()=>{const b=document.getElementById("chatMessages");if(b)b.scrollTop=b.scrollHeight},0);
+    if(chatBusyV7){
+      document.querySelectorAll(".send-v7,.mic-v7,.chat-settings-v7 button,.chat-settings-v7 select").forEach(e=>e.disabled=true);
+      document.getElementById("chatInput")?.setAttribute("disabled","");
+      const b=document.getElementById("chatMessages");
+      if(b&&!b.querySelector(".chat-thinking"))b.insertAdjacentHTML("beforeend",'<div class="chat-thinking" role="status">Нора готовит ответ…</div>');
+    }
   }
 
   function renderStoryV7(seasonId=""){
@@ -268,7 +282,7 @@
       if(target==="home")r=renderHomeV7();
       else if(target==="course")r=renderCourseV7(data||state.level);
       else if(target==="chat")r=renderChatV7();
-      else if(target==="story")r=renderStoryV7();
+      else if(target==="story")r=renderStoryV7(data);
       else if(target==="hub")r=renderHubV7();
       else r=baseNavigateV7(target,data);
       routeTopV7();
