@@ -8,7 +8,7 @@
   "background_color": "#07101f",
   "theme_color": "#07101f",
   "lang": "ru",
-  "description": "Компактное мобильное приложение для Bokmål A1–B2: персональные уроки, разговор, сюжет Fjordvik, словарь и Norskprøven.",
+  "description": "Компактный адаптивный Bokmål A1–B2: уроки, Samtale, Fjordvik, персональный словарь, аудирование и Norskprøven.",
   "icons": [
     {
       "src": "/icon.svg",
