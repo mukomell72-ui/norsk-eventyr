@@ -158,15 +158,30 @@
   function selectPronPhrase(i){pronSelection.phrase=i;renderPronunciationLab()}
   function practicePronounce(){const g=SOUND_LAB[pronSelection.group],p=g.phrases[pronSelection.phrase];markActivity("pronunciation");toggleMic("elitePronText",p)}
 
+  const FSI_HUMAN_AUDIO=[
+    ["Introductions","Знакомство и вежливые выражения","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%201%20-%20Courtesy%20ExpressionsA.mp3"],
+    ["Numbers","Числа","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%202%20-%20DistanceA.mp3"],
+    ["Time","Время и дни недели","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%203%20-%20Time%20Days%20of%20WeekA.mp3"],
+    ["Restaurant","В ресторане","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%204%20-%20In%20A%20RestaurantA.mp3"],
+    ["Shopping","Покупки","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%205%20-%20ShoppingA.mp3"],
+    ["Hotel","В отеле","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%206%20-%20At%20The%20HotelA.mp3"],
+    ["Directions","Как спросить дорогу","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%207%20-%20Asking%20For%20Directions.mp3"],
+    ["At a party","В гостях","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%208%20-%20Courtesy%20To%20A%20Host.mp3"]
+  ];
   const AUTH_RESOURCES=[
-    ["NTNU LearnNoW","Настоящие записи: нормальная и сниженная скорость, упражнения и произношение.","https://www.ntnu.edu/learnnow/info/downloads"],
-    ["NTNU: как работать с аудио","Официальная методика: слушать текст, записывать себя и сравнивать.","https://www.ntnu.edu/learnnow/info/guide/english"],
+    ["NTNU LearnNoW","Современный официальный учебный курс NTNU; открываем как внешний источник, потому что права на перепубликацию его аудио отдельно не заявлены.","https://www.ntnu.edu/learnnow/info/downloads"],
+    ["Nasjonalbiblioteket Språkbanken","Открытые норвежские речевые корпуса, включая CC0-материалы.","https://www.nb.no/sprakbanken/en/resource-catalogue/"],
     ["NRK Oppdatert","Ежедневный норвежский подкаст о текущих темах — для B1–B2.","https://radio.nrk.no/podkast/oppdatert"],
-    ["NRK Kjapt oppdatert","Короткие актуальные выпуски по будням — для B1–B2.","https://radio.nrk.no/podkast/kjapt_oppdatert"],
     ["Klar Tale","Новости на более доступном норвежском.","https://www.klartale.no/"]
   ];
   function renderListeningLab(){
-    shell('<div class="screen-head"><button class="back" onclick="navigate(\'hub\')">←</button><div><div class="eyebrow">Настоящий норвежский</div><h2 style="margin:0">Listening Lab</h2></div></div><div class="notice"><b>Два режима:</b> официальные/реальные внешние источники и анализ короткого аудиофайла, который ты сам выбрал. Приложение не копирует чужие записи на свой сервер.</div><div class="section-title"><h2>Проверенные источники</h2></div><section class="grid">'+AUTH_RESOURCES.map(x=>'<article class="card"><h3>'+esc(x[0])+'</h3><p class="muted">'+esc(x[1])+'</p><a class="btn secondary link-btn" href="'+x[2]+'" target="_blank" rel="noopener">Открыть источник ↗</a></article>').join("")+'</section><div class="section-title"><h2>Разобрать своё аудио</h2></div><section class="card"><p class="muted">Выбери короткий норвежский аудиофайл до 6 МБ. Мы сделаем транскрипцию и 5 вопросов на понимание.</p><input id="listenFile" type="file" accept="audio/*" class="input"><button class="btn" style="margin-top:10px" onclick="analyzeListeningFile()">Анализировать</button><div id="listenLabBox"></div></section>',"home");
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'hub\')">←</button><div><div class="eyebrow">Настоящий норвежский</div><h2 style="margin:0">Listening Lab</h2></div></div>'+
+    '<div class="notice"><b>Живые голоса:</b> ниже встроены реальные записи норвежской речи из Norwegian Headstart. Материал распространяется как public domain; запись не является AI-озвучкой.</div>'+
+    '<div class="section-title"><h2>Живой курс · 8 ситуаций</h2><span class="tag">FSI / DLI</span></div>'+
+    '<section class="fsi-audio-list-v63">'+FSI_HUMAN_AUDIO.map((x,i)=>'<article class="fsi-audio-card-v63"><div><small>Unit '+(i+1)+'</small><b>'+esc(x[0])+'</b><span>'+esc(x[1])+'</span></div><audio controls preload="none" src="'+x[2]+'"></audio></article>').join("")+'</section>'+
+    '<div class="fsi-license-v63"><b>Источник:</b> Norwegian Headstart, U.S. government language material. Записи публично распространяются как public domain. Курс 1981 года, поэтому отдельные формы обращения могут быть устаревшими; современную норму приложение продолжает проверять отдельно.</div>'+
+    '<div class="section-title"><h2>Современные источники</h2></div><section class="grid">'+AUTH_RESOURCES.map(x=>'<article class="card"><h3>'+esc(x[0])+'</h3><p class="muted">'+esc(x[1])+'</p><a class="btn secondary link-btn" href="'+x[2]+'" target="_blank" rel="noopener">Открыть источник ↗</a></article>').join("")+'</section>'+
+    '<div class="section-title"><h2>Разобрать своё аудио</h2></div><section class="card"><p class="muted">Выбери короткий норвежский аудиофайл до 6 МБ. Мы сделаем транскрипцию и 5 вопросов на понимание.</p><input id="listenFile" type="file" accept="audio/*" class="input"><button class="btn" style="margin-top:10px" onclick="analyzeListeningFile()">Анализировать</button><div id="listenLabBox"></div></section>',"home");
   }
   async function fileB64(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(",")[1]);r.onerror=reject;r.readAsDataURL(file)})}
   async function analyzeListeningFile(){
