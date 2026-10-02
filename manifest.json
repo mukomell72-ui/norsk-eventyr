@@ -1,10 +1,41 @@
 {
-  "name":"Norsk Eventyr",
-  "short_name":"Norsk Eventyr",
-  "start_url":"/",
-  "display":"standalone",
-  "background_color":"#07101f",
-  "theme_color":"#07101f",
-  "lang":"ru",
-  "description":"Интерактивный курс норвежского Bokmål A1–B2 с AI-проверкой, тестами и тренировочным экзаменом."
+  "name": "Norsk Eventyr",
+  "short_name": "Norsk Eventyr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#07101f",
+  "theme_color": "#07101f",
+  "lang": "ru",
+  "description": "Адаптивный курс норвежского Bokmål A1–B2: AI-собеседник, словарь, произношение, аудирование, тесты и Norskprøven.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": [
+    "education",
+    "productivity"
+  ],
+  "shortcuts": [
+    {
+      "name": "Samtale",
+      "short_name": "Разговор",
+      "url": "/?open=chat"
+    },
+    {
+      "name": "5 слов",
+      "short_name": "5 слов",
+      "url": "/?open=daily"
+    },
+    {
+      "name": "Диктант",
+      "short_name": "Диктант",
+      "url": "/?open=dictation"
+    }
+  ]
 }
