@@ -148,7 +148,7 @@
       const existingKey=Object.keys(state.dailyDictionary||{}).find(x=>lexKey(state.dailyDictionary[x]?.lemma||state.dailyDictionary[x]?.word)===k);
       const storeKey=existingKey||k,old=state.dailyDictionary[storeKey]||{};
       state.dailyDictionary[storeKey]={...old,...w,key:storeKey,firstDate:old.firstDate||date,firstDayNumber:old.firstDayNumber||pack.dayNumber||state.dailyDayCount||1,lastSeen:date,exposures:(old.exposures||0)+1,correct:old.correct||0,wrong:old.wrong||0,strength:old.strength??20,nextDue:old.nextDue||now+86400000};
-      if(!state.srs[storeKey])state.srs[storeKey]={word:w.lemma||w.word,translation:w.translation_ru,level:pack.level,stage:0,due:now,seen:0,correct:0};
+      if(!state.srs[storeKey])state.srs[storeKey]={word:w.lemma||w.word,translation:w.translation_ru,level:pack.level,stage:0,due:now+86400000,seen:0,correct:0};
       const ck=w.candidate_key||k;
       if(state.lexicalCandidates[ck]){state.lexicalCandidates[ck].status="selected";state.lexicalCandidates[ck].selectedDate=date}
       else{
