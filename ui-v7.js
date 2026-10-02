@@ -197,8 +197,15 @@
     setTimeout(()=>{const b=document.getElementById("chatMessages");if(b)b.scrollTop=b.scrollHeight},0);
   }
 
-  function renderStoryV7(){
+  function renderStoryV7(seasonId=""){
     currentRouteV7="story";
+    try{
+      if(seasonId){
+        const seasons=Array.isArray(window.STORY_SEASONS)?window.STORY_SEASONS:STORY_SEASONS;
+        const picked=seasons.find(x=>x.id===seasonId);
+        if(picked?.level&&picked.level!==state.level){state.level=picked.level;saveState()}
+      }
+    }catch{}
     const {season,list,current}=storyForLevelV7(),nodes=list.slice(0,6),pos=[[20,26],[54,35],[29,49],[71,57],[38,70],[68,80]];
     const labels=["Кафе","Дом Nora","Торговая улица","Автобус","Работа","Порт"];
     const icons=["☕","⌂","▣","🚌","💼","⚓"];
@@ -207,10 +214,10 @@
         '<section class="fjord-map-v7"><div class="fjord-shade-v7"></div><div class="fjord-title-v7"><small>'+h(season?.title||state.level)+'</small><h1>Fjordvik</h1><p>Живой норвежский город. Выбирай место и говори в реальной ситуации.</p></div>'+
         nodes.map((e,i)=>'<button class="fjord-pin-v7 '+(state.story?.completed?.[e.id]?"done":"")+'" style="left:'+pos[i][0]+'%;top:'+pos[i][1]+'%" onclick="navigate(\'storyepisode\',\''+js(e.id)+'\')"><span>'+icons[i]+'</span><b>'+labels[i]+'</b></button>').join("")+
         '</section>'+
-        '<section class="scene-day-v7"><div><small>🎬 Сцена дня · ~14 минут</small><h2>'+h(current?.title||"Встреча в Fjordvik")+'</h2><p>'+h(current?.hook||"Небольшая история, новые слова и живой разговор.")+'</p><button class="cta-v7 small" onclick="'+(current?"navigate(\'storyepisode\',\''+js(current.id)+'\')":"navigate(\'storyside\')")+'">Войти в сцену →</button></div><span class="nora-scene-v7"></span></section>'+
+        '<section class="scene-day-v7"><div><small>🎬 Сцена дня · ~14 минут</small><h2>'+h(current?.title||"Встреча в Fjordvik")+'</h2><p>'+h(current?.hook||"Небольшая история, новые слова и живой разговор.")+'</p><button class="cta-v7 small" onclick="'+(current?("navigate(\'storyepisode\',\'"+js(current.id)+"\')"):"navigate(\'storyside\')")+'">Войти в сцену →</button></div><span class="nora-scene-v7"></span></section>'+
         '<section class="places-v7"><div class="section-head-v7"><div><small>⌖ Исследуй Fjordvik</small><h2>Открыто сегодня</h2></div><button onclick="navigate(\'storyjournal\')">Дневник →</button></div><div class="place-cards-v7">'+[
           ["☕","Кафе","Разговоры · новые слова"],["⚓","Порт","Истории · путешествия"],["▣","Торговая улица","Покупки · повседневный язык"]
-        ].map((x,i)=>'<button onclick="'+(nodes[i]?"navigate(\'storyepisode\',\''+js(nodes[i].id)+'\')":"navigate(\'storyside\')")+'"><span>'+x[0]+'</span><b>'+x[1]+'</b><small>'+x[2]+'</small><em>›</em></button>').join("")+'</div></section>'+
+        ].map((x,i)=>'<button onclick="'+(nodes[i]?("navigate(\'storyepisode\',\'"+js(nodes[i].id)+"\')"):"navigate(\'storyside\')")+'"><span>'+x[0]+'</span><b>'+x[1]+'</b><small>'+x[2]+'</small><em>›</em></button>').join("")+'</div></section>'+
         '<section class="nora-note-v7"><span class="nora-avatar-v7"></span><div><small>Nora</small><p>«Выбери место, и я помогу тебе говорить по-норвежски в реальной ситуации.»</p></div><button onclick="navigate(\'storyside\')">Миссия →</button></section>'+
       '</section>',
     "story");
