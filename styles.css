@@ -567,7 +567,7 @@ html,body{background:linear-gradient(180deg,#081421 0,#07111c 50%,#06101a 100%);
   display:block!important;font-size:15px!important;line-height:1!important;
 }
 .topbar-v6{height:52px!important;padding:7px 10px!important}
-.main-v6{padding-top:4px}
+.main-v6{padding-top:60px}
 
 .lesson-head-v6{
   display:grid;grid-template-columns:36px minmax(0,1fr) auto;align-items:center;gap:9px;
@@ -735,4 +735,27 @@ html,body{background:linear-gradient(180deg,#081421 0,#07111c 50%,#06101a 100%);
 @media(max-width:360px){
   .free-grid-v61{grid-template-columns:repeat(2,1fr)}
   .today-top-v61 h1{font-size:24px!important}
+}
+
+
+/* 6.2 — navigation reliability audit */
+.dock-v6 button,
+.hub-item-v6,
+.level-switch-v6 button,
+.segmented-v6 button,
+.story-season-tabs button,
+.sound-tabs button,
+.phrase-picker button{
+  touch-action:manipulation;
+  -webkit-tap-highlight-color:transparent;
+}
+.dock-v6{z-index:120!important}
+.topbar-v6{z-index:110!important}
+.route-error-v62{
+  max-width:520px;margin:22px auto!important;text-align:center!important;
+}
+.route-error-mark-v62{
+  width:50px;height:50px;border-radius:16px;display:grid;place-items:center;
+  margin:0 auto 9px;background:#3b261d;color:#ffbd83;border:1px solid #ffbd8333;
+  font-size:25px;font-weight:1000;
 }
