@@ -7,7 +7,7 @@
 *{box-sizing:border-box}
 html,body{margin:0;min-height:100%;background:radial-gradient(circle at 50% -20%,#214f7e 0,#0c1d35 28%,var(--bg) 72%);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 button,input,textarea,select{font:inherit}button{cursor:pointer}a{color:inherit}#app{min-height:100vh}
-.shell{max-width:980px;margin:0 auto;padding:14px 14px 104px}
+.shell{max-width:980px;margin:0 auto;padding:14px 14px calc(150px + env(safe-area-inset-bottom))}
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:20;padding:10px 0;background:linear-gradient(#07101ff2,#07101fd0,#07101f00);backdrop-filter:blur(10px)}
 .brand{display:flex;align-items:center;gap:10px;font-weight:950;font-size:21px}
 .brand-mark{width:38px;height:38px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(145deg,#6be9b7,#4ba2ff);color:#07101f;box-shadow:0 8px 22px #0005}
@@ -25,7 +25,7 @@ h1,h2,h3,p{margin-top:0}h1{font-size:clamp(30px,6vw,48px);line-height:1.02;margi
 .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .btn{border:0;border-radius:15px;padding:13px 16px;font-weight:900;background:linear-gradient(180deg,#70efbd,#47d69b);color:#07160f;box-shadow:0 5px 0 #259a6d}.btn:active{transform:translateY(2px);box-shadow:0 3px 0 #259a6d}
 .btn.secondary{background:#274564;color:white;box-shadow:0 5px 0 #142a42}.btn.ghost{background:#132943;color:#e6f1ff;border:1px solid #365875;box-shadow:none}.btn.warn{background:linear-gradient(#ffce79,#eaa642);color:#241302;box-shadow:0 5px 0 #9d6a22}.btn.red{background:linear-gradient(#ff8b98,#f15f72);color:white;box-shadow:0 5px 0 #a83d4c}.btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
-.nav{position:fixed;z-index:30;left:50%;bottom:12px;transform:translateX(-50%);width:min(940px,calc(100% - 24px));display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:8px;background:#09172aec;border:1px solid #ffffff18;border-radius:22px;backdrop-filter:blur(14px);box-shadow:0 16px 45px #0009}
+.nav{position:fixed;z-index:30;left:50%;bottom:calc(12px + env(safe-area-inset-bottom));transform:translateX(-50%);width:min(940px,calc(100% - 24px));display:grid;grid-template-columns:repeat(5,1fr);gap:6px;padding:8px;background:#09172aec;border:1px solid #ffffff18;border-radius:22px;backdrop-filter:blur(14px);box-shadow:0 16px 45px #0009}
 .nav button{border:0;background:transparent;color:#8ea5bf;border-radius:14px;padding:8px 4px;font-size:12px;font-weight:850}.nav button.active{background:#173350;color:white}.nav b{display:block;font-size:19px;margin-bottom:2px}
 .lesson-list{display:grid;gap:10px}.lesson-card{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center}.lesson-num{width:44px;height:44px;border-radius:15px;background:#173653;display:grid;place-items:center;font-weight:950;color:var(--green)}.lesson-card.done .lesson-num{background:#174d3e}.lesson-card .meta{font-size:12px;color:var(--muted)}
 .screen-head{display:flex;align-items:center;gap:10px;margin:4px 0 14px}.back{width:42px;height:42px;border-radius:14px;border:1px solid #35536f;background:#10243d;color:white;font-size:20px}
