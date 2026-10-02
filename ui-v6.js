@@ -227,17 +227,52 @@
     "hub");
   }
 
+  const ROUTES_V62=new Set([
+    "home","course","chat","story","hub","daily","dailypractice","dictionary","review",
+    "tests","test","exam","examrun","exampart","progress","dictation","grammarlab",
+    "pronunciation","listeninglab","cloud","settings","plan","placement","lesson","topic",
+    "storyepisode","storyjournal","storyside"
+  ]);
+  function routeTopV62(){
+    try{window.scrollTo({top:0,left:0,behavior:"auto"})}catch{try{window.scrollTo(0,0)}catch{}}
+  }
+  function routeErrorV62(view,error){
+    console.error("Norsk Eventyr route failed:",view,error);
+    currentRoute="hub";
+    shell(
+      '<section class="card route-error-v62">'+
+        '<div class="route-error-mark-v62">!</div>'+
+        '<div class="eyebrow">Экран не открылся</div>'+
+        '<h1>Попробуй ещё раз</h1>'+
+        '<p class="muted">Раздел «'+esc(view||"неизвестный")+'» не загрузился. Прогресс не потерян.</p>'+
+        '<div class="row"><button class="btn" onclick="navigate(\'hub\')">Все инструменты</button><button class="btn ghost" onclick="navigate(\'home\')">Сегодня</button></div>'+
+      '</section>',
+    "hub");
+    routeTopV62();
+  }
   navigate=window.navigate=function(view,data){
-    currentRoute=view;stopTimer();
-    if(view==="home")return renderHome();
-    if(view==="course")return renderCourse(data||state.level);
-    if(view==="chat")return renderChatV6();
-    if(view==="hub")return renderHub();
-    return baseNavigate(view,data);
+    const target=view==="more"?"hub":view;
+    if(!ROUTES_V62.has(target))return routeErrorV62(target,new Error("UNKNOWN_ROUTE"));
+    currentRoute=target;stopTimer();
+    try{
+      let result;
+      if(target==="home")result=renderHome();
+      else if(target==="course")result=renderCourse(data||state.level);
+      else if(target==="chat")result=renderChatV6();
+      else if(target==="hub")result=renderHub();
+      else result=baseNavigate(target,data);
+      routeTopV62();
+      if(result&&typeof result.then==="function"){
+        return result.then(v=>{routeTopV62();return v}).catch(e=>routeErrorV62(target,e));
+      }
+      return result;
+    }catch(e){
+      return routeErrorV62(target,e);
+    }
   };
 
   window.renderChat=renderChatV6;
-  Object.assign(window,{v6CourseTab,v6ToggleChatSetup,v6ChatPref,v6ToggleTranslation,v6SendChat,v6StartChat,v6ClearChat,renderHub,continueTodayV61,guidedStepV61});
+  Object.assign(window,{v6CourseTab,v6ToggleChatSetup,v6ChatPref,v6ToggleTranslation,v6SendChat,v6StartChat,v6ClearChat,renderHub,continueTodayV61,guidedStepV61,routeErrorV62});
 
   setTimeout(()=>{const open=new URLSearchParams(location.search).get("open");if(!open||open==="home")renderHome()},140);
 })();
