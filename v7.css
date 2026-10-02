@@ -10,7 +10,7 @@
   --v7-text:#edf6fb;
   --v7-muted:#91a8ba;
   --v7-gold:#f4b951;
-  --v7-fjord:url("https://images.unsplash.com/photo-1724271361813-1a0187001153?auto=format&fit=crop&fm=jpg&q=78&w=1600");
+  --v7-fjord:url("https://images.unsplash.com/photo-1696952712366-0bbadb31fc1d?auto=format&fit=crop&fm=jpg&q=78&w=1600");
   --v7-nora:url("https://images.unsplash.com/photo-1773393766292-7d5c84674d2b?auto=format&fit=crop&fm=jpg&q=78&w=900");
 }
 html,body{background:#030a12!important}
@@ -192,4 +192,58 @@ button{touch-action:manipulation}
   .dock-v7{width:calc(100% - 16px);bottom:6px}.dock-v7 button span{font-size:9px}
   .hero-copy-v7{width:67%}.hero-copy-v7 h1{font-size:42px}.nora-cutout-v7{right:-8%;width:66%}
   .word-v7 b{font-size:11px}.word-v7 small{display:none}
+}
+
+
+/* 7.0.1 — final usability polish */
+html{scroll-behavior:smooth}
+body{overscroll-behavior-y:none}
+.hero-v7,.course-hero-v7,.chat-scene-v7,.fjord-map-v7,.hub-hero-v7{
+  background-color:#0a2030;
+}
+.hero-v7,.course-hero-v7,.chat-scene-v7,.fjord-map-v7,.hub-hero-v7,
+.route-card-v7,.words-card-v7,.course-map-v7,.scene-day-v7,.exam-v7{
+  animation:v7-rise .36s ease both;
+}
+.route-step-v7,.word-v7,.map-node-v7,.fjord-pin-v7,.near-lesson-v7,.tool-v7,.place-cards-v7 button,.cta-v7{
+  transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease;
+}
+.route-step-v7:active,.word-v7:active,.map-node-v7:active,.fjord-pin-v7:active,.near-lesson-v7:active,.tool-v7:active,.place-cards-v7 button:active,.cta-v7:active{
+  transform:scale(.975);
+}
+button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-visible{
+  outline:2px solid #56e7eb;outline-offset:2px;
+}
+.chat-messages-v7,.word-strip-v7{-webkit-overflow-scrolling:touch}
+.chat-messages-v7{scrollbar-width:thin;scrollbar-color:#225068 transparent}
+.word-strip-v7{scrollbar-width:none}.word-strip-v7::-webkit-scrollbar{display:none}
+.composer-v7 textarea{line-height:1.35}
+@keyframes v7-rise{from{opacity:.6;transform:translateY(7px)}to{opacity:1;transform:none}}
+
+@media(max-width:620px){
+  .word-strip-v7{
+    display:grid;
+    grid-auto-flow:column;
+    grid-auto-columns:minmax(92px,1fr);
+    grid-template-columns:none;
+    overflow-x:auto;
+    scroll-snap-type:x proximity;
+    padding-bottom:2px;
+  }
+  .word-v7{scroll-snap-align:start}
+  .route-card-v7{overflow:hidden}
+  .route-steps-v7{overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+  .route-steps-v7::-webkit-scrollbar{display:none}
+  .route-step-v7{min-width:62px}
+}
+@media(max-width:430px){
+  .hero-copy-v7 h1{font-size:clamp(40px,12vw,48px)}
+  .course-copy-v7 h1,.fjord-title-v7 h1{font-size:clamp(40px,11vw,48px)}
+  .hub-hero-v7 h1{font-size:clamp(36px,10vw,44px)}
+  .section-head-v7 h2{font-size:18px}
+  .topbar-v7{padding-left:10px;padding-right:10px}
+  .status-v7 button{height:35px;padding:0 10px}
+}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}
 }

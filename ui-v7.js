@@ -3,7 +3,7 @@
   const baseNavigateV7=window.navigate;
   const baseStartChatV7=window.startChat;
   const baseSendChatV7=window.sendChat;
-  let currentRouteV7="home",courseModeV7="route";
+  let currentRouteV7="home",courseModeV7="route",chatBusyV7=false;
 
   const LEVELS_V7=Array.isArray(window.LEVELS)?window.LEVELS:["A1","A2","B1","B2"];
   const PLACE_NAMES=["Вокзал","Кафе","Магазин","Автобус","Работа","Kommune"];
@@ -177,9 +177,23 @@
   function v7ChatSettings(){document.getElementById("chatSettingsV7")?.classList.toggle("open")}
   function v7ChatPref(k,v){state.chatPrefs=state.chatPrefs||{};state.chatPrefs[k]=v;if(k==="level")state.level=v;saveState();renderChatV7()}
   function v7UseTopic(word){const e=document.getElementById("chatInput");if(e){e.value=word+" ";e.focus()}}
-  async function v7SendChat(){if(!baseSendChatV7)return;await baseSendChatV7();renderChatV7()}
-  async function v7StartChat(){if(!baseStartChatV7)return;await baseStartChatV7();renderChatV7()}
-  function v7ClearChat(){if((state.chatHistory||[]).length&&!confirm("Очистить этот разговор?"))return;state.chatHistory=[];saveState();renderChatV7()}
+  function v7ChatKey(e){
+    if(e?.key==="Enter"&&!e.shiftKey){
+      e.preventDefault();
+      if(String(document.getElementById("chatInput")?.value||"").trim())v7SendChat();
+    }
+  }
+  async function v7SendChat(){
+    if(chatBusyV7||!baseSendChatV7||!document.getElementById("chatInput")?.value.trim())return;
+    chatBusyV7=true;
+    try{const request=baseSendChatV7();renderChatV7();await request}finally{chatBusyV7=false;renderChatV7()}
+  }
+  async function v7StartChat(){
+    if(chatBusyV7||!baseStartChatV7)return;
+    chatBusyV7=true;
+    try{const request=baseStartChatV7();renderChatV7();await request}finally{chatBusyV7=false;renderChatV7()}
+  }
+  function v7ClearChat(){if(chatBusyV7)return;if((state.chatHistory||[]).length&&!confirm("Очистить этот разговор?"))return;state.chatHistory=[];saveState();renderChatV7()}
 
   function renderChatV7(){
     currentRouteV7="chat";
@@ -190,15 +204,28 @@
         '<section id="chatSettingsV7" class="chat-settings-v7"><select onchange="v7ChatPref(\'level\',this.value)">'+LEVELS_V7.map(l=>'<option '+(p.level===l?"selected":"")+'>'+l+'</option>').join("")+'</select><select onchange="v7ChatPref(\'mode\',this.value)"><option value="free" '+(p.mode==="free"?"selected":"")+'>Свободно</option><option value="corrections" '+(p.mode==="corrections"?"selected":"")+'>Исправлять</option><option value="exam" '+(p.mode==="exam"?"selected":"")+'>Устная практика</option><option value="roleplay" '+(p.mode==="roleplay"?"selected":"")+'>Ролевая сцена</option></select><button onclick="v7ClearChat()">Очистить</button></section>'+
         '<section class="chat-body-v7"><div id="chatMessages" class="chat-messages-v7">'+v7ChatMessages()+'</div>'+
           '<div class="topic-strip-v7">'+CHAT_TOPICS.map(x=>'<button onclick="v7UseTopic(\''+x[1]+'\')"><span>'+x[0]+'</span><b>'+x[1]+'</b><small>'+x[2]+'</small></button>').join("")+'</div>'+
-          '<div class="composer-v7"><button id="chatMicBtn" class="mic-v7" onclick="toggleMic(\'chatInput\')" aria-label="Говорить">🎤</button><textarea id="chatInput" rows="1" placeholder="Ответь Норе по-норвежски…"></textarea><button class="send-v7" onclick="v7SendChat()" aria-label="Отправить">➤</button></div>'+
+          '<div class="composer-v7"><button id="chatMicBtn" class="mic-v7" onclick="toggleMic(\'chatInput\')" aria-label="Говорить">🎤</button><textarea id="chatInput" rows="1" placeholder="Ответь Норе по-норвежски…" onkeydown="v7ChatKey(event)"></textarea><button class="send-v7" onclick="v7SendChat()" aria-label="Отправить">➤</button></div>'+
         '</section>'+
       '</section>',
     "chat");
     setTimeout(()=>{const b=document.getElementById("chatMessages");if(b)b.scrollTop=b.scrollHeight},0);
+    if(chatBusyV7){
+      document.querySelectorAll(".send-v7,.mic-v7,.chat-settings-v7 button,.chat-settings-v7 select").forEach(e=>e.disabled=true);
+      document.getElementById("chatInput")?.setAttribute("disabled","");
+      const b=document.getElementById("chatMessages");
+      if(b&&!b.querySelector(".chat-thinking"))b.insertAdjacentHTML("beforeend",'<div class="chat-thinking" role="status">Нора готовит ответ…</div>');
+    }
   }
 
-  function renderStoryV7(){
+  function renderStoryV7(seasonId=""){
     currentRouteV7="story";
+    try{
+      if(seasonId){
+        const seasons=Array.isArray(window.STORY_SEASONS)?window.STORY_SEASONS:STORY_SEASONS;
+        const picked=seasons.find(x=>x.id===seasonId);
+        if(picked?.level&&picked.level!==state.level){state.level=picked.level;saveState()}
+      }
+    }catch{}
     const {season,list,current}=storyForLevelV7(),nodes=list.slice(0,6),pos=[[20,26],[54,35],[29,49],[71,57],[38,70],[68,80]];
     const labels=["Кафе","Дом Nora","Торговая улица","Автобус","Работа","Порт"];
     const icons=["☕","⌂","▣","🚌","💼","⚓"];
@@ -207,10 +234,10 @@
         '<section class="fjord-map-v7"><div class="fjord-shade-v7"></div><div class="fjord-title-v7"><small>'+h(season?.title||state.level)+'</small><h1>Fjordvik</h1><p>Живой норвежский город. Выбирай место и говори в реальной ситуации.</p></div>'+
         nodes.map((e,i)=>'<button class="fjord-pin-v7 '+(state.story?.completed?.[e.id]?"done":"")+'" style="left:'+pos[i][0]+'%;top:'+pos[i][1]+'%" onclick="navigate(\'storyepisode\',\''+js(e.id)+'\')"><span>'+icons[i]+'</span><b>'+labels[i]+'</b></button>').join("")+
         '</section>'+
-        '<section class="scene-day-v7"><div><small>🎬 Сцена дня · ~14 минут</small><h2>'+h(current?.title||"Встреча в Fjordvik")+'</h2><p>'+h(current?.hook||"Небольшая история, новые слова и живой разговор.")+'</p><button class="cta-v7 small" onclick="'+(current?"navigate(\'storyepisode\',\''+js(current.id)+'\')":"navigate(\'storyside\')")+'">Войти в сцену →</button></div><span class="nora-scene-v7"></span></section>'+
+        '<section class="scene-day-v7"><div><small>🎬 Сцена дня · ~14 минут</small><h2>'+h(current?.title||"Встреча в Fjordvik")+'</h2><p>'+h(current?.hook||"Небольшая история, новые слова и живой разговор.")+'</p><button class="cta-v7 small" onclick="'+(current?("navigate(\'storyepisode\',\'"+js(current.id)+"\')"):"navigate(\'storyside\')")+'">Войти в сцену →</button></div><span class="nora-scene-v7"></span></section>'+
         '<section class="places-v7"><div class="section-head-v7"><div><small>⌖ Исследуй Fjordvik</small><h2>Открыто сегодня</h2></div><button onclick="navigate(\'storyjournal\')">Дневник →</button></div><div class="place-cards-v7">'+[
           ["☕","Кафе","Разговоры · новые слова"],["⚓","Порт","Истории · путешествия"],["▣","Торговая улица","Покупки · повседневный язык"]
-        ].map((x,i)=>'<button onclick="'+(nodes[i]?"navigate(\'storyepisode\',\''+js(nodes[i].id)+'\')":"navigate(\'storyside\')")+'"><span>'+x[0]+'</span><b>'+x[1]+'</b><small>'+x[2]+'</small><em>›</em></button>').join("")+'</div></section>'+
+        ].map((x,i)=>'<button onclick="'+(nodes[i]?("navigate(\'storyepisode\',\'"+js(nodes[i].id)+"\')"):"navigate(\'storyside\')")+'"><span>'+x[0]+'</span><b>'+x[1]+'</b><small>'+x[2]+'</small><em>›</em></button>').join("")+'</div></section>'+
         '<section class="nora-note-v7"><span class="nora-avatar-v7"></span><div><small>Nora</small><p>«Выбери место, и я помогу тебе говорить по-норвежски в реальной ситуации.»</p></div><button onclick="navigate(\'storyside\')">Миссия →</button></section>'+
       '</section>',
     "story");
@@ -255,7 +282,7 @@
       if(target==="home")r=renderHomeV7();
       else if(target==="course")r=renderCourseV7(data||state.level);
       else if(target==="chat")r=renderChatV7();
-      else if(target==="story")r=renderStoryV7();
+      else if(target==="story")r=renderStoryV7(data);
       else if(target==="hub")r=renderHubV7();
       else r=baseNavigateV7(target,data);
       routeTopV7();
@@ -272,7 +299,7 @@
   window.renderChat=renderChatV7;
   window.renderHub=renderHubV7;
   window.renderStoryWorld=renderStoryV7;
-  Object.assign(window,{v7ContinueToday,v7Step,v7Toggle,v7ChatSettings,v7ChatPref,v7UseTopic,v7SendChat,v7StartChat,v7ClearChat,renderStoryV7});
+  Object.assign(window,{v7ContinueToday,v7Step,v7Toggle,v7ChatSettings,v7ChatPref,v7UseTopic,v7ChatKey,v7SendChat,v7StartChat,v7ClearChat,renderStoryV7});
 
   setTimeout(()=>{
     const open=new URLSearchParams(location.search).get("open");
