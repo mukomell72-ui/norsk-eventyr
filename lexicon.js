@@ -7,6 +7,7 @@
   const baseNavigate=window.navigate;
   const baseAiEvaluate=window.aiEvaluate;
   const baseSendChat=window.sendChat;
+  const baseAnswerReview=window.answerReview;
   let dictQuery="",dictZone="all",dictPos="all";
 
   function dateKey(){return window.neLocalDate?neLocalDate():new Date().toISOString().slice(0,10)}
@@ -18,9 +19,17 @@
   function lexKey(s){
     return String(s||"").toLowerCase().normalize("NFKC").trim().replace(/^å\s+/,"").replace(/[.,!?;:"'()[\]{}]/g,"").replace(/\s+/g," ");
   }
-  function zoneOf(x){
-    const d=dateDiff(x.firstDate);
-    return d===0?"today":d<=2?"active":"longterm";
+  function studyAge(x){const n=Number(x.firstDayNumber);return Number.isFinite(n)&&n>0?Math.max(0,(state.dailyDayCount||n)-n):dateDiff(x.firstDate)}
+  function zoneOf(x){const d=studyAge(x);return d===0?"today":d<=2?"active":"longterm"}
+  function refreshLongTermSchedule(){
+    const now=Date.now();
+    for(const [k,x] of Object.entries(state.dailyDictionary||{})){
+      if(zoneOf(x)!=="longterm"||x.longTermSince)continue;
+      x.longTermSince=new Date().toISOString();
+      const delay=(x.wrong||0)>0?86400000:7*86400000;
+      x.nextDue=now+delay;
+      const s=state.srs?.[k];if(s){s.stage=Math.max(Number(s.stage)||0,2);s.due=x.nextDue}
+    }
   }
   function dictionaryList(){return Object.values(state.dailyDictionary||{})}
   function findKnown(lemma){
@@ -37,9 +46,9 @@
   function smartReviewEntries(limit=15){
     const now=Date.now();
     return dictionaryList().map(x=>{
-      const daysAgo=dateDiff(x.firstDate),zone=zoneOf(x),due=(x.nextDue||0)<=now,weak=100-(x.strength||20);
+      const daysAgo=dateDiff(x.firstDate),age=studyAge(x),zone=zoneOf(x),due=(x.nextDue||0)<=now,weak=100-(x.strength||20);
       const active=zone==="today"?1400:zone==="active"?(1200-daysAgo*80):0;
-      return {...x,daysAgo,zone,_p:active+(due?320:0)+weak+(x.wrong||0)*18};
+      return {...x,daysAgo,studyAge:age,zone,_p:active+(due?320:0)+weak+(x.wrong||0)*18};
     }).sort((a,b)=>b._p-a._p).slice(0,limit);
   }
   function smartReviewWords(limit=15){return smartReviewEntries(limit).map(x=>x.lemma||x.word)}
@@ -108,6 +117,16 @@
     return r;
   };
 
+  if(baseAnswerReview){
+    answerReview=window.answerReview=function(...args){
+      const key=args[0],r=baseAnswerReview(...args);
+      const s=state.srs?.[key],d=state.dailyDictionary?.[key];
+      if(s&&d)d.nextDue=s.due;
+      saveState();
+      return r;
+    };
+  }
+
   if(baseSendChat){
     sendChat=window.sendChat=async function(){
       const msg=document.getElementById("chatInput")?.value.trim()||"";
@@ -128,7 +147,7 @@
       const k=lexKey(w.lemma||w.word);if(!k)return;
       const existingKey=Object.keys(state.dailyDictionary||{}).find(x=>lexKey(state.dailyDictionary[x]?.lemma||state.dailyDictionary[x]?.word)===k);
       const storeKey=existingKey||k,old=state.dailyDictionary[storeKey]||{};
-      state.dailyDictionary[storeKey]={...old,...w,key:storeKey,firstDate:old.firstDate||date,lastSeen:date,exposures:(old.exposures||0)+1,correct:old.correct||0,wrong:old.wrong||0,strength:old.strength??20,nextDue:old.nextDue||now+86400000};
+      state.dailyDictionary[storeKey]={...old,...w,key:storeKey,firstDate:old.firstDate||date,firstDayNumber:old.firstDayNumber||pack.dayNumber||state.dailyDayCount||1,lastSeen:date,exposures:(old.exposures||0)+1,correct:old.correct||0,wrong:old.wrong||0,strength:old.strength??20,nextDue:old.nextDue||now+86400000};
       if(!state.srs[storeKey])state.srs[storeKey]={word:w.lemma||w.word,translation:w.translation_ru,level:pack.level,stage:0,due:now,seen:0,correct:0};
       const ck=w.candidate_key||k;
       if(state.lexicalCandidates[ck]){state.lexicalCandidates[ck].status="selected";state.lexicalCandidates[ck].selectedDate=date}
@@ -149,7 +168,7 @@
     const dayNumber=(state.dailyDayCount||0)+1;
     const r=await neApiPost("/api/daily",{level:state.level||"A1",date,knownWords:dictionaryList().map(x=>x.lemma||x.word),reviewWords:review,candidateWords:candidates,weakSkills:neWeakSkills?neWeakSkills():[],dayNumber});
     if(!r.ok){shell('<section class="card"><h2>Не удалось создать пятёрку</h2><p class="muted">'+esc(r.error||"")+'</p><button class="btn" onclick="navigate(\'daily\')">Назад</button></section>',"home");return}
-    const pack=r.data;pack.date=date;pack.level=state.level||"A1";
+    const pack=r.data;pack.date=date;pack.level=state.level||"A1";pack.dayNumber=dayNumber;
     state.dailyPacks[date]=pack;state.dailyProgress[date]={completed:false,scores:[]};state.dailyDayCount=dayNumber;
     const dates=Object.keys(state.dailyPacks).sort();while(dates.length>120){const old=dates.shift();delete state.dailyPacks[old];delete state.dailyProgress[old]}
     registerPack(pack);renderSmartDaily();
@@ -162,6 +181,7 @@
   }
 
   function renderSmartDaily(){
+    refreshLongTermSchedule();saveState();
     const date=dateKey(),pack=state.dailyPacks?.[date],pending=pendingCandidates(),dict=dictionaryList(),todayWords=dict.filter(x=>zoneOf(x)==="today"),active=dict.filter(x=>zoneOf(x)==="active"),longterm=dict.filter(x=>zoneOf(x)==="longterm");
     if(!pack){
       const recent=smartReviewEntries(15).filter(x=>x.daysAgo===1||x.daysAgo===2);
@@ -191,9 +211,10 @@
     const r=await captureLexicalGaps("Я не знаю, как сказать по-норвежски: "+v,"Ручное добавление полезной лексики",state.level||"A1","manual",true);
     if(r.length)renderSmartDaily();
   }
-  function dismissCandidate(key){if(state.lexicalCandidates[key]){state.lexicalCandidates[key].status="dismissed";saveState();renderSmartDictionary()}}
+  function dismissCandidate(key){if(state.lexicalCandidates[key]){state.lexicalCandidates[key].status="dismissed";saveState();if(document.getElementById("smartDictionaryList"))renderSmartDictionary();else renderSmartDaily()}}
 
   function renderSmartDictionary(){
+    refreshLongTermSchedule();saveState();
     const all=dictionaryList().sort((a,b)=>String(b.firstDate||"").localeCompare(String(a.firstDate||""))),pending=pendingCandidates(),counts={today:0,active:0,longterm:0};
     all.forEach(x=>counts[zoneOf(x)]++);
     shell('<div class="screen-head"><button class="back" onclick="navigate(\'daily\')">←</button><div><div class="eyebrow">Персональный словарь</div><h2 style="margin:0">'+all.length+' изученных единиц</h2></div></div>'+
