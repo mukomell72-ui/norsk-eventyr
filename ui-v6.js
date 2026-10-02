@@ -34,22 +34,22 @@
     if(["storyepisode","storyside","storyjournal"].includes(group))group="story";
     if(["review","tests","test","exam","examrun","exampart","progress","dictionary","daily","dailypractice","plan","dictation","grammarlab","pronunciation","listeninglab","settings","cloud"].includes(group))group="hub";
     const items=[
-      ["home","⌂","Главная"],
-      ["course","▤","Учиться"],
+      ["home","⌂","Сегодня"],
+      ["course","▤","Курс"],
       ["chat","◉","Разговор"],
-      ["story","◆","История"],
+      ["story","◆","Fjordvik"],
       ["hub","•••","Ещё"]
     ];
     return '<nav class="dock-v6">'+items.map(x=>'<button class="'+(group===x[0]?"active":"")+'" onclick="navigate(\''+x[0]+'\')"><b>'+x[1]+'</b><span>'+x[2]+'</span></button>').join("")+'</nav>';
   }
 
   shell=window.shell=function(content,active="home"){
-    const level=esc(state.level||"A1"),xp=Number(state.xp||0);
+    const level=esc(state.level||"A1");
     document.getElementById("app").innerHTML=
       '<div class="shell shell-v6">'+
         '<header class="topbar topbar-v6">'+
           '<button class="brand-v6" onclick="navigate(\'home\')" aria-label="Главная"><span>N</span><strong>Norsk</strong></button>'+
-          '<div class="top-status-v6"><span>'+level+'</span><span>'+xp+' XP</span><button onclick="navigate(\'hub\')" aria-label="Меню">•••</button></div>'+
+          '<div class="top-status-v6"><span>'+level+'</span><button onclick="navigate(\'hub\')" aria-label="Меню">•••</button></div>'+
         '</header>'+
         '<main class="main-v6">'+content+'</main>'+
         navV6(currentRoute||active)+
@@ -60,56 +60,55 @@
     return '<div class="head-v6"><div><small>'+esc(kicker)+'</small><h1>'+esc(title)+'</h1></div>'+right+'</div>';
   }
 
-  renderHome=window.renderHome=function(){currentRoute="home";
-    const next=nextLesson(),due=dueCount(),story=currentStory(),activity=dayActivity(),dailyDone=Boolean(state.dailyProgress?.[todayKey()]?.completed);
-    const weak=Object.entries(state.skills||{}).sort((a,b)=>Number(a[1])-Number(b[1])).slice(0,3);
-    const today=[
-      {icon:"5",title:"5 слов",sub:dailyDone?"готово":"на сегодня",done:dailyDone,route:"daily"},
-      {icon:"↻",title:"Повтор",sub:due?due+" ждут":"всё чисто",done:due===0,route:"review"},
-      {icon:"◉",title:"Разговор",sub:activity.conversation?"готово":"3–5 минут",done:Boolean(activity.conversation),route:"chat"},
-      {icon:"◆",title:"Fjordvik",sub:state.story?.sideQuests?.[todayKey()]?"готово":"миссия дня",done:Boolean(state.story?.sideQuests?.[todayKey()]),route:"storyside"}
+  function guidedJourneyV61(){
+    state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};
+    state.guidedJourney.lessonDates=state.guidedJourney.lessonDates||{};
+    state.guidedJourney.reviewDates=state.guidedJourney.reviewDates||{};
+    const day=todayKey(),due=dueCount(),activity=dayActivity(),story=currentStory(),lesson=nextLesson();
+    const dailyDone=Boolean(state.dailyProgress?.[day]?.completed);
+    const lessonDone=Boolean(state.guidedJourney.lessonDates[day]);
+    const storyDoneToday=Boolean(state.story?.sideQuests?.[day]);
+    const talkDone=Boolean(activity.conversation);
+    const reviewWasRequired=due>0||Boolean(state.guidedJourney.reviewDates[day]);
+    const reviewDone=reviewWasRequired?Boolean(state.guidedJourney.reviewDates[day])&&due===0:true;
+    const steps=[
+      {id:"words",title:"5 персональных слов",sub:"Из твоих реальных пробелов",mins:5,done:dailyDone,action:"navigate('daily')"},
+      ...(reviewWasRequired?[{id:"review",title:"Короткое повторение",sub:due?due+" слов ждут":"Повторение завершено",mins:3,done:reviewDone,action:"navigate('review')"}]:[]),
+      {id:"lesson",title:"Основной урок",sub:lesson?.title||"Курс "+state.level,mins:7,done:lessonDone,action:lesson?"navigate('lesson','"+escJs(lesson.id)+"')":"navigate('course')"},
+      {id:"story",title:"Сцена в Fjordvik",sub:story?.title||"Миссия дня",mins:4,done:storyDoneToday,action:"navigate('storyside')"},
+      {id:"talk",title:"3 минуты живой речи",sub:"Скажи своими словами",mins:3,done:talkDone,action:"navigate('chat')"}
     ];
-    const prog=safePct(Object.keys(state.completed||{}).length,COURSE.length);
+    const next=steps.find(x=>!x.done)||{id:"done",title:"Сегодня всё готово",sub:"Можно продолжить сюжет без обязательств",mins:0,done:true,action:"navigate('story')"};
+    return {day,due,activity,story,lesson,steps,next,done:steps.filter(x=>x.done).length,total:steps.length,mins:steps.filter(x=>!x.done).reduce((a,x)=>a+x.mins,0)};
+  }
+  function continueTodayV61(){const j=guidedJourneyV61();Function(j.next.action)()}
+  function journeyStepV61(x,i){
+    return '<button class="journey-step-v61 '+(x.done?"done":"")+'" onclick="'+x.action+'"><span class="journey-dot-v61">'+(x.done?"✓":i+1)+'</span><span><b>'+esc(x.title)+'</b><small>'+esc(x.sub)+'</small></span><em>'+(x.done?"готово":x.mins+" мин")+'</em></button>';
+  }
+
+  renderHome=window.renderHome=function(){currentRoute="home";
+    const j=guidedJourneyV61(),story=j.story,pct=j.total?Math.round(j.done/j.total*100):100;
+    const npc=story?.npc||"Fjordvik",district=story?.district||"Сегодня";
+    const allDone=j.done===j.total;
     shell(
-      '<section class="home-v6">'+
-        '<div class="welcome-v6">'+
-          '<div><small>Сегодня · '+esc(state.level||"A1")+'</small><h1>Продолжай с того места, где остановился</h1></div>'+
-          '<div class="streak-v6"><b>'+Number(state.streak||1)+'</b><span>дней</span></div>'+
-        '</div>'+
-
-        '<button class="continue-v6" onclick="navigate(\'lesson\',\''+escJs(next.id)+'\')">'+
-          '<div class="continue-icon-v6">'+esc(next.icon||"▶")+'</div>'+
-          '<div><small>Следующий урок</small><strong>'+esc(next.title)+'</strong><span>'+esc(next.grammar||"")+'</span></div>'+
-          '<i>→</i>'+
-        '</button>'+
-
-        '<div class="today-strip-v6">'+today.map(x=>
-          '<button class="today-card-v6 '+(x.done?"done":"")+'" onclick="navigate(\''+x.route+'\')">'+
-            '<b>'+x.icon+'</b><span>'+x.title+'</span><small>'+x.sub+'</small>'+
-          '</button>'
-        ).join("")+'</div>'+
-
-        '<section class="home-grid-v6">'+
-          '<button class="feature-v6 story-feature-v6" onclick="navigate(\'story\')">'+
-            '<div><small>Сюжетное обучение</small><strong>'+(story?esc(story.title):"Fjordvik")+'</strong><span>'+storyDone()+'/24 эпизодов</span></div><i>◆</i>'+
-          '</button>'+
-          '<button class="feature-v6 talk-feature-v6" onclick="navigate(\'chat\')">'+
-            '<div><small>Практика речи</small><strong>Samtale</strong><span>Говори своими словами</span></div><i>◉</i>'+
+      '<section class="today-v61">'+
+        '<div class="today-top-v61"><div><small>'+esc(district)+' · '+esc(state.level||"A1")+'</small><h1>Сегодня в Fjordvik</h1></div><div class="today-count-v61"><b>'+j.done+'/'+j.total+'</b><span>готово</span></div></div>'+
+        '<section class="journey-hero-v61 '+(allDone?"complete":"")+'">'+
+          '<div class="journey-scene-v61"><span class="npc-v61">'+esc(String(npc).slice(0,1))+'</span><div><small>'+esc(npc)+'</small><h2>'+esc(story?.title||"Твой норвежский день")+'</h2><p>'+esc(story?.hook||"Небольшая практика сегодня приблизит следующий уровень.")+'</p></div></div>'+
+          '<div class="journey-progress-v61"><i><em style="width:'+pct+'%"></em></i><span>'+pct+'%</span></div>'+
+          '<button class="journey-main-v61" onclick="continueTodayV61()">'+
+            '<span><small>'+(allDone?"Маршрут завершён":"Следующее действие · "+j.next.mins+" мин")+'</small><b>'+esc(j.next.title)+'</b><em>'+esc(j.next.sub)+'</em></span><strong>→</strong>'+
           '</button>'+
         '</section>'+
-
-        '<section class="compact-progress-v6">'+
-          '<div class="progress-title-v6"><span>Курс</span><b>'+prog+'%</b></div>'+
-          '<div class="progress mini"><i style="width:'+prog+'%"></i></div>'+
-          '<div class="skill-row-v6">'+weak.map(([k,v])=>'<span><small>'+esc(SKILL_RU[k]||k)+'</small><b>'+Number(v||0)+'%</b></span>').join("")+'</div>'+
+        '<section class="route-v61"><div class="route-head-v61"><div><small>Твой маршрут</small><h2>'+(j.mins?("Ещё примерно "+j.mins+" мин"):"На сегодня достаточно")+'</h2></div><span>'+j.done+'/'+j.total+'</span></div>'+
+          '<div class="journey-list-v61">'+j.steps.map(journeyStepV61).join("")+'</div>'+
         '</section>'+
-
-        '<div class="quick-v6">'+
-          '<button onclick="navigate(\'dictation\')"><b>✎</b><span>Диктант</span></button>'+
-          '<button onclick="navigate(\'pronunciation\')"><b>⌁</b><span>Звуки</span></button>'+
-          '<button onclick="navigate(\'listeninglab\')"><b>◌</b><span>Слух</span></button>'+
-          '<button onclick="navigate(\'tests\')"><b>✓</b><span>Тест</span></button>'+
-        '</div>'+
+        '<details class="free-mode-v61"><summary>Хочу выбрать сам</summary><div class="free-grid-v61">'+
+          '<button onclick="navigate(\'course\')"><span>▤</span><b>Курс</b></button>'+
+          '<button onclick="navigate(\'chat\')"><span>◉</span><b>Samtale</b></button>'+
+          '<button onclick="navigate(\'story\')"><span>◆</span><b>Fjordvik</b></button>'+
+          '<button onclick="navigate(\'hub\')"><span>•••</span><b>Все инструменты</b></button>'+
+        '</div></details>'+
       '</section>',
     "home");
   };
@@ -176,7 +175,7 @@
         '<div id="chatMessages" class="chat-messages-v6">'+chatMessagesV6()+'</div>'+
         '<div class="composer-v6"><textarea id="chatInput" rows="2" placeholder="Скажи или напиши по-норвежски…"></textarea><div><button id="chatMicBtn" onclick="toggleMic(\'chatInput\')">🎤</button><button onclick="v6SendChat()">↑</button></div></div>'+
       '</section>'+
-      '<div class="chat-footer-v6"><button onclick="v6StartChat()">＋ Новый диалог</button><button onclick="v6ClearChat()">Очистить</button></div>',
+      '<div class="chat-footer-v6"><button class="today-return-v61" onclick="navigate(\'home\')">← Сегодня</button><button onclick="v6StartChat()">＋ Новый диалог</button><button onclick="v6ClearChat()">Очистить</button></div>',
     "chat");
     setTimeout(()=>{const box=document.getElementById("chatMessages");if(box)box.scrollTop=box.scrollHeight},0);
   }
@@ -208,7 +207,7 @@
   function renderHub(){currentRoute="hub";
     const due=dueCount(),dict=Object.keys(state.dailyDictionary||{}).length;
     shell(
-      compactHeader("Все инструменты","Ещё")+
+      compactHeader("Все инструменты","Ещё",'<span class="head-score-v6">'+Number(state.xp||0)+' XP · '+Number(state.streak||0)+' дн.</span>')+
       '<section class="hub-v6">'+
         hubItem("↻","Повторение","Слова по интервалам","review",due?String(due):"✓")+
         hubItem("5","Словарь","Персональные слова","dictionary",dict?String(dict):"")+
@@ -236,7 +235,7 @@
   };
 
   window.renderChat=renderChatV6;
-  Object.assign(window,{v6CourseTab,v6ToggleChatSetup,v6ChatPref,v6ToggleTranslation,v6SendChat,v6StartChat,v6ClearChat,renderHub});
+  Object.assign(window,{v6CourseTab,v6ToggleChatSetup,v6ChatPref,v6ToggleTranslation,v6SendChat,v6StartChat,v6ClearChat,renderHub,continueTodayV61});
 
   setTimeout(()=>{const open=new URLSearchParams(location.search).get("open");if(!open||open==="home")renderHome()},140);
 })();
