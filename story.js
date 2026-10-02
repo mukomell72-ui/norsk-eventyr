@@ -173,4 +173,5 @@
   function bestStat(){const x=Object.entries(state.story.stats).sort((a,b)=>b[1]-a[1])[0];return x&&x[1]>0?STAT_ICON[x[0]]+" "+STAT_LABEL[x[0]]:"—"}
 
   Object.assign(window,{renderStoryWorld,startStoryEpisode,storyNext,answerStoryChoice,answerStoryListen,checkStoryFree,chooseStoryDecision,exitStoryEpisode,renderStorySideQuest,checkStorySide,renderStoryJournal});
+  setTimeout(()=>{const open=new URLSearchParams(location.search).get("open");if(!open&&typeof renderHome==="function")renderHome()},80);
 })();
