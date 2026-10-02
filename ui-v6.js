@@ -73,18 +73,19 @@
     const reviewWasRequired=due>0||Boolean(state.guidedJourney.reviewDates[day]);
     const reviewDone=reviewWasRequired?Boolean(state.guidedJourney.reviewDates[day])&&due===0:true;
     const steps=[
-      {id:"words",title:"5 персональных слов",sub:"Из твоих реальных пробелов",mins:5,done:dailyDone,action:"navigate('daily')"},
-      ...(reviewWasRequired?[{id:"review",title:"Короткое повторение",sub:due?due+" слов ждут":"Повторение завершено",mins:3,done:reviewDone,action:"navigate('review')"}]:[]),
-      {id:"lesson",title:"Основной урок",sub:lesson?.title||"Курс "+state.level,mins:7,done:lessonDone,action:lesson?"navigate('lesson','"+escJs(lesson.id)+"')":"navigate('course')"},
-      {id:"story",title:"Сцена в Fjordvik",sub:story?.title||"Миссия дня",mins:4,done:storyDoneToday,action:"navigate('storyside')"},
-      {id:"talk",title:"3 минуты живой речи",sub:"Скажи своими словами",mins:3,done:talkDone,action:"navigate('chat')"}
+      {id:"words",title:"5 персональных слов",sub:"Из твоих реальных пробелов",mins:5,done:dailyDone,route:"daily"},
+      ...(reviewWasRequired?[{id:"review",title:"Короткое повторение",sub:due?due+" слов ждут":"Повторение завершено",mins:3,done:reviewDone,route:"review"}]:[]),
+      {id:"lesson",title:"Основной урок",sub:lesson?.title||"Курс "+state.level,mins:7,done:lessonDone,route:lesson?"lesson":"course",data:lesson?.id||state.level},
+      {id:"story",title:"Сцена в Fjordvik",sub:story?.title||"Миссия дня",mins:4,done:storyDoneToday,route:"storyside"},
+      {id:"talk",title:"3 минуты живой речи",sub:"Скажи своими словами",mins:3,done:talkDone,route:"chat"}
     ];
-    const next=steps.find(x=>!x.done)||{id:"done",title:"Сегодня всё готово",sub:"Можно продолжить сюжет без обязательств",mins:0,done:true,action:"navigate('story')"};
+    const next=steps.find(x=>!x.done)||{id:"done",title:"Сегодня всё готово",sub:"Можно продолжить сюжет без обязательств",mins:0,done:true,route:"story"};
     return {day,due,activity,story,lesson,steps,next,done:steps.filter(x=>x.done).length,total:steps.length,mins:steps.filter(x=>!x.done).reduce((a,x)=>a+x.mins,0)};
   }
-  function continueTodayV61(){const j=guidedJourneyV61();Function(j.next.action)()}
+  function continueTodayV61(){const x=guidedJourneyV61().next;navigate(x.route,x.data)}
+  function guidedStepV61(i){const x=guidedJourneyV61().steps[i];if(x)navigate(x.route,x.data)}
   function journeyStepV61(x,i){
-    return '<button class="journey-step-v61 '+(x.done?"done":"")+'" onclick="'+x.action+'"><span class="journey-dot-v61">'+(x.done?"✓":i+1)+'</span><span><b>'+esc(x.title)+'</b><small>'+esc(x.sub)+'</small></span><em>'+(x.done?"готово":x.mins+" мин")+'</em></button>';
+    return '<button class="journey-step-v61 '+(x.done?"done":"")+'" onclick="guidedStepV61('+i+')"><span class="journey-dot-v61">'+(x.done?"✓":i+1)+'</span><span><b>'+esc(x.title)+'</b><small>'+esc(x.sub)+'</small></span><em>'+(x.done?"готово":x.mins+" мин")+'</em></button>';
   }
 
   renderHome=window.renderHome=function(){currentRoute="home";
@@ -236,7 +237,7 @@
   };
 
   window.renderChat=renderChatV6;
-  Object.assign(window,{v6CourseTab,v6ToggleChatSetup,v6ChatPref,v6ToggleTranslation,v6SendChat,v6StartChat,v6ClearChat,renderHub,continueTodayV61});
+  Object.assign(window,{v6CourseTab,v6ToggleChatSetup,v6ChatPref,v6ToggleTranslation,v6SendChat,v6StartChat,v6ClearChat,renderHub,continueTodayV61,guidedStepV61});
 
   setTimeout(()=>{const open=new URLSearchParams(location.search).get("open");if(!open||open==="home")renderHome()},140);
 })();
