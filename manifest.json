@@ -1,14 +1,14 @@
 {
-  "name": "Norsk Eventyr 6.2",
+  "name": "Norsk Eventyr 7.0",
   "short_name": "Norsk Eventyr",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
-  "background_color": "#07101f",
-  "theme_color": "#07101f",
+  "background_color": "#06131f",
+  "theme_color": "#06131f",
   "lang": "ru",
-  "description": "Bokmål A1–B2: один персональный маршрут на день, стабильная мобильная навигация, Fjordvik, разговор, слова и Norskprøven.",
+  "description": "Bokmål A1–B2 в живом мире Fjordvik: персональный маршрут, Nora, курс, разговор, реальные ситуации и Norskprøven.",
   "icons": [
     {
       "src": "/icon.svg",
