@@ -549,7 +549,7 @@
     if(!file)return;try{const d=JSON.parse(await file.text());if(!d.state)throw 0;state={...state,...d.state};saveState();alert("Прогресс восстановлен.");renderProgress()}catch{alert("Файл прогресса повреждён или не подходит.")}
   }
 
-  Object.assign(window,{startTopic,renderDaily,generateDailyPack,startDailyPractice,checkDailyTask,nextDailyTask,renderDictionary,filterDictionary,setDictionaryPos,renderChat,setChatPref,setChatTopic,toggleChatTranslation,clearChat,startChat,sendChat,renderReview,startReview,answerReview,renderPlacement,startPlacement,answerPlacement,checkGrammar,startExamPart,playExamAudio,answerExamObjectiveV3,submitExamProductive,nextExamProductive,exitExamV3,exportProgress,importProgressFile});
+  Object.assign(window,{startTopic,renderDaily,generateDailyPack,startDailyPractice,checkDailyTask,nextDailyTask,renderDictionary,filterDictionary,setDictionaryPos,renderChat,setChatPref,setChatTopic,toggleChatTranslation,clearChat,startChat,sendChat,renderReview,startReview,answerReview,renderPlacement,startPlacement,answerPlacement,checkGrammar,startExamPart,playExamAudio,answerExamObjectiveV3,submitExamProductive,nextExamProductive,exitExamV3,exportProgress,importProgressFile,neApiPost:apiPost,neWeakSkills:weakSkills,neReinforcementWords:reinforcementWordList,neUpdateSkill:updateSkill,neRememberError:rememberError,neDueWords:dueWords,neLocalDate:localDateKey});
   ensureSession().catch(()=>{});
   renderHome();
 })();
