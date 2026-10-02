@@ -1,4 +1,4 @@
-// Norsk Eventyr 4.0 — elite learning/product layer
+// Norsk Eventyr 4.1 — elite learning/product layer
 (() => {
   const today=()=>window.neLocalDate?neLocalDate():new Date().toISOString().slice(0,10);
   state.elite=state.elite||{};
@@ -9,7 +9,7 @@
   state.elite.counts=state.elite.counts||{dictation:0,grammar:0,pronunciation:0,conversation:0,listening:0};
   state.elite.drills=state.elite.drills||{};
   state.elite.grammarDrills=state.elite.grammarDrills||{};
-  state.elite.version=4;
+  state.elite.version=4.1;
   saveState();
 
   const baseSaveState=saveState;
@@ -66,7 +66,7 @@
 
   shell=window.shell=function(content,active="home"){
     const isMainHome=active==="home"&&content.includes('<section class="hero">');
-    document.getElementById("app").innerHTML='<div class="shell"><header class="topbar"><div class="brand"><span class="brand-mark">N</span>Norsk Eventyr <small class="v4">4.0</small></div><div class="row top-actions"><span class="pill">'+esc(state.level)+'</span><span class="pill">'+(state.xp||0)+' XP</span><button class="icon-btn" onclick="navigate(\'cloud\')" title="Облачная синхронизация">'+(cloudLink()?'☁✓':'☁')+'</button><button class="icon-btn" onclick="navigate(\'settings\')" title="Настройки">⚙</button></div></header>'+(isMainHome?elitePanel():"")+content+nav(active)+'</div>';
+    document.getElementById("app").innerHTML='<div class="shell"><header class="topbar"><div class="brand"><span class="brand-mark">N</span>Norsk Eventyr <small class="v4">4.1</small></div><div class="row top-actions"><span class="pill">'+esc(state.level)+'</span><span class="pill">'+(state.xp||0)+' XP</span><button class="icon-btn" onclick="navigate(\'cloud\')" title="Облачная синхронизация">'+(cloudLink()?'☁✓':'☁')+'</button><button class="icon-btn" onclick="navigate(\'settings\')" title="Настройки">⚙</button></div></header>'+(isMainHome?elitePanel():"")+content+nav(active)+'</div>';
   };
 
   navigate=window.navigate=function(view,data){
@@ -203,6 +203,8 @@
     m.skills={...(remote.skills||{})};for(const [k,v] of Object.entries(local.skills||{}))m.skills[k]=Math.max(m.skills[k]||0,v||0);
     m.srs={...(remote.srs||{}),...(local.srs||{})};m.dailyPacks={...(remote.dailyPacks||{}),...(local.dailyPacks||{})};m.dailyProgress={...(remote.dailyProgress||{}),...(local.dailyProgress||{})};
     m.dailyDictionary={...(remote.dailyDictionary||{})};for(const [k,v] of Object.entries(local.dailyDictionary||{})){const r=m.dailyDictionary[k];m.dailyDictionary[k]=!r?v:{...r,...v,firstDate:[r.firstDate,v.firstDate].filter(Boolean).sort()[0],exposures:Math.max(r.exposures||0,v.exposures||0),correct:Math.max(r.correct||0,v.correct||0),wrong:Math.max(r.wrong||0,v.wrong||0),strength:Math.max(r.strength||0,v.strength||0)}}
+    m.lexicalCandidates={...(remote.lexicalCandidates||{})};for(const [k,v] of Object.entries(local.lexicalCandidates||{})){const r=m.lexicalCandidates[k];m.lexicalCandidates[k]=!r?v:{...r,...v,occurrences:Math.max(r.occurrences||0,v.occurrences||0),confidence:Math.max(r.confidence||0,v.confidence||0),firstSeen:[r.firstSeen,v.firstSeen].filter(Boolean).sort()[0],lastSeen:[r.lastSeen,v.lastSeen].filter(Boolean).sort().at(-1)}}
+    m.lexicalCapture={...(remote.lexicalCapture||{}),...(local.lexicalCapture||{})};
     m.testHistory=mergeHist(remote.testHistory,local.testHistory);m.examHistory=mergeHist(remote.examHistory,local.examHistory);
     m.elite={...(remote.elite||{}),...(local.elite||{})};m.elite.activity={...(remote.elite?.activity||{}),...(local.elite?.activity||{})};m.elite.achievements={...(remote.elite?.achievements||{}),...(local.elite?.achievements||{})};
     m.elite.counts={...(remote.elite?.counts||{})};for(const [k,v] of Object.entries(local.elite?.counts||{}))m.elite.counts[k]=Math.max(m.elite.counts[k]||0,v||0);
