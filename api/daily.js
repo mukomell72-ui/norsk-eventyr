@@ -105,7 +105,8 @@ export default async function handler(req,res){
       const pos=["verb","modal","noun","adjective","adverb","function","phrase"].includes(item?.pos)?item.pos:"phrase";
       const forms=Array.isArray(item?.forms)?item.forms.slice(0,9).map(x=>({label:String(x?.label||"").slice(0,80),form:String(x?.form||"").slice(0,160)})).filter(x=>x.form):[];
       const examples=Array.isArray(item?.examples)?item.examples.slice(0,3).map(x=>({label:String(x?.label||"").slice(0,40),no:String(x?.no||"").slice(0,280),ru:String(x?.ru||"").slice(0,300)})).filter(x=>x.no):[];
-      const candidateKey=String(item?.candidate_key||"").slice(0,140);
+      let candidateKey=String(item?.candidate_key||"").slice(0,140);
+      if(!candidateKey){const match=candidates.find(c=>c.lemma===lemma||c.translation_ru.toLowerCase()===String(item?.translation_ru||"").toLowerCase());if(match)candidateKey=match.key}
       words.push({
         word:String(item?.word||lemma).slice(0,140),lemma:String(item?.lemma||item?.word||lemma).slice(0,140),
         candidate_key:candidateKey,source:candidateKey?"learner":"system",pos,
