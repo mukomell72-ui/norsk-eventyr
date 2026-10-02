@@ -128,13 +128,20 @@
     const v=speechSynthesis.getVoices().find(x=>/^nb|no/i.test(x.lang));if(v)u.voice=v;speechSynthesis.speak(u);
   }
   speakText=async function(text,rate=.9){
+    // Prefer a licensed real-human Nora recording when an exact clip exists.
+    try{
+      if(window.NEHumanVoice?.has?.(text)){
+        const played=await window.NEHumanVoice.play(text,rate);
+        if(played)return {source:"human",speaker:window.NEHumanVoice.speaker};
+      }
+    }catch{}
     const level=(lessonSession?.lesson?.level)||state.level||"A1";
     const r=await apiPost("/api/speech",{text,level});
-    if(!r.ok)return fallbackSpeech(text,rate);
+    if(!r.ok){fallbackSpeech(text,rate);return {source:"browser"}}
     try{
       const blob=await r.response.blob(),url=URL.createObjectURL(blob),a=new Audio(url);
-      a.onended=()=>URL.revokeObjectURL(url);await a.play();
-    }catch{fallbackSpeech(text,rate)}
+      a.onended=()=>URL.revokeObjectURL(url);await a.play();return {source:"ai"};
+    }catch{fallbackSpeech(text,rate);return {source:"browser"}}
   };
 
   function normSpeech(s){return String(s||"").toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}\s]/gu,"").replace(/\s+/g," ").trim()}

@@ -1,5 +1,5 @@
-const CACHE="norsk-eventyr-v6-2-2-chat-partner";
-const ASSETS=["/","/index.html","/styles.css","/data.js","/app.js","/v3.js","/lexicon.js","/elite.js","/story-data.js","/story.js","/ui-v6.js","/manifest.json","/icon.svg","/offline.html"];
+const CACHE="norsk-eventyr-v6-3-human-voice";
+const ASSETS=["/","/index.html","/styles.css","/data.js","/app.js","/voice-pack.js","/v3.js","/lexicon.js","/elite.js","/story-data.js","/story.js","/ui-v6.js","/manifest.json","/icon.svg","/offline.html"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener("message",e=>{if(e.data==="SKIP_WAITING")self.skipWaiting()});
