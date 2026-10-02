@@ -67,7 +67,13 @@ export default async function handler(req,res){
     }
     const text=(data.output||[]).flatMap(x=>x.content||[]).find(x=>x.type==="output_text")?.text||"";
     const parsed=parseJson(text);
-    const raw=Array.isArray(parsed.words)?parsed.words:[];
+    let checked=parsed;
+    try{
+      const reviewPrompt=["Ты старший преподаватель норвежского Bokmål. Проверь ежедневный словарный JSON уровня "+level+".","Исправь реальные ошибки в спряжении, роде, формах существительных/прилагательных, переводах и примерах. Особое внимание: будущее в Bokmål — конструкция, а не отдельная морфологическая форма.","Сохрани ровно ту же JSON-схему. Не удаляй practice и reinforcement_sentences. Верни только исправленный JSON.",JSON.stringify(parsed)].join("\n");
+      const rr=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.OPENAI_API_KEY},body:JSON.stringify({model:"gpt-5.6-luna",input:reviewPrompt,reasoning:{effort:"none"},max_output_tokens:3600})});
+      const rd=await rr.json().catch(()=>({}));if(rr.ok){const rt=(rd.output||[]).flatMap(x=>x.content||[]).find(x=>x.type==="output_text")?.text||"";const rp=parseJson(rt);if(Array.isArray(rp.words)&&rp.words.length>=5)checked=rp}
+    }catch{}
+    const raw=Array.isArray(checked.words)?checked.words:[];
     const seen=new Set(),words=[];
     for(const item of raw){
       const lemma=cleanWord(item?.lemma||item?.word);
@@ -85,14 +91,14 @@ export default async function handler(req,res){
     }
     if(words.length!==5)return res.status(502).json({error:"AI_DAILY_VALIDATION_FAILED",code:"AI_DAILY_VALIDATION_FAILED"});
 
-    const practice=(Array.isArray(parsed.practice)?parsed.practice:[]).slice(0,6).map(x=>({
+    const practice=(Array.isArray(checked.practice)?checked.practice:[]).slice(0,6).map(x=>({
       prompt_ru:String(x?.prompt_ru||"").slice(0,420),
       goal_ru:String(x?.goal_ru||"").slice(0,240),
       model_answer_no:String(x?.model_answer_no||"").slice(0,420),
       review_words:Array.isArray(x?.review_words)?x.review_words.slice(0,6).map(y=>String(y).slice(0,100)):[],
       new_words:Array.isArray(x?.new_words)?x.new_words.slice(0,6).map(y=>String(y).slice(0,100)):[]
     })).filter(x=>x.prompt_ru&&x.model_answer_no);
-    const reinforcement=(Array.isArray(parsed.reinforcement_sentences)?parsed.reinforcement_sentences:[]).slice(0,5).map(x=>({
+    const reinforcement=(Array.isArray(checked.reinforcement_sentences)?checked.reinforcement_sentences:[]).slice(0,5).map(x=>({
       no:String(x?.no||"").slice(0,320),ru:String(x?.ru||"").slice(0,340),
       words:Array.isArray(x?.words)?x.words.slice(0,8).map(y=>String(y).slice(0,100)):[]
     })).filter(x=>x.no);
