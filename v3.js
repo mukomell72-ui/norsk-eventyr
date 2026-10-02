@@ -17,7 +17,7 @@
   saveState();
 
   let neSession=sessionStorage.getItem("ne_session")||"";
-  let placementSession=null,reviewSession=null,examV3=null,dailyTaskSession=null,mediaRecorder=null,mediaStream=null,recordChunks=[],recordTimer=null,chatInputWasVoice=false;
+  let placementSession=null,reviewSession=null,examV3=null,dailyTaskSession=null,mediaRecorder=null,mediaStream=null,recordChunks=[],recordTimer=null,recordStartedAt=0,chatInputWasVoice=false;
 
   function skillLabel(k){return SKILL_NAMES[k]||k}
   function updateSkill(k,score){
@@ -133,7 +133,7 @@
     for(let i=0;i<len;i++){let s=0;for(let c=0;c<channels;c++)s+=data[c][i];s=Math.max(-1,Math.min(1,s/channels));v.setInt16(o,s<0?s*0x8000:s*0x7fff,true);o+=2}
     await ac.close();let bin="",u=new Uint8Array(out);for(let i=0;i<u.length;i+=0x8000)bin+=String.fromCharCode(...u.subarray(i,i+0x8000));return btoa(bin);
   }
-  toggleMic=async function(target="freeAnswer",expected=""){
+  toggleMic=async function(target="freeAnswer",expected="",context=""){
     const btn=target==="chatInput"?document.getElementById("chatMicBtn"):(document.getElementById("micBtn")||document.getElementById("pronBtn"));
     if(mediaRecorder&&mediaRecorder.state==="recording"){mediaRecorder.stop();return}
     if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){
@@ -144,17 +144,18 @@
       rec.onend=()=>{if(btn)btn.textContent="🎤 Говорить"};rec.start();return;
     }
     try{
-      mediaStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});recordChunks=[];
+      mediaStream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:{ideal:1},sampleRate:{ideal:48000},echoCancellation:true,noiseSuppression:true,autoGainControl:true}});recordChunks=[];recordStartedAt=Date.now();
       const preferredMime=["audio/webm;codecs=opus","audio/webm","audio/mp4"].find(x=>MediaRecorder.isTypeSupported?.(x));
-      mediaRecorder=preferredMime?new MediaRecorder(mediaStream,{mimeType:preferredMime}):new MediaRecorder(mediaStream);
+      try{mediaRecorder=new MediaRecorder(mediaStream,preferredMime?{mimeType:preferredMime,audioBitsPerSecond:128000}:{audioBitsPerSecond:128000})}catch{mediaRecorder=preferredMime?new MediaRecorder(mediaStream,{mimeType:preferredMime}):new MediaRecorder(mediaStream)};
       mediaRecorder.ondataavailable=e=>{if(e.data.size)recordChunks.push(e.data)};
       mediaRecorder.onstop=async()=>{
         clearTimeout(recordTimer);if(btn)btn.textContent="⏳ Распознаю…";
         const blob=new Blob(recordChunks,{type:(mediaRecorder.mimeType||"audio/webm").split(";")[0]});
         mediaStream?.getTracks().forEach(t=>t.stop());mediaStream=null;mediaRecorder=null;
-        if(blob.size<600){if(btn)btn.textContent="🎤 Говорить";alert("Запись получилась слишком короткой. Нажми микрофон, скажи фразу и затем останови запись.");return}
+        const durationMs=Date.now()-recordStartedAt;recordStartedAt=0;
+        if(blob.size<900||durationMs<650){if(btn)btn.textContent="🎤 Говорить";alert("Запись слишком короткая. Нажми микрофон, начни говорить и останови запись после фразы.");return}
         const b64=await blobToBase64(blob);
-        const transcribePromise=apiPost("/api/transcribe",{audioBase64:b64,mime:blob.type,expected});
+        const transcribePromise=apiPost("/api/transcribe",{audioBase64:b64,mime:blob.type,expected,context});
         const pronouncePromise=expected?blobToWavBase64(blob).then(wav=>apiPost("/api/pronounce",{audioBase64:wav,expected})).catch(()=>null):Promise.resolve(null);
         const [r,pron]=await Promise.all([transcribePromise,pronouncePromise]);
         if(r.ok){
@@ -170,8 +171,8 @@
         }
         if(btn)btn.textContent="🎤 Говорить";
       };
-      mediaRecorder.start();if(btn)btn.textContent="■ Остановить запись";
-      recordTimer=setTimeout(()=>{if(mediaRecorder?.state==="recording")mediaRecorder.stop()},18000);
+      mediaRecorder.start(250);if(btn)btn.textContent="■ Слушаю…";
+      recordTimer=setTimeout(()=>{if(mediaRecorder?.state==="recording")mediaRecorder.stop()},30000);
     }catch(e){alert("Нет доступа к микрофону. Разреши микрофон для сайта.")}
   };
 
