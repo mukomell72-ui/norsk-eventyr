@@ -1,7 +1,5 @@
 // Norsk Eventyr 4.0 — elite learning/product layer
 (() => {
-  const SB_URL="https://rskgbkgtrigtznnksbyp.supabase.co";
-  const SB_KEY="sb_publishable_Nxf788Y3FWMaDNSj0upOMA_aWtmL665";
   const today=()=>window.neLocalDate?neLocalDate():new Date().toISOString().slice(0,10);
   state.elite=state.elite||{};
   state.elite.goal=state.elite.goal||"norskprove";
@@ -196,7 +194,7 @@
   function cloudLink(){try{return JSON.parse(localStorage.getItem("ne_cloud_link")||"null")}catch{return null}}
   function setCloudLink(x){if(x)localStorage.setItem("ne_cloud_link",JSON.stringify(x));else localStorage.removeItem("ne_cloud_link")}
   function b64url(bytes){let s="";bytes.forEach(b=>s+=String.fromCharCode(b));return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")}
-  async function rpc(name,body){const r=await fetch(SB_URL+"/rest/v1/rpc/"+name,{method:"POST",headers:{"Content-Type":"application/json","apikey":SB_KEY},body:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.message||d.error||("HTTP "+r.status));return d}
+  async function rpc(name,body){const r=await neApiPost("/api/cloud",{name,params:body});if(!r.ok)throw new Error(r.error||"CLOUD");return r.data}
   function mergeHist(a=[],b=[]){const m=new Map();[...a,...b].forEach(x=>m.set(JSON.stringify([x.date,x.level,x.band,x.part,x.score]),x));return [...m.values()].sort((x,y)=>String(x.date||"").localeCompare(String(y.date||""))).slice(-100)}
   function mergeState(local,remote){
     const m={...remote,...local};m.xp=Math.max(local.xp||0,remote.xp||0);m.streak=Math.max(local.streak||0,remote.streak||0);
