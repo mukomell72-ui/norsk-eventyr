@@ -101,7 +101,7 @@
     const s=String(text||"").trim();if(!s)return [];
     const hasRu=/[\u0400-\u04FF]/.test(s);
     if(!force&&!hasRu)return [];
-    const r=await neApiPost("/api/lexical-gap",{text:s,context,level,source});
+    const r=await neApiPost("/api/evaluate",{action:"lexical_gap",text:s,context,level,source});
     if(!r.ok||!Array.isArray(r.data?.candidates))return [];
     const out=[];for(const c of r.data.candidates){const x=storeCandidate(c,source);if(x)out.push(x)}
     return out;
