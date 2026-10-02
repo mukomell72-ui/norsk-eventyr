@@ -31,8 +31,9 @@
   function navV6(active){
     let group=active;
     if(["lesson","topic"].includes(group))group="course";
-    if(["storyepisode","storyside","storyjournal"].includes(group))group="story";
-    if(["review","tests","test","exam","examrun","exampart","progress","dictionary","daily","dailypractice","plan","dictation","grammarlab","pronunciation","listeninglab","settings","cloud"].includes(group))group="hub";
+    if(["storyepisode","storyjournal"].includes(group))group="story";
+    if(["daily","dailypractice","review","storyside","plan"].includes(group))group="home";
+    if(["tests","test","exam","examrun","exampart","progress","dictionary","dictation","grammarlab","pronunciation","listeninglab","settings","cloud"].includes(group))group="hub";
     const items=[
       ["home","⌂","Сегодня"],
       ["course","▤","Курс"],
