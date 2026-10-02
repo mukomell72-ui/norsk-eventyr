@@ -4,7 +4,7 @@
   const baseSendChat=window.sendChat;
   const baseStartChat=window.startChat;
   const baseSpeakText=window.speakText;
-  let courseTab="core";
+  let courseTab="core",currentRoute="home";
 
   const SKILL_RU={reading:"Чтение",listening:"Слух",writing:"Письмо",speaking:"Речь",grammar:"Грамматика",vocabulary:"Слова"};
   const CHAT_SCENARIOS={
@@ -29,7 +29,10 @@
   function safePct(n,d){return d?Math.round(n/d*100):0}
 
   function navV6(active){
-    const group=(["review","tests","exam","progress","dictionary","plan","dictation","grammarlab","pronunciation","listeninglab","settings","cloud"].includes(active))?"hub":active;
+    let group=active;
+    if(["lesson","topic"].includes(group))group="course";
+    if(["storyepisode","storyside","storyjournal"].includes(group))group="story";
+    if(["review","tests","test","exam","examrun","exampart","progress","dictionary","daily","dailypractice","plan","dictation","grammarlab","pronunciation","listeninglab","settings","cloud"].includes(group))group="hub";
     const items=[
       ["home","⌂","Главная"],
       ["course","▤","Учиться"],
@@ -49,7 +52,7 @@
           '<div class="top-status-v6"><span>'+level+'</span><span>'+xp+' XP</span><button onclick="navigate(\'hub\')" aria-label="Меню">•••</button></div>'+
         '</header>'+
         '<main class="main-v6">'+content+'</main>'+
-        navV6(active)+
+        navV6(currentRoute||active)+
       '</div>';
   };
 
@@ -57,7 +60,7 @@
     return '<div class="head-v6"><div><small>'+esc(kicker)+'</small><h1>'+esc(title)+'</h1></div>'+right+'</div>';
   }
 
-  renderHome=window.renderHome=function(){
+  renderHome=window.renderHome=function(){currentRoute="home";
     const next=nextLesson(),due=dueCount(),story=currentStory(),activity=dayActivity(),dailyDone=Boolean(state.dailyProgress?.[todayKey()]?.completed);
     const weak=Object.entries(state.skills||{}).sort((a,b)=>Number(a[1])-Number(b[1])).slice(0,3);
     const today=[
@@ -111,7 +114,7 @@
     "home");
   };
 
-  renderCourse=window.renderCourse=function(level=state.level){
+  renderCourse=window.renderCourse=function(level=state.level){currentRoute="course";
     state.level=level;saveState();
     const core=lessons(level),topics=(typeof TOPIC_CATALOG!=="undefined"?TOPIC_CATALOG:[]).filter(x=>x.level===level),next=core.find(x=>!state.completed?.[x.id])||core[0],progress=levelProgress(level);
     const list=courseTab==="topics"?topics:core;
@@ -159,7 +162,7 @@
     }).join("");
   }
 
-  function renderChatV6(){
+  function renderChatV6(){currentRoute="chat";
     const p=state.chatPrefs||{level:state.level||"A1",mode:"free",topic:"",scenario:"butikk",autoSpeak:true};
     shell(
       compactHeader("Samtale","Разговор",'<button class="round-action-v6" onclick="v6ToggleChatSetup()">⚙</button>')+
@@ -202,7 +205,7 @@
   function hubItem(icon,title,sub,route,badge=""){
     return '<button class="hub-item-v6" onclick="navigate(\''+route+'\')"><span>'+icon+'</span><div><strong>'+title+'</strong><small>'+sub+'</small></div>'+(badge?'<b>'+badge+'</b>':'')+'</button>';
   }
-  function renderHub(){
+  function renderHub(){currentRoute="hub";
     const due=dueCount(),dict=Object.keys(state.dailyDictionary||{}).length;
     shell(
       compactHeader("Все инструменты","Ещё")+
@@ -224,7 +227,7 @@
   }
 
   navigate=window.navigate=function(view,data){
-    stopTimer();
+    currentRoute=view;stopTimer();
     if(view==="home")return renderHome();
     if(view==="course")return renderCourse(data||state.level);
     if(view==="chat")return renderChatV6();
