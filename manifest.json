@@ -1,5 +1,5 @@
 {
-  "name": "Norsk Eventyr",
+  "name": "Norsk Eventyr 5.0",
   "short_name": "Norsk Eventyr",
   "start_url": "/",
   "scope": "/",
@@ -8,7 +8,7 @@
   "background_color": "#07101f",
   "theme_color": "#07101f",
   "lang": "ru",
-  "description": "Адаптивный курс норвежского Bokmål A1–B2: AI-собеседник, словарь, произношение, аудирование, тесты и Norskprøven.",
+  "description": "Адаптивный Bokmål A1–B2: сюжет Fjordvik, AI-собеседник, персональный словарь, произношение, аудирование, тесты и Norskprøven.",
   "icons": [
     {
       "src": "/icon.svg",
@@ -22,6 +22,11 @@
     "productivity"
   ],
   "shortcuts": [
+    {
+      "name": "Fjordvik",
+      "short_name": "История",
+      "url": "/?open=story"
+    },
     {
       "name": "Samtale",
       "short_name": "Разговор",
