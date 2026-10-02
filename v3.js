@@ -18,6 +18,29 @@
 
   let neSession=sessionStorage.getItem("ne_session")||"";
   let placementSession=null,reviewSession=null,examV3=null,dailyTaskSession=null,mediaRecorder=null,mediaStream=null,recordChunks=[],recordTimer=null,recordStartedAt=0,chatInputWasVoice=false;
+  const MIC_CONSTRAINTS={audio:{channelCount:{ideal:1},sampleRate:{ideal:48000},echoCancellation:true,noiseSuppression:true,autoGainControl:true}};
+  function micStreamAlive(){
+    return !!(mediaStream&&mediaStream.getAudioTracks?.().some(t=>t.readyState==="live"));
+  }
+  async function getMicStream(){
+    if(micStreamAlive()){
+      mediaStream.getAudioTracks().forEach(t=>t.enabled=true);
+      return mediaStream;
+    }
+    mediaStream=await navigator.mediaDevices.getUserMedia(MIC_CONSTRAINTS);
+    mediaStream.getAudioTracks().forEach(t=>t.enabled=true);
+    return mediaStream;
+  }
+  function parkMicStream(){
+    if(!micStreamAlive())return;
+    mediaStream.getAudioTracks().forEach(t=>t.enabled=false);
+  }
+  function releaseMicStream(){
+    try{mediaStream?.getTracks?.().forEach(t=>t.stop())}catch{}
+    mediaStream=null;
+  }
+  window.addEventListener("pagehide",releaseMicStream,{once:false});
+
 
   function skillLabel(k){return SKILL_NAMES[k]||k}
   function updateSkill(k,score){
@@ -144,14 +167,14 @@
       rec.onend=()=>{if(btn)btn.textContent="🎤 Говорить"};rec.start();return;
     }
     try{
-      mediaStream=await navigator.mediaDevices.getUserMedia({audio:{channelCount:{ideal:1},sampleRate:{ideal:48000},echoCancellation:true,noiseSuppression:true,autoGainControl:true}});recordChunks=[];recordStartedAt=Date.now();
+      mediaStream=await getMicStream();recordChunks=[];recordStartedAt=Date.now();
       const preferredMime=["audio/webm;codecs=opus","audio/webm","audio/mp4"].find(x=>MediaRecorder.isTypeSupported?.(x));
       try{mediaRecorder=new MediaRecorder(mediaStream,preferredMime?{mimeType:preferredMime,audioBitsPerSecond:128000}:{audioBitsPerSecond:128000})}catch{mediaRecorder=preferredMime?new MediaRecorder(mediaStream,{mimeType:preferredMime}):new MediaRecorder(mediaStream)};
       mediaRecorder.ondataavailable=e=>{if(e.data.size)recordChunks.push(e.data)};
       mediaRecorder.onstop=async()=>{
         clearTimeout(recordTimer);if(btn)btn.textContent="⏳ Распознаю…";
         const blob=new Blob(recordChunks,{type:(mediaRecorder.mimeType||"audio/webm").split(";")[0]});
-        mediaStream?.getTracks().forEach(t=>t.stop());mediaStream=null;mediaRecorder=null;
+        parkMicStream();mediaRecorder=null;
         const durationMs=Date.now()-recordStartedAt;recordStartedAt=0;
         if(blob.size<900||durationMs<650){if(btn)btn.textContent="🎤 Говорить";alert("Запись слишком короткая. Нажми микрофон, начни говорить и останови запись после фразы.");return}
         const b64=await blobToBase64(blob);
@@ -173,7 +196,7 @@
       };
       mediaRecorder.start(250);if(btn)btn.textContent="■ Слушаю…";
       recordTimer=setTimeout(()=>{if(mediaRecorder?.state==="recording")mediaRecorder.stop()},30000);
-    }catch(e){alert("Нет доступа к микрофону. Разреши микрофон для сайта.")}
+    }catch(e){releaseMicStream();alert("Нет доступа к микрофону. Разреши микрофон для приложения один раз в настройках Android/браузера.")}
   };
 
   const oldNavigate=navigate;
