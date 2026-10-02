@@ -235,10 +235,15 @@
     return '<article class="card"><div class="eyebrow">Грамматика</div><h2>'+esc(g.title)+'</h2><div class="notice">'+esc(g.rule)+'</div><div class="example-list">'+(g.examples||[]).map(x=>'<div class="example">'+esc(x)+'</div>').join("")+'</div><div class="prompt">'+esc(g.q)+'</div><div class="choice-list">'+(g.opts||[]).map((x,i)=>'<button class="choice" onclick="checkGrammar(this,'+i+','+g.correct+')">'+esc(x)+'</button>').join("")+'</div><div id="fb"></div></article>';
   }
   function checkGrammar(btn,i,c){
-    if(lessonSession.locked)return;lessonSession.locked=true;const ok=i===c;
-    document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good")});if(!ok){btn.classList.add("bad");rememberError("grammar")}
-    updateSkill("grammar",ok?100:25);
-    document.getElementById("fb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'">'+(ok?"✅ Верно.":"❌ Неверно. Посмотри правило ещё раз.")+'</div><button class="btn" style="width:100%;margin-top:10px" onclick="lessonNext('+(ok?15:5)+')">Продолжить →</button>';
+    if(lessonSession.locked)return;const ok=i===c;
+    if(ok){
+      lessonSession.locked=true;document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good")});
+      updateSkill("grammar",100);document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно</b></div>';
+      setTimeout(()=>lessonNext(15),420);return;
+    }
+    btn.classList.add("bad");btn.disabled=true;rememberError("grammar");updateSkill("grammar",25);
+    document.getElementById("fb").innerHTML='<div class="feedback bad"><b>Неверно.</b> Посмотри правило и выбери другой вариант.</div>';
+    lessonSession.locked=false;
   }
   function listenExV3(l){
     const d=shuffle(COURSE.filter(x=>x.level===l.level&&x.id!==l.id)).slice(0,3).map(x=>x.phrase),o=shuffle([l.phrase,...d]),c=o.indexOf(l.phrase);
@@ -251,23 +256,37 @@
   };
   lessonNext=function(xp=0){state.xp+=xp;saveState();lessonSession.step++;lessonSession.locked=false;if(lessonSession.step>6)return finishLesson();renderLesson()};
   lessonChoice=function(btn,i,c,note){
-    if(lessonSession.locked)return;lessonSession.locked=true;document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good")});
-    const ok=i===c;if(!ok)btn.classList.add("bad");
-    const skill=lessonSession.step===2?"vocabulary":lessonSession.step===3?"listening":"reading";updateSkill(skill,ok?100:20);if(!ok)rememberError(skill);
-    document.getElementById("fb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'">'+(ok?"✅ Верно.":"❌ Неверно.")+' '+esc(note)+'</div><button class="btn" style="width:100%;margin-top:10px" onclick="lessonNext('+(ok?15:5)+')">Продолжить →</button>';
+    if(lessonSession.locked)return;const ok=i===c;
+    const skill=lessonSession.step===2?"vocabulary":lessonSession.step===3?"listening":"reading";
+    if(ok){
+      lessonSession.locked=true;document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good")});
+      updateSkill(skill,100);document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно</b></div>';
+      setTimeout(()=>lessonNext(15),420);return;
+    }
+    btn.classList.add("bad");btn.disabled=true;rememberError(skill);updateSkill(skill,20);
+    document.getElementById("fb").innerHTML='<div class="feedback bad"><b>Неверно.</b> '+esc(note)+'<br><small>Попробуй другой ответ.</small></div>';
+    lessonSession.locked=false;
   };
   checkFree=async function(mode){
     const a=document.getElementById("freeAnswer").value.trim();if(!a)return;const b=document.getElementById("freeFb"),l=lessonSession.lesson,p=mode==="speaking"?l.speaking:l.writing;
-    b.innerHTML='<div class="feedback">🧠 Проверяю…</div>';const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode});
-    if(r.ok){
-      const d=r.data,score=Number(d.score||0),ok=d.accepted!==false&&score>=55;updateSkill(mode,score);updateSkill("grammar",d.breakdown?.grammar??score);updateSkill("vocabulary",d.breakdown?.vocabulary??score);rememberError(d.error_tag);
-      b.innerHTML='<div class="feedback '+(ok?"good":"bad")+'"><b>'+(ok?"✅ Ответ подходит":"⚠️ Нужно улучшить")+' · '+score+'/100</b><br>'+esc(d.explanation_ru||"")+(d.corrected?'<br><br><b>Улучшенный вариант:</b><br>'+esc(d.corrected):"")+(d.strengths_ru?.length?'<br><br><b>Сильные стороны:</b> '+d.strengths_ru.map(esc).join("; "):"")+(d.improvements_ru?.length?'<br><b>Работать над:</b> '+d.improvements_ru.map(esc).join("; "):"")+'</div><button class="btn" style="width:100%;margin-top:10px" onclick="lessonNext('+(ok?20:8)+')">Продолжить →</button>';
-    }else b.innerHTML='<div class="feedback bad">AI временно недоступен: '+esc(r.error)+'</div><button class="btn" style="width:100%;margin-top:10px" onclick="lessonNext(5)">Продолжить →</button>';
+    b.innerHTML='<div class="feedback">Проверяю…</div>';const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode});
+    if(!r.ok){b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
+    const d=r.data,score=Number(d.score||0),ok=d.accepted!==false&&score>=55;
+    updateSkill(mode,score);updateSkill("grammar",d.breakdown?.grammar??score);updateSkill("vocabulary",d.breakdown?.vocabulary??score);rememberError(d.error_tag);
+    if(ok){
+      b.innerHTML='<div class="feedback good"><b>✓ Хороший ответ</b></div>';
+      setTimeout(()=>lessonNext(20),500);return;
+    }
+    b.innerHTML='<div class="feedback bad"><b>Исправь и попробуй ещё раз</b><br>'+esc(d.explanation_ru||"")+(d.corrected?'<br><br><b>Возможный вариант:</b><br>'+esc(d.corrected):"")+'</div>';
+    document.getElementById("freeAnswer")?.focus();
   };
   finishLesson=function(){
-    const l=lessonSession.lesson,first=!state.completed[l.id];if(l.topicId)state.completedTopics[l.topicId]=true;else state.completed[l.id]=true;
-    seedSrs(l);if(first)state.xp+=40;saveState();
-    shell('<section class="card" style="text-align:center;max-width:680px;margin:40px auto"><div style="font-size:64px">🏆</div><div class="eyebrow">'+l.level+' · урок завершён</div><h1>'+esc(l.title)+'</h1><p class="muted">Слова добавлены в интервальное повторение. Навыки обновлены по фактическим ответам.</p><div class="row" style="justify-content:center"><button class="btn" onclick="navigate(\'review\')">Повторить слова</button><button class="btn secondary" onclick="navigate(\'course\',\''+l.level+'\')">К курсу</button></div></section>',"course");
+    const l=lessonSession.lesson,first=l.topicId?!state.completedTopics[l.topicId]:!state.completed[l.id];
+    if(l.topicId)state.completedTopics[l.topicId]=true;else state.completed[l.id]=true;
+    seedSrs(l);if(first)state.xp+=40;
+    const today=localDateKey();state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.lessonDates=state.guidedJourney.lessonDates||{};state.guidedJourney.lessonDates[today]=l.id;
+    saveState();
+    shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">'+l.level+' · готово на сегодня</div><h1>'+esc(l.title)+'</h1><p class="muted">Урок засчитан в сегодняшний маршрут.</p><button class="btn" onclick="navigate(\'home\')">Продолжить день →</button><button class="btn ghost" onclick="navigate(\'course\',\''+l.level+'\')">К курсу</button></section>',"home");
   };
 
 
@@ -319,12 +338,18 @@
     '<textarea id="dailyAnswer" class="input" placeholder="Напиши ответ по-норвежски…"></textarea><div class="row" style="margin-top:10px"><button id="micBtn" class="btn secondary" onclick="toggleMic(\'dailyAnswer\')">🎤 Сказать</button><button class="btn" onclick="checkDailyTask()">🧠 Проверить</button></div><div id="dailyFb"></div></article></section>',"home");
   }
   async function checkDailyTask(){
-    const s=dailyTaskSession,t=s.pack.practice[s.i],a=document.getElementById("dailyAnswer").value.trim();if(!a)return;const b=document.getElementById("dailyFb");b.innerHTML='<div class="feedback">🧠 Проверяю…</div>';
+    const s=dailyTaskSession,t=s.pack.practice[s.i],a=document.getElementById("dailyAnswer").value.trim();if(!a)return;const b=document.getElementById("dailyFb");b.innerHTML='<div class="feedback">Проверяю…</div>';
     const goal=(t.goal_ru||t.prompt_ru)+(t.model_answer_no?" Пример естественного ответа: "+t.model_answer_no:"");
     const r=await aiEvaluate({answer:a,question:t.prompt_ru,goal,level:s.pack.level,mode:"daily_vocabulary"});
-    const score=r.ok?Number(r.data.score||0):0;s.scores.push(score);
-    updateDailyStrength([...(t.review_words||[]),...(t.new_words||[])],score);updateSkill("vocabulary",score);if(r.ok){updateSkill("grammar",r.data.breakdown?.grammar??score);rememberError(r.data.error_tag)}
-    b.innerHTML='<div class="feedback '+(score>=55?"good":"bad")+'"><b>'+(r.ok?score+"/100":"Проверка недоступна")+'</b>'+(r.ok?'<br>'+esc(r.data.explanation_ru||""):'')+(r.ok&&r.data.corrected?'<br><br><b>Улучшенный вариант:</b><br>'+esc(r.data.corrected):'')+'<br><br><b>Пример:</b> '+esc(t.model_answer_no||"")+'</div><button class="btn" style="width:100%;margin-top:10px" onclick="nextDailyTask()">Дальше →</button>';
+    if(!r.ok){b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
+    const score=Number(r.data.score||0),ok=r.data.accepted!==false&&score>=55;
+    updateDailyStrength([...(t.review_words||[]),...(t.new_words||[])],score);updateSkill("vocabulary",score);updateSkill("grammar",r.data.breakdown?.grammar??score);rememberError(r.data.error_tag);
+    if(ok){
+      s.scores.push(score);b.innerHTML='<div class="feedback good"><b>✓ '+score+'/100</b></div>';
+      setTimeout(()=>nextDailyTask(),500);return;
+    }
+    b.innerHTML='<div class="feedback bad"><b>Исправь и попробуй ещё раз</b><br>'+esc(r.data.explanation_ru||"")+(r.data.corrected?'<br><br><b>Возможный вариант:</b><br>'+esc(r.data.corrected):"")+(t.model_answer_no?'<br><br><b>Пример:</b> '+esc(t.model_answer_no):"")+'</div>';
+    document.getElementById("dailyAnswer")?.focus();
   }
   function nextDailyTask(){dailyTaskSession.i++;renderDailyPractice()}
   function finishDailyPractice(){
@@ -357,7 +382,7 @@
   }
   function startReview(){
     let items=dueWords();if(!items.length)items=Object.entries(state.srs).sort((a,b)=>(a[1].stage||0)-(b[1].stage||0)).slice(0,12);
-    reviewSession={items:items.slice(0,20),i:0};renderReviewCard();
+    reviewSession={items:items.slice(0,20),i:0,missed:{}};renderReviewCard();
   }
   function renderReviewCard(){
     const row=reviewSession.items[reviewSession.i];if(!row)return finishReview();
@@ -365,9 +390,18 @@
     shell('<div class="screen-head"><button class="back" onclick="renderReview()">←</button><div><div class="eyebrow">Повторение '+(reviewSession.i+1)+'/'+reviewSession.items.length+'</div><h2 style="margin:0">'+item.level+'</h2></div></div><section class="exercise"><article class="card"><div class="prompt">'+esc(item.word)+'</div><button class="btn ghost" onclick="speakText(\''+escJs(item.word)+'\')">🔊 Слушать</button><div class="choice-list">'+opts.map((x,i)=>'<button class="choice" onclick="answerReview(\''+escJs(key)+'\','+i+','+correct+')">'+esc(x)+'</button>').join("")+'</div></article></section>',"review");
   }
   function answerReview(key,i,c){
-    const it=state.srs[key],ok=i===c,interval=[0,1,3,7,14,30,60];
-    it.seen=(it.seen||0)+1;if(ok){it.correct=(it.correct||0)+1;it.stage=Math.min(6,(it.stage||0)+1)}else{it.stage=Math.max(0,(it.stage||0)-1);rememberError("vocabulary")}
-    const days=ok?interval[it.stage]:1;it.due=Date.now()+days*86400000;updateSkill("vocabulary",ok?100:15);if(state.dailyDictionary[key])updateDailyStrength([key],ok?100:15);saveState();reviewSession.i++;renderReviewCard();
+    const it=state.srs[key],ok=i===c,interval=[0,1,3,7,14,30,60],buttons=[...document.querySelectorAll(".choice")],fb=document.getElementById("reviewFb");
+    if(ok){
+      it.seen=(it.seen||0)+1;it.correct=(it.correct||0)+1;
+      if(!reviewSession.missed[key])it.stage=Math.min(6,(it.stage||0)+1);
+      const days=interval[it.stage]||1;it.due=Date.now()+days*86400000;updateSkill("vocabulary",100);if(state.dailyDictionary[key])updateDailyStrength([key],100);saveState();
+      buttons.forEach(b=>b.disabled=true);buttons[i]?.classList.add("good");if(fb)fb.innerHTML='<div class="feedback good"><b>✓ Верно</b></div>';
+      setTimeout(()=>{reviewSession.i++;renderReviewCard()},380);return;
+    }
+    if(!reviewSession.missed[key]){
+      reviewSession.missed[key]=true;it.seen=(it.seen||0)+1;it.stage=Math.max(0,(it.stage||0)-1);it.due=Date.now()+86400000;rememberError("vocabulary");updateSkill("vocabulary",15);if(state.dailyDictionary[key])updateDailyStrength([key],15);saveState();
+    }
+    buttons[i]?.classList.add("bad");buttons[i].disabled=true;if(fb)fb.innerHTML='<div class="feedback bad"><b>Неверно.</b> Попробуй другой перевод.</div>';
   }
   function finishReview(){state.xp+=10;const today=localDateKey();state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.reviewDates=state.guidedJourney.reviewDates||{};state.guidedJourney.reviewDates[today]=true;saveState();shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">Повторение завершено</div><h1>Готово</h1><p class="muted">Следующие даты пересчитаны. Возвращаемся к сегодняшнему маршруту.</p><button class="btn" onclick="navigate(\'home\')">Продолжить день →</button></section>',"home")}
 
@@ -409,12 +443,19 @@
     const q=testSession.questions[testSession.i],ok=i===q.correct;if(ok)testSession.correct++;
     const sk=SKILLS.includes(q.subskill)?q.subskill:(q.type==="listen"?"listening":"grammar");updateSkill(sk,ok?100:20);if(!ok)rememberError(sk);
     document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===q.correct)b.classList.add("good");if(j===i&&!ok)b.classList.add("bad")});
-    document.getElementById("testFb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'">'+(ok?"✅ Верно":"❌ Неверно")+'</div><button class="btn" style="width:100%;margin-top:10px" onclick="testNext()">Дальше →</button>';
+    document.getElementById("testFb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'">'+(ok?"✓ Верно":"Неверно")+'</div>';
+    setTimeout(()=>testNext(),ok?380:900);
   };
   answerTestFree=async function(){
-    const q=testSession.questions[testSession.i],a=document.getElementById("testFree").value.trim();if(!a)return;const b=document.getElementById("testFb");b.innerHTML='<div class="feedback">🧠 Оцениваю свободный ответ…</div>';
+    const q=testSession.questions[testSession.i],a=document.getElementById("testFree").value.trim();if(!a)return;const b=document.getElementById("testFb");b.innerHTML='<div class="feedback">Оцениваю…</div>';
     const mode=q.mode||"writing",r=await aiEvaluate({answer:a,question:q.text,goal:q.text,level:testSession.level,mode:"test_"+mode});
-    if(r.ok){const pts=Math.max(0,Math.min(1,(r.data.score||0)/100));testSession.freeScores.push(pts);updateSkill(mode,pts*100);updateSkill("grammar",r.data.breakdown?.grammar??pts*100);updateSkill("vocabulary",r.data.breakdown?.vocabulary??pts*100);rememberError(r.data.error_tag);b.innerHTML='<div class="feedback '+(pts>=.55?"good":"bad")+'"><b>'+Math.round(pts*100)+'/100</b> · '+esc(r.data.explanation_ru||"Оценено.")+(r.data.corrected?'<br><br><b>Улучшенный вариант:</b><br>'+esc(r.data.corrected):"")+'</div><button class="btn" style="width:100%;margin-top:10px" onclick="testNext()">Дальше →</button>'}else{testSession.freeScores.push(null);b.innerHTML='<div class="feedback bad">AI недоступен; ответ не войдёт в процент.</div><button class="btn" style="width:100%;margin-top:10px" onclick="testNext()">Дальше →</button>'}
+    if(r.ok){
+      const pts=Math.max(0,Math.min(1,(r.data.score||0)/100));testSession.freeScores.push(pts);updateSkill(mode,pts*100);updateSkill("grammar",r.data.breakdown?.grammar??pts*100);updateSkill("vocabulary",r.data.breakdown?.vocabulary??pts*100);rememberError(r.data.error_tag);
+      b.innerHTML='<div class="feedback '+(pts>=.55?"good":"bad")+'"><b>'+Math.round(pts*100)+'/100</b> · '+esc(r.data.explanation_ru||"Оценено.")+(r.data.corrected?'<br><b>Лучше:</b> '+esc(r.data.corrected):"")+'</div>';
+      setTimeout(()=>testNext(),pts>=.55?500:1100);
+    }else{
+      testSession.freeScores.push(null);b.innerHTML='<div class="feedback bad">AI недоступен; ответ не войдёт в процент.</div>';setTimeout(()=>testNext(),900);
+    }
   };
 
   renderExamHome=function(){
@@ -462,9 +503,11 @@
     shell('<div class="screen-head"><button class="back" onclick="exitExamV3()">←</button><div style="flex:1"><div class="eyebrow">'+(sp?"Устная речь":"Письмо")+' · '+s.band+'</div><h2 style="margin:0">Задание '+(s.i+1)+'/'+s.items.length+'</h2></div><span id="timer" class="pill timer"></span></div><section class="exercise"><article class="card">'+(!sp?'<div class="tag">Ориентир: '+wordHint(s.band,s.i)+'</div>':'<div class="notice">Говори самостоятельно. Приложение оценивает распознанный текст; фонетическая точность отдельно не оценивается.</div>')+'<div class="prompt">'+esc(it.q)+'</div><textarea id="examFreeV3" class="input" placeholder="'+(sp?"Нажми микрофон и говори по-норвежски…":"Напиши ответ по-норвежски…")+'"></textarea><div class="row" style="margin-top:10px">'+(sp?'<button id="micBtn" class="btn secondary" onclick="toggleMic(\'examFreeV3\')">🎤 Записать ответ</button>':'')+'<button class="btn" onclick="submitExamProductive()">Сдать ответ</button></div><div id="examFbV3"></div></article></section>',"exam");updateTimerV3();
   }
   async function submitExamProductive(){
-    const s=examV3,a=document.getElementById("examFreeV3").value.trim();if(!a)return;const b=document.getElementById("examFbV3"),q=s.items[s.i].q;b.innerHTML='<div class="feedback">🧠 Оцениваю…</div>';
-    const r=await aiEvaluate({answer:a,question:q,goal:q,level:s.band.split("-")[1],mode:"exam_"+s.part}),score=r.ok?Number(r.data.score||0):0;s.scores.push(score);updateSkill(s.part,score);if(r.ok){updateSkill("grammar",r.data.breakdown?.grammar??score);updateSkill("vocabulary",r.data.breakdown?.vocabulary??score);rememberError(r.data.error_tag)}
-    b.innerHTML='<div class="feedback '+(score>=55?"good":"bad")+'"><b>'+score+'/100</b> · '+(r.ok?esc(r.data.explanation_ru||""):"AI не ответил.")+'</div><button class="btn" style="width:100%;margin-top:10px" onclick="nextExamProductive()">Следующее →</button>';
+    const s=examV3,a=document.getElementById("examFreeV3").value.trim();if(!a)return;const b=document.getElementById("examFbV3"),q=s.items[s.i].q;b.innerHTML='<div class="feedback">Оцениваю…</div>';
+    const r=await aiEvaluate({answer:a,question:q,goal:q,level:s.band.split("-")[1],mode:"exam_"+s.part});
+    if(!r.ok){b.innerHTML='<div class="feedback bad">AI не ответил. Попробуй отправить ответ ещё раз.</div>';return}
+    const score=Number(r.data.score||0);s.scores.push(score);updateSkill(s.part,score);updateSkill("grammar",r.data.breakdown?.grammar??score);updateSkill("vocabulary",r.data.breakdown?.vocabulary??score);rememberError(r.data.error_tag);
+    b.innerHTML='<div class="feedback '+(score>=55?"good":"bad")+'"><b>'+score+'/100</b> · '+esc(r.data.explanation_ru||"")+'</div>';setTimeout(()=>nextExamProductive(),1000);
   }
   function nextExamProductive(){examV3.i++;renderExamProductive()}
   function finishExamV3(){
