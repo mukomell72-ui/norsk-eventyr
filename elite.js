@@ -263,5 +263,5 @@
   if("serviceWorker" in navigator){
     navigator.serviceWorker.addEventListener("controllerchange",()=>{if(!sessionStorage.getItem("ne_sw_reloaded")){sessionStorage.setItem("ne_sw_reloaded","1");location.reload()}});
   }
-  setTimeout(()=>{refreshAchievements();if(cloudLink())cloudSync(false);const open=new URLSearchParams(location.search).get("open");if(open&&["chat","daily","dictation","pronunciation","listeninglab","plan"].includes(open)){navigate(open);history.replaceState(null,"",location.pathname)}},1200);
+  setTimeout(()=>{refreshAchievements();if(cloudLink())cloudSync(false);const open=new URLSearchParams(location.search).get("open");if(open&&["chat","daily","dictation","pronunciation","listeninglab","plan","story","storyside"].includes(open)){navigate(open);history.replaceState(null,"",location.pathname)}},1200);
 })();
