@@ -192,3 +192,20 @@ hr{border:0;border-top:1px solid #ffffff12;margin:18px 0}small{color:var(--muted
   .badge-grid{grid-template-columns:repeat(2,1fr)}
   .top-actions .pill:first-child{display:none}
 }
+
+
+/* Contextual vocabulary 4.1 */
+.chain-flow{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-top:14px}
+.chain-flow span{padding:9px 12px;border:1px solid #5de1b238;background:#123326;border-radius:999px;font-size:13px;font-weight:850}
+.candidate-list{display:grid;gap:9px}
+.candidate-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:12px;border-radius:14px;background:#0a1c31;border:1px solid #ffffff10}
+.candidate-row small{display:block;color:var(--muted);margin-top:5px;line-height:1.4}
+.mini-btn{border:1px solid #ffffff20;background:#132943;color:#dce9fb;border-radius:10px;padding:6px 9px;cursor:pointer;font-size:12px}
+.learner-word{border-color:#6be9b74d;box-shadow:0 0 0 1px #6be9b714 inset}
+.lex-toast{position:fixed;left:50%;bottom:92px;transform:translate(-50%,20px);z-index:9999;max-width:min(520px,90vw);padding:11px 15px;border-radius:13px;background:#123326;border:1px solid #6be9b75a;color:#f4fff9;box-shadow:0 16px 46px #0008;opacity:0;pointer-events:none;transition:.22s ease;font-weight:800}
+.lex-toast.show{opacity:1;transform:translate(-50%,0)}
+@media(max-width:620px){
+  .candidate-row{flex-direction:column}
+  .chain-flow b{display:none}
+  .chain-flow span{width:100%;text-align:center}
+}

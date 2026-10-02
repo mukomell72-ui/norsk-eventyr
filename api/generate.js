@@ -16,7 +16,7 @@ export default async function handler(req,res){
   if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED"});
   const {kind="lesson",level="A1",topic="",goal="",weakSkills=[],reviewWords=[]}=req.body||{};
   if(!["A1","A2","B1","B2"].includes(level))return res.status(400).json({error:"BAD_LEVEL"});
-  const reinforcement=Array.isArray(reviewWords)?reviewWords.slice(0,12).map(x=>String(x).slice(0,100)).filter(Boolean):[];
+  const reinforcement=Array.isArray(reviewWords)?reviewWords.slice(0,15).map(x=>String(x).slice(0,100)).filter(Boolean):[];
   const common=[
     "Ты создаёшь оригинальные задания по норвежскому Bokmål для взрослого русскоязычного ученика.",
     "Уровень CEFR: "+level+". Тема: "+String(topic).slice(0,160)+". Цель: "+String(goal).slice(0,260)+".",
