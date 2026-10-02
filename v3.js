@@ -37,14 +37,16 @@
   function daysBetween(a,b=localDateKey()){const x=new Date(a+"T12:00:00"),y=new Date(b+"T12:00:00");return Math.max(0,Math.round((y-x)/86400000))}
   function dictionaryEntries(){return Object.values(state.dailyDictionary||{})}
   function knownDailyWords(){return Object.keys(state.dailyDictionary||{})}
-  function reinforcementEntries(limit=12){
+  function reinforcementEntries(limit=15){
     const now=Date.now(),today=localDateKey();
     return dictionaryEntries().map(x=>{
-      const daysAgo=daysBetween(x.firstDate||today,today),due=(x.nextDue||0)<=now?1:0,weak=100-(x.strength||20),recent=Math.max(0,8-daysAgo);
-      return {...x,daysAgo,_priority:due*120+weak+recent*4+(x.wrong||0)*10};
+      const daysAgo=daysBetween(x.firstDate||today,today),zone=daysAgo===0?"today":daysAgo<=2?"active":"longterm",due=(x.nextDue||0)<=now?1:0,weak=100-(x.strength||20);
+      const activePriority=zone==="today"?1400:zone==="active"?(1200-daysAgo*80):0;
+      const longPriority=due*320+weak+(x.wrong||0)*18+Math.max(0,30-daysAgo);
+      return {...x,daysAgo,zone,_priority:activePriority+longPriority};
     }).sort((a,b)=>b._priority-a._priority).slice(0,limit);
   }
-  function reinforcementWordList(limit=12){return reinforcementEntries(limit).map(x=>x.lemma||x.word)}
+  function reinforcementWordList(limit=15){return reinforcementEntries(limit).map(x=>x.lemma||x.word)}
   function registerDailyPack(pack){
     const date=pack.date||localDateKey(),now=Date.now();
     (pack.words||[]).forEach(w=>{
@@ -207,7 +209,7 @@
     const topic=TOPIC_CATALOG.find(x=>x.id===id);if(!topic)return;
     shell('<section class="card loading-card"><div class="spinner"></div><h2>Создаю урок «'+esc(topic.title)+'»</h2><p class="muted">Новый текст, словарь, грамматика, письмо и устная практика.</p></section>',"course");
     let lesson=state.generatedLessons[id];
-    const r=await apiPost("/api/generate",{kind:"lesson",level:topic.level,topic:topic.title,goal:topic.goal,weakSkills:weakSkills(),reviewWords:reinforcementWordList(10)});
+    const r=await apiPost("/api/generate",{kind:"lesson",level:topic.level,topic:topic.title,goal:topic.goal,weakSkills:weakSkills(),reviewWords:reinforcementWordList(15)});
     if(r.ok){
       const d=r.data;
       if(d&&Array.isArray(d.vocab)&&Array.isArray(d.opts)){
@@ -389,7 +391,7 @@
   };
   startTest=async function(level){
     touchStudy();state.level=level;saveState();shell('<section class="card loading-card"><div class="spinner"></div><h2>Создаю новый тест '+level+'</h2><p class="muted">Учитываю слабые навыки: '+weakSkills().map(skillLabel).join(", ")+'</p></section>',"tests");
-    const topic="Разные бытовые и общественные темы уровня "+level,r=await apiPost("/api/generate",{kind:"test",level,topic,goal:"проверка общего уровня",weakSkills:weakSkills(),reviewWords:reinforcementWordList(10)});
+    const topic="Разные бытовые и общественные темы уровня "+level,r=await apiPost("/api/generate",{kind:"test",level,topic,goal:"проверка общего уровня",weakSkills:weakSkills(),reviewWords:reinforcementWordList(15)});
     let qs=[];
     if(r.ok&&Array.isArray(r.data.questions)){
       qs=r.data.questions.map(q=>({type:q.type==="listening"?"listen":"mc",subskill:q.type,text:q.q,context:q.context||"",audio:q.audio||"",opts:q.opts,correct:Number(q.correct)||0}));
@@ -514,7 +516,7 @@
   async function startChat(){
     state.chatHistory=[];saveState();renderChat();
     const box=document.getElementById("chatMessages");if(box)box.innerHTML='<div class="chat-thinking">Собеседник начинает разговор…</div>';
-    const p=state.chatPrefs,r=await apiPost("/api/chat",{start:true,message:"",level:p.level,mode:p.mode,topic:p.topic,scenario:CHAT_SCENARIOS[p.scenario]||"",history:[],practiceWords:reinforcementWordList(10)});
+    const p=state.chatPrefs,r=await apiPost("/api/chat",{start:true,message:"",level:p.level,mode:p.mode,topic:p.topic,scenario:CHAT_SCENARIOS[p.scenario]||"",history:[],practiceWords:reinforcementWordList(15)});
     if(!r.ok){if(box)box.innerHTML='<div class="feedback bad">Собеседник временно недоступен: '+esc(r.error)+'</div>';return}
     const d=r.data;state.chatHistory=[{role:"assistant",text:d.reply_no,meta:d}];saveState();renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);
   }
@@ -524,7 +526,7 @@
     state.chatHistory.push({role:"user",text:msg,voice:wasVoice});state.chatHistory=state.chatHistory.slice(-40);saveState();renderChat();
     const box=document.getElementById("chatMessages");if(box){box.insertAdjacentHTML("beforeend",'<div class="chat-thinking">Norsk samtalepartner skriver…</div>');box.scrollTop=box.scrollHeight}
     const hist=state.chatHistory.slice(0,-1).slice(-16).map(x=>({role:x.role,text:x.text}));
-    const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:CHAT_SCENARIOS[p.scenario]||"",history:hist,practiceWords:reinforcementWordList(10)});
+    const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:CHAT_SCENARIOS[p.scenario]||"",history:hist,practiceWords:reinforcementWordList(15)});
     if(!r.ok){state.chatHistory.push({role:"assistant",text:"Beklager, jeg fikk et teknisk problem. Prøv igjen.",meta:{translation_ru:"Извините, произошла техническая ошибка. Попробуйте ещё раз."}});saveState();return renderChat()}
     const d=r.data;state.chatHistory.push({role:"assistant",text:d.reply_no,meta:d});state.chatHistory=state.chatHistory.slice(-40);
     updateSkill(wasVoice?"speaking":"writing",d.score||50);if(d.error_tag){rememberError(d.error_tag);updateSkill("grammar",Math.max(20,(d.score||50)-8))}
