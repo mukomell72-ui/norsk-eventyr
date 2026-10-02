@@ -16,8 +16,8 @@
   function dueCount(){try{return window.neDueWords?window.neDueWords().length:0}catch{return 0}}
   function storyDone(){return Object.keys(state.story?.completed||{}).length}
   function currentStory(){
-    if(!Array.isArray(window.STORY_EPISODES))return null;
-    const preferred=window.STORY_SEASONS?.find(s=>s.level===state.level);
+    if(typeof STORY_EPISODES==="undefined"||!Array.isArray(STORY_EPISODES))return null;
+    const preferred=(typeof STORY_SEASONS!=="undefined"?STORY_SEASONS:[]).find(s=>s.level===state.level);
     const eps=preferred?STORY_EPISODES.filter(e=>e.season===preferred.id):STORY_EPISODES;
     return eps.find(e=>!state.story?.completed?.[e.id])||eps[0]||null;
   }
@@ -113,7 +113,7 @@
 
   renderCourse=window.renderCourse=function(level=state.level){
     state.level=level;saveState();
-    const core=lessons(level),topics=(window.TOPIC_CATALOG||[]).filter(x=>x.level===level),next=core.find(x=>!state.completed?.[x.id])||core[0],progress=levelProgress(level);
+    const core=lessons(level),topics=(typeof TOPIC_CATALOG!=="undefined"?TOPIC_CATALOG:[]).filter(x=>x.level===level),next=core.find(x=>!state.completed?.[x.id])||core[0],progress=levelProgress(level);
     const list=courseTab==="topics"?topics:core;
     shell(
       compactHeader("Курс "+level,"Учиться",'<span class="head-score-v6">'+progress+'%</span>')+
