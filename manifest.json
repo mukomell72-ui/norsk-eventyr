@@ -1,5 +1,5 @@
 {
-  "name": "Norsk Eventyr 6.1",
+  "name": "Norsk Eventyr 6.2",
   "short_name": "Norsk Eventyr",
   "start_url": "/",
   "scope": "/",
@@ -8,7 +8,7 @@
   "background_color": "#07101f",
   "theme_color": "#07101f",
   "lang": "ru",
-  "description": "Bokmål A1–B2 через один персональный маршрут на день: слова, урок, Fjordvik, разговор и интервальное повторение.",
+  "description": "Bokmål A1–B2: один персональный маршрут на день, стабильная мобильная навигация, Fjordvik, разговор, слова и Norskprøven.",
   "icons": [
     {
       "src": "/icon.svg",
