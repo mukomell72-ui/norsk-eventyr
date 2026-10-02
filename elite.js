@@ -148,7 +148,7 @@
     {sound:"U /ʉː, ʉ/",why:"Норвежское u обычно произносится центральнее русского «у».",phrases:["du","hus","Hun bor i et stort hus."]},
     {sound:"KJ /ç/",why:"Мягкий шумный звук; не превращай его в «ш».",phrases:["kjøpe","kjære","Jeg skal kjøpe en ny jakke."]},
     {sound:"SKJ /ʂ, ʃ/",why:"Более тёмный шипящий звук, отличается от kj.",phrases:["sjø","skjorte","Kanskje vi sees i morgen."]},
-    {sound:"Ритм и ударение",why:"В норвежской речи безударные слоги сжимаются между ударными.",phrases:["Jeg JOBber i DAG.","I MORgen skal jeg REIse til OSlo.","Kan du HJELpe meg med DETte?"]}
+    {sound:"Ритм и ударение",why:"Пиши слова обычным способом. Ударение показывается отдельно: jobber — 1-й слог; morgen — 1-й; reise — 1-й; Oslo — 1-й; hjelpe — 1-й; dette — 1-й.",phrases:["Jeg jobber i dag.","I morgen skal jeg reise til Oslo.","Kan du hjelpe meg med dette?"]}
   ];
   function renderPronunciationLab(){
     const g=SOUND_LAB[pronSelection.group],phrase=g.phrases[pronSelection.phrase];
