@@ -144,7 +144,7 @@
   function renderStorySideQuest(){
     const day=localDay(),done=state.story.sideQuests[day],words=activeWords().slice(0,4),npcs=["Nora","Amir","Liv","Ingrid","Sofie","Maja"],npc=npcs[new Date(day+"T12:00:00").getDate()%npcs.length];
     if(done){
-      shell('<section class="card story-side-complete"><div style="font-size:56px">🎲</div><div class="eyebrow">Миссия дня выполнена</div><h1>'+done.score+'%</h1><p class="muted">Завтра появится новая короткая ситуация с другими активными словами.</p><button class="btn" onclick="navigate(\'story\')">К истории</button></section>',"home");return;
+      shell('<section class="card story-side-complete"><div style="font-size:56px">🎲</div><div class="eyebrow">Миссия дня выполнена</div><h1>'+done.score+'%</h1><p class="muted">Завтра появится новая короткая ситуация с другими активными словами.</p><button class="btn" onclick="navigate(\'home\')">К сегодняшнему маршруту</button><button class="btn ghost" onclick="navigate(\'story\')">К истории</button></section>',"home");return;
     }
     const prompt=sideQuestPrompt(npc,words);
     shell('<div class="screen-head"><button class="back" onclick="navigate(\'story\')">←</button><div><div class="eyebrow">Миссия дня · 3–5 минут</div><h2 style="margin:0">Случайная встреча с '+npc+'</h2></div></div><section class="card story-side"><div class="story-npc"><span>'+npcAvatar(npc)+'</span><div><b>'+npc+'</b><small>Fjordvik</small></div></div><div class="prompt">'+esc(prompt)+'</div>'+(words.length?'<div class="wordchips">'+words.map(w=>'<span class="wordchip">'+esc(w)+'</span>').join("")+'</div>':'')+'<textarea id="sideAnswer" class="input" placeholder="Ответь своими словами по-норвежски…"></textarea><div class="row" style="margin-top:10px"><button id="micBtn" class="btn secondary" onclick="toggleMic(\'sideAnswer\')">🎤 Голосом</button><button class="btn story-primary" onclick="checkStorySide()">Ответить</button></div><div id="sideFb"></div></section>',"home");
@@ -160,7 +160,7 @@
     const r=await aiEvaluate({answer:a,question:q,goal:"Естественно ответить в короткой реальной ситуации. Смысл важнее дословного совпадения.",level:state.level||"A1",mode:"story_side"});
     if(!r.ok){box.innerHTML='<div class="feedback bad">Проверка временно недоступна.</div>';return}
     const d=r.data,score=Number(d.score||0);state.story.sideQuests[day]={score,date:new Date().toISOString()};state.xp=(state.xp||0)+10;touchStudy();saveState();
-    box.innerHTML='<div class="feedback '+(score>=60?"good":"bad")+'"><b>'+score+'/100</b><br>'+esc(d.explanation_ru||"")+(d.corrected?'<br><br><b>Естественнее:</b> '+esc(d.corrected):"")+'</div><button class="btn wide" style="margin-top:10px" onclick="navigate(\'story\')">Готово</button>';
+    box.innerHTML='<div class="feedback '+(score>=60?"good":"bad")+'"><b>'+score+'/100</b><br>'+esc(d.explanation_ru||"")+(d.corrected?'<br><br><b>Естественнее:</b> '+esc(d.corrected):"")+'</div><button class="btn wide" style="margin-top:10px" onclick="navigate(\'home\')">Продолжить день →</button>';
   }
 
   function renderStoryJournal(){
