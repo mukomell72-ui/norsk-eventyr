@@ -30,3 +30,4 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 
 .hero-copy-v7 p{top:185px}.hero-copy-v7 .cta-v7{top:270px}.course-map-v7{height:510px}.map-node-v7 b{font-size:13px}.map-node-v7 small{font-size:10px}.course-map-v7:before{left:35%;width:24%}.chat-scene-photo-v7{inset:0!important;width:100%!important;background-image:var(--v7-nora)!important}.chat-scene-shade-v7{background:linear-gradient(0deg,#06131fee,transparent 70%)!important}
 @media(max-width:620px){.course-map-v7{height:510px}.map-node-v7{max-width:172px}.map-node-v7 b{font-size:12px}}
+.update-notice{position:fixed;z-index:1000;top:12px;left:50%;transform:translateX(-50%);box-sizing:border-box;width:min(440px,calc(100% - 24px));padding:14px;border:1px solid #42789c;border-radius:16px;background:#0b263c;color:#fff;box-shadow:0 8px 32px #0008}.update-notice p{margin:0 0 10px;font-size:14px;line-height:1.4}.update-notice .btn{width:100%}

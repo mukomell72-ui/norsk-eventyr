@@ -120,17 +120,18 @@
     return '<article class="card story-dialogue-card"><div class="eyebrow">Теперь без готовых вариантов</div><div class="prompt">'+esc(ep.freePrompt)+'</div><p class="muted">'+esc(ep.freeGoal)+'</p>'+(words.length?'<div class="story-word-hint"><small>Если это естественно, попробуй использовать одно из своих активных слов:</small><div class="wordchips">'+words.map(w=>'<span class="wordchip">'+esc(w)+'</span>').join("")+'</div></div>':'')+'<textarea id="storyAnswer" class="input story-answer" placeholder="Пиши по-норвежски или ответь голосом…"></textarea><div class="row" style="margin-top:10px"><button id="micBtn" class="btn secondary" onclick="toggleMic(\'storyAnswer\')">🎤 Ответить голосом</button><button class="btn story-primary" onclick="checkStoryFree()">🧠 Ответить</button></div><div id="storyFb">'+(prev||"")+'</div></article>';
   }
   async function checkStoryFree(){
-    const s=storySession,ep=s.episode,a=document.getElementById("storyAnswer")?.value.trim();if(!a)return;
+    const s=storySession,ep=s?.episode,a=document.getElementById("storyAnswer")?.value.trim();if(!a||!ep||s.checking)return;s.checking=true;
     const box=document.getElementById("storyFb");box.innerHTML='<div class="feedback">Проверяю ответ…</div>';
     const words=activeWords().slice(0,5),goal=ep.freeGoal+(words.length?" Если естественно, приветствуется использование знакомой лексики: "+words.join(", "):"");
     const r=await aiEvaluate({answer:a,question:ep.freePrompt,goal,level:ep.level,mode:"story_speaking"});
-    if(!box.isConnected)return;
-    if(!r.ok){box.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
+    if(!box.isConnected||storySession!==s){s.checking=false;return}
+    if(!r.ok){s.checking=false;box.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
     const d=r.data,score=Math.max(0,Math.min(100,Number(d.score)||0)),ok=d.accepted!==false&&score>=60;
     if(window.neUpdateSkill){neUpdateSkill("speaking",score);neUpdateSkill("grammar",d.breakdown?.grammar??score);neUpdateSkill("vocabulary",d.breakdown?.vocabulary??score)}
     if(ok){
-      s.freeScore=score;box.innerHTML='<div class="feedback good"><b>✓ '+score+'/100</b></div>';neAdvance(()=>storyNext(),520);return;
+      s.freeScore=score;box.innerHTML='<div class="feedback good"><b>✓ '+score+'/100</b></div>';neAdvance(()=>{s.checking=false;storyNext()},520);return;
     }
+    s.checking=false;
     s.freeAttempts=(s.freeAttempts||0)+1;
     box.innerHTML='<div class="feedback bad"><b>Переделай ответ</b><br>'+esc(d.explanation_ru||"")+(d.corrected?'<br><br><b>Возможный вариант:</b><br>'+esc(d.corrected):"")+'</div>';
     document.getElementById("storyAnswer")?.focus();
@@ -172,15 +173,16 @@
   }
   async function checkStorySide(){
     const day=localDay(),a=document.getElementById("sideAnswer")?.value.trim();if(!a)return;
-    const box=document.getElementById("sideFb"),words=activeWords().slice(0,4),q=sideQuestPrompt("Собеседник",words);box.innerHTML='<div class="feedback">Проверяю…</div>';
+    const box=document.getElementById("sideFb");if(box.dataset.checking)return;box.dataset.checking="true";const words=activeWords().slice(0,4),q=sideQuestPrompt("Собеседник",words);box.innerHTML='<div class="feedback">Проверяю…</div>';
     const r=await aiEvaluate({answer:a,question:q,goal:"Естественно ответить в короткой реальной ситуации. Смысл важнее дословного совпадения.",level:state.level||"A1",mode:"story_side"});
     if(!box.isConnected)return;
-    if(!r.ok){box.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
+    if(!r.ok){delete box.dataset.checking;box.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
     const d=r.data,score=Number(d.score||0),ok=d.accepted!==false&&score>=60;
     if(!ok){
+      delete box.dataset.checking;
       box.innerHTML='<div class="feedback bad"><b>Исправь и попробуй ещё раз</b><br>'+esc(d.explanation_ru||"")+(d.corrected?'<br><br><b>Возможный вариант:</b> '+esc(d.corrected):"")+'</div>';document.getElementById("sideAnswer")?.focus();return;
     }
-    state.story.sideQuests[day]={score,date:new Date().toISOString()};state.xp=(state.xp||0)+10;touchStudy();saveState();
+    const first=!state.story.sideQuests[day];state.story.sideQuests[day]={score,date:new Date().toISOString()};if(first)state.xp=(state.xp||0)+10;touchStudy();saveState();
     box.innerHTML='<div class="feedback good"><b>✓ '+score+'/100</b></div>';neAdvance(()=>navigate("home"),650);
   }
 

@@ -1,0 +1,1 @@
+{"private":true,"scripts":{"test":"node api-shapes.mjs && node browser.cjs && node updates.cjs"},"devDependencies":{"playwright":"1.62.1"}}

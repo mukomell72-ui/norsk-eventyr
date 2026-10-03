@@ -9,7 +9,7 @@
     baseShell(content,active);
     document.querySelector('.shell-v7')?.setAttribute('data-screen',route);
     document.querySelectorAll('.dock-v7 button').forEach(button=>button.classList.toggle('active',button.getAttribute('onclick')==="navigate('"+(['welcome','grammarlab','exam','settings','dictionary','learnedwords','progress','listeninglab'].includes(route)?'hub':route)+"')"));
-    const version=document.querySelector('.brand-v7 b');if(version)version.textContent='7.2';
+    const version=document.querySelector('.brand-v7 b');if(version)version.textContent='7.2.1';
   };
   function heading(title,subtitle=''){
     return '<div class="screen-head"><button class="back" onclick="navigate(\'hub\')" aria-label="Назад">←</button><div><h2>'+safe(title)+'</h2><p class="muted">'+safe(subtitle)+'</p></div></div>';

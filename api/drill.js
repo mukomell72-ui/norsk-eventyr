@@ -18,7 +18,7 @@ export default async function handler(req,res){
     const r=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.OPENAI_API_KEY},body:JSON.stringify({model:"gpt-5.6-luna",input:prompt,reasoning:{effort:"low"},max_output_tokens:1500})});
     const data=await r.json().catch(()=>({}));if(!r.ok)return res.status(502).json({error:"AI_REQUEST_FAILED",code:data?.error?.code||("OPENAI_"+r.status)});
     const text=(data.output||[]).flatMap(x=>x.content||[]).find(x=>x.type==="output_text")?.text||"",out=parseJson(text);
-    if(!Array.isArray(out.items)||out.items.length<4)return res.status(502).json({error:"BAD_AI_OUTPUT"});
+    if(!Array.isArray(out.items)||out.items.length<4||!out.items.every(x=>x&& (kind==="grammar"?typeof x.q_ru==="string"&&Array.isArray(x.opts)&&x.opts.length===4&&x.opts.every(o=>typeof o==="string"&&o.trim())&&x.correct!==null&&x.correct!==""&&typeof x.correct!=="boolean"&&Number.isInteger(Number(x.correct))&&Number(x.correct)>=0&&Number(x.correct)<4:typeof x.audio_no==="string"&&x.audio_no.trim()&&typeof x.translation_ru==="string")))return res.status(502).json({error:"BAD_AI_OUTPUT"});
     return res.status(200).json({kind,items:out.items.slice(0,6)});
   }catch{return res.status(500).json({error:"DRILL_AI_FAILED"})}
 }

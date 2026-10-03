@@ -17,7 +17,7 @@
   const baseNavigate=navigate;
   const baseSendChat=window.sendChat;
   const baseAnswerReview=window.answerReview;
-  let installPrompt=null,cloudTimer=null,dictSession=null,grammarSession=null,pronSelection={group:0,phrase:0},listeningSession=null;
+  let installPrompt=null,cloudTimer=null,cloudBusy=false,dictSession=null,grammarSession=null,pronSelection={group:0,phrase:0},listeningSession=null;
 
   const GOALS={
     norskprove:["Norskprøven","Экзамен и официальный формат"],
@@ -106,8 +106,9 @@
   async function startDictation(){
     const key=today()+"-"+state.level,cache=state.elite.drills[key];
     shell('<section class="card loading-card"><div class="spinner"></div><h2>'+(cache?"Открываю диктант":"Создаю диктант")+'</h2><p class="muted">Использую слова из твоего личного словаря.</p></section>',"home");
+    const revision=window.neScreenRevision;
     let data=cache;
-    if(!data){const r=await neApiPost("/api/drill",{kind:"dictation",level:state.level,practiceWords:neReinforcementWords?neReinforcementWords(10):[],weakSkills:neWeakSkills?neWeakSkills():[]});if(!r.ok)return errorCard("Диктант недоступен",r.error);data=r.data;state.elite.drills[key]=data;baseSaveState()}
+    if(!data){const r=await neApiPost("/api/drill",{kind:"dictation",level:state.level,practiceWords:neReinforcementWords?neReinforcementWords(10):[],weakSkills:neWeakSkills?neWeakSkills():[]});if(revision!==window.neScreenRevision)return;if(!r.ok)return errorCard("Диктант недоступен",r.error);data=r.data;state.elite.drills[key]=data;baseSaveState()}
     dictSession={items:data.items||[],i:0,scores:[]};renderDictation();
   }
   function renderDictation(){
@@ -130,8 +131,9 @@
   async function startGrammarLab(){
     const key=today()+"-"+state.level,cache=state.elite.grammarDrills[key];
     shell('<section class="card loading-card"><div class="spinner"></div><h2>'+(cache?"Открываю тренировку":"Создаю грамматическую тренировку")+'</h2></section>',"home");
+    const revision=window.neScreenRevision;
     let data=cache;
-    if(!data){const r=await neApiPost("/api/drill",{kind:"grammar",level:state.level,practiceWords:neReinforcementWords?neReinforcementWords(10):[],weakSkills:neWeakSkills?neWeakSkills():[]});if(!r.ok)return errorCard("Грамматика недоступна",r.error);data=r.data;state.elite.grammarDrills[key]=data;baseSaveState()}
+    if(!data){const r=await neApiPost("/api/drill",{kind:"grammar",level:state.level,practiceWords:neReinforcementWords?neReinforcementWords(10):[],weakSkills:neWeakSkills?neWeakSkills():[]});if(revision!==window.neScreenRevision)return;if(!r.ok)return errorCard("Грамматика недоступна",r.error);data=r.data;state.elite.grammarDrills[key]=data;baseSaveState()}
     grammarSession={items:data.items||[],i:0,correct:0};renderGrammarLab();
   }
   function renderGrammarLab(){
@@ -235,8 +237,11 @@
     m.lexicalCapture={...(remote.lexicalCapture||{}),...(local.lexicalCapture||{})};
     m.guidedJourney={...(remote.guidedJourney||{}),...(local.guidedJourney||{})};m.guidedJourney.lessonDates={...(remote.guidedJourney?.lessonDates||{}),...(local.guidedJourney?.lessonDates||{})};m.guidedJourney.reviewDates={...(remote.guidedJourney?.reviewDates||{}),...(local.guidedJourney?.reviewDates||{})};
     m.story={...(remote.story||{}),...(local.story||{})};m.story.completed={...(remote.story?.completed||{}),...(local.story?.completed||{})};m.story.choices={...(remote.story?.choices||{}),...(local.story?.choices||{})};m.story.journal={...(remote.story?.journal||{}),...(local.story?.journal||{})};m.story.sideQuests={...(remote.story?.sideQuests||{}),...(local.story?.sideQuests||{})};m.story.stats={...(remote.story?.stats||{})};for(const [k,v] of Object.entries(local.story?.stats||{}))m.story.stats[k]=Math.max(m.story.stats[k]||0,v||0);
+    for(const key of ["wordFavorites","chatThreads","chatMemories","generatedLessons"]){m[key]={...(remote[key]||{}),...(local[key]||{})};}
+    m.elite={...(remote.elite||{}),...(local.elite||{})};
+    for(const key of ["drills","grammarDrills"]){m.elite[key]={...(remote.elite?.[key]||{}),...(local.elite?.[key]||{})};}
     m.testHistory=mergeHist(remote.testHistory,local.testHistory);m.examHistory=mergeHist(remote.examHistory,local.examHistory);
-    m.elite={...(remote.elite||{}),...(local.elite||{})};m.elite.activity={...(remote.elite?.activity||{}),...(local.elite?.activity||{})};m.elite.achievements={...(remote.elite?.achievements||{}),...(local.elite?.achievements||{})};
+    m.elite.activity={...(remote.elite?.activity||{}),...(local.elite?.activity||{})};m.elite.achievements={...(remote.elite?.achievements||{}),...(local.elite?.achievements||{})};
     m.elite.counts={...(remote.elite?.counts||{})};for(const [k,v] of Object.entries(local.elite?.counts||{}))m.elite.counts[k]=Math.max(m.elite.counts[k]||0,v||0);
     return m;
   }
@@ -245,19 +250,23 @@
     const d=await rpc("norsk_eventyr_sync_create",{p_sync_id:sync_id,p_secret:secret,p_state:state});const link={sync_id,secret,revision:Number(d.revision)||1,lastSync:new Date().toISOString()};setCloudLink(link);renderCloud();
   }
   async function cloudSync(show=true){
-    const link=cloudLink();if(!link)return false;
+    const link=cloudLink();if(!link||cloudBusy)return false;cloudBusy=true;
     try{
-      const pulled=await rpc("norsk_eventyr_sync_pull",{p_sync_id:link.sync_id,p_secret:link.secret});if(!pulled.ok)throw new Error("Код синхронизации отклонён.");
-      const merged=mergeState(state,pulled.state||{});state=merged;baseSaveState();
+      const pulled=await rpc("norsk_eventyr_sync_pull",{p_sync_id:link.sync_id,p_secret:link.secret});if(cloudLink()?.sync_id!==link.sync_id)return false;if(!pulled.ok)throw new Error("Код синхронизации отклонён.");
+      if(!validProgressState(pulled.state))throw new Error("В облаке повреждённый прогресс. Локальные данные сохранены.");
+      const merged=mergeState(state,pulled.state);state=merged;baseSaveState();
       const pushed=await rpc("norsk_eventyr_sync_push",{p_sync_id:link.sync_id,p_secret:link.secret,p_state:state,p_expected_revision:Number(pulled.revision)});
       if(!pushed.ok&&pushed.error==="CONFLICT")throw new Error("Данные изменились на другом устройстве. Нажми синхронизацию ещё раз.");
-      link.revision=Number(pushed.revision)||Number(pulled.revision);link.lastSync=new Date().toISOString();setCloudLink(link);if(show)renderCloud();return true;
-    }catch(e){if(show)document.getElementById("cloudFb")?.replaceChildren(Object.assign(document.createElement("div"),{className:"feedback bad",textContent:e.message}));return false}
+      if(!pushed.ok)throw new Error("Облако не подтвердило сохранение. Попробуй ещё раз.");
+      if(cloudLink()?.sync_id!==link.sync_id)return false;
+      link.revision=Number(pushed.revision)||Number(pulled.revision);link.lastSync=new Date().toISOString();setCloudLink(link);if(show&&document.getElementById("cloudFb"))renderCloud();return true;
+    }catch(e){if(show)document.getElementById("cloudFb")?.replaceChildren(Object.assign(document.createElement("div"),{className:"feedback bad",textContent:e.message}));return false}finally{cloudBusy=false}
   }
   function scheduleCloud(){if(!cloudLink())return;clearTimeout(cloudTimer);cloudTimer=setTimeout(()=>cloudSync(false),4000)}
   async function connectCloud(){
     const val=document.getElementById("cloudCode")?.value.trim(),parts=val?.split(".");if(!parts||parts.length!==2)return alert("Неверный код синхронизации.");
-    const link={sync_id:parts[0],secret:parts[1],revision:0,lastSync:null};setCloudLink(link);const ok=await cloudSync(false);if(!ok){setCloudLink(null);return alert("Не удалось подключить этот код.")}renderCloud();
+    if(cloudBusy)return;const previous=cloudLink();
+    const link={sync_id:parts[0],secret:parts[1],revision:0,lastSync:null};setCloudLink(link);const ok=await cloudSync(false);if(!ok){setCloudLink(previous);return alert("Не удалось подключить этот код.")}renderCloud();
   }
   function renderCloud(){
     const link=cloudLink(),last=link?.lastSync?new Date(link.lastSync).toLocaleString("ru-RU"):"—",code=link?link.sync_id+"."+link.secret:"";
@@ -285,8 +294,5 @@
   window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e});
   window.addEventListener("appinstalled",()=>{installPrompt=null});
   window.addEventListener("online",()=>scheduleCloud());
-  if("serviceWorker" in navigator){
-    navigator.serviceWorker.addEventListener("controllerchange",()=>{if(!sessionStorage.getItem("ne_sw_reloaded")){sessionStorage.setItem("ne_sw_reloaded","1");location.reload()}});
-  }
   setTimeout(()=>{refreshAchievements();if(cloudLink())cloudSync(false);const open=new URLSearchParams(location.search).get("open");if(open&&["chat","daily","dictation","pronunciation","listeninglab","plan","story","storyside"].includes(open)){navigate(open);history.replaceState(null,"",location.pathname)}},1200);
 })();

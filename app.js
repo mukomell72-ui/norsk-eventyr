@@ -1,9 +1,22 @@
-const APP_VERSION="7.2.0";
+const APP_VERSION="7.2.1";
 const DEFAULT_STATE={level:"A1",xp:0,completed:{},testHistory:[],examHistory:[],streak:1,lastStudy:null};
 let state=loadState(),lessonSession=null,testSession=null,examSession=null,speechRec=null,timerHandle=null;
 
+function validProgressState(value){
+ if(!value||typeof value!=="object"||Array.isArray(value))return false;
+ if(!["A1","A2","B1","B2"].includes(value.level))return false;
+ for(const key of ["testHistory","examHistory","chatHistory"])if(key in value&&!Array.isArray(value[key]))return false;
+ for(const key of ["completed","skills","srs","errors","elite","story","chatPrefs","dailyDictionary","dailyPacks","dailyProgress","generatedLessons","completedTopics","lexicalCandidates","chatThreads","chatMemories","wordFavorites"]){if(key in value&&(!value[key]||typeof value[key]!=="object"||Array.isArray(value[key])))return false;}
+ for(const key of ["xp","streak"])if(key in value&&(!Number.isFinite(value[key])||value[key]<0))return false;
+ for(const key of ["srs","dailyDictionary","dailyPacks","dailyProgress","generatedLessons","lexicalCandidates"]){if(key in value&&Object.values(value[key]).some(item=>!item||typeof item!=="object"||Array.isArray(item)))return false;}
+ if(value.skills&&Object.values(value.skills).some(score=>!Number.isFinite(score)))return false;
+ for(const key of ["testHistory","examHistory","chatHistory"]){if(value[key]?.some(item=>!item||typeof item!=="object"||Array.isArray(item)))return false;}
+ if(value.chatThreads&&Object.values(value.chatThreads).some(thread=>!Array.isArray(thread)))return false;
+ return true;
+}
 function loadState(){try{return {...DEFAULT_STATE,...JSON.parse(localStorage.getItem("ne2_state")||"{}")}}catch{return {...DEFAULT_STATE}}}
-function saveState(){localStorage.setItem("ne2_state",JSON.stringify(state))}
+let storageWarningShown=false;
+function saveState(){try{localStorage.setItem("ne2_state",JSON.stringify(state));storageWarningShown=false;return true}catch{if(!storageWarningShown){storageWarningShown=true;alert("Не удалось сохранить прогресс на устройстве. Освободи место и скачай резервную копию в разделе «Прогресс».")}return false}}
 function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function escJs(s=""){return String(s).replace(/\\/g,"\\\\").replace(/'/g,"\\'").replace(/\n/g," ")}
 function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
@@ -100,7 +113,7 @@ function finishExam(){stopTimer();const s=examSession,obj=pct(s.objScore,s.objTo
 function exitExam(){if(confirm("Завершить экзамен без результата?"))navigate("exam")}
 
 function renderProgress(){const t=state.testHistory.slice(-8).reverse(),e=state.examHistory.slice(-6).reverse();shell(`<div class="screen-head"><button class="back" onclick="navigate('hub')">←</button><div><div class="eyebrow">Статистика</div><h2 style="margin:0">Твой прогресс</h2></div></div><section class="grid3"><div class="kpi"><small>XP</small><strong>${state.xp}</strong></div><div class="kpi"><small>Уроки</small><strong>${Object.keys(state.completed).length}/${COURSE.length}</strong></div><div class="kpi"><small>Серия</small><strong>${state.streak} дн.</strong></div></section><div class="section-title"><h2>По уровням</h2></div><section class="grid">${LEVELS.map(l=>`<article class="card"><div class="row"><span class="level-badge">${l}</span><strong>${levelProgress(l)}%</strong></div><br><div class="progress"><i style="width:${levelProgress(l)}%"></i></div></article>`).join("")}</section><div class="section-title"><h2>История тестов</h2></div><section class="card">${t.length?`<table class="table"><tr><th>Уровень</th><th>Результат</th><th>Дата</th></tr>${t.map(x=>`<tr><td>${x.level}</td><td>${x.score}%</td><td>${new Date(x.date).toLocaleDateString("ru-RU")}</td></tr>`).join("")}</table>`:'<div class="empty">Тестов пока нет.</div>'}</section><div class="section-title"><h2>История экзаменов</h2></div><section class="card">${e.length?`<table class="table"><tr><th>Диапазон</th><th>Итог</th><th>Дата</th></tr>${e.map(x=>`<tr><td>${x.band}</td><td>${x.score}%</td><td>${new Date(x.date).toLocaleDateString("ru-RU")}</td></tr>`).join("")}</table>`:'<div class="empty">Экзаменов пока нет.</div>'}</section><button class="btn red" onclick="resetProgress()">Сбросить прогресс</button>`,"progress")}
-function resetProgress(){if(confirm("Удалить весь прогресс?")){localStorage.removeItem("ne2_state");state={...DEFAULT_STATE};renderHome()}}
+function resetProgress(){if(confirm("Удалить весь прогресс?")){localStorage.setItem("ne2_state_before_reset",JSON.stringify(state));localStorage.removeItem("ne2_state");localStorage.removeItem("ne_cloud_link");location.reload()}}
 
 async function aiEvaluate(payload){try{const r=await fetch("/api/evaluate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}),d=await r.json().catch(()=>({}));return r.ok?{ok:true,data:d}:{ok:false,error:d.code||d.error||("HTTP "+r.status)}}catch{return {ok:false,error:"NETWORK"}}}
 function speakText(text,rate=.85){if(!("speechSynthesis" in window))return alert("Синтез речи не поддерживается.");speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang="nb-NO";u.rate=rate;const v=speechSynthesis.getVoices().find(x=>/^nb|no/i.test(x.lang));if(v)u.voice=v;speechSynthesis.speak(u)}
@@ -112,4 +125,4 @@ function stopTimer(){if(timerHandle){clearInterval(timerHandle);timerHandle=null
 
 Object.assign(window,{navigate,renderCourse,lessonNext,lessonChoice,checkDialogue,checkFree,speakText,toggle,toggleMic,answerTest,answerTestFree,testNext,answerExamObj,answerExamFree,examNext,exitExam,resetProgress});
 renderHome();
-if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
+// Service worker registration and update notices are handled by updates.js.

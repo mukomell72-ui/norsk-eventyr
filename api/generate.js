@@ -5,10 +5,11 @@ async function ask(input,max=2600,effort="low"){
   const data=await r.json().catch(()=>({}));if(!r.ok){const e=data?.error||{};throw Object.assign(new Error("UPSTREAM"),{code:e.code||e.type||("OPENAI_"+r.status)})}
   return (data.output||[]).flatMap(x=>x.content||[]).find(x=>x.type==="output_text")?.text||"";
 }
+function validChoice(opts,correct){return Array.isArray(opts)&&opts.length===4&&opts.every(o=>typeof o==="string"&&o.trim())&&correct!==null&&correct!==""&&typeof correct!=="boolean"&&Number.isInteger(Number(correct))&&Number(correct)>=0&&Number(correct)<opts.length}
 function validateShape(kind,x){
   if(!x||typeof x!=="object")return false;
-  if(kind==="test")return Array.isArray(x.questions)&&x.questions.length>=8&&x.questions.every(q=>Array.isArray(q.opts)&&q.opts.length===4&&Number.isInteger(Number(q.correct)));
-  return Array.isArray(x.vocab)&&x.vocab.length>=6&&Array.isArray(x.opts)&&x.opts.length===4&&typeof x.phrase==="string"&&typeof x.read==="string"&&typeof x.writing==="string"&&typeof x.speaking==="string";
+  if(kind==="test")return Array.isArray(x.questions)&&x.questions.length>=8&&x.questions.every(q=>q&&typeof q.q==="string"&&q.q.trim()&&validChoice(q.opts,q.correct));
+  return Array.isArray(x.vocab)&&x.vocab.length>=6&&x.vocab.every(v=>Array.isArray(v)&&v.length===2&&v.every(w=>typeof w==="string"&&w.trim()))&&validChoice(x.opts,x.correct)&&validChoice(x.grammarOpts,x.grammarCorrect)&&typeof x.phrase==="string"&&typeof x.read==="string"&&typeof x.writing==="string"&&typeof x.speaking==="string";
 }
 export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY"});
