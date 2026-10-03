@@ -259,3 +259,9 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-vis
   .route-steps-v7{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(86px,1fr)}
   .route-step-v7 b{white-space:normal}
 }
+
+.word-translate-v7{display:inline;padding:0;margin:0;border:0;background:none;color:inherit;font:inherit;line-height:inherit;cursor:pointer;text-decoration:underline dotted;text-underline-offset:4px}
+.word-translate-v7:hover,.word-translate-v7:focus-visible{color:#a94b3f;text-decoration:underline}
+.word-translation-panel-v7{box-sizing:border-box;width:min(420px,calc(100vw - 32px));max-height:80vh;overflow:auto;border:0;border-radius:20px;padding:24px;background:#fffaf3;color:#292c2a;box-shadow:0 20px 80px #0005}
+.word-translation-panel-v7::backdrop{background:#182c3555}
+.word-translation-result-v7{white-space:pre-wrap}

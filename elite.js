@@ -117,10 +117,14 @@
   function norm(s){return String(s||"").toLowerCase().replace(/[.,!?;:"'()]/g,"").replace(/\s+/g," ").trim()}
   function sim(a,b){a=norm(a);b=norm(b);if(!a||!b)return 0;const x=a.split(" "),y=b.split(" "),d=Array.from({length:x.length+1},()=>Array(y.length+1).fill(0));for(let i=0;i<=x.length;i++)d[i][0]=i;for(let j=0;j<=y.length;j++)d[0][j]=j;for(let i=1;i<=x.length;i++)for(let j=1;j<=y.length;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(x[i-1]===y[j-1]?0:1));return Math.max(0,Math.round((1-d[x.length][y.length]/Math.max(x.length,y.length))*100))}
   function checkDictation(){
-    const s=dictSession,it=s.items[s.i],a=document.getElementById("dictAnswer").value,score=sim(a,it.audio_no);if(!a.trim())return;s.scores.push(score);if(window.neUpdateSkill){neUpdateSkill("listening",score);neUpdateSkill("vocabulary",score)}
-    document.getElementById("dictFb").innerHTML='<div class="feedback '+(score>=75?"good":"bad")+'"><b>'+score+'%</b><br><b>Правильно:</b> '+esc(it.audio_no||"")+'<br><span class="muted">'+esc(it.translation_ru||"")+'</span></div><button class="btn" style="width:100%;margin-top:10px" onclick="nextDictation()">Дальше →</button>';
+    const s=dictSession;if(!s||s.locked)return;const it=s.items[s.i],a=document.getElementById("dictAnswer").value,score=sim(a,it.audio_no);if(!a.trim())return;
+    if(window.neUpdateSkill){neUpdateSkill("listening",score);neUpdateSkill("vocabulary",score)}
+    const ok=score>=75;if(ok){s.scores.push(score);s.locked=true}
+    document.getElementById("dictFb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'"><b>'+(ok?'✓ Верно':'Исправь и попробуй ещё раз')+'</b><br><b>Правильно:</b> '+esc(it.audio_no||"")+'<br><span class="muted">'+esc(it.translation_ru||"")+'</span></div>';
+    if(ok)neAdvance(()=>nextDictation(),650);else document.getElementById("dictAnswer").focus();
   }
-  function nextDictation(){dictSession.i++;renderDictation()}
+
+  function nextDictation(){dictSession.i++;dictSession.locked=false;renderDictation()}
   function finishDictation(){const avg=dictSession.scores.length?Math.round(dictSession.scores.reduce((a,b)=>a+b,0)/dictSession.scores.length):0;markActivity("dictation");state.elite.counts.listening=(state.elite.counts.listening||0)+1;baseSaveState();shell('<section class="card result-card"><div class="score-ring" style="--pct:'+avg+'%"><b>'+avg+'%</b></div><h1>Диктант завершён</h1><p class="muted">Фразы использовали лексику из твоего накопительного словаря.</p><button class="btn" onclick="navigate(\'hub\')">К инструментам</button></section>',"home");dictSession=null}
 
   async function startGrammarLab(){
@@ -135,11 +139,14 @@
     shell('<div class="screen-head"><button class="back" onclick="navigate(\'hub\')">←</button><div><div class="eyebrow">Грамматика · '+state.level+'</div><h2 style="margin:0">Задание '+(s.i+1)+'/'+s.items.length+'</h2></div></div><section class="exercise"><article class="card"><div class="prompt">'+esc(it.q_ru||it.q||"")+'</div><div class="choice-list">'+(it.opts||[]).map((x,i)=>'<button class="choice" onclick="answerGrammarLab('+i+')">'+esc(x)+'</button>').join("")+'</div><div id="grammarLabFb"></div></article></section>',"home");
   }
   function answerGrammarLab(i){
-    const s=grammarSession,it=s.items[s.i],c=Number(it.correct)||0,ok=i===c;if(ok)s.correct++;if(window.neUpdateSkill)neUpdateSkill("grammar",ok?100:20);
-    document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good");if(j===i&&!ok)b.classList.add("bad")});
-    document.getElementById("grammarLabFb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'">'+(ok?"✅ Верно":"❌ Неверно")+'<br>'+esc(it.explanation_ru||"")+'</div><button class="btn" style="width:100%;margin-top:10px" onclick="nextGrammarLab()">Дальше →</button>';
+    const s=grammarSession;if(!s||s.locked)return;
+    const it=s.items[s.i],c=Number(it.correct)||0,ok=i===c;if(ok){s.correct++;s.locked=true}if(window.neUpdateSkill)neUpdateSkill("grammar",ok?100:20);
+    document.querySelectorAll(".choice").forEach((button,j)=>{if(ok){button.disabled=true;if(j===c)button.classList.add("good")}else if(j===i){button.disabled=true;button.classList.add("bad")}});
+    document.getElementById("grammarLabFb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'">'+(ok?"✓ Верно":"Исправь и попробуй ещё раз")+'<br>'+esc(it.explanation_ru||"")+'</div>';
+    if(ok)neAdvance(()=>nextGrammarLab(),650);
   }
-  function nextGrammarLab(){grammarSession.i++;renderGrammarLab()}
+
+  function nextGrammarLab(){grammarSession.i++;grammarSession.locked=false;renderGrammarLab()}
   function finishGrammarLab(){const score=Math.round(grammarSession.correct/Math.max(1,grammarSession.items.length)*100);markActivity("grammar");shell('<section class="card result-card"><div class="score-ring" style="--pct:'+score+'%"><b>'+score+'%</b></div><h1>Грамматика завершена</h1><button class="btn" onclick="navigate(\'hub\')">К инструментам</button></section>',"home");grammarSession=null}
 
   const SOUND_LAB=[
@@ -199,11 +206,13 @@
     box.innerHTML='<div class="auth-audio"><audio controls src="'+s.url+'"></audio></div><div class="prompt">'+esc(q.q)+'</div><div class="choice-list">'+q.opts.map((x,i)=>'<button class="choice" onclick="answerListeningLab('+i+')">'+esc(x)+'</button>').join("")+'</div><div id="listenQfb"></div>';
   }
   function answerListeningLab(i){
-    const s=listeningSession,q=s.data.questions[s.i],ok=i===Number(q.correct);if(ok)s.correct++;if(window.neUpdateSkill)neUpdateSkill("listening",ok?100:20);
-    document.querySelectorAll("#listenLabBox .choice").forEach((b,j)=>{b.disabled=true;if(j===Number(q.correct))b.classList.add("good");if(j===i&&!ok)b.classList.add("bad")});
-    document.getElementById("listenQfb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'">'+(ok?"✅ Верно":"❌ Неверно")+(q.evidence_no?'<br><small>'+esc(q.evidence_no)+'</small>':'')+'</div><button class="btn" style="width:100%;margin-top:10px" onclick="nextListeningLab()">Дальше →</button>';
+    const s=listeningSession;if(!s||s.locked)return;const q=s.data.questions[s.i],ok=i===Number(q.correct);if(ok){s.correct++;s.locked=true}if(window.neUpdateSkill)neUpdateSkill("listening",ok?100:20);
+    document.querySelectorAll("#listenLabBox .choice").forEach((button,j)=>{if(ok){button.disabled=true;if(j===Number(q.correct))button.classList.add("good")}else if(j===i){button.disabled=true;button.classList.add("bad")}});
+    document.getElementById("listenQfb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'">'+(ok?"✓ Верно":"Послушай ещё раз и попробуй другой ответ")+(q.evidence_no?'<br><small>'+esc(q.evidence_no)+'</small>':'')+'</div>';
+    if(ok)neAdvance(()=>nextListeningLab(),650);
   }
-  function nextListeningLab(){listeningSession.i++;renderListeningQuestions()}
+
+  function nextListeningLab(){listeningSession.i++;listeningSession.locked=false;renderListeningQuestions()}
   function finishListeningLab(){
     const s=listeningSession,score=Math.round(s.correct/Math.max(1,s.data.questions.length)*100),box=document.getElementById("listenLabBox");markActivity("listening");
     box.innerHTML='<div class="feedback '+(score>=60?"good":"bad")+'"><b>Результат '+score+'%</b></div><details class="listen-transcript"><summary>Показать транскрипт</summary><p>'+esc(s.transcript)+'</p></details><h3>Полезные слова</h3><div class="wordchips">'+(s.data.vocabulary||[]).map(x=>'<span class="wordchip"><b>'+esc(x[0])+'</b> · '+esc(x[1])+'</span>').join("")+'</div>';

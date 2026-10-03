@@ -39,7 +39,10 @@
     try{mediaStream?.getTracks?.().forEach(t=>t.stop())}catch{}
     mediaStream=null;
   }
-  window.addEventListener("pagehide",releaseMicStream,{once:false});
+  window.addEventListener("pagehide",event=>{
+    if(mediaRecorder?.state==="recording")mediaRecorder.stop();
+    if(event.persisted)parkMicStream();else releaseMicStream();
+  });
 
 
   function skillLabel(k){return SKILL_NAMES[k]||k}
@@ -69,7 +72,7 @@
       return {...x,daysAgo,zone,_priority:activePriority+longPriority};
     }).sort((a,b)=>b._priority-a._priority).slice(0,limit);
   }
-  function reinforcementWordList(limit=15){return reinforcementEntries(limit).map(x=>x.lemma||x.word)}
+  function reinforcementWordList(limit=15){if(window.neReinforcementWords&&window.neReinforcementWords!==reinforcementWordList)return window.neReinforcementWords(limit);return reinforcementEntries(limit).map(x=>x.lemma||x.word)}
   function registerDailyPack(pack){
     const date=pack.date||localDateKey(),now=Date.now();
     (pack.words||[]).forEach(w=>{
@@ -187,7 +190,7 @@
       const preferredMime=["audio/webm;codecs=opus","audio/webm","audio/mp4"].find(x=>MediaRecorder.isTypeSupported?.(x));
       try{mediaRecorder=new MediaRecorder(mediaStream,preferredMime?{mimeType:preferredMime,audioBitsPerSecond:128000}:{audioBitsPerSecond:128000})}catch{mediaRecorder=preferredMime?new MediaRecorder(mediaStream,{mimeType:preferredMime}):new MediaRecorder(mediaStream)};
       mediaRecorder.ondataavailable=e=>{if(e.data.size)recordChunks.push(e.data)};
-      mediaRecorder.onerror=()=>{clearTimeout(recordTimer);mediaRecorder=null;micBusy=false;releaseMicStream();if(btn)btn.textContent="🎤 Говорить";alert("Запись прервалась. Попробуй ещё раз.")};
+      mediaRecorder.onerror=()=>{clearTimeout(recordTimer);mediaRecorder=null;micBusy=false;parkMicStream();if(btn)btn.textContent="🎤 Говорить";alert("Запись прервалась. Попробуй ещё раз.")};
       mediaRecorder.onstop=async()=>{
         const recorder=mediaRecorder,chunks=recordChunks.slice(),field=recordedField;
         try{
@@ -217,7 +220,10 @@
       };
       mediaRecorder.start(250);if(btn)btn.textContent="■ Слушаю…";
       recordTimer=setTimeout(()=>{if(mediaRecorder?.state==="recording")mediaRecorder.stop()},30000);
-    }catch(e){micBusy=false;releaseMicStream();alert("Нет доступа к микрофону. Разреши микрофон для приложения в настройках Android/браузера.")}
+    }catch(e){
+      micBusy=false;parkMicStream();if(btn)btn.textContent="🎤 Говорить";
+      alert(e?.name==="NotAllowedError"?"Разреши микрофон для этого сайта в настройках браузера. Выбери постоянное разрешение, если браузер предлагает его.":"Не удалось включить микрофон. Проверь, что он доступен, и попробуй снова.");
+    }
   };
 
   const oldNavigate=navigate;
@@ -401,7 +407,7 @@
   function finishDailyPractice(){
     const s=dailyTaskSession,avg=s.scores.length?Math.round(s.scores.reduce((a,b)=>a+b,0)/s.scores.length):0;
     state.dailyProgress[s.date]={completed:true,scores:s.scores,average:avg,completedAt:new Date().toISOString()};state.xp+=15;saveState();
-    shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">5 слов · готово</div><h1>'+avg+'%</h1><p class="muted">Новые слова останутся активными в следующих заданиях и разговоре.</p><button class="btn" onclick="navigate(\'home\')">Продолжить день →</button><button class="btn ghost" onclick="navigate(\'dictionary\')">Словарь</button></section>',"home");dailyTaskSession=null;
+    shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">Домашнее задание выполнено</div><h1>'+avg+'%</h1><p class="muted">Новые слова останутся активными в следующих заданиях и разговоре.</p><button class="btn" onclick="navigate(\'home\')">Продолжить день →</button><button class="btn ghost" onclick="navigate(\'learnedwords\')">Выученные слова</button></section>',"home");dailyTaskSession=null;
   }
 
   let dictionaryFilter={q:"",pos:"all"};
@@ -428,6 +434,7 @@
   }
   function startReview(){
     let items=dueWords();if(!items.length)items=Object.entries(state.srs).sort((a,b)=>(a[1].stage||0)-(b[1].stage||0)).slice(0,12);
+    items.sort((a,b)=>Number(Boolean(state.wordPracticeQueue?.[String(b[1].word||b[0]).toLowerCase().replace(/^å\s+/,"" )]))-Number(Boolean(state.wordPracticeQueue?.[String(a[1].word||a[0]).toLowerCase().replace(/^å\s+/,"" )])));
     reviewSession={items:items.slice(0,20),i:0,missed:{}};renderReviewCard();
   }
   function renderReviewCard(){
@@ -608,19 +615,24 @@
   function toggleChatTranslation(i){const e=document.getElementById("chatTr"+i);if(e)e.style.display=e.style.display==="none"?"block":"none"}
   function clearChat(){if(!state.chatHistory.length||confirm("Очистить историю этого разговора?")){state.chatHistory=[];saveState();renderChat()}}
   async function startChat(){
-    state.chatHistory=[];saveState();renderChat();
+    state.chatHistory=[];state.chatMemories=state.chatMemories||{};delete state.chatMemories[state.chatThreadId||"general"];saveState();renderChat();
     const box=document.getElementById("chatMessages");if(box)box.innerHTML='<div class="chat-thinking">Собеседник начинает разговор…</div>';
-    const p=state.chatPrefs,r=await apiPost("/api/chat",{start:true,message:"",level:p.level,mode:p.mode,topic:p.topic,scenario:CHAT_SCENARIOS[p.scenario]||"",history:[],practiceWords:reinforcementWordList(15)});
+    const p=state.chatPrefs,r=await apiPost("/api/chat",{start:true,message:"",level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:[],practiceWords:reinforcementWordList(15)});
     if(!r.ok){if(box)box.innerHTML='<div class="feedback bad">Собеседник временно недоступен: '+esc(r.error)+'</div>';return}
     const d=r.data;state.chatHistory=[{role:"assistant",text:d.reply_no,meta:d}];saveState();if(!window.neChatVisible||neChatVisible()){renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);}
   }
   async function sendChat(){
     const input=document.getElementById("chatInput"),btn=document.getElementById("chatSendBtn"),msg=input?.value.trim();if(!msg)return;
     const p=state.chatPrefs,wasVoice=chatInputWasVoice;chatInputWasVoice=false;
+    state.chatMemories=state.chatMemories||{};const memoryKey=state.chatThreadId||"general";
+    if(!state.chatMemories[memoryKey])state.chatMemories[memoryKey]=[];
+    const memory=state.chatMemories[memoryKey];if(memory.length<8){
+      state.chatMemories[memoryKey]=[...state.chatHistory.map(x=>({role:x.role,text:x.text})),{role:'user',text:msg}].slice(0,8);
+    }
     state.chatHistory.push({role:"user",text:msg,voice:wasVoice});state.chatHistory=state.chatHistory.slice(-40);saveState();renderChat();
     const box=document.getElementById("chatMessages");if(box){box.insertAdjacentHTML("beforeend",'<div class="chat-thinking">Norsk samtalepartner skriver…</div>');box.scrollTop=box.scrollHeight}
-    const hist=state.chatHistory.slice(0,-1).slice(-16).map(x=>({role:x.role,text:x.text}));
-    const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:CHAT_SCENARIOS[p.scenario]||"",history:hist,practiceWords:reinforcementWordList(15)});
+    const hist=state.chatHistory.slice(0,-1).slice(-32).map(x=>({role:x.role,text:x.text}));
+    const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:hist,context:state.chatMemories[memoryKey].map(x=>(x.role==="user"?"Ученик: ":"Nora: ")+x.text).join("\n"),practiceWords:reinforcementWordList(15)});
     if(!r.ok){state.chatHistory.push({role:"assistant",text:"Beklager, jeg fikk et teknisk problem. Prøv igjen.",meta:{translation_ru:"Извините, произошла техническая ошибка. Попробуйте ещё раз."}});saveState();if(!window.neChatVisible||neChatVisible())return renderChat();return;}
     const d=r.data;state.chatHistory.push({role:"assistant",text:d.reply_no,meta:d});state.chatHistory=state.chatHistory.slice(-40);
     updateSkill(wasVoice?"speaking":"writing",d.score||50);if(d.error_tag){rememberError(d.error_tag);updateSkill("grammar",Math.max(20,(d.score||50)-8))}

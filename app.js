@@ -1,4 +1,4 @@
-const APP_VERSION="7.1.0";
+const APP_VERSION="7.2.0";
 const DEFAULT_STATE={level:"A1",xp:0,completed:{},testHistory:[],examHistory:[],streak:1,lastStudy:null};
 let state=loadState(),lessonSession=null,testSession=null,examSession=null,speechRec=null,timerHandle=null;
 
@@ -40,8 +40,38 @@ function renderCourse(level=state.level){
 function startLesson(id){const l=COURSE.find(x=>x.id===id);if(!l)return navigate("course");state.level=l.level;saveState();touchStudy();lessonSession={lesson:l,step:0,locked:false};renderLesson()}
 function renderLesson(){const s=lessonSession,l=s.lesson,n=["Фраза","Словарь","Аудирование","Чтение","Письмо","Речь"];let b="";if(s.step===0)b=lessonIntro(l);if(s.step===1)b=vocabEx(l);if(s.step===2)b=listenEx(l);if(s.step===3)b=readEx(l);if(s.step===4)b=freeEx(l,"writing");if(s.step===5)b=freeEx(l,"speaking");
  shell(`<div class="lesson-head-v6"><button class="back-v6" onclick="navigate('course','${l.level}')">←</button><div><small>${l.level} · ${esc(l.title)}</small><b>${n[s.step]}</b></div><span>${s.step+1}/6</span></div><div class="progress lesson-progress-v6"><i style="width:${pct(s.step+1,6)}%"></i></div><section class="exercise lesson-exercise-v6">${b}</section>`,"course")}
-function lessonIntro(l){return `<article class="card lesson-intro-v6"><div class="phrase-v6"><small>Фраза</small><div class="prompt">${esc(l.phrase)}</div><div class="phrase-actions-v6"><button onclick="speakText('${escJs(l.phrase)}',.82)">🔊 Фраза</button><button onclick="toggle('tr')">RU Перевод</button></div><div id="tr" class="translation compact-translation-v6" style="display:none">${esc(l.ru)}</div></div><div class="lesson-words-v6">${l.vocab.map(v=>`<span><b>${esc(v[0])}</b><small>${esc(v[1])}</small></span>`).join("")}</div><div class="answer-label-v6"><b>Твой ответ</b><span>текстом или голосом</span></div><textarea id="dialogAnswer" class="input lesson-answer-v6" rows="2" placeholder="Напиши по-норвежски…"></textarea><div class="lesson-actions-v6"><button id="micBtn" class="btn secondary" onclick="toggleMic('dialogAnswer','','${escJs(l.phrase)}')">🎤 Сказать</button><button class="btn" onclick="checkDialogue()">✓ Проверить</button></div><div id="dialogFb"></div><details class="grammar-fold-v6"><summary>Грамматика</summary><p>${esc(l.grammar)}</p></details></article>`}
-async function checkDialogue(){const a=document.getElementById("dialogAnswer").value.trim();if(!a)return;const l=lessonSession.lesson,b=document.getElementById("dialogFb"),goal="Естественно ответить собеседнику своими словами по-норвежски.";b.innerHTML='<div class="feedback">Проверяю…</div>';const r=await aiEvaluate({answer:a,question:l.phrase,goal,level:l.level,mode:"dialogue"});if(!b.isConnected)return;if(!r.ok){b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}const d=r.data,ok=d.accepted!==false&&(d.score??70)>=55;if(ok){b.innerHTML='<div class="feedback good"><b>✓ Верно</b></div>';neAdvance(()=>lessonNext(10),450);return}b.innerHTML='<div class="feedback bad"><b>Попробуй ещё раз</b><br>'+esc(d.explanation_ru||"Исправь ответ и проверь снова.")+(d.corrected?'<br><b>Подсказка:</b> '+esc(d.corrected):"")+'</div>';document.getElementById("dialogAnswer")?.focus()}
+const INTRODUCTION_DIALOGUE=[
+ {phrase:"Hei! Jeg heter Nora. Hva heter du?",ru:"Привет! Меня зовут Нора. Как тебя зовут?",goal:"Поздоровайся и назови своё имя."},
+ {phrase:"Hyggelig å møte deg! Hvor kommer du fra?",ru:"Приятно познакомиться! Откуда ты?",goal:"Скажи, из какой страны или города ты родом."},
+ {phrase:"Hvor bor du nå?",ru:"Где ты сейчас живёшь?",goal:"Скажи, где ты сейчас живёшь."},
+ {phrase:"Hva gjør du til daglig? Jobber du, eller lærer du norsk?",ru:"Чем ты занимаешься каждый день? Работаешь или учишь норвежский?",goal:"Расскажи о работе или изучении норвежского. Оба варианта допустимы."},
+ {phrase:"Nå er det din tur. Still meg et spørsmål for å bli kjent med meg.",ru:"Теперь твоя очередь. Задай мне вопрос, чтобы познакомиться со мной.",goal:"Задай собеседнице один простой вопрос о её имени, происхождении, месте жительства или работе."}
+];
+function currentDialogueTurn(l){
+ if(l.id!=="a1-1")return {phrase:l.phrase,ru:l.ru,goal:"Естественно ответить собеседнику своими словами по-норвежски."};
+ const i=lessonSession.dialogueIndex||0;
+ return {...INTRODUCTION_DIALOGUE[i],dialogueLabel:"Знакомство с Норой · "+(i+1)+"/"+INTRODUCTION_DIALOGUE.length};
+}
+function lessonIntro(l){const turn=currentDialogueTurn(l);const shown={...l,...turn};l=shown;return `<article class="card lesson-intro-v6"><div class="phrase-v6"><small>${l.dialogueLabel||"Фраза"}</small><div class="prompt">${esc(l.phrase)}</div><div class="phrase-actions-v6"><button onclick="speakText('${escJs(l.phrase)}',.82)">🔊 Фраза</button><button onclick="toggle('tr')">RU Перевод</button></div><div id="tr" class="translation compact-translation-v6" style="display:none">${esc(l.ru)}</div></div><div class="lesson-words-v6">${l.vocab.map(v=>`<span><b>${esc(v[0])}</b><small>${esc(v[1])}</small></span>`).join("")}</div><div class="answer-label-v6"><b>Твой ответ</b><span>текстом или голосом</span></div><textarea id="dialogAnswer" class="input lesson-answer-v6" rows="2" placeholder="Напиши по-норвежски…"></textarea><div class="lesson-actions-v6"><button id="micBtn" class="btn secondary" onclick="toggleMic('dialogAnswer','','${escJs(l.phrase)}')">🎤 Сказать</button><button class="btn" onclick="checkDialogue()">✓ Проверить</button></div><div id="dialogFb"></div><details class="grammar-fold-v6"><summary>Грамматика</summary><p>${esc(l.grammar)}</p></details></article>`}
+async function checkDialogue(){
+ const s=lessonSession,input=document.getElementById("dialogAnswer"),a=input?.value.trim();if(!a||s.locked)return;
+ const l=s.lesson,turn=currentDialogueTurn(l),b=document.getElementById("dialogFb");s.locked=true;
+ b.innerHTML='<div class="feedback">Проверяю…</div>';
+ const r=await aiEvaluate({answer:a,question:turn.phrase,goal:turn.goal,level:l.level,mode:"dialogue"});
+ if(!b.isConnected||lessonSession!==s){s.locked=false;return;}
+ if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return;}
+ const d=r.data,ok=d.accepted!==false&&(d.score??70)>=55;
+ if(ok){
+  b.innerHTML='<div class="feedback good"><b>✓ Верно</b></div>';
+  neAdvance(()=>{
+   if(l.id==="a1-1"&&(s.dialogueIndex||0)<INTRODUCTION_DIALOGUE.length-1){
+    s.dialogueIndex=(s.dialogueIndex||0)+1;state.xp+=10;saveState();s.locked=false;renderLesson();
+   }else lessonNext(10);
+  },450);return;
+ }
+ s.locked=false;b.innerHTML='<div class="feedback bad"><b>Попробуй ещё раз</b><br>'+esc(d.explanation_ru||"Исправь ответ и проверь снова.")+(d.corrected?'<br><b>Подсказка:</b> '+esc(d.corrected):"")+'</div>';input.focus();
+}
+
 function vocabEx(l){const t=l.vocab[0],pool=COURSE.filter(x=>x.level===l.level).flatMap(x=>x.vocab.map(v=>v[1])).filter(x=>x!==t[1]),o=shuffle([t[1],...shuffle(pool).slice(0,3)]),c=o.indexOf(t[1]);return `<article class="card"><div class="eyebrow">Словарь</div><div class="prompt">Что значит «${esc(t[0])}»?</div><div class="choice-list">${o.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${c},'${escJs(t[0]+" = "+t[1])}')">${esc(x)}</button>`).join("")}</div><div id="fb"></div></article>`}
 function listenEx(l){const d=shuffle(COURSE.filter(x=>x.level===l.level&&x.id!==l.id)).slice(0,3).map(x=>x.phrase),o=shuffle([l.phrase,...d]),c=o.indexOf(l.phrase);return `<article class="card"><div class="eyebrow">Аудирование</div><div class="prompt">Прослушай и выбери точную фразу.</div><button class="btn" onclick="speakText('${escJs(l.phrase)}',.78)">▶ Прослушать</button><div class="choice-list">${o.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${c},'${escJs(l.ru)}')">${esc(x)}</button>`).join("")}</div><div id="fb"></div></article>`}
 function readEx(l){return `<article class="card"><div class="eyebrow">Чтение</div><div class="translation">${esc(l.read)}</div><div class="prompt">${esc(l.q)}</div><div class="choice-list">${l.opts.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${l.correct},'Ответ находится в тексте.')">${esc(x)}</button>`).join("")}</div><div id="fb"></div></article>`}
