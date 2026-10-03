@@ -75,6 +75,7 @@
 
   navigate=window.navigate=function(view,data){
     stopTimer();
+    if(listeningSession&&view!=="listeninglab"){URL.revokeObjectURL(listeningSession.url);listeningSession=null}
     if(view==="plan")return renderPlan();
     if(view==="dictation")return startDictation();
     if(view==="grammarlab")return startGrammarLab();
@@ -184,6 +185,7 @@
     ["Klar Tale","Новости на более доступном норвежском.","https://www.klartale.no/"]
   ];
   function renderListeningLab(){
+    if(listeningSession){URL.revokeObjectURL(listeningSession.url);listeningSession=null}
     shell('<div class="screen-head"><button class="back" onclick="navigate(\'hub\')">←</button><div><div class="eyebrow">Настоящий норвежский</div><h2 style="margin:0">Listening Lab</h2></div></div>'+
     '<div class="notice"><b>Живые голоса:</b> ниже встроены реальные записи норвежской речи из Norwegian Headstart. Материал распространяется как public domain; запись не является AI-озвучкой.</div>'+
     '<div class="section-title"><h2>Живой курс · 8 ситуаций</h2><span class="tag">FSI / DLI</span></div>'+
@@ -194,13 +196,21 @@
   }
   async function fileB64(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(",")[1]);r.onerror=reject;r.readAsDataURL(file)})}
   async function analyzeListeningFile(){
-    const file=document.getElementById("listenFile")?.files?.[0],box=document.getElementById("listenLabBox");if(!file)return;if(file.size>6*1024*1024){box.innerHTML='<div class="feedback bad">Файл больше 6 МБ. Выбери короткий фрагмент.</div>';return}
+    const file=document.getElementById("listenFile")?.files?.[0],box=document.getElementById("listenLabBox");if(!file||!box||box.dataset.analyzing)return;
+    if(file.size>6*1024*1024){box.innerHTML='<div class="feedback bad">Файл больше 6 МБ. Выбери короткий фрагмент.</div>';return}
+    const level=state.level,revision=window.neScreenRevision;box.dataset.analyzing="true";
+    const current=()=>box.isConnected&&revision===window.neScreenRevision;
     box.innerHTML='<div class="feedback">⏳ Распознаю аудио и создаю задания…</div>';
-    const b64=await fileB64(file),tr=await neApiPost("/api/transcribe",{audioBase64:b64,mime:file.type||"audio/webm"});
-    if(!tr.ok||!tr.data.text)return box.innerHTML='<div class="feedback bad">Не удалось распознать аудио: '+esc(tr.error||"")+'</div>';
-    const qs=await neApiPost("/api/listening-questions",{transcript:tr.data.text,level:state.level,practiceWords:neReinforcementWords?neReinforcementWords(10):[]});
-    if(!qs.ok)return box.innerHTML='<div class="feedback bad">Не удалось создать вопросы: '+esc(qs.error||"")+'</div>';
-    listeningSession={transcript:tr.data.text,data:qs.data,i:0,correct:0,url:URL.createObjectURL(file)};renderListeningQuestions();
+    try{
+      const b64=await fileB64(file);if(!current())return;
+      const tr=await neApiPost("/api/transcribe",{audioBase64:b64,mime:file.type||"audio/webm"});if(!current())return;
+      if(!tr.ok||!tr.data?.text){box.innerHTML='<div class="feedback bad">Не удалось распознать аудио: '+esc(tr.error||"")+'</div>';return}
+      const qs=await neApiPost("/api/listening-questions",{transcript:tr.data.text,level,practiceWords:neReinforcementWords?neReinforcementWords(10):[]});if(!current())return;
+      if(!qs.ok||!Array.isArray(qs.data?.questions)||!qs.data.questions.length){box.innerHTML='<div class="feedback bad">Не удалось создать вопросы: '+esc(qs.error||"")+'</div>';return}
+      if(listeningSession)URL.revokeObjectURL(listeningSession.url);
+      listeningSession={transcript:tr.data.text,data:qs.data,i:0,correct:0,url:URL.createObjectURL(file)};renderListeningQuestions();
+    }catch{if(current())box.innerHTML='<div class="feedback bad">Не удалось прочитать аудиофайл. Выбери файл снова и повтори попытку.</div>'}
+    finally{delete box.dataset.analyzing}
   }
   function renderListeningQuestions(){
     const s=listeningSession,q=s.data.questions[s.i],box=document.getElementById("listenLabBox");if(!box)return;

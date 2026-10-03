@@ -547,8 +547,8 @@
     shell('<div class="screen-head"><button class="back" onclick="exitExamV3()">←</button><div style="flex:1"><div class="eyebrow">'+(listen?"Аудирование":"Чтение")+' · '+(s.phase==="pre"?"адаптивный пробный блок":"основной блок "+s.band)+'</div><h2 style="margin:0">Задание '+(s.i+1)+'/'+s.items.length+'</h2></div><span id="timer" class="pill timer"></span></div><section class="exercise"><article class="card">'+(it.context?'<div class="translation">'+esc(it.context)+'</div><br>':"")+(listen?'<div class="notice">AI-голос. Доступно прослушиваний: '+limit+'.</div><br><button id="examAudioBtn" class="btn" onclick="playExamAudio()">▶ Прослушать</button><br><br>':"")+'<div class="prompt">'+esc(it.q)+'</div><div class="choice-list">'+it.opts.map((x,i)=>'<button class="choice" onclick="answerExamObjectiveV3('+i+')">'+esc(x)+'</button>').join("")+'</div></article></section>',"exam");updateTimerV3();
   }
   async function playExamAudio(){
-    const s=examV3,it=s.items[s.i],limit=s.phase==="main"&&s.band==="B1-B2"?1:2;if(it.plays>=limit)return;
-    it.plays++;await speakText(it.audio);const b=document.getElementById("examAudioBtn");if(b&&it.plays>=limit)b.disabled=true;
+    const s=examV3,it=s?.items[s.i];if(!it)return;const limit=s.phase==="main"&&s.band==="B1-B2"?1:2;if(it.plays>=limit)return;
+    const b=document.getElementById("examAudioBtn");it.plays++;await speakText(it.audio);if(b?.isConnected&&examV3===s&&s.items[s.i]===it&&it.plays>=limit)b.disabled=true;
   }
   function answerExamObjectiveV3(i){
     const s=examV3,it=s.items[s.i],ok=i===it.correct;s.total++;if(ok)s.correct++;if(s.phase==="pre"&&ok)s.preCorrect++;

@@ -1,1 +1,1 @@
-{"private":true,"scripts":{"test":"node api-shapes.mjs && node browser.cjs && node updates.cjs"},"devDependencies":{"playwright":"1.62.1"}}
+{"private":true,"scripts":{"test":"node api-shapes.mjs && node browser.cjs && node async-media.cjs && node updates.cjs"},"devDependencies":{"playwright":"1.62.1"}}

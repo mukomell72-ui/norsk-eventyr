@@ -9,7 +9,7 @@
   const baseAiEvaluate=window.aiEvaluate;
   const baseSendChat=window.sendChat;
   const baseAnswerReview=window.answerReview;
-  let dictQuery="",dictZone="all",dictPos="all";
+  let dictQuery="",dictZone="all",dictPos="all",dailyGenerationBusy=false;
 
   function dateKey(){return window.neLocalDate?neLocalDate():new Date().toISOString().slice(0,10)}
   function dateDiff(a,b=dateKey()){
@@ -170,17 +170,21 @@
   }
 
   async function generateSmartDailyPack(){
-    const date=dateKey();if(state.dailyPacks?.[date])return renderSmartDaily();
+    if(dailyGenerationBusy)return;
+    const date=dateKey(),level=state.level||"A1";if(state.dailyPacks?.[date])return renderSmartDaily();
+    dailyGenerationBusy=true;try{
     shell('<section class="card loading-card"><div class="spinner"></div><h2>Собираю персональные 5 слов</h2><p class="muted">Сначала беру слова и конструкции, которых тебе реально не хватило в речи и письме. Остальное дополняю полезной лексикой уровня.</p></section>',"home");
+    const revision=window.neScreenRevision;
     const review=smartReviewEntries(15).filter(x=>x.daysAgo>0||x.zone==="longterm").map(x=>({word:x.lemma||x.word,translation_ru:x.translation_ru,daysAgo:x.daysAgo,strength:x.strength||20,zone:x.zone}));
     const candidates=pendingCandidates().slice(0,10).map(x=>({key:x.key,lemma:x.lemma,translation_ru:x.translation_ru,kind:x.kind,occurrences:x.occurrences,confidence:x.confidence,reason_ru:x.reason_ru}));
     const dayNumber=(state.dailyDayCount||0)+1;
-    const r=await neApiPost("/api/daily",{level:state.level||"A1",date,knownWords:dictionaryList().map(x=>x.lemma||x.word),reviewWords:review,candidateWords:candidates,weakSkills:neWeakSkills?neWeakSkills():[],dayNumber});
-    if(!r.ok){shell('<section class="card"><h2>Не удалось подготовить домашнее задание</h2><p class="muted">'+esc(r.error||"")+'</p><button class="btn" onclick="navigate(\'daily\')">Назад</button></section>',"home");return}
-    const pack=r.data;pack.date=date;pack.level=state.level||"A1";pack.dayNumber=dayNumber;
+    const r=await neApiPost("/api/daily",{level,date,knownWords:dictionaryList().map(x=>x.lemma||x.word),reviewWords:review,candidateWords:candidates,weakSkills:neWeakSkills?neWeakSkills():[],dayNumber});
+    if(!r.ok){if(revision!==window.neScreenRevision)return;shell('<section class="card"><h2>Не удалось подготовить домашнее задание</h2><p class="muted">'+esc(r.error||"")+'</p><button class="btn" onclick="navigate(\'daily\')">Назад</button></section>',"home");return}
+    const pack=r.data;pack.date=date;pack.level=level;pack.dayNumber=dayNumber;
     state.dailyPacks[date]=pack;state.dailyProgress[date]={completed:false,scores:[]};state.dailyDayCount=dayNumber;
     const dates=Object.keys(state.dailyPacks).sort();while(dates.length>120){const old=dates.shift();delete state.dailyPacks[old];delete state.dailyProgress[old]}
-    registerPack(pack);renderSmartDaily();
+    registerPack(pack);if(revision===window.neScreenRevision)renderSmartDaily();
+    }finally{dailyGenerationBusy=false}
   }
 
   function wordCard(w,i){
