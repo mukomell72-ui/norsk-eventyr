@@ -1,4 +1,4 @@
-const CACHE="norsk-eventyr-v7-0-1-final";
+const CACHE="norsk-eventyr-v7-context-help";
 const ASSETS=["/","/index.html","/styles.css","/v7.css","/data.js","/app.js","/voice-pack.js","/v3.js","/lexicon.js","/elite.js","/story-data.js","/story.js","/ui-v6.js","/ui-v7.js","/manifest.json","/icon.svg","/offline.html"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)).then(()=>self.skipWaiting())));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));

@@ -68,10 +68,42 @@
           '<button class="brand-v7" onclick="navigate(\'home\')"><span>Norsk Eventyr</span><b>7.0</b></button>'+
           '<div class="status-v7"><button class="streak-v7" onclick="navigate(\'hub\')">🔥 <b>'+streak+'</b></button><button class="level-v7" onclick="navigate(\'course\')">'+level+'</button></div>'+
         '</header>'+
-        '<main class="main-v7">'+content+'</main>'+
+        '<main class="main-v7">'+content+helpMarkupV7()+'</main>'+
         navV7(currentRouteV7||active)+
       '</div>';
   };
+
+  function helpMarkupV7(){
+    return '<section class="card" style="margin:16px 0"><button class="btn secondary" onclick="v7OpenHelp()" aria-controls="helpPanelV7" aria-expanded="false" id="helpToggleV7">Мне непонятно</button>'+
+      '<div id="helpPanelV7" hidden><p>Спроси Нору по-русски. Она увидит текущее задание. Ответ на задание сохранится.</p><textarea class="input" id="helpQuestionV7" maxlength="1800" rows="2" placeholder="Как понять эту фразу? Почему здесь такой порядок слов?"></textarea><div class="row" style="margin-top:10px"><button class="btn" id="helpSendV7" onclick="v7AskHelp()">Спросить Нору</button><button class="btn ghost" onclick="v7OpenHelp()">Закрыть</button></div><div id="helpReplyV7" role="status" aria-live="polite" style="white-space:pre-wrap;margin-top:12px"></div></div></section>';
+  }
+  function v7OpenHelp(){
+    const panel=document.getElementById("helpPanelV7");if(!panel)return;
+    panel.hidden=!panel.hidden;
+    document.getElementById("helpToggleV7")?.setAttribute("aria-expanded",String(!panel.hidden));
+    if(!panel.hidden)document.getElementById("helpQuestionV7")?.focus();
+  }
+  async function v7AskHelp(){
+    const input=document.getElementById("helpQuestionV7"),button=document.getElementById("helpSendV7"),box=document.getElementById("helpReplyV7");
+    const question=input?.value.trim();if(!question||!button||button.disabled)return;
+    const main=document.querySelector(".main-v7"),copy=main.cloneNode(true);
+    copy.querySelector("#helpPanelV7")?.parentElement.remove();
+    const answer=Array.from(main.querySelectorAll("textarea,input")).filter(e=>e.id!=="helpQuestionV7").map(e=>e.value).filter(Boolean).join("\n");
+    const context=(copy.textContent+"\nОтвет ученика: "+answer).slice(0,6000);
+    const history=box._helpHistory||[];
+    button.disabled=true;box.textContent="Нора объясняет…";
+    try{
+      const r=await neApiPost("/api/chat",{mode:"explain",message:question,context,level:state.level,history});
+      if(!box.isConnected)return;
+      const explanation=r.ok?String(r.data?.explanation_ru||r.data?.translation_ru||""):"";
+      if(!explanation){box.textContent="Объяснение сейчас недоступно. Вопрос сохранён — попробуй ещё раз.";return;}
+      box.textContent=explanation;
+      box._helpHistory=[...history,{role:"user",text:question},{role:"assistant",text:explanation}].slice(-8);
+      input.value="";
+    }catch{if(box.isConnected)box.textContent="Не удалось получить объяснение. Попробуй ещё раз."}
+    finally{button.disabled=false;}
+  }
+  Object.assign(window,{v7OpenHelp,v7AskHelp});
 
   function guidedV7(){
     state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};
