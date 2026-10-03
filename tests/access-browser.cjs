@@ -2,7 +2,7 @@ const fs=require('fs'),http=require('http'),path=require('path'),assert=require(
 const root=path.resolve(__dirname,'..'),ownerId='11111111-1111-4111-8111-111111111111',studentId='22222222-2222-4222-8222-222222222222';let status='unrequested',name='';
 const server=http.createServer(async(req,res)=>{
  const pathname=new URL(req.url,'http://localhost').pathname;
- if(pathname==='/api/access'){
+ if(pathname==='/api/session'){
   let raw='';for await(const chunk of req)raw+=chunk;const b=JSON.parse(raw||'{}'),user=/user=(owner|student)/.exec(req.headers.cookie||'')?.[1];res.setHeader('Content-Type','application/json');let out={ok:true};
   if(b.action==='login'){res.setHeader('Set-Cookie','user='+(b.email.startsWith('owner')?'owner':'student')+'; Path=/');}
   else if(b.action==='register')out={confirmEmail:true};

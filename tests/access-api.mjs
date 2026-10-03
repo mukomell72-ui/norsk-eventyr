@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import handler from '../api/access.js';import {guard,createSession} from '../api/_guard.js';
+import handler from '../api/session.js';import {guard,createSession} from '../api/_guard.js';
 let status='pending',owner=false,confirmed=true,down=false,rpcCalls=[];
 globalThis.fetch=async(url,options)=>{
  if(down)throw new Error('offline');
@@ -22,6 +22,7 @@ status='approved';confirmed=false;assert.equal((await invoke({action:'status'}))
 owner=true;assert.equal((await invoke({action:'list'})).code,200);assert.equal((await invoke({action:'decide',user_id:'11111111-1111-4111-8111-111111111111',status:'approved'})).code,200);
 const req=request();req.headers.origin='https://other.example';const res=response();await handler(req,res);assert.equal(res.code,403);
 const refresh=await invoke({action:'status'},'ne_refresh=old');assert.equal(refresh.code,200);assert(refresh.headers['Set-Cookie'].every(c=>c.includes('HttpOnly')&&c.includes('Secure')&&c.includes('SameSite=Strict')));
+assert.equal(typeof (await invoke({})).data.token,'string');
 down=true;assert.equal((await invoke({action:'status'})).code,503);
 const logout=await invoke({action:'logout'});assert.equal(logout.code,200);assert(logout.headers['Set-Cookie'].every(c=>c.includes('Max-Age=0')));
 console.log('PASS access API: authentication, confirmation, approvals, owner-only decisions, revocation, origin, cookie refresh, outage and logout');
