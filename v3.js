@@ -16,7 +16,7 @@
   state.dailyDayCount=Number(state.dailyDayCount)||Object.keys(state.dailyPacks).length;
   saveState();
 
-  let neSession=sessionStorage.getItem("ne_session")||"";
+  let neSession=sessionStorage.getItem("ne_session")||"",micBusy=false,speechAudio=null,speechUrl=null,speechRequest=0;
   let placementSession=null,reviewSession=null,examV3=null,dailyTaskSession=null,mediaRecorder=null,mediaStream=null,recordChunks=[],recordTimer=null,recordStartedAt=0,chatInputWasVoice=false;
   const MIC_CONSTRAINTS={audio:{channelCount:{ideal:1},sampleRate:{ideal:48000},echoCancellation:true,noiseSuppression:true,autoGainControl:true}};
   function micStreamAlive(){
@@ -128,6 +128,9 @@
     const v=speechSynthesis.getVoices().find(x=>/^nb|no/i.test(x.lang));if(v)u.voice=v;speechSynthesis.speak(u);
   }
   speakText=async function(text,rate=.9){
+    const request=++speechRequest;
+    speechAudio?.pause();if(speechUrl)URL.revokeObjectURL(speechUrl);speechUrl=null;
+    window.speechSynthesis?.cancel();
     // Prefer a licensed real-human Nora recording when an exact clip exists.
     try{
       if(window.NEHumanVoice?.has?.(text)){
@@ -137,10 +140,13 @@
     }catch{}
     const level=(lessonSession?.lesson?.level)||state.level||"A1";
     const r=await apiPost("/api/speech",{text,level});
+    if(request!==speechRequest)return;
     if(!r.ok){fallbackSpeech(text,rate);return {source:"browser"}}
     try{
-      const blob=await r.response.blob(),url=URL.createObjectURL(blob),a=new Audio(url);
-      a.onended=()=>URL.revokeObjectURL(url);await a.play();return {source:"ai"};
+      const blob=await r.response.blob();if(request!==speechRequest)return;
+      const url=URL.createObjectURL(blob),a=new Audio(url);speechAudio=a;speechUrl=url;
+      a.playbackRate=Math.max(.6,Math.min(1.4,Number(rate)/.9||1));
+      a.onended=()=>{URL.revokeObjectURL(url);if(speechUrl===url)speechUrl=null};await a.play();return {source:"ai"};
     }catch{fallbackSpeech(text,rate);return {source:"browser"}}
   };
 
@@ -166,6 +172,7 @@
   toggleMic=async function(target="freeAnswer",expected="",context=""){
     const btn=target==="chatInput"?document.getElementById("chatMicBtn"):(document.getElementById("micBtn")||document.getElementById("pronBtn"));
     if(mediaRecorder&&mediaRecorder.state==="recording"){mediaRecorder.stop();return}
+    if(micBusy)return;
     if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){
       const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
       if(!SR)return alert("Запись речи недоступна в этом браузере.");
@@ -174,13 +181,18 @@
       rec.onend=()=>{if(btn)btn.textContent="🎤 Говорить"};rec.start();return;
     }
     try{
+      micBusy=true;
+      const recordedField=document.getElementById(target);
       mediaStream=await getMicStream();recordChunks=[];recordStartedAt=Date.now();
       const preferredMime=["audio/webm;codecs=opus","audio/webm","audio/mp4"].find(x=>MediaRecorder.isTypeSupported?.(x));
       try{mediaRecorder=new MediaRecorder(mediaStream,preferredMime?{mimeType:preferredMime,audioBitsPerSecond:128000}:{audioBitsPerSecond:128000})}catch{mediaRecorder=preferredMime?new MediaRecorder(mediaStream,{mimeType:preferredMime}):new MediaRecorder(mediaStream)};
       mediaRecorder.ondataavailable=e=>{if(e.data.size)recordChunks.push(e.data)};
+      mediaRecorder.onerror=()=>{clearTimeout(recordTimer);mediaRecorder=null;micBusy=false;releaseMicStream();if(btn)btn.textContent="🎤 Говорить";alert("Запись прервалась. Попробуй ещё раз.")};
       mediaRecorder.onstop=async()=>{
+        const recorder=mediaRecorder,chunks=recordChunks.slice(),field=recordedField;
+        try{
         clearTimeout(recordTimer);if(btn)btn.textContent="⏳ Распознаю…";
-        const blob=new Blob(recordChunks,{type:(mediaRecorder.mimeType||"audio/webm").split(";")[0]});
+        const blob=new Blob(chunks,{type:(recorder.mimeType||"audio/webm").split(";")[0]});
         parkMicStream();mediaRecorder=null;
         const durationMs=Date.now()-recordStartedAt;recordStartedAt=0;
         if(blob.size<900||durationMs<650){if(btn)btn.textContent="🎤 Говорить";alert("Запись слишком короткая. Нажми микрофон, начни говорить и останови запись после фразы.");return}
@@ -189,7 +201,7 @@
         const pronouncePromise=expected?blobToWavBase64(blob).then(wav=>apiPost("/api/pronounce",{audioBase64:wav,expected})).catch(()=>null):Promise.resolve(null);
         const [r,pron]=await Promise.all([transcribePromise,pronouncePromise]);
         if(r.ok){
-          const text=r.data.text||"",f=document.getElementById(target);if(f)f.value=text;if(target==="chatInput")chatInputWasVoice=true;
+          const text=r.data.text||"",f=document.getElementById(target);if(f===field&&field?.isConnected)f.value=text;if(target==="chatInput"&&f===field&&field?.isConnected)chatInputWasVoice=true;
           if(expected){
             const fallback=similarity(text,expected),box=document.getElementById("pronFb"),p=pron&&pron.ok?pron.data:null,sc=p?.score??fallback;
             if(box)box.innerHTML='<div class="feedback '+(sc>=70?"good":"bad")+'"><b>Произношение: '+sc+'/100</b><br>'+(p?esc(p.pronunciation_ru||""):'Речь оценена по точности распознавания.')+(p?'<br><small>Разборчивость '+p.clarity+' · ритм '+p.rhythm+' · соответствие образцу '+p.accuracy+'</small>':'')+(p?.difficult_words?.length?'<br><b>Потренировать:</b> '+p.difficult_words.map(esc).join(", "):'')+'<br><small>AI-оценка аудиозаписи для тренировки, не оценка официального экзаменатора.</small></div>';
@@ -200,10 +212,12 @@
           alert(msg);
         }
         if(btn)btn.textContent="🎤 Говорить";
+        }catch{alert("Не удалось обработать запись. Попробуй ещё раз.")}
+        finally{micBusy=false;parkMicStream();if(btn)btn.textContent="🎤 Говорить";}
       };
       mediaRecorder.start(250);if(btn)btn.textContent="■ Слушаю…";
       recordTimer=setTimeout(()=>{if(mediaRecorder?.state==="recording")mediaRecorder.stop()},30000);
-    }catch(e){releaseMicStream();alert("Нет доступа к микрофону. Разреши микрофон для приложения один раз в настройках Android/браузера.")}
+    }catch(e){micBusy=false;releaseMicStream();alert("Нет доступа к микрофону. Разреши микрофон для приложения в настройках Android/браузера.")}
   };
 
   const oldNavigate=navigate;
@@ -270,7 +284,7 @@
     if(ok){
       lessonSession.locked=true;document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good")});
       updateSkill("grammar",100);document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно</b></div>';
-      setTimeout(()=>lessonNext(15),420);return;
+      neAdvance(()=>lessonNext(15),420);return;
     }
     btn.classList.add("bad");btn.disabled=true;rememberError("grammar");updateSkill("grammar",25);
     document.getElementById("fb").innerHTML='<div class="feedback bad"><b>Неверно.</b> Посмотри правило и выбери другой вариант.</div>';
@@ -292,7 +306,7 @@
     if(ok){
       lessonSession.locked=true;document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good")});
       updateSkill(skill,100);document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно</b></div>';
-      setTimeout(()=>lessonNext(15),420);return;
+      neAdvance(()=>lessonNext(15),420);return;
     }
     btn.classList.add("bad");btn.disabled=true;rememberError(skill);updateSkill(skill,20);
     document.getElementById("fb").innerHTML='<div class="feedback bad"><b>Неверно.</b> '+esc(note)+'<br><small>Попробуй другой ответ.</small></div>';
@@ -301,12 +315,13 @@
   checkFree=async function(mode){
     const a=document.getElementById("freeAnswer").value.trim();if(!a)return;const b=document.getElementById("freeFb"),l=lessonSession.lesson,p=mode==="speaking"?l.speaking:l.writing;
     b.innerHTML='<div class="feedback">Проверяю…</div>';const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode});
+    if(!b.isConnected)return;
     if(!r.ok){b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
     const d=r.data,score=Number(d.score||0),ok=d.accepted!==false&&score>=55;
     updateSkill(mode,score);updateSkill("grammar",d.breakdown?.grammar??score);updateSkill("vocabulary",d.breakdown?.vocabulary??score);rememberError(d.error_tag);
     if(ok){
       b.innerHTML='<div class="feedback good"><b>✓ Хороший ответ</b></div>';
-      setTimeout(()=>lessonNext(20),500);return;
+      neAdvance(()=>lessonNext(20),500);return;
     }
     b.innerHTML='<div class="feedback bad"><b>Исправь и попробуй ещё раз</b><br>'+esc(d.explanation_ru||"")+(d.corrected?'<br><br><b>Возможный вариант:</b><br>'+esc(d.corrected):"")+'</div>';
     document.getElementById("freeAnswer")?.focus();
@@ -377,7 +392,7 @@
     updateDailyStrength([...(t.review_words||[]),...(t.new_words||[])],score);updateSkill("vocabulary",score);updateSkill("grammar",r.data.breakdown?.grammar??score);rememberError(r.data.error_tag);
     if(ok){
       s.scores.push(score);b.innerHTML='<div class="feedback good"><b>✓ '+score+'/100</b></div>';
-      setTimeout(()=>nextDailyTask(),500);return;
+      neAdvance(()=>nextDailyTask(),500);return;
     }
     b.innerHTML='<div class="feedback bad"><b>Исправь и попробуй ещё раз</b><br>'+esc(r.data.explanation_ru||"")+(r.data.corrected?'<br><br><b>Возможный вариант:</b><br>'+esc(r.data.corrected):"")+(t.model_answer_no?'<br><br><b>Пример:</b> '+esc(t.model_answer_no):"")+'</div>';
     document.getElementById("dailyAnswer")?.focus();
@@ -427,7 +442,7 @@
       if(!reviewSession.missed[key])it.stage=Math.min(6,(it.stage||0)+1);
       const days=interval[it.stage]||1;it.due=Date.now()+days*86400000;updateSkill("vocabulary",100);if(state.dailyDictionary[key])updateDailyStrength([key],100);saveState();
       buttons.forEach(b=>b.disabled=true);buttons[i]?.classList.add("good");if(fb)fb.innerHTML='<div class="feedback good"><b>✓ Верно</b></div>';
-      setTimeout(()=>{reviewSession.i++;renderReviewCard()},380);return;
+      neAdvance(()=>{reviewSession.i++;renderReviewCard()},380);return;
     }
     if(!reviewSession.missed[key]){
       reviewSession.missed[key]=true;it.seen=(it.seen||0)+1;it.stage=Math.max(0,(it.stage||0)-1);it.due=Date.now()+86400000;rememberError("vocabulary");updateSkill("vocabulary",15);if(state.dailyDictionary[key])updateDailyStrength([key],15);saveState();
@@ -475,7 +490,7 @@
     const sk=SKILLS.includes(q.subskill)?q.subskill:(q.type==="listen"?"listening":"grammar");updateSkill(sk,ok?100:20);if(!ok)rememberError(sk);
     document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===q.correct)b.classList.add("good");if(j===i&&!ok)b.classList.add("bad")});
     document.getElementById("testFb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'">'+(ok?"✓ Верно":"Неверно")+'</div>';
-    setTimeout(()=>testNext(),ok?380:900);
+    neAdvance(()=>testNext(),ok?380:900);
   };
   answerTestFree=async function(){
     const q=testSession.questions[testSession.i],a=document.getElementById("testFree").value.trim();if(!a)return;const b=document.getElementById("testFb");b.innerHTML='<div class="feedback">Оцениваю…</div>';
@@ -483,9 +498,9 @@
     if(r.ok){
       const pts=Math.max(0,Math.min(1,(r.data.score||0)/100));testSession.freeScores.push(pts);updateSkill(mode,pts*100);updateSkill("grammar",r.data.breakdown?.grammar??pts*100);updateSkill("vocabulary",r.data.breakdown?.vocabulary??pts*100);rememberError(r.data.error_tag);
       b.innerHTML='<div class="feedback '+(pts>=.55?"good":"bad")+'"><b>'+Math.round(pts*100)+'/100</b> · '+esc(r.data.explanation_ru||"Оценено.")+(r.data.corrected?'<br><b>Лучше:</b> '+esc(r.data.corrected):"")+'</div>';
-      setTimeout(()=>testNext(),pts>=.55?500:1100);
+      neAdvance(()=>testNext(),pts>=.55?500:1100);
     }else{
-      testSession.freeScores.push(null);b.innerHTML='<div class="feedback bad">AI недоступен; ответ не войдёт в процент.</div>';setTimeout(()=>testNext(),900);
+      testSession.freeScores.push(null);b.innerHTML='<div class="feedback bad">AI недоступен; ответ не войдёт в процент.</div>';neAdvance(()=>testNext(),900);
     }
   };
 
@@ -538,7 +553,7 @@
     const r=await aiEvaluate({answer:a,question:q,goal:q,level:s.band.split("-")[1],mode:"exam_"+s.part});
     if(!r.ok){b.innerHTML='<div class="feedback bad">AI не ответил. Попробуй отправить ответ ещё раз.</div>';return}
     const score=Number(r.data.score||0);s.scores.push(score);updateSkill(s.part,score);updateSkill("grammar",r.data.breakdown?.grammar??score);updateSkill("vocabulary",r.data.breakdown?.vocabulary??score);rememberError(r.data.error_tag);
-    b.innerHTML='<div class="feedback '+(score>=55?"good":"bad")+'"><b>'+score+'/100</b> · '+esc(r.data.explanation_ru||"")+'</div>';setTimeout(()=>nextExamProductive(),1000);
+    b.innerHTML='<div class="feedback '+(score>=55?"good":"bad")+'"><b>'+score+'/100</b> · '+esc(r.data.explanation_ru||"")+'</div>';neAdvance(()=>nextExamProductive(),1000);
   }
   function nextExamProductive(){examV3.i++;renderExamProductive()}
   function finishExamV3(){
@@ -597,7 +612,7 @@
     const box=document.getElementById("chatMessages");if(box)box.innerHTML='<div class="chat-thinking">Собеседник начинает разговор…</div>';
     const p=state.chatPrefs,r=await apiPost("/api/chat",{start:true,message:"",level:p.level,mode:p.mode,topic:p.topic,scenario:CHAT_SCENARIOS[p.scenario]||"",history:[],practiceWords:reinforcementWordList(15)});
     if(!r.ok){if(box)box.innerHTML='<div class="feedback bad">Собеседник временно недоступен: '+esc(r.error)+'</div>';return}
-    const d=r.data;state.chatHistory=[{role:"assistant",text:d.reply_no,meta:d}];saveState();renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);
+    const d=r.data;state.chatHistory=[{role:"assistant",text:d.reply_no,meta:d}];saveState();if(!window.neChatVisible||neChatVisible()){renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);}
   }
   async function sendChat(){
     const input=document.getElementById("chatInput"),btn=document.getElementById("chatSendBtn"),msg=input?.value.trim();if(!msg)return;
@@ -606,11 +621,11 @@
     const box=document.getElementById("chatMessages");if(box){box.insertAdjacentHTML("beforeend",'<div class="chat-thinking">Norsk samtalepartner skriver…</div>');box.scrollTop=box.scrollHeight}
     const hist=state.chatHistory.slice(0,-1).slice(-16).map(x=>({role:x.role,text:x.text}));
     const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:CHAT_SCENARIOS[p.scenario]||"",history:hist,practiceWords:reinforcementWordList(15)});
-    if(!r.ok){state.chatHistory.push({role:"assistant",text:"Beklager, jeg fikk et teknisk problem. Prøv igjen.",meta:{translation_ru:"Извините, произошла техническая ошибка. Попробуйте ещё раз."}});saveState();return renderChat()}
+    if(!r.ok){state.chatHistory.push({role:"assistant",text:"Beklager, jeg fikk et teknisk problem. Prøv igjen.",meta:{translation_ru:"Извините, произошла техническая ошибка. Попробуйте ещё раз."}});saveState();if(!window.neChatVisible||neChatVisible())return renderChat();return;}
     const d=r.data;state.chatHistory.push({role:"assistant",text:d.reply_no,meta:d});state.chatHistory=state.chatHistory.slice(-40);
     updateSkill(wasVoice?"speaking":"writing",d.score||50);if(d.error_tag){rememberError(d.error_tag);updateSkill("grammar",Math.max(20,(d.score||50)-8))}
     if(d.suggested_level&&d.suggested_level!==p.level)state.chatPrefs.level=d.suggested_level;
-    state.xp+=2;saveState();renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);
+    state.xp+=2;saveState();if(!window.neChatVisible||neChatVisible()){renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);}
   }
 
   renderProgress=function(){

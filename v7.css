@@ -10,8 +10,8 @@
   --v7-text:#edf6fb;
   --v7-muted:#91a8ba;
   --v7-gold:#f4b951;
-  --v7-fjord:url("https://images.unsplash.com/photo-1696952712366-0bbadb31fc1d?auto=format&fit=crop&fm=jpg&q=78&w=1600");
-  --v7-nora:url("https://images.unsplash.com/photo-1773393766292-7d5c84674d2b?auto=format&fit=crop&fm=jpg&q=78&w=900");
+  --v7-fjord:url("/assets/fjord.jpg");
+  --v7-nora:url("/assets/nora.jpg");
 }
 html,body{background:#030a12!important}
 body{color:var(--v7-text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
@@ -54,6 +54,8 @@ button{touch-action:manipulation}
 
 /* Home */
 .home-v7{display:grid;gap:12px;padding-top:2px}
+.home-v7>*{min-width:0}
+.word-strip-v7,.route-steps-v7{min-width:0;max-width:100%}
 .hero-v7{
   position:relative;min-height:390px;margin:0 -14px;border-radius:0 0 28px 28px;overflow:hidden;
   background-image:var(--v7-fjord);background-size:cover;background-position:center;
@@ -246,4 +248,14 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-vis
 }
 @media(prefers-reduced-motion:reduce){
   *,*::before,*::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}
+}
+
+/* Consolidated mobile readability and navigation fixes. */
+.dock-v7 button span,.section-head-v7 small,.section-head-v7>span,.section-head-v7>button{font-size:12px}
+.word-v7 b,.route-step-v7 b{font-size:14px}
+.word-v7 small,.route-step-v7 small{font-size:12px}
+.hero-copy-v7 p,.nora-note-v7 p{font-size:16px}
+@media(max-width:620px){
+  .route-steps-v7{grid-template-columns:none;grid-auto-flow:column;grid-auto-columns:minmax(86px,1fr)}
+  .route-step-v7 b{white-space:normal}
 }

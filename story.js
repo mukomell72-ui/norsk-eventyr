@@ -93,7 +93,7 @@
       s.choiceScore=s.choiceMistakes?75:100;
       if(window.neUpdateSkill){neUpdateSkill("grammar",s.choiceScore);neUpdateSkill("speaking",s.choiceScore)}
       buttons.forEach(b=>b.disabled=true);buttons[i]?.classList.add("good");box.innerHTML='<div class="feedback good"><b>✓ Отлично</b></div>';
-      setTimeout(()=>storyNext(),450);return;
+      neAdvance(()=>storyNext(),450);return;
     }
     s.choiceMistakes=(s.choiceMistakes||0)+1;if(window.neUpdateSkill)neUpdateSkill("grammar",35);
     buttons[i]?.classList.add("bad");buttons[i].disabled=true;
@@ -108,7 +108,7 @@
     if(ok){
       s.listenScore=s.listenMistakes?75:100;if(window.neUpdateSkill)neUpdateSkill("listening",s.listenScore);
       buttons.forEach(b=>b.disabled=true);buttons[i]?.classList.add("good");box.innerHTML='<div class="feedback good"><b>✓ Понял</b></div>';
-      setTimeout(()=>storyNext(),450);return;
+      neAdvance(()=>storyNext(),450);return;
     }
     s.listenMistakes=(s.listenMistakes||0)+1;if(window.neUpdateSkill)neUpdateSkill("listening",30);
     buttons[i]?.classList.add("bad");buttons[i].disabled=true;
@@ -124,11 +124,12 @@
     const box=document.getElementById("storyFb");box.innerHTML='<div class="feedback">Проверяю ответ…</div>';
     const words=activeWords().slice(0,5),goal=ep.freeGoal+(words.length?" Если естественно, приветствуется использование знакомой лексики: "+words.join(", "):"");
     const r=await aiEvaluate({answer:a,question:ep.freePrompt,goal,level:ep.level,mode:"story_speaking"});
+    if(!box.isConnected)return;
     if(!r.ok){box.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
     const d=r.data,score=Math.max(0,Math.min(100,Number(d.score)||0)),ok=d.accepted!==false&&score>=60;
     if(window.neUpdateSkill){neUpdateSkill("speaking",score);neUpdateSkill("grammar",d.breakdown?.grammar??score);neUpdateSkill("vocabulary",d.breakdown?.vocabulary??score)}
     if(ok){
-      s.freeScore=score;box.innerHTML='<div class="feedback good"><b>✓ '+score+'/100</b></div>';setTimeout(()=>storyNext(),520);return;
+      s.freeScore=score;box.innerHTML='<div class="feedback good"><b>✓ '+score+'/100</b></div>';neAdvance(()=>storyNext(),520);return;
     }
     s.freeAttempts=(s.freeAttempts||0)+1;
     box.innerHTML='<div class="feedback bad"><b>Переделай ответ</b><br>'+esc(d.explanation_ru||"")+(d.corrected?'<br><br><b>Возможный вариант:</b><br>'+esc(d.corrected):"")+'</div>';
@@ -173,13 +174,14 @@
     const day=localDay(),a=document.getElementById("sideAnswer")?.value.trim();if(!a)return;
     const box=document.getElementById("sideFb"),words=activeWords().slice(0,4),q=sideQuestPrompt("Собеседник",words);box.innerHTML='<div class="feedback">Проверяю…</div>';
     const r=await aiEvaluate({answer:a,question:q,goal:"Естественно ответить в короткой реальной ситуации. Смысл важнее дословного совпадения.",level:state.level||"A1",mode:"story_side"});
+    if(!box.isConnected)return;
     if(!r.ok){box.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
     const d=r.data,score=Number(d.score||0),ok=d.accepted!==false&&score>=60;
     if(!ok){
       box.innerHTML='<div class="feedback bad"><b>Исправь и попробуй ещё раз</b><br>'+esc(d.explanation_ru||"")+(d.corrected?'<br><br><b>Возможный вариант:</b> '+esc(d.corrected):"")+'</div>';document.getElementById("sideAnswer")?.focus();return;
     }
     state.story.sideQuests[day]={score,date:new Date().toISOString()};state.xp=(state.xp||0)+10;touchStudy();saveState();
-    box.innerHTML='<div class="feedback good"><b>✓ '+score+'/100</b></div>';setTimeout(()=>navigate("home"),650);
+    box.innerHTML='<div class="feedback good"><b>✓ '+score+'/100</b></div>';neAdvance(()=>navigate("home"),650);
   }
 
   function renderStoryJournal(){

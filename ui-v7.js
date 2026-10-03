@@ -61,16 +61,21 @@
   }
 
   shell=window.shell=function(content,active="home"){
+    window.neScreenRevision=(window.neScreenRevision||0)+1;
     const level=h(state.level||"A1"),streak=Number(state.streak||0);
     document.getElementById("app").innerHTML=
       '<div class="shell-v7">'+
         '<header class="topbar-v7">'+
-          '<button class="brand-v7" onclick="navigate(\'home\')"><span>Norsk Eventyr</span><b>7.0</b></button>'+
+          '<button class="brand-v7" onclick="navigate(\'home\')"><span>Norsk Eventyr</span><b>7.1</b></button>'+
           '<div class="status-v7"><button class="streak-v7" onclick="navigate(\'hub\')">🔥 <b>'+streak+'</b></button><button class="level-v7" onclick="navigate(\'course\')">'+level+'</button></div>'+
         '</header>'+
         '<main class="main-v7">'+content+helpMarkupV7()+'</main>'+
         navV7(currentRouteV7||active)+
       '</div>';
+  };
+  window.neAdvance=function(action,delay){
+    const revision=window.neScreenRevision;
+    return setTimeout(()=>{if(revision===window.neScreenRevision)action()},delay);
   };
 
   function helpMarkupV7(){
@@ -218,12 +223,12 @@
   async function v7SendChat(){
     if(chatBusyV7||!baseSendChatV7||!document.getElementById("chatInput")?.value.trim())return;
     chatBusyV7=true;
-    try{const request=baseSendChatV7();renderChatV7();await request}finally{chatBusyV7=false;renderChatV7()}
+    try{const request=baseSendChatV7();renderChatV7();await request}finally{chatBusyV7=false;if(currentRouteV7==="chat")renderChatV7()}
   }
   async function v7StartChat(){
     if(chatBusyV7||!baseStartChatV7)return;
     chatBusyV7=true;
-    try{const request=baseStartChatV7();renderChatV7();await request}finally{chatBusyV7=false;renderChatV7()}
+    try{const request=baseStartChatV7();renderChatV7();await request}finally{chatBusyV7=false;if(currentRouteV7==="chat")renderChatV7()}
   }
   function v7ClearChat(){if(chatBusyV7)return;if((state.chatHistory||[]).length&&!confirm("Очистить этот разговор?"))return;state.chatHistory=[];saveState();renderChatV7()}
 
@@ -304,7 +309,7 @@
   }
 
   function routeTopV7(){
-    try{window.scrollTo({top:0,left:0,behavior:"auto"})}catch{try{window.scrollTo(0,0)}catch{}}
+    try{window.scrollTo({top:0,left:0,behavior:"instant"})}catch{try{window.scrollTo(0,0)}catch{}}
   }
   navigate=window.navigate=function(view,data){
     const target=view==="more"?"hub":view;
@@ -332,6 +337,7 @@
   window.renderHub=renderHubV7;
   window.renderStoryWorld=renderStoryV7;
   Object.assign(window,{v7ContinueToday,v7Step,v7Toggle,v7ChatSettings,v7ChatPref,v7UseTopic,v7ChatKey,v7SendChat,v7StartChat,v7ClearChat,renderStoryV7});
+  window.neChatVisible=()=>currentRouteV7==="chat";
 
   setTimeout(()=>{
     const open=new URLSearchParams(location.search).get("open");
