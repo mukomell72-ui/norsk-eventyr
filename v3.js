@@ -114,7 +114,7 @@
       await ensureSession();
       let r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json","x-ne-session":neSession},body:JSON.stringify(payload)});
       if(r.status===401){await ensureSession(true);r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json","x-ne-session":neSession},body:JSON.stringify(payload)})}
-      if(!r.ok){const d=await r.json().catch(()=>({}));return {ok:false,error:d.code||d.error||("HTTP "+r.status)}}
+      if(!r.ok){const d=await r.json().catch(()=>({}));if(["APPROVAL_REQUIRED","LOGIN_REQUIRED"].includes(d.code))window.NEAccess?.status();return {ok:false,error:d.code||d.error||("HTTP "+r.status)}}
       const ct=r.headers.get("content-type")||"";
       return ct.includes("application/json")?{ok:true,data:await r.json()}:{ok:true,response:r};
     }catch(e){return {ok:false,error:"NETWORK"}}

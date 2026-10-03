@@ -1,0 +1,31 @@
+const fs=require('fs'),http=require('http'),path=require('path'),assert=require('assert/strict'),{chromium}=require('playwright');
+const root=path.resolve(__dirname,'..'),ownerId='11111111-1111-4111-8111-111111111111',studentId='22222222-2222-4222-8222-222222222222';let status='unrequested',name='';
+const server=http.createServer(async(req,res)=>{
+ const pathname=new URL(req.url,'http://localhost').pathname;
+ if(pathname==='/api/access'){
+  let raw='';for await(const chunk of req)raw+=chunk;const b=JSON.parse(raw||'{}'),user=/user=(owner|student)/.exec(req.headers.cookie||'')?.[1];res.setHeader('Content-Type','application/json');let out={ok:true};
+  if(b.action==='login'){res.setHeader('Set-Cookie','user='+(b.email.startsWith('owner')?'owner':'student')+'; Path=/');}
+  else if(b.action==='register')out={confirmEmail:true};
+  else if(b.action==='logout')res.setHeader('Set-Cookie','user=; Path=/; Max-Age=0');
+  else if(!user){res.statusCode=401;out={error:'LOGIN_REQUIRED'}}
+  else if(b.action==='status')out={status:user==='owner'?'approved':status,owner:user==='owner',user_id:user==='owner'?ownerId:studentId,email:user+'@example.com'};
+  else if(b.action==='request'){status='pending';name=b.name}
+  else if(b.action==='list')out={requests:[{user_id:studentId,display_name:name,email:'student@example.com',status}]};
+  else if(b.action==='decide')status=b.status;
+  return res.end(JSON.stringify(out));
+ }
+ if(pathname.startsWith('/api/')){res.setHeader('Content-Type','application/json');return res.end(JSON.stringify({token:'qa'}))}
+ try{const file=path.join(root,pathname==='/'?'index.html':pathname);res.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.html':'text/html','.json':'application/json','.webp':'image/webp','.svg':'image/svg+xml'})[path.extname(file)]||'application/octet-stream');res.end(fs.readFileSync(file))}catch{res.statusCode=404;res.end('missing')}
+});
+(async()=>{
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch({executablePath:process.env.NE_CHROMIUM_PATH,args:['--no-sandbox','--disable-gpu','--disable-dev-shm-usage']});const origin='http://127.0.0.1:'+server.address().port,context=await browser.newContext({serviceWorkers:'block',viewport:{width:360,height:800}}),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(origin);await page.waitForSelector('#accessLogin');assert.equal(await page.evaluate(()=>typeof state),'undefined');assert.equal(await page.locator('#app').isVisible(),false);
+ async function login(email){await page.locator('#accessEmail').fill(email);await page.locator('#accessPassword').fill('qa-password-123');await page.locator('#accessLogin button').click()}
+ await login('student@example.com');await page.waitForSelector('#accessRequest');await page.locator('#accessName').fill('<img src=x onerror=alert(1)>');await page.locator('#accessRequest button').click();await page.waitForFunction(()=>document.querySelector('#accessGate h1').textContent.includes('ожидает'));assert.equal(await page.evaluate(()=>typeof state),'undefined');await page.evaluate(async()=>{window.qaPrompts=0;const event=new Event('beforeinstallprompt',{cancelable:true});event.prompt=async()=>{window.qaPrompts++};event.userChoice=Promise.resolve({outcome:'accepted'});dispatchEvent(event);await NEAccess.install()});assert.equal(await page.evaluate(()=>qaPrompts),0);
+ const adminContext=await browser.newContext({serviceWorkers:'block'}),admin=await adminContext.newPage();await admin.goto(origin);await admin.waitForSelector('#accessLogin');await admin.evaluate(()=>localStorage.setItem('ne2_state',JSON.stringify({level:'A1',xp:123})));await admin.locator('#accessEmail').fill('owner@example.com');await admin.locator('#accessPassword').fill('qa-password-123');await admin.locator('#accessLogin button').click();await admin.waitForFunction(()=>window.NEAccess?.ready());assert.equal(await admin.evaluate(()=>state.xp),123);await admin.evaluate(()=>NEAccess.panel());await admin.waitForSelector('#accessList article');assert.equal(await admin.locator('#accessList img').count(),0);await admin.getByRole('button',{name:'Одобрить',exact:true}).click();await admin.waitForFunction(()=>document.querySelector('#accessList p').textContent.includes('Одобрен'));
+ await page.locator('#accessCheck').click();await page.waitForFunction(()=>window.NEAccess?.ready());assert.equal(await page.evaluate(()=>state.xp),0);await page.evaluate(()=>NEAccess.install());assert.equal(await page.evaluate(()=>qaPrompts),1);await page.evaluate(()=>{state.xp=77;saveState();navigate('settings')});assert.equal(await page.getByRole('button',{name:/Доступ и учётная запись/}).count(),1);
+ await admin.getByRole('button',{name:'Отозвать доступ',exact:true}).click();await admin.waitForFunction(()=>document.querySelector('#accessList p').textContent.includes('Отозван'));await page.evaluate(()=>NEAccess.status());await page.waitForFunction(()=>document.querySelector('#accessGate h1').textContent.includes('отозван'));assert.equal(await page.locator('#app').isVisible(),false);
+ await page.locator('#accessLogout').click();await page.waitForSelector('#accessLogin');await login('owner@example.com');await page.waitForFunction(()=>window.NEAccess?.ready());assert.equal(await page.evaluate(()=>state.xp),0);await page.evaluate(()=>NEAccess.panel());await page.locator('#accessLogout').click();await page.waitForSelector('#accessLogin');await login('student@example.com');await page.waitForFunction(()=>document.querySelector('#accessGate h1').textContent.includes('отозван'));
+ await admin.getByRole('button',{name:'Одобрить',exact:true}).click();await admin.waitForFunction(()=>document.querySelector('#accessList p').textContent.includes('Одобрен'));await page.locator('#accessCheck').click();await page.waitForFunction(()=>window.NEAccess?.ready());assert.equal(await page.evaluate(()=>state.xp),77);assert(!await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2));assert.deepEqual(errors,[]);
+ await browser.close();server.close();console.log('PASS browser access: no lessons before approval, request/admin decisions, safe names, revocation, owner migration, separated progress on shared device and reapproval');
+})().catch(e=>{console.error(e);server.close();process.exit(1)});

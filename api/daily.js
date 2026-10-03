@@ -18,7 +18,7 @@ async function ask(prompt,max=3900,effort="low"){
 
 export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY"});
-  if(!guard(req,res,{limit:24}))return;
+  if(!await guard(req,res,{limit:24}))return;
   if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED"});
 
   const {level="A1",date="",knownWords=[],reviewWords=[],candidateWords=[],weakSkills=[],dayNumber=1}=req.body||{};

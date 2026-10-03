@@ -13,7 +13,7 @@ function validateShape(kind,x){
 }
 export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY"});
-  if(!guard(req,res,{limit:24}))return;
+  if(!await guard(req,res,{limit:24}))return;
   if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED"});
   const {kind="lesson",level="A1",topic="",goal="",weakSkills=[],reviewWords=[]}=req.body||{};
   if(!["A1","A2","B1","B2"].includes(level))return res.status(400).json({error:"BAD_LEVEL"});

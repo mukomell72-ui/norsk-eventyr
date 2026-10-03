@@ -4,7 +4,7 @@ const SB_KEY="sb_publishable_Nxf788Y3FWMaDNSj0upOMA_aWtmL665";
 const ALLOWED=new Set(["norsk_eventyr_sync_create","norsk_eventyr_sync_pull","norsk_eventyr_sync_push","norsk_eventyr_sync_delete"]);
 export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY"});
-  if(!guard(req,res,{limit:90}))return;
+  if(!await guard(req,res,{limit:90}))return;
   const {name,params}=req.body||{};
   if(!ALLOWED.has(name))return res.status(400).json({error:"BAD_ACTION"});
   if(!params||typeof params!=="object")return res.status(400).json({error:"BAD_PARAMS"});

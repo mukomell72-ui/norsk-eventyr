@@ -46,7 +46,7 @@ async function transcribe(bytes,type,name,model,prompt,language="no"){
 
 export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY",code:"POST_ONLY"});
-  if(!guard(req,res,{limit:50}))return;
+  if(!await guard(req,res,{limit:50}))return;
   if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED",code:"AI_NOT_CONFIGURED"});
 
   const {audioBase64="",mime="audio/webm",expected="",context=""}=req.body||{};
