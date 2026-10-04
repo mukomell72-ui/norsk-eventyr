@@ -58,7 +58,7 @@
   if(installPrompt){await installPrompt.prompt();await installPrompt.userChoice;installPrompt=null}
   else alert('Открой меню браузера и выбери «Установить приложение» или «Добавить на главный экран». Если приложение уже установлено, открой его значок.');
  }
- window.NEAccess={status,panel,logout,install,ready:()=>loaded,allowed:()=>identity?.status==='approved'};
+ window.NEAccess={status,panel,logout,install,ready:()=>loaded,allowed:()=>identity?.status==='approved',isOwner:()=>identity?.owner===true};
  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e});
  window.addEventListener('appinstalled',()=>{installPrompt=null});
  window.addEventListener('focus',()=>{if(loaded&&!gate.querySelector('#accessList'))status()});
