@@ -5,6 +5,21 @@
  let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false;
  const safe=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const messages={LOGIN_FAILED:'Не удалось войти. Проверь адрес, пароль и подтверждение почты.',REGISTRATION_FAILED:'Не удалось зарегистрироваться. Попробуй позже. Если письмо не приходит, сообщи владельцу.',ACCESS_UNAVAILABLE:'Не удалось проверить доступ. Проверь подключение и попробуй ещё раз.',BAD_CREDENTIALS:'Введи корректный адрес и пароль от 10 до 128 символов.',CONFIRMATION_FAILED:'Ссылка подтверждения недействительна или уже использована.',RATE_LIMIT:'Слишком много попыток. Попробуй позже.'};
+ function feedbackSeenKey(){return 'ne_owner_feedback_seen:'+identity.user_id}
+ function markFeedbackSeen(count){
+  const total=Number(count);if(identity?.owner!==true||!Number.isFinite(total)||total<0)return false;
+  try{localStorage.setItem(feedbackSeenKey(),String(Math.floor(total)));return true}catch{return false}
+ }
+ async function notificationCount(){
+  if(identity?.owner!==true)return 0;
+  const [requestsOut,feedbackOut]=await Promise.all([call('list'),call('feedback_list')]);
+  const requests=Array.isArray(requestsOut.requests)?requestsOut.requests:[];
+  const pending=requests.filter(item=>item.status==='pending').length;
+  const feedback=feedbackOut.feedback||{},items=Array.isArray(feedback.items)?feedback.items:[];
+  const rawCount=Number(feedback.count),total=Number.isFinite(rawCount)?Math.max(0,Math.floor(rawCount)):items.length;
+  let seen=0;try{const stored=Number(localStorage.getItem(feedbackSeenKey())||0);seen=Number.isFinite(stored)?Math.max(0,Math.floor(stored)):0}catch{}
+  return pending+Math.max(0,total-seen);
+ }
  async function call(action,params={}){
   const response=await fetch('/api/session',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...params}),cache:'no-store'});
   const data=await response.json();if(!response.ok){const e=new Error(messages[data.error]||'Не удалось выполнить действие. Попробуй позже.');e.code=data.error;throw e}return data;
@@ -34,7 +49,7 @@
  }
  async function load(){
   if(loadedUser&&loadedUser!==identity.user_id){location.reload();return}
-  if(!loaded){if(!loadedUser){scopeStorage();loadedUser=identity.user_id}for(const name of scripts.slice(loadedCount)){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/'+name+'?v=7.3.0';s.onload=resolve;s.onerror=reject;document.body.append(s)}) ;loadedCount++}await new Promise(resolve=>setTimeout(resolve,250));loaded=true}
+  if(!loaded){if(!loadedUser){scopeStorage();loadedUser=identity.user_id}for(const name of scripts.slice(loadedCount)){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/'+name+'?v=7.3.1';s.onload=resolve;s.onerror=reject;document.body.append(s)}) ;loadedCount++}await new Promise(resolve=>setTimeout(resolve,250));loaded=true}
   gate.hidden=true;app.hidden=false;
  }
  async function status(){
@@ -49,16 +64,17 @@
   view('<h1>Доступ к приложению</h1><p>'+safe(identity?.email)+'</p><div class="row"><button class="btn secondary" id="accessBack">К обучению</button><button class="btn ghost" id="accessLogout">Выйти</button></div>'+(identity?.owner?'<h2>Заявки и пользователи</h2><p>Одобренные пользователи учатся со своим прогрессом. Доступ можно отозвать.</p><button class="btn secondary" id="accessRefreshList">Обновить список</button><div id="accessList">Загрузка…</div><h2>Отзывы и идеи</h2><p>Оценки, комментарии и пожелания пользователей.</p><button class="btn secondary" id="feedbackRefresh">Обновить отзывы</button><div id="feedbackList">Загрузка…</div>':'<p>Твой доступ одобрен владельцем.</p>'));
   document.getElementById('accessBack').onclick=()=>act(status);document.getElementById('accessLogout').onclick=logout;
   if(!identity?.owner)return;
-  async function list(){try{const out=await call('list');const box=document.getElementById('accessList');if(!box)return;box.replaceChildren();for(const item of out.requests){const card=document.createElement('article');card.className='card';const title=document.createElement('h3');title.textContent=item.display_name;const info=document.createElement('p');info.textContent=item.email+' · '+({pending:'Ожидает',approved:'Одобрен',denied:'Отказано',revoked:'Отозван'}[item.status]||item.status);card.append(title,info);const row=document.createElement('div');row.className='row';for(const [value,label] of [['approved','Одобрить'],['denied','Отказать'],['revoked','Отозвать доступ']]){if(value===item.status)continue;const button=document.createElement('button');button.className='btn secondary';button.textContent=label;button.onclick=()=>act(async()=>{await call('decide',{user_id:item.user_id,status:value});await list()});row.append(button)}card.append(row);box.append(card)}if(!out.requests.length)box.textContent='Заявок пока нет.'}catch(e){message(e.message)}}
+  async function list(){try{const out=await call('list');const box=document.getElementById('accessList');if(!box)return;box.replaceChildren();for(const item of out.requests){const card=document.createElement('article');card.className='card';const title=document.createElement('h3');title.textContent=item.display_name;const info=document.createElement('p');info.textContent=item.email+' · '+({pending:'Ожидает',approved:'Одобрен',denied:'Отказано',revoked:'Отозван'}[item.status]||item.status);card.append(title,info);const row=document.createElement('div');row.className='row';for(const [value,label] of [['approved','Одобрить'],['denied','Отказать'],['revoked','Отозвать доступ']]){if(value===item.status)continue;const button=document.createElement('button');button.className='btn secondary';button.textContent=label;button.onclick=()=>act(async()=>{await call('decide',{user_id:item.user_id,status:value});await list();await window.NEOwnerBadge?.refresh()});row.append(button)}card.append(row);box.append(card)}if(!out.requests.length)box.textContent='Заявок пока нет.'}catch(e){message(e.message)}}
   document.getElementById('accessRefreshList').onclick=()=>act(list);await list();
-  document.getElementById('feedbackRefresh').onclick=()=>window.NEFeedback.ownerList();await window.NEFeedback.ownerList();
+  async function refreshFeedback(){const total=await window.NEFeedback.ownerList();if(typeof total==='number')markFeedbackSeen(total);await window.NEOwnerBadge?.refresh()}
+  document.getElementById('feedbackRefresh').onclick=()=>act(refreshFeedback);await refreshFeedback();
  }
  async function install(){
   if(!await status())return;
   if(installPrompt){await installPrompt.prompt();await installPrompt.userChoice;installPrompt=null}
   else alert('Открой меню браузера и выбери «Установить приложение» или «Добавить на главный экран». Если приложение уже установлено, открой его значок.');
  }
- window.NEAccess={status,panel,logout,install,ready:()=>loaded,allowed:()=>identity?.status==='approved',isOwner:()=>identity?.owner===true};
+ window.NEAccess={status,panel,logout,install,ready:()=>loaded,allowed:()=>identity?.status==='approved',isOwner:()=>identity?.owner===true,notificationCount};
  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e});
  window.addEventListener('appinstalled',()=>{installPrompt=null});
  window.addEventListener('focus',()=>{if(loaded&&!gate.querySelector('#accessList'))status()});
