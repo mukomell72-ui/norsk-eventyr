@@ -12,14 +12,19 @@ function response(){return {headers:{},status(v){this.code=v;return this},json(v
 function request(body={},cookie='ne_access=test'){return {method:'POST',url:'/api/access',headers:{host:'localhost',origin:'http://localhost',cookie,'x-forwarded-for':String(Math.random())},body}}
 async function invoke(body,cookie){const res=response();await handler(request(body,cookie),res);return res}
 assert.equal((await invoke({action:'status'},'')).code,401);
+assert.equal((await invoke({action:'feedback_submit',rating:5})).code,403);
+assert.equal((await invoke({action:'feedback_list'})).code,403);
 assert.equal((await invoke({action:'status'})).data.status,'pending');
 for(const action of ['list','decide'])assert.equal((await invoke({action,user_id:'11111111-1111-4111-8111-111111111111',status:'approved'})).code,403);
 assert(!rpcCalls.includes('ne_access_decide'));
 for(const state of ['pending','denied','revoked','unrequested','approved']){
  status=state;const req=request();req.url='/api/evaluate';req.headers['x-ne-session']=createSession(req);const res=response();const allowed=await guard(req,res);assert.equal(allowed,state==='approved');if(!allowed)assert.equal(res.code,403);
 }
-status='approved';confirmed=false;assert.equal((await invoke({action:'status'})).code,401);confirmed=true;
-owner=true;assert.equal((await invoke({action:'list'})).code,200);assert.equal((await invoke({action:'decide',user_id:'11111111-1111-4111-8111-111111111111',status:'approved'})).code,200);
+status='approved';
+assert.equal((await invoke({action:'feedback_submit',rating:6,comment:'x'})).code,400);
+const submitted=await invoke({action:'feedback_submit',rating:5,comment:'Отлично',suggestion:'Больше историй'});assert.equal(submitted.code,200);assert(rpcCalls.includes('ne_feedback_submit'));
+confirmed=false;assert.equal((await invoke({action:'status'})).code,401);confirmed=true;
+owner=true;assert.equal((await invoke({action:'feedback_list'})).code,200);assert(rpcCalls.includes('ne_feedback_list'));assert.equal((await invoke({action:'list'})).code,200);assert.equal((await invoke({action:'decide',user_id:'11111111-1111-4111-8111-111111111111',status:'approved'})).code,200);
 const req=request();req.headers.origin='https://other.example';const res=response();await handler(req,res);assert.equal(res.code,403);
 const refresh=await invoke({action:'status'},'ne_refresh=old');assert.equal(refresh.code,200);assert(refresh.headers['Set-Cookie'].every(c=>c.includes('HttpOnly')&&c.includes('Secure')&&c.includes('SameSite=Strict')));
 assert.equal(typeof (await invoke({})).data.token,'string');

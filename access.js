@@ -1,6 +1,6 @@
 // Access is established by the server before any learning screen is loaded.
 (() => {
- const scripts=['data.js','app.js','voice-pack.js','v3.js','lexicon.js','elite.js','story-data.js','story.js','ui-v6.js','ui-v7.js','ui-v8.js','updates.js'];
+ const scripts=['data.js','app.js','voice-pack.js','v3.js','lexicon.js','elite.js','story-data.js','story.js','ui-v6.js','ui-v7.js','ui-v8.js','updates.js','feedback.js'];
  const app=document.getElementById('app'),gate=document.createElement('main');gate.id='accessGate';gate.className='access-gate';document.body.append(gate);
  let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false;
  const safe=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -46,11 +46,12 @@
  }
  async function logout(){await act(async()=>{if(loaded&&typeof saveState==='function')saveState();await call('logout');location.reload()})}
  async function panel(){
-  view('<h1>Доступ к приложению</h1><p>'+safe(identity?.email)+'</p><div class="row"><button class="btn secondary" id="accessBack">К обучению</button><button class="btn ghost" id="accessLogout">Выйти</button></div>'+(identity?.owner?'<h2>Заявки и пользователи</h2><p>Одобренные пользователи учатся со своим прогрессом. Доступ можно отозвать.</p><button class="btn secondary" id="accessRefreshList">Обновить список</button><div id="accessList">Загрузка…</div>':'<p>Твой доступ одобрен владельцем.</p>'));
+  view('<h1>Доступ к приложению</h1><p>'+safe(identity?.email)+'</p><div class="row"><button class="btn secondary" id="accessBack">К обучению</button><button class="btn ghost" id="accessLogout">Выйти</button></div>'+(identity?.owner?'<h2>Заявки и пользователи</h2><p>Одобренные пользователи учатся со своим прогрессом. Доступ можно отозвать.</p><button class="btn secondary" id="accessRefreshList">Обновить список</button><div id="accessList">Загрузка…</div><h2>Отзывы и идеи</h2><p>Оценки, комментарии и пожелания пользователей.</p><button class="btn secondary" id="feedbackRefresh">Обновить отзывы</button><div id="feedbackList">Загрузка…</div>':'<p>Твой доступ одобрен владельцем.</p>'));
   document.getElementById('accessBack').onclick=()=>act(status);document.getElementById('accessLogout').onclick=logout;
   if(!identity?.owner)return;
   async function list(){try{const out=await call('list');const box=document.getElementById('accessList');if(!box)return;box.replaceChildren();for(const item of out.requests){const card=document.createElement('article');card.className='card';const title=document.createElement('h3');title.textContent=item.display_name;const info=document.createElement('p');info.textContent=item.email+' · '+({pending:'Ожидает',approved:'Одобрен',denied:'Отказано',revoked:'Отозван'}[item.status]||item.status);card.append(title,info);const row=document.createElement('div');row.className='row';for(const [value,label] of [['approved','Одобрить'],['denied','Отказать'],['revoked','Отозвать доступ']]){if(value===item.status)continue;const button=document.createElement('button');button.className='btn secondary';button.textContent=label;button.onclick=()=>act(async()=>{await call('decide',{user_id:item.user_id,status:value});await list()});row.append(button)}card.append(row);box.append(card)}if(!out.requests.length)box.textContent='Заявок пока нет.'}catch(e){message(e.message)}}
   document.getElementById('accessRefreshList').onclick=()=>act(list);await list();
+  document.getElementById('feedbackRefresh').onclick=()=>window.NEFeedback.ownerList();await window.NEFeedback.ownerList();
  }
  async function install(){
   if(!await status())return;

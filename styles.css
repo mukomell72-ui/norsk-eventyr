@@ -818,3 +818,20 @@ html,body{background:linear-gradient(180deg,#081421 0,#07111c 50%,#06101a 100%);
   .fsi-audio-card-v63{grid-template-columns:1fr;gap:7px}
   .fsi-audio-card-v63 audio{height:36px}
 }
+
+
+/* In-app rating and feature requests */
+.feedback-form{display:grid;gap:16px;max-width:760px;margin:0 auto}
+.feedback-stars{display:flex;gap:8px;flex-wrap:wrap}
+.feedback-stars button{width:50px;height:50px;border-radius:15px;border:1px solid #395a78;background:#112844;color:#8297af;font-size:27px}
+.feedback-stars button.selected{color:var(--gold);border-color:var(--gold);background:#3c321c}
+.feedback-field{display:grid;gap:7px}
+.feedback-field label{font-weight:850}
+.feedback-field textarea{width:100%;min-height:112px;padding:13px 14px;border:1px solid #395a78;border-radius:15px;background:#0b1b30;color:var(--text);resize:vertical}
+.feedback-field textarea:focus{outline:2px solid var(--blue);outline-offset:1px}
+.feedback-help{color:var(--muted);font-size:13px}
+.feedback-owner-list{display:grid;gap:10px;margin-top:12px}
+.feedback-owner-card{padding:14px;border-radius:16px;border:1px solid #ffffff18;background:#0c1b2e}
+.feedback-owner-meta{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:13px}
+.feedback-owner-rating{color:var(--gold);font-size:18px;font-weight:900}
+.feedback-owner-card p{white-space:pre-wrap;overflow-wrap:anywhere;margin:10px 0 0}
