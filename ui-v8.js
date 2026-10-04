@@ -7,6 +7,12 @@
     if(content.includes('fsi-audio-list-v63'))content='<div class="listening-scene-v8"><h2>Слушай настоящий норвежский</h2><p>Выбери запись, послушай и перескажи смысл своими словами.</p></div>'+content;
     if(content.includes('lesson-head-v6'))content='<div class="lesson-scene-v8"><span>Nora · учимся в ситуации</span></div>'+content;
     baseShell(content,active);
+    const ownerBrand=document.querySelector('.brand-v7');
+    if(ownerBrand&&window.NEAccess?.isOwner?.()){
+      ownerBrand.onclick=()=>window.NEAccess.panel();
+      ownerBrand.setAttribute('aria-label','Открыть панель владельца');
+      ownerBrand.title='Панель владельца';
+    }
     document.querySelector('.shell-v7')?.setAttribute('data-screen',route);
     document.querySelectorAll('.dock-v7 button').forEach(button=>button.classList.toggle('active',button.getAttribute('onclick')==="navigate('"+(['welcome','grammarlab','exam','settings','dictionary','learnedwords','progress','listeninglab'].includes(route)?'hub':route)+"')"));
     const version=document.querySelector('.brand-v7 b');if(version)version.textContent='7.3.0';
