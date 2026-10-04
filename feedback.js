@@ -25,10 +25,10 @@
   const box=document.getElementById('feedbackList');if(!box)return false;
   box.textContent='Загружаем отзывы…';
   try{
-   const out=await call('feedback_list'),data=out.feedback||{},items=Array.isArray(data.items)?data.items:[];
+   const out=await call('feedback_list'),data=out.feedback||{},items=Array.isArray(data.items)?data.items:[],rawCount=Number(data.count),total=Number.isFinite(rawCount)?Math.max(0,Math.floor(rawCount)):items.length;
    box.replaceChildren();
-   const summary=document.createElement('p');summary.className='feedback-help';summary.textContent='Всего: '+String(data.count||0)+' · средняя оценка: '+(Number.isFinite(Number(data.average))?Number(data.average).toLocaleString('ru-RU'):'—')+'/5';box.append(summary);
-   if(!items.length){const empty=document.createElement('p');empty.textContent='Отзывов пока нет.';box.append(empty);return true}
+   const summary=document.createElement('p');summary.className='feedback-help';summary.textContent='Всего: '+String(total)+' · средняя оценка: '+(Number.isFinite(Number(data.average))?Number(data.average).toLocaleString('ru-RU'):'—')+'/5';box.append(summary);
+   if(!items.length){const empty=document.createElement('p');empty.textContent='Отзывов пока нет.';box.append(empty);return total}
    const list=document.createElement('div');list.className='feedback-owner-list';
    for(const item of items){
     const card=document.createElement('article');card.className='feedback-owner-card';
@@ -40,7 +40,7 @@
     if(item.suggestion){const suggestion=document.createElement('p');suggestion.textContent='Предложение: '+String(item.suggestion);card.append(suggestion)}
     list.append(card)
    }
-   box.append(list);return true
+   box.append(list);return total
   }catch(error){box.textContent=error.message;return false}
  }
  window.NEFeedback={open,ownerList};

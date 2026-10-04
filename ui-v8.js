@@ -2,7 +2,31 @@
 (() => {
   const baseShell=window.shell,baseNavigate=window.navigate;
   const safe=value=>esc(String(value??''));
-  let route='home',grammarPractice=null;
+  let route='home',grammarPractice=null,ownerBadgeValue=null,ownerBadgeLastCheck=0,ownerBadgePending=null;
+  function paintOwnerBadge(){
+    if(!window.NEAccess?.isOwner?.())return;
+    const brand=document.querySelector('.brand-v7');if(!brand)return;
+    let badge=brand.querySelector('.owner-notification-badge'),count=Math.max(0,Number(ownerBadgeValue)||0);
+    if(!count){badge?.remove();brand.setAttribute('aria-label','Открыть панель владельца');brand.title='Панель владельца';return}
+    if(!badge){badge=document.createElement('span');badge.className='owner-notification-badge';badge.setAttribute('aria-live','polite');brand.append(badge)}
+    badge.textContent=count>99?'99+':String(count);
+    badge.setAttribute('aria-label',count+' новых уведомлений');
+    brand.setAttribute('aria-label','Открыть панель владельца. Новых уведомлений: '+count+'.');
+    brand.title='Панель владельца · новых уведомлений: '+count;
+  }
+  async function refreshOwnerBadge(force=false){
+    if(!window.NEAccess?.isOwner?.()){document.querySelectorAll('.owner-notification-badge').forEach(badge=>badge.remove());return 0}
+    if(ownerBadgePending)return ownerBadgePending;
+    const now=Date.now();if(!force&&now-ownerBadgeLastCheck<25000){paintOwnerBadge();return ownerBadgeValue||0}
+    ownerBadgeLastCheck=now;
+    ownerBadgePending=(async()=>{try{const count=await window.NEAccess.notificationCount();ownerBadgeValue=Math.max(0,Number(count)||0);paintOwnerBadge();return ownerBadgeValue}catch{return ownerBadgeValue||0}finally{ownerBadgePending=null}})();
+    return ownerBadgePending;
+  }
+  window.NEOwnerBadge={refresh:()=>refreshOwnerBadge(true)};
+  window.addEventListener('focus',()=>refreshOwnerBadge(true));
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshOwnerBadge(true)});
+  setInterval(()=>{if(!document.hidden)refreshOwnerBadge()},30000);
+  setTimeout(()=>refreshOwnerBadge(true),0);
   shell=window.shell=function(content,active){
     if(content.includes('fsi-audio-list-v63'))content='<div class="listening-scene-v8"><h2>Слушай настоящий норвежский</h2><p>Выбери запись, послушай и перескажи смысл своими словами.</p></div>'+content;
     if(content.includes('lesson-head-v6'))content='<div class="lesson-scene-v8"><span>Nora · учимся в ситуации</span></div>'+content;
@@ -10,12 +34,17 @@
     const ownerBrand=document.querySelector('.brand-v7');
     if(ownerBrand&&window.NEAccess?.isOwner?.()){
       ownerBrand.onclick=()=>window.NEAccess.panel();
+      ownerBrand.setAttribute('role','button');
+      ownerBrand.tabIndex=0;
+      ownerBrand.onkeydown=event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();ownerBrand.click()}};
       ownerBrand.setAttribute('aria-label','Открыть панель владельца');
       ownerBrand.title='Панель владельца';
+      paintOwnerBadge();
+      refreshOwnerBadge();
     }
     document.querySelector('.shell-v7')?.setAttribute('data-screen',route);
     document.querySelectorAll('.dock-v7 button').forEach(button=>button.classList.toggle('active',button.getAttribute('onclick')==="navigate('"+(['welcome','grammarlab','exam','settings','dictionary','learnedwords','progress','listeninglab'].includes(route)?'hub':route)+"')"));
-    const version=document.querySelector('.brand-v7 b');if(version)version.textContent='7.3.0';
+    const version=document.querySelector('.brand-v7 b');if(version)version.textContent='7.3.1';
   };
   function heading(title,subtitle=''){
     return '<div class="screen-head"><button class="back" onclick="navigate(\'hub\')" aria-label="Назад">←</button><div><h2>'+safe(title)+'</h2><p class="muted">'+safe(subtitle)+'</p></div></div>';
