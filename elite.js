@@ -295,7 +295,7 @@
   }
   function setEliteGoal(g){state.elite.goal=g;saveState();renderSettings()}
   function setDailyMinutes(n){state.elite.dailyMinutes=n;saveState();renderSettings()}
-  async function installApp(){if(!installPrompt)return;installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;renderSettings()}
+  async function installApp(){return window.NEAccess?.install()}
 
   function errorCard(title,msg){shell('<section class="card"><h2>'+esc(title)+'</h2><p class="muted">'+esc(msg||"Неизвестная ошибка")+'</p><button class="btn" onclick="navigate(\'home\')">На главную</button></section>',"home")}
 

@@ -2,7 +2,7 @@ import {guard} from "./_guard.js";
 const voices=["marin","cedar","coral","sage"];
 export default async function handler(req,res){
   if(req.method!=="POST") return res.status(405).json({error:"POST_ONLY"});
-  if(!guard(req,res,{limit:50})) return;
+  if(!await guard(req,res,{limit:50})) return;
   if(!process.env.OPENAI_API_KEY) return res.status(503).json({error:"AI_NOT_CONFIGURED"});
   const {text="",voice="",level="A1"}=req.body||{};
   if(typeof text!=="string"||!text.trim()||text.length>900)return res.status(400).json({error:"BAD_TEXT"});

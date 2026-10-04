@@ -2,7 +2,7 @@ import {guard} from "./_guard.js";
 function parseJson(text){const s=String(text||"").replace(/^\x60\x60\x60json\s*/i,"").replace(/\x60\x60\x60\s*$/,"").trim();try{return JSON.parse(s)}catch{const a=s.indexOf("{"),b=s.lastIndexOf("}");if(a>=0&&b>a)return JSON.parse(s.slice(a,b+1));throw new Error("NO_JSON")}}
 export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY"});
-  if(!guard(req,res,{limit:20}))return;
+  if(!await guard(req,res,{limit:20}))return;
   if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED"});
   const {transcript="",level="A1",practiceWords=[]}=req.body||{};
   if(typeof transcript!=="string"||transcript.trim().length<40||transcript.length>12000)return res.status(400).json({error:"BAD_TRANSCRIPT"});

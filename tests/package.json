@@ -1,1 +1,10 @@
-{"private":true,"scripts":{"test":"node api-shapes.mjs && node browser.cjs && node async-media.cjs && node updates.cjs"},"devDependencies":{"playwright":"1.62.1"}}
+{
+  "private": true,
+  "scripts": {
+    "test": "node access-api.mjs && node access-sql.cjs && node access-browser.cjs && node api-shapes.mjs && node browser.cjs && node async-media.cjs && node updates.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1",
+    "@electric-sql/pglite": "0.3.14"
+  }
+}

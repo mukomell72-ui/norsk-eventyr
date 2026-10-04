@@ -1,0 +1,10 @@
+[hidden]{display:none!important}
+.access-gate{max-width:620px;margin:0 auto;padding:24px 16px 60px;min-height:100dvh}
+.access-gate h1{font-size:1.8rem;line-height:1.2}
+.access-gate label{display:grid;gap:8px;margin:16px 0}
+.access-gate input{width:100%;box-sizing:border-box;padding:14px;border-radius:12px;border:1px solid #456575;background:#102a39;color:#fff;font:inherit}
+.access-gate p{overflow-wrap:anywhere}
+.access-gate form{margin-bottom:16px}
+.access-gate .row{flex-wrap:wrap;gap:8px}
+#accessMessage:empty{display:none}
+#accessMessage{padding:12px;background:#123749;border-radius:12px}

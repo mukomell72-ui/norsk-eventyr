@@ -7,9 +7,15 @@
     if(content.includes('fsi-audio-list-v63'))content='<div class="listening-scene-v8"><h2>Слушай настоящий норвежский</h2><p>Выбери запись, послушай и перескажи смысл своими словами.</p></div>'+content;
     if(content.includes('lesson-head-v6'))content='<div class="lesson-scene-v8"><span>Nora · учимся в ситуации</span></div>'+content;
     baseShell(content,active);
+    const ownerBrand=document.querySelector('.brand-v7');
+    if(ownerBrand&&window.NEAccess?.isOwner?.()){
+      ownerBrand.onclick=()=>window.NEAccess.panel();
+      ownerBrand.setAttribute('aria-label','Открыть панель владельца');
+      ownerBrand.title='Панель владельца';
+    }
     document.querySelector('.shell-v7')?.setAttribute('data-screen',route);
     document.querySelectorAll('.dock-v7 button').forEach(button=>button.classList.toggle('active',button.getAttribute('onclick')==="navigate('"+(['welcome','grammarlab','exam','settings','dictionary','learnedwords','progress','listeninglab'].includes(route)?'hub':route)+"')"));
-    const version=document.querySelector('.brand-v7 b');if(version)version.textContent='7.2.2';
+    const version=document.querySelector('.brand-v7 b');if(version)version.textContent='7.3.0';
   };
   function heading(title,subtitle=''){
     return '<div class="screen-head"><button class="back" onclick="navigate(\'hub\')" aria-label="Назад">←</button><div><h2>'+safe(title)+'</h2><p class="muted">'+safe(subtitle)+'</p></div></div>';
@@ -51,7 +57,7 @@
   function v8ExamLevel(level){state.level=level;saveState();examMenu()}
   function profile(){
     const goal=state.elite?.goal||'life',minutes=state.elite?.dailyMinutes||20;
-    shell(heading('Профиль и настройки','Твой норвежский маршрут')+'<section class="profile-hero-v8"><span class="nora-avatar-v7"></span><h2>Учимся с Норой</h2><p>'+safe(state.level)+' · '+minutes+' минут в день</p></section><section class="card"><h3>Учебная цель</h3><div class="goal-options">'+Object.entries({life:['Жизнь в Норвегии','Повседневный язык'],work:['Работа','Общение и рабочие ситуации'],norskprove:['Norskprøven','Подготовка к экзамену'],b2:['B2','Точная и свободная речь']}).map(([key,[title,description]])=>'<button class="goal-option '+(goal===key?'active':'')+'" onclick="v8SetGoal(\''+key+'\')"><b>'+title+'</b><small>'+description+'</small></button>').join('')+'<h3>Время в день</h3><div class="row">'+[10,20,30,45].map(value=>'<button class="btn '+(minutes===value?'':'secondary')+'" onclick="v8SetMinutes('+value+')">'+value+' мин</button>').join('')+'</div></section><section class="settings-list-v8"><button onclick="v8ToggleVoice()">🔊 Голос Норы <b>'+(state.chatPrefs.autoSpeak?'Включён':'Выключен')+'</b></button><button onclick="navigate(\'pronunciation\')">🎤 Речь и произношение <b>›</b></button><button onclick="navigate(\'cloud\')">☁ Синхронизация прогресса <b>›</b></button><button onclick="exportProgress()">↓ Сохранить копию прогресса <b>›</b></button><button onclick="navigate(\'welcome\')">🇳🇴 Заставка приложения <b>›</b></button></section><p class="muted">Язык интерфейса: русский. Разрешение микрофона хранится в настройках браузера.</p>','hub');
+    shell(heading('Профиль и настройки','Твой норвежский маршрут')+'<section class="profile-hero-v8"><span class="nora-avatar-v7"></span><h2>Учимся с Норой</h2><p>'+safe(state.level)+' · '+minutes+' минут в день</p></section><section class="settings-list-v8 profile-shortcuts-v8"><button onclick="NEAccess.panel()">🔐 Доступ и учётная запись <b>›</b></button><button onclick="NEFeedback.open()">⭐ Оценить приложение и предложить идею <b>›</b></button></section><section class="card"><h3>Учебная цель</h3><div class="goal-options">'+Object.entries({life:['Жизнь в Норвегии','Повседневный язык'],work:['Работа','Общение и рабочие ситуации'],norskprove:['Norskprøven','Подготовка к экзамену'],b2:['B2','Точная и свободная речь']}).map(([key,[title,description]])=>'<button class="goal-option '+(goal===key?'active':'')+'" onclick="v8SetGoal(\''+key+'\')"><b>'+title+'</b><small>'+description+'</small></button>').join('')+'<h3>Время в день</h3><div class="row">'+[10,20,30,45].map(value=>'<button class="btn '+(minutes===value?'':'secondary')+'" onclick="v8SetMinutes('+value+')">'+value+' мин</button>').join('')+'</div></section><section class="settings-list-v8"><button onclick="installApp()">📲 Установить приложение <b>›</b></button><button onclick="v8ToggleVoice()">🔊 Голос Норы <b>'+(state.chatPrefs.autoSpeak?'Включён':'Выключен')+'</b></button><button onclick="navigate(\'pronunciation\')">🎤 Речь и произношение <b>›</b></button><button onclick="navigate(\'cloud\')">☁ Синхронизация прогресса <b>›</b></button><button onclick="exportProgress()">↓ Сохранить копию прогресса <b>›</b></button><button onclick="navigate(\'welcome\')">🇳🇴 Заставка приложения <b>›</b></button></section><p class="muted">Язык интерфейса: русский. Разрешение микрофона хранится в настройках браузера.</p>','hub');
   }
   function v8SetGoal(goal){state.elite.goal=goal;saveState();profile()}
   function v8SetMinutes(minutes){state.elite.dailyMinutes=minutes;saveState();profile()}
