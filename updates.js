@@ -3,10 +3,16 @@
   if(!('serviceWorker' in navigator))return;
   let registration=null,approved=false,changed=false,reloading=false;
   const initiallyControlled=!!navigator.serviceWorker.controller;
+  function visible(element){
+    if(element.hidden||element.getAttribute('aria-hidden')==='true'||element.closest('[hidden],[aria-hidden="true"]'))return false;
+    const style=getComputedStyle(element);
+    return style.display!=='none'&&style.visibility!=='hidden'&&element.getClientRects().length>0;
+  }
   function busy(){
-    if(document.querySelector('.lesson-head-v6,.story-scene,#timer,#dictAnswer,#dailyAnswer,#testFb,#grammarGuideFeedback,#grammarLabFb,#listenQfb,.spinner,.chat-thinking'))return true;
-    if([...document.querySelectorAll('textarea,input')].some(e=>!e.readOnly&&!e.disabled&&e.type!=='hidden'&&String(e.value||'').trim()))return true;
-    return [...document.querySelectorAll('button')].some(e=>/Слушаю|Распознаю|■/.test(e.textContent));
+    const active='.lesson-head-v6,.story-scene,#timer,#dictAnswer,#dailyAnswer,#testFb,#grammarGuideFeedback,#grammarLabFb,#listenQfb,.spinner,.chat-thinking';
+    if([...document.querySelectorAll(active)].some(visible))return true;
+    if([...document.querySelectorAll('textarea,input')].some(e=>visible(e)&&!e.readOnly&&!e.disabled&&e.type!=='hidden'&&String(e.value||'').trim()))return true;
+    return [...document.querySelectorAll('button')].some(e=>visible(e)&&/Слушаю|Распознаю|■/.test(e.textContent));
   }
   function banner(){
     if(document.getElementById('neUpdateNotice'))return;

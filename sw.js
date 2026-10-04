@@ -1,5 +1,5 @@
-const CACHE="norsk-eventyr-v7-3-1-owner-notifications";
-const ASSETS=["/access.js?v=7.3.1","/access.css?v=7.3.1","/","/index.html","/styles.css?v=7.3.1","/v7.css?v=7.3.1","/v8.css?v=7.3.1","/ui-v8.js?v=7.3.1","/updates.js?v=7.3.1","/data.js?v=7.3.1","/app.js?v=7.3.1","/voice-pack.js?v=7.3.1","/v3.js?v=7.3.1","/lexicon.js?v=7.3.1","/elite.js?v=7.3.1","/story-data.js?v=7.3.1","/story.js?v=7.3.1","/ui-v6.js?v=7.3.1","/ui-v7.js?v=7.3.1","/manifest.json","/icon.svg","/offline.html","/assets/fjord.jpg","/assets/nora.jpg","/assets/nora-v8.webp","/assets/fjordvik-v8.webp"];
+const CACHE="norsk-eventyr-v7-3-2-owner-notifications";
+const ASSETS=["/access.js?v=7.3.2","/access.css?v=7.3.2","/","/index.html","/styles.css?v=7.3.2","/v7.css?v=7.3.2","/v8.css?v=7.3.2","/ui-v8.js?v=7.3.2","/updates.js?v=7.3.2","/data.js?v=7.3.2","/app.js?v=7.3.2","/voice-pack.js?v=7.3.2","/v3.js?v=7.3.2","/lexicon.js?v=7.3.2","/elite.js?v=7.3.2","/story-data.js?v=7.3.2","/story.js?v=7.3.2","/ui-v6.js?v=7.3.2","/ui-v7.js?v=7.3.2","/manifest.json","/icon.svg","/offline.html","/assets/fjord.jpg","/assets/nora.jpg","/assets/nora-v8.webp","/assets/fjordvik-v8.webp"];
 self.addEventListener("install",e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith("norsk-eventyr-")&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener("message",e=>{if(e.data==="SKIP_WAITING")self.skipWaiting()});
