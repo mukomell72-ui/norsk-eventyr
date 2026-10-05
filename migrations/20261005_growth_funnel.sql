@@ -10,7 +10,7 @@ language sql
 stable
 security definer
 set search_path = ''
-as $
+as $owner$
   select exists(
     select 1
     from auth.users u
@@ -18,7 +18,7 @@ as $
       and u.email_confirmed_at is not null
       and coalesce(u.raw_app_meta_data,'{}'::jsonb)->>'ne_owner'='true'
   );
-$;
+$owner$;
 revoke all on function public.ne_access_owner() from public,anon,authenticated;
 
 
