@@ -53,13 +53,21 @@ function dueReviews(state){
  const p=ensure(state),today=dayKey();
  return Object.entries(p.reviews).filter(([,r])=>r&&r.due&&r.due<=today).map(([key,r])=>{const cut=key.lastIndexOf(':');return{key,moduleId:key.slice(0,cut),skill:key.slice(cut+1),...r}}).sort((a,b)=>(a.lastScore||0)-(b.lastScore||0));
 }
-function moduleMastery(state,id){return clamp(ensure(state).modules[id]?.mastery||0)}
+function evidenceMastery(m){
+ if(!m||!m.skills)return 0;
+ const vals=ALL.map(s=>Number.isFinite(m.skills[s])?clamp(m.skills[s]):null);
+ if(vals.some(v=>v===null))return Math.min(69,clamp(m.mastery||0));
+ const avg=clamp(vals.reduce((a,b)=>a+b,0)/vals.length);
+ return Math.min(...vals)>=65?avg:Math.min(69,avg);
+}
+function moduleMastery(state,id){return evidenceMastery(ensure(state).modules[id])}
 function levelModules(level){return window.NECurriculum?.modules(level)||[]}
 function levelGate(state,level){
  const p=ensure(state),profile=levelProfile(p,level),mods=levelModules(level),transfer=mods.at(-1),scores=CORE.map(s=>clamp(profile[s])),avg=scores.reduce((a,b)=>a+b,0)/scores.length;
  const mastered=mods.filter(m=>moduleMastery(state,m.id)>=78).length,transferScore=transfer?moduleMastery(state,transfer.id):0;
- const delayed=Object.entries(p.reviews).filter(([key,r])=>{const moduleId=key.slice(0,key.lastIndexOf(':'));return window.NECurriculum?.moduleById(moduleId)?.level===level&&r&&r.stage>=2&&(r.lastScore||0)>=80}).length;
- const pass=avg>=80&&Math.min(...scores)>=70&&clamp(profile.grammar)>=70&&clamp(profile.vocabulary)>=70&&mastered>=Math.max(1,mods.length-2)&&transferScore>=80&&delayed>=4;
+ const delayedCore=new Set(Object.entries(p.reviews).flatMap(([key,r])=>{const cut=key.lastIndexOf(':'),moduleId=key.slice(0,cut),skill=key.slice(cut+1);return window.NECurriculum?.moduleById(moduleId)?.level===level&&CORE.includes(skill)&&r&&r.stage>=2&&(r.lastScore||0)>=80?[skill]:[]}));
+ const delayed=delayedCore.size;
+ const pass=avg>=80&&Math.min(...scores)>=70&&clamp(profile.grammar)>=70&&clamp(profile.vocabulary)>=70&&mastered>=Math.max(1,mods.length-2)&&transferScore>=80&&delayed===CORE.length;
  return{pass,avg:clamp(avg),minCore:Math.min(...scores),mastered,total:mods.length,transferScore,delayed};
 }
 function weakestSkill(state){const p=ensure(state),profile=levelProfile(p,state.level);return ALL.slice().sort((a,b)=>profile[a]-profile[b])[0]}
@@ -78,7 +86,7 @@ function nextMission(state){
 }
 function assessment(state,level,score,skillScores={}){
  const p=ensure(state),s=clamp(score);
- for(const skill of CORE)recordAttempt(state,{skill,score:skillScores[skill]??s,moduleId:level+'-assessment',source:'level_test',transfer:true});
+ for(const skill of CORE)recordAttempt(state,{level,skill,score:skillScores[skill]??s,moduleId:level+'-assessment',source:'level_test',transfer:true});
  p.assessments.push({date:new Date().toISOString(),level,score:s,skills:skillScores});p.assessments=p.assessments.slice(-50);
 }
 function completeLesson(state,lesson){
@@ -103,7 +111,7 @@ function startAdaptiveTeacher(){
 async function teacherStartMission(){
  const mission=nextMission(state),m=mission.module;if(!m)return;
  shell('<section class="card loading-card"><div class="spinner"></div><h2>Нора готовит занятие</h2><p class="muted">Цель — '+esc(m.canDo[0])+'. Задания будут подстроены под слабые места, а не случайно сгенерированы.</p></section>','home');
- const p=ensure(state),payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...levelProfile(p,mission.level)},errorPatterns:errors(state),weakSkills:ALL.filter(s=>p.skills[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review'};
+ const p=ensure(state),targetProfile=levelProfile(p,mission.level),payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...targetProfile},errorPatterns:errors(state),weakSkills:ALL.filter(s=>targetProfile[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review'};
  try{
   const r=typeof neApiPost==='function'?await neApiPost('/api/generate',payload):await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(async x=>({ok:x.ok,data:await x.json()}));
   if(!r.ok||!r.data)throw new Error(r.error||'GENERATION');
