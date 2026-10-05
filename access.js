@@ -49,10 +49,25 @@
    if(out.confirmEmail){confirmationEmail=email;confirmationPending(email)}else await status()
   })};
  }
+ function mailInboxUrl(email){
+  const domain=String(email||'').split('@')[1]?.toLowerCase()||'';
+  if(domain==='gmail.com'||domain==='googlemail.com')return 'https://mail.google.com/mail/u/0/#inbox';
+  if(['outlook.com','hotmail.com','live.com','msn.com'].includes(domain))return 'https://outlook.live.com/mail/0/inbox';
+  if(domain==='yahoo.com'||domain.endsWith('.yahoo.com'))return 'https://mail.yahoo.com/';
+  if(domain==='icloud.com'||domain==='me.com'||domain==='mac.com')return 'https://www.icloud.com/mail/';
+  return 'mailto:';
+ }
+ function openConfirmationMail(){
+  const url=mailInboxUrl(confirmationEmail);
+  if(url==='mailto:'){location.href=url;return}
+  const opened=window.open(url,'_blank','noopener,noreferrer');
+  if(!opened)location.href=url;
+ }
  function confirmationPending(email){
   confirmationEmail=String(email||'').trim().toLowerCase();
-  view('<h1>Проверь почту</h1><p>Мы отправили письмо подтверждения на <b>'+safe(confirmationEmail)+'</b>.</p><p>Открой письмо и нажми кнопку подтверждения. После этого Norsk Eventyr откроется автоматически, а приглашение останется привязано к этому аккаунту.</p><p class="muted">Если письма нет, проверь «Спам». Повторную отправку можно запросить ниже.</p><div class="row"><button class="btn secondary" id="accessResend">Отправить письмо ещё раз</button><button class="btn ghost" id="accessBackLogin">Изменить email</button></div>');
-  document.getElementById('accessResend').onclick=()=>act(async()=>{await call('resend_confirmation',{email:confirmationEmail});message('Новое письмо отправлено. Используй последнюю полученную ссылку.')});
+  view('<h1>Подтверди почту</h1><p>Мы отправили письмо подтверждения на <b>'+safe(confirmationEmail)+'</b>.</p><p>Нажми «Подтвердить» — откроется твоя почта. Найди письмо от Norsk Eventyr и нажми ссылку подтверждения. После этого приложение откроется автоматически, а приглашение останется привязано к аккаунту.</p><button class="btn" id="accessOpenMail">Подтвердить</button><p class="muted">Если письма нет, проверь «Спам». Повторную отправку можно запросить ниже.</p><div class="row"><button class="btn secondary" id="accessResend">Отправить письмо ещё раз</button><button class="btn ghost" id="accessBackLogin">Изменить email</button></div>');
+  document.getElementById('accessOpenMail').onclick=openConfirmationMail;
+  document.getElementById('accessResend').onclick=()=>act(async()=>{await call('resend_confirmation',{email:confirmationEmail});message('Новое письмо отправлено. Нажми «Подтвердить» и используй последнюю полученную ссылку.')});
   document.getElementById('accessBackLogin').onclick=()=>{register=true;login()};
  }
  function terms(){
