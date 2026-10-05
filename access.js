@@ -135,7 +135,7 @@
   if(canRequest)document.getElementById('accessRequest').onsubmit=e=>{e.preventDefault();act(async()=>{await call('request',{name:document.getElementById('accessName').value});await status()})};
   document.getElementById('accessCheck').onclick=()=>act(status);document.getElementById('accessLogout').onclick=logout;
  }
- async function act(fn){if(busy)return;busy=true;gate.querySelectorAll('button').forEach(b=>b.disabled=true);try{await fn()}catch(e){message(e.message||messages.ACCESS_UNAVAILABLE);reportClientError(e.code||'ACTION_ERROR',e)}finally{busy=false;gate.querySelectorAll('button').forEach(b=>b.disabled=false)}}
+ async function act(fn){if(busy)return;busy=true;gate.querySelectorAll('button').forEach(b=>b.disabled=true);try{await fn()}catch(e){message(e.message||messages.ACCESS_UNAVAILABLE);if(!e.code||e.code==='ACCESS_UNAVAILABLE')reportClientError(e.code||'ACTION_ERROR',e)}finally{busy=false;gate.querySelectorAll('button').forEach(b=>b.disabled=false)}}
  function scopeStorage(){
   const scoped=['ne2_state','ne2_state_before_import','ne2_state_before_reset','ne_cloud_link','ne_session'];
   const proto=Storage.prototype,get=proto.getItem,set=proto.setItem,remove=proto.removeItem;
