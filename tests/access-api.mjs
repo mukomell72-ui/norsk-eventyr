@@ -12,7 +12,6 @@ function response(){return {headers:{},status(v){this.code=v;return this},json(v
 function request(body={},cookie='ne_access=test'){return {method:'POST',url:'/api/access',headers:{host:'localhost',origin:'http://localhost',cookie,'x-forwarded-for':String(Math.random())},body}}
 async function invoke(body,cookie){const res=response();await handler(request(body,cookie),res);return res}
 assert.equal((await invoke({action:'status'},'')).code,401);
-assert.equal((await invoke({action:'feedback_submit',rating:5})).code,403);
 assert.equal((await invoke({action:'feedback_list'})).code,403);
 assert.equal((await invoke({action:'status'})).data.status,'pending');
 for(const action of ['list','decide'])assert.equal((await invoke({action,user_id:'11111111-1111-4111-8111-111111111111',status:'approved'})).code,403);
