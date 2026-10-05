@@ -53,8 +53,7 @@ begin
   )
   select count(*),round(coalesce(avg(rating),0)::numeric,1)
     into total_count,average_rating
-  from latest
-  where is_public=true;
+  from latest;
 
   with latest as (
     select distinct on (f.user_id)
@@ -182,7 +181,6 @@ begin
    'average_rating',(select round(coalesce(avg(x.rating),0)::numeric,1) from (
        select distinct on (user_id) user_id,rating
        from public.norsk_eventyr_feedback
-       where is_public=true
        order by user_id,created_at desc,id desc
    ) x),
    'public_comments',(select count(*) from public.norsk_eventyr_feedback where is_public=true and btrim(coalesce(comment,''))<>''),
