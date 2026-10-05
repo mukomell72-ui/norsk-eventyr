@@ -71,5 +71,6 @@ function walk(dir){
  });
 }
 const publicSourceFiles=walk(root).filter(file=>sourceExtensions.test(file));
-assert(publicSourceFiles.every(file=>!/@gmail\.com/i.test(fs.readFileSync(file,'utf8'))),'tracked public source must not contain personal Gmail addresses');
+const personalEmailFiles=publicSourceFiles.filter(file=>/@gmail\.com/i.test(fs.readFileSync(file,'utf8'))).map(file=>path.relative(root,file));
+assert(personalEmailFiles.length===0,'tracked public source must not contain personal Gmail addresses: '+personalEmailFiles.join(', '));
 console.log('Norsk Eventyr 7.4.0 admin dashboard checks: PASS');
