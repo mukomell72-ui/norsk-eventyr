@@ -77,8 +77,14 @@
     const who=document.createElement('span');who.textContent=String(item.email||'Пользователь');
     const when=document.createElement('time');when.textContent=dateText(item.created_at);meta.append(who,when);
     const score=document.createElement('div');score.className='feedback-owner-rating';score.textContent=stars(item.rating)+' · '+String(Math.max(0,Math.min(5,Number(item.rating)||0)))+'/5';card.append(meta,score);
-    if(item.comment){const comment=document.createElement('p');comment.textContent='Публичный комментарий: '+String(item.comment);card.append(comment)}
+    if(item.comment){const comment=document.createElement('p');comment.textContent=(item.is_public===false?'Скрытый комментарий: ':'Публичный комментарий: ')+String(item.comment);card.append(comment)}
     if(item.suggestion){const suggestion=document.createElement('p');suggestion.textContent='Личное предложение: '+String(item.suggestion);card.append(suggestion)}
+    if(item.comment){
+     const moderation=document.createElement('div');moderation.className='row';
+     const toggle=document.createElement('button');toggle.className='btn secondary';toggle.type='button';toggle.textContent=item.is_public===false?'Показать всем':'Скрыть комментарий';
+     toggle.onclick=async()=>{toggle.disabled=true;try{await call('feedback_moderate',{feedback_id:item.id,is_public:item.is_public===false});await ownerList()}catch(error){alert(error.message)}finally{toggle.disabled=false}};
+     moderation.append(toggle);card.append(moderation)
+    }
     list.append(card)
    }
    box.append(list);return total
