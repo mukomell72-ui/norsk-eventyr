@@ -304,7 +304,7 @@ begin
   select * into u from auth.users where id=auth.uid() and email_confirmed_at is not null;
   if u.id is null then raise exception 'LOGIN_REQUIRED'; end if;
   if p_terms_version is distinct from current_terms
-     or coalesce(p_privacy_version,'') not in ('2026-10-05-v1','2026-10-05-v2') then
+     or coalesce(p_privacy_version,'') not in ('2026-10-05-v1','2026-10-05-v2','2026-10-05-v3') then
     raise exception 'TERMS_VERSION_MISMATCH';
   end if;
 
