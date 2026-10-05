@@ -1,5 +1,5 @@
 -- Norsk Eventyr 7.4.0: privacy-minimized growth funnel and acquisition attribution.
--- Phase 1 is backward compatible with 7.3.8: both privacy v1 and v2 are accepted.
+-- Phase 1 is backward compatible with older clients: privacy v1, v2 and v3 are accepted during transition.
 -- Strict privacy v3 enforcement remains deferred until active older clients have upgraded.
 
 alter table public.norsk_eventyr_entitlements
@@ -29,6 +29,31 @@ create table if not exists public.norsk_eventyr_growth_daily (
 );
 alter table public.norsk_eventyr_growth_daily enable row level security;
 revoke all on table public.norsk_eventyr_growth_daily from anon, authenticated;
+
+-- Scope owner analytics to Norsk Eventyr users only. The Supabase project also hosts unrelated app data.
+create or replace function public.ne_is_norsk_eventyr_user(p_user_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $
+  select exists(
+    select 1
+    from auth.users u
+    where u.id=p_user_id
+      and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+      and (
+        coalesce(u.raw_user_meta_data,'{}'::jsonb) ? 'ne_utm_source'
+        or coalesce(u.raw_user_meta_data,'{}'::jsonb) ? 'ne_referral_code'
+        or exists(select 1 from public.norsk_eventyr_entitlements e where e.user_id=u.id)
+        or exists(select 1 from public.norsk_eventyr_access a where a.user_id=u.id)
+        or exists(select 1 from public.norsk_eventyr_installs i where i.user_id=u.id)
+        or exists(select 1 from public.norsk_eventyr_feedback f where f.user_id=u.id)
+      )
+  );
+$;
+revoke all on function public.ne_is_norsk_eventyr_user(uuid) from public,anon,authenticated;
 
 create or replace function public.ne_growth_first_visit()
 returns jsonb
@@ -129,8 +154,8 @@ begin
   select jsonb_build_object(
     'first_visits',coalesce((select sum(first_visits) from public.norsk_eventyr_growth_daily),0),
     'first_visits_7d',coalesce((select sum(first_visits) from public.norsk_eventyr_growth_daily where day>=current_date-6),0),
-    'registered',(select count(*) from auth.users u where lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
-    'confirmed',(select count(*) from auth.users u where u.email_confirmed_at is not null and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
+    'registered',(select count(*) from auth.users u where public.ne_is_norsk_eventyr_user(u.id)),
+    'confirmed',(select count(*) from auth.users u where u.email_confirmed_at is not null and public.ne_is_norsk_eventyr_user(u.id)),
     'trial_started',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.trial_started_at is not null and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
     'installed',(select count(*) from public.norsk_eventyr_installs i join auth.users u on u.id=i.user_id where lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
     'active_3_days',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.activity_days_count>=3 and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
@@ -161,7 +186,7 @@ begin
       count(*) filter(where e.first_paid_at is not null) as paid
     from auth.users u
     left join public.norsk_eventyr_entitlements e on e.user_id=u.id
-    where lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+    where public.ne_is_norsk_eventyr_user(u.id)
     group by 1
   ) q;
 
@@ -208,13 +233,7 @@ begin
     left join public.norsk_eventyr_entitlements e on e.user_id=u.id
     left join public.norsk_eventyr_access a on a.user_id=u.id
     left join public.norsk_eventyr_installs i on i.user_id=u.id
-    where lower(coalesce(u.email,'')) <> 'mukomell72@gmail.com'
-      and (
-        e.user_id is not null
-        or a.user_id is not null
-        or i.user_id is not null
-        or exists(select 1 from public.norsk_eventyr_feedback f where f.user_id=u.id)
-      )
+    where public.ne_is_norsk_eventyr_user(u.id)
   ),'[]'::jsonb);
 end;
 $$;
@@ -367,7 +386,7 @@ begin
       'acquisition_campaign',left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_campaign','')),80)
     ) order by u.created_at)
     from auth.users u
-    where lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+    where public.ne_is_norsk_eventyr_user(u.id)
   ),'[]'::jsonb),
   'entitlements',coalesce((select jsonb_agg(to_jsonb(e) order by e.created_at) from public.norsk_eventyr_entitlements e),'[]'::jsonb),
   'access',coalesce((select jsonb_agg(to_jsonb(a) order by a.requested_at) from public.norsk_eventyr_access a),'[]'::jsonb),
