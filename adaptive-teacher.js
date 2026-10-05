@@ -31,16 +31,17 @@ function skillForStep(step,mode){
 }
 function recordAttempt(state,input={}){
  const p=ensure(state),skill=ALL.includes(input.skill)?input.skill:'vocabulary',score=clamp(input.score),weight=input.transfer?0.28:0.18;
- const old=clamp(p.skills[skill]);p.skills[skill]=clamp(old*(1-weight)+score*weight);
- const id=String(input.moduleId||input.lessonId||'general').slice(0,90),m=moduleState(p,id),mo=Number.isFinite(m.skills[skill])?m.skills[skill]:old;
+ const id=String(input.moduleId||input.lessonId||'general').slice(0,90),moduleInfo=window.NECurriculum?.moduleById(id),level=['A1','A2','B1','B2'].includes(input.level)?input.level:(moduleInfo?.level||state.level||'A1'),profile=levelProfile(p,level);
+ const old=clamp(profile[skill]);profile[skill]=clamp(old*(1-weight)+score*weight);if(level===state.level)p.skills[skill]=profile[skill];
+ const m=moduleState(p,id),mo=Number.isFinite(m.skills[skill])?m.skills[skill]:old;
  m.skills[skill]=clamp(mo*(1-weight)+score*weight);m.attempts=(m.attempts||0)+1;m.lastSeen=dayKey();
  if(input.transfer&&score>=80)m.transferPasses=(m.transferPasses||0)+1;
  const vals=Object.values(m.skills).filter(Number.isFinite);m.mastery=vals.length?clamp(vals.reduce((a,b)=>a+b,0)/vals.length):0;
  const tag=String(input.errorTag||'').slice(0,50);if(tag&&score<80)p.errorPatterns[tag]=(p.errorPatterns[tag]||0)+1;
- p.attempts.push({date:new Date().toISOString(),skill,score,moduleId:id,source:String(input.source||'practice').slice(0,40),errorTag:tag,transfer:!!input.transfer});
+ p.attempts.push({date:new Date().toISOString(),level,skill,score,moduleId:id,source:String(input.source||'practice').slice(0,40),errorTag:tag,transfer:!!input.transfer});
  p.attempts=p.attempts.slice(-500);
  scheduleReview(p,id,skill,score);
- return p.skills[skill];
+ return profile[skill];
 }
 function scheduleReview(p,moduleId,skill,score){
  const key=moduleId+':'+skill,r=p.reviews[key]||{stage:0,due:dayKey(),lastScore:null};
