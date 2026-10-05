@@ -39,7 +39,7 @@
  }
  async function markGrowthActivity(){
   if(!identity?.user_id||identity?.owner===true)return;
-  const today=new Date().toISOString().slice(0,10);if(growthActivityDateSent===today)return;
+  const now=new Date(),today=String(now.getFullYear())+'-'+String(now.getMonth()+1).padStart(2,'0')+'-'+String(now.getDate()).padStart(2,'0');if(growthActivityDateSent===today)return;
   growthActivityDateSent=today;
   try{await call('growth_activity')}catch{growthActivityDateSent=''}
  }
