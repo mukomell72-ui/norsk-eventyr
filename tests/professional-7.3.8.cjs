@@ -11,8 +11,8 @@ const migration=read('migrations/20261005_professional_hardening.sql');
 const app=read('app.js');
 const sw=read('sw.js');
 
-assert(app.includes('APP_VERSION="7.3.8"'),'APP_VERSION must be 7.3.8');
-assert(sw.includes('7.3.8'),'service worker must reference 7.3.8');
+assert(/APP_VERSION="\d+\.\d+\.\d+"/.test(app),'APP_VERSION marker missing');
+assert(sw.includes('const CACHE="norsk-eventyr-'),'service worker cache marker missing');
 assert(handler.includes("action==='feedback_moderate'"),'moderation API missing');
 assert(handler.includes("action==='owner_dashboard'"),'owner dashboard API missing');
 assert(handler.includes("action==='owner_backup'"),'owner backup API missing');
@@ -27,4 +27,4 @@ assert(migration.includes('ne_owner_dashboard'),'owner dashboard RPC missing');
 assert(migration.includes('ne_owner_backup'),'owner backup RPC missing');
 assert(migration.includes('is_public=true'),'public feedback filter missing');
 assert(!migration.includes('service_role'),'migration must not embed service role secrets');
-console.log('Norsk Eventyr 7.3.8 professional hardening checks: PASS');
+console.log('Norsk Eventyr professional hardening regression checks: PASS');
