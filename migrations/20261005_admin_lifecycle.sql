@@ -395,6 +395,42 @@ $$;
 revoke all on function public.ne_lifecycle_touch() from public,anon;
 grant execute on function public.ne_lifecycle_touch() to authenticated;
 
+
+-- Keep the legacy owner summary scoped to Norsk Eventyr users as well.
+create or replace function public.ne_owner_dashboard()
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $
+declare result jsonb;
+begin
+ if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
+ select jsonb_build_object(
+   'registered_users',(select count(*) from auth.users u where public.ne_is_norsk_eventyr_user(u.id)),
+   'confirmed_users',(select count(*) from auth.users u where u.email_confirmed_at is not null and public.ne_is_norsk_eventyr_user(u.id)),
+   'active_trials',(select count(*) from public.norsk_eventyr_entitlements e where e.trial_ends_at>now() and public.ne_is_norsk_eventyr_user(e.user_id)),
+   'expired_trials',(select count(*) from public.norsk_eventyr_entitlements e where e.trial_ends_at<=now() and public.ne_is_norsk_eventyr_user(e.user_id)),
+   'installs',(select count(*) from public.norsk_eventyr_installs i where public.ne_is_norsk_eventyr_user(i.user_id)),
+   'ratings',(select count(distinct f.user_id) from public.norsk_eventyr_feedback f where public.ne_is_norsk_eventyr_user(f.user_id)),
+   'average_rating',(select round(coalesce(avg(x.rating),0)::numeric,1) from (
+       select distinct on (f.user_id) f.user_id,f.rating
+       from public.norsk_eventyr_feedback f
+       where public.ne_is_norsk_eventyr_user(f.user_id)
+       order by f.user_id,f.created_at desc,f.id desc
+   ) x),
+   'public_comments',(select count(*) from public.norsk_eventyr_feedback f where f.is_public=true and btrim(coalesce(f.comment,''))<>'' and public.ne_is_norsk_eventyr_user(f.user_id)),
+   'hidden_comments',(select count(*) from public.norsk_eventyr_feedback f where f.is_public=false and public.ne_is_norsk_eventyr_user(f.user_id)),
+   'errors_24h',(select count(*) from public.norsk_eventyr_client_errors e where e.created_at>=now()-interval '24 hours' and public.ne_is_norsk_eventyr_user(e.user_id)),
+   'registrations_7d',(select count(*) from auth.users u where u.created_at>=now()-interval '7 days' and public.ne_is_norsk_eventyr_user(u.id)),
+   'installs_7d',(select count(*) from public.norsk_eventyr_installs i where i.first_installed_at>=now()-interval '7 days' and public.ne_is_norsk_eventyr_user(i.user_id))
+ ) into result;
+ return result;
+end;
+$;
+revoke all on function public.ne_owner_dashboard() from public,anon;
+grant execute on function public.ne_owner_dashboard() to authenticated;
+
 create or replace function public.ne_owner_admin_overview()
 returns jsonb
 language plpgsql
@@ -404,13 +440,13 @@ as $$
 begin
   if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
   return jsonb_build_object(
-    'users',(select count(*) from auth.users u where lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
-    'confirmed',(select count(*) from auth.users u where u.email_confirmed_at is not null and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
-    'active_trials',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.trial_ends_at>now() and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
-    'expired_trials',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.trial_ends_at<=now() and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
-    'purchase_interest',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.purchase_interest_at is not null and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
-    'active_paid',(select count(*) from public.norsk_eventyr_subscriptions s join auth.users u on u.id=s.user_id where s.status in ('trialing','active') and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
-    'past_due',(select count(*) from public.norsk_eventyr_subscriptions s where s.status in ('past_due','unpaid')),
+    'users',(select count(*) from auth.users u where public.ne_is_norsk_eventyr_user(u.id)),
+    'confirmed',(select count(*) from auth.users u where u.email_confirmed_at is not null and public.ne_is_norsk_eventyr_user(u.id)),
+    'active_trials',(select count(*) from public.norsk_eventyr_entitlements e where e.trial_ends_at>now() and public.ne_is_norsk_eventyr_user(e.user_id)),
+    'expired_trials',(select count(*) from public.norsk_eventyr_entitlements e where e.trial_ends_at<=now() and public.ne_is_norsk_eventyr_user(e.user_id)),
+    'purchase_interest',(select count(*) from public.norsk_eventyr_entitlements e where e.purchase_interest_at is not null and public.ne_is_norsk_eventyr_user(e.user_id)),
+    'active_paid',(select count(*) from public.norsk_eventyr_subscriptions s where s.status in ('trialing','active') and public.ne_is_norsk_eventyr_user(s.user_id)),
+    'past_due',(select count(*) from public.norsk_eventyr_subscriptions s where s.status in ('past_due','unpaid') and public.ne_is_norsk_eventyr_user(s.user_id)),
     'revenue_30d',coalesce((select round(sum(greatest(p.amount_nok-p.refunded_nok,0)),2) from public.norsk_eventyr_payments p where p.status in ('paid','refunded','partially_refunded') and coalesce(p.paid_at,p.created_at)>=now()-interval '30 days'),0),
     'fees_30d',coalesce((select round(sum(p.fee_nok),2) from public.norsk_eventyr_payments p where p.status in ('paid','refunded','partially_refunded') and coalesce(p.paid_at,p.created_at)>=now()-interval '30 days'),0),
     'failed_payments_7d',(select count(*) from public.norsk_eventyr_payments p where p.status='failed' and p.created_at>=now()-interval '7 days'),
@@ -439,7 +475,7 @@ begin
       from public.norsk_eventyr_lifecycle_events e
       join auth.users u on u.id=e.user_id
       where e.occurred_at<=now()
-        and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+        and public.ne_is_norsk_eventyr_user(u.id)
       order by e.occurred_at desc,e.id desc
       limit lim
     ) x
@@ -469,6 +505,7 @@ begin
       select p.*,u.email
       from public.norsk_eventyr_payments p
       join auth.users u on u.id=p.user_id
+      where public.ne_is_norsk_eventyr_user(u.id)
       order by p.created_at desc,p.id desc
       limit lim
     ) x
@@ -486,6 +523,7 @@ declare profile jsonb; timeline jsonb; payments jsonb;
 begin
   if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
   if p_user_id is null then raise exception 'BAD_USER'; end if;
+  if not public.ne_is_norsk_eventyr_user(p_user_id) then raise exception 'USER_NOT_FOUND'; end if;
 
   select jsonb_build_object(
     'user_id',u.id,'email',u.email,'registered_at',u.created_at,'email_confirmed_at',u.email_confirmed_at,
@@ -575,10 +613,10 @@ begin
       where p.user_id=u.id
       order by p.created_at desc,p.id desc limit 1
     ) lp on true
-    where lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+    where public.ne_is_norsk_eventyr_user(u.id)
   ),'[]'::jsonb);
 end;
-$$;
+$;
 
 create or replace function public.ne_owner_backup()
 returns jsonb
@@ -597,7 +635,7 @@ begin
       'acquisition_source',coalesce(nullif(lower(left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_source','')),40)),''),'direct'),
       'acquisition_campaign',left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_campaign','')),80)
     ) order by u.created_at)
-    from auth.users u where lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+    from auth.users u where public.ne_is_norsk_eventyr_user(u.id)
   ),'[]'::jsonb),
   'entitlements',coalesce((select jsonb_agg(to_jsonb(e) order by e.created_at) from public.norsk_eventyr_entitlements e),'[]'::jsonb),
   'access',coalesce((select jsonb_agg(to_jsonb(a) order by a.requested_at) from public.norsk_eventyr_access a),'[]'::jsonb),
