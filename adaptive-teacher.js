@@ -56,13 +56,13 @@ function dueReviews(state){
 function moduleMastery(state,id){return clamp(ensure(state).modules[id]?.mastery||0)}
 function levelModules(level){return window.NECurriculum?.modules(level)||[]}
 function levelGate(state,level){
- const p=ensure(state),mods=levelModules(level),transfer=mods.at(-1),scores=CORE.map(s=>clamp(p.skills[s])),avg=scores.reduce((a,b)=>a+b,0)/scores.length;
+ const p=ensure(state),profile=levelProfile(p,level),mods=levelModules(level),transfer=mods.at(-1),scores=CORE.map(s=>clamp(profile[s])),avg=scores.reduce((a,b)=>a+b,0)/scores.length;
  const mastered=mods.filter(m=>moduleMastery(state,m.id)>=78).length,transferScore=transfer?moduleMastery(state,transfer.id):0;
- const delayed=Object.values(p.reviews).filter(r=>r&&r.stage>=2&&(r.lastScore||0)>=80).length;
- const pass=avg>=80&&Math.min(...scores)>=70&&clamp(p.skills.grammar)>=70&&clamp(p.skills.vocabulary)>=70&&mastered>=Math.max(1,mods.length-2)&&transferScore>=80&&delayed>=4;
+ const delayed=Object.entries(p.reviews).filter(([key,r])=>{const moduleId=key.slice(0,key.lastIndexOf(':'));return window.NECurriculum?.moduleById(moduleId)?.level===level&&r&&r.stage>=2&&(r.lastScore||0)>=80}).length;
+ const pass=avg>=80&&Math.min(...scores)>=70&&clamp(profile.grammar)>=70&&clamp(profile.vocabulary)>=70&&mastered>=Math.max(1,mods.length-2)&&transferScore>=80&&delayed>=4;
  return{pass,avg:clamp(avg),minCore:Math.min(...scores),mastered,total:mods.length,transferScore,delayed};
 }
-function weakestSkill(state){const p=ensure(state);return ALL.slice().sort((a,b)=>p.skills[a]-p.skills[b])[0]}
+function weakestSkill(state){const p=ensure(state),profile=levelProfile(p,state.level);return ALL.slice().sort((a,b)=>profile[a]-profile[b])[0]}
 function nextModule(state,level){
  const mods=levelModules(level);if(!mods.length)return null;
  return mods.find(m=>moduleMastery(state,m.id)<78)||mods.at(-1);
@@ -71,7 +71,7 @@ function nextMission(state){
  const p=ensure(state),level=['A1','A2','B1','B2'].includes(state.level)?state.level:'A1',due=dueReviews(state);
  if(due.length){
   const d=due[0],m=window.NECurriculum?.moduleById(d.moduleId)||nextModule(state,level);
-  return{kind:'review',level,module:m,skill:d.skill,reason:'Пора проверить, сохранился ли материал после паузы.',reviewKey:d.key};
+  return{kind:'review',level:m?.level||level,module:m,skill:d.skill,reason:'Пора проверить, сохранился ли материал после паузы.',reviewKey:d.key};
  }
  const skill=weakestSkill(state),module=nextModule(state,level);
  return{kind:'learn',level,module,skill,reason:'Сейчас это самое слабое звено в твоём профиле навыков.'};
@@ -88,7 +88,7 @@ function completeLesson(state,lesson){
 function errors(state){return Object.entries(ensure(state).errorPatterns).sort((a,b)=>b[1]-a[1]).slice(0,6).map(x=>x[0])}
 function reviewWords(state){if(typeof window.neReinforcementWords==='function')return window.neReinforcementWords(12);return[]}
 function bars(state){
- const p=ensure(state);return ALL.map(s=>'<div class="metric"><span>'+LABEL[s]+'</span><strong>'+clamp(p.skills[s])+'%</strong></div><div class="progress"><i style="width:'+clamp(p.skills[s])+'%"></i></div>').join('');
+ const p=ensure(state),profile=levelProfile(p,state.level);return ALL.map(s=>'<div class="metric"><span>'+LABEL[s]+'</span><strong>'+clamp(profile[s])+'%</strong></div><div class="progress"><i style="width:'+clamp(profile[s])+'%"></i></div>').join('');
 }
 function startAdaptiveTeacher(){
  ensure(state);const mission=nextMission(state),gate=levelGate(state,state.level),p=state.learningV8,attempts=p.attempts.length;
@@ -103,7 +103,7 @@ function startAdaptiveTeacher(){
 async function teacherStartMission(){
  const mission=nextMission(state),m=mission.module;if(!m)return;
  shell('<section class="card loading-card"><div class="spinner"></div><h2>Нора готовит занятие</h2><p class="muted">Цель — '+esc(m.canDo[0])+'. Задания будут подстроены под слабые места, а не случайно сгенерированы.</p></section>','home');
- const p=ensure(state),payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...p.skills},errorPatterns:errors(state),weakSkills:ALL.filter(s=>p.skills[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review'};
+ const p=ensure(state),payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...levelProfile(p,mission.level)},errorPatterns:errors(state),weakSkills:ALL.filter(s=>p.skills[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review'};
  try{
   const r=typeof neApiPost==='function'?await neApiPost('/api/generate',payload):await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(async x=>({ok:x.ok,data:await x.json()}));
   if(!r.ok||!r.data)throw new Error(r.error||'GENERATION');
