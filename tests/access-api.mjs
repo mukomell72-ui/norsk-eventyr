@@ -4,7 +4,7 @@ let status='pending',owner=false,confirmed=true,down=false,rpcCalls=[];
 globalThis.fetch=async(url,options)=>{
  if(down)throw new Error('offline');
  if(url.endsWith('/user'))return {ok:true,status:200,json:async()=>({email:'student@example.com',email_confirmed_at:confirmed?'2026-01-01':null})};
- if(url.includes('/rpc/')){const name=url.split('/').pop();rpcCalls.push(name);return {ok:true,json:async()=>name==='ne_access_status'?{status,owner,user_id:'11111111-1111-4111-8111-111111111111'}:name==='ne_access_list'?[]:{ok:true}}}
+ if(url.includes('/rpc/')){const name=url.split('/').pop();rpcCalls.push(name);return {ok:true,json:async()=>name==='ne_access_status'?{status,owner,access_granted:status==='approved',user_id:'11111111-1111-4111-8111-111111111111'}:name==='ne_access_list'?[]:{ok:true}}}
  if(url.includes('/token?'))return {ok:true,json:async()=>({access_token:'new-token',refresh_token:'new-refresh',expires_in:3600})};
  throw Error('Unexpected '+url);
 };
