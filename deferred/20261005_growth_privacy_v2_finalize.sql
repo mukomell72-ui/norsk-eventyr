@@ -1,6 +1,6 @@
--- DEFERRED: do not apply during the initial 7.3.9 release.
--- Keep transition mode until active 7.3.8 clients have upgraded. Then this script can enforce privacy v2.
--- Norsk Eventyr 7.3.9: finalize privacy notice v2 after the 7.3.9 frontend is live.
+-- DEFERRED: do not apply during the initial 7.4.0 release.
+-- Keep transition mode until active 7.3.8 clients have upgraded. Then this script can enforce privacy v3.
+-- Norsk Eventyr 7.4.0: finalize privacy notice v2 after the 7.4.0 frontend is live.
 
 create or replace function public.ne_access_status()
 returns jsonb
@@ -13,7 +13,7 @@ declare
   req_status text;
   e public.norsk_eventyr_entitlements%rowtype;
   current_terms constant text := '2026-10-05-v1';
-  current_privacy constant text := '2026-10-05-v2';
+  current_privacy constant text := '2026-10-05-v3';
   granted boolean := false;
   effective_status text;
   remaining bigint := 0;
@@ -82,7 +82,7 @@ declare
   inviter uuid;
   code text;
   current_terms constant text := '2026-10-05-v1';
-  current_privacy constant text := '2026-10-05-v2';
+  current_privacy constant text := '2026-10-05-v3';
 begin
   select * into u from auth.users where id=auth.uid() and email_confirmed_at is not null;
   if u.id is null then raise exception 'LOGIN_REQUIRED'; end if;
