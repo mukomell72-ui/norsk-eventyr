@@ -1,6 +1,6 @@
 -- DEFERRED: do not apply during the initial 7.4.0 release.
 -- Keep transition mode until active 7.3.8 clients have upgraded. Then this script can enforce privacy v3.
--- Norsk Eventyr 7.4.0: finalize privacy notice v2 after the 7.4.0 frontend is live.
+-- Norsk Eventyr 7.4.0: finalize privacy notice v3 after the 7.4.0 frontend is live.
 
 create or replace function public.ne_access_status()
 returns jsonb
