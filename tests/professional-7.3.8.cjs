@@ -1,0 +1,30 @@
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const read=p=>fs.readFileSync(path.join(root,p),'utf8');
+const assert=(condition,message)=>{if(!condition)throw new Error(message)};
+
+const access=read('access.js');
+const handler=read('lib/access-handler.js');
+const feedback=read('feedback.js');
+const migration=read('migrations/20261005_professional_hardening.sql');
+const app=read('app.js');
+const sw=read('sw.js');
+
+assert(app.includes('APP_VERSION="7.3.8"'),'APP_VERSION must be 7.3.8');
+assert(sw.includes('7.3.8'),'service worker must reference 7.3.8');
+assert(handler.includes("action==='feedback_moderate'"),'moderation API missing');
+assert(handler.includes("action==='owner_dashboard'"),'owner dashboard API missing');
+assert(handler.includes("action==='owner_backup'"),'owner backup API missing');
+assert(handler.includes("action==='client_error'"),'client error API missing');
+assert(access.includes("window.addEventListener('error'"),'window error monitoring missing');
+assert(access.includes("window.addEventListener('unhandledrejection'"),'promise rejection monitoring missing');
+assert(access.includes("ownerDashboard"),'owner analytics UI missing');
+assert(access.includes("ownerBackup"),'backup UI missing');
+assert(feedback.includes("feedback_moderate"),'feedback moderation UI missing');
+assert(migration.includes('norsk_eventyr_client_errors'),'client error table missing');
+assert(migration.includes('ne_owner_dashboard'),'owner dashboard RPC missing');
+assert(migration.includes('ne_owner_backup'),'owner backup RPC missing');
+assert(migration.includes('is_public=true'),'public feedback filter missing');
+assert(!migration.includes('service_role'),'migration must not embed service role secrets');
+console.log('Norsk Eventyr 7.3.8 professional hardening checks: PASS');

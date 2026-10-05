@@ -3,7 +3,7 @@
  const TERMS_VERSION='2026-10-05-v1',PRIVACY_VERSION='2026-10-05-v1';
  const scripts=['data.js','app.js','voice-pack.js','v3.js','lexicon.js','elite.js','story-data.js','story.js','ui-v6.js','ui-v7.js','ui-v8.js','updates.js','feedback.js'];
  const app=document.getElementById('app'),gate=document.createElement('main');gate.id='accessGate';gate.className='access-gate';document.body.append(gate);
- let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false,confirmationEmail=null,installSeenSent=false;
+ let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false,confirmationEmail=null,installSeenSent=false,errorReportBusy=false;
  const safe=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const messages={LOGIN_FAILED:'Не удалось войти. Проверь адрес и пароль.',EMAIL_NOT_CONFIRMED:'Почта ещё не подтверждена. Отправь новое письмо подтверждения.',REGISTRATION_FAILED:'Не удалось зарегистрироваться. Попробуй позже.',ACCESS_UNAVAILABLE:'Не удалось проверить доступ. Проверь подключение и попробуй ещё раз.',BAD_CREDENTIALS:'Введи корректный адрес и пароль от 10 до 128 символов.',BAD_EMAIL:'Проверь адрес электронной почты.',EMAIL_DELIVERY_FAILED:'Не удалось отправить письмо подтверждения. Попробуй ещё раз позже.',CONFIRMATION_FAILED:'Ссылка подтверждения недействительна. Запроси новое письмо подтверждения.',CONFIRMATION_EXPIRED:'Эта ссылка уже использована или устарела. Отправь новое письмо подтверждения.',RATE_LIMIT:'Слишком много попыток. Подожди немного и попробуй снова.',TERMS_VERSION_MISMATCH:'Условия обновились. Открой страницу ещё раз и подтверди актуальную версию.',BAD_REFERRAL:'Ссылка приглашения повреждена.',TERMS_REQUIRED:'Сначала нужно принять пользовательское соглашение и уведомление о данных.'};
  function referralKey(){return 'ne_pending_referral'}
@@ -33,6 +33,17 @@
  async function call(action,params={}){
   const response=await fetch('/api/session',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...params}),cache:'no-store'});
   const data=await response.json().catch(()=>({}));if(!response.ok){const e=new Error(messages[data.error]||'Не удалось выполнить действие. Попробуй позже.');e.code=data.error;throw e}return data;
+ }
+ async function reportClientError(code,error){
+  if(errorReportBusy||!identity?.user_id)return;
+  const messageText=String(error?.message||error||'').trim();if(!messageText)return;
+  errorReportBusy=true;
+  try{
+   await fetch('/api/session',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    action:'client_error',code:String(code||'CLIENT_ERROR').slice(0,80),message:messageText.slice(0,500),
+    path:String(location.pathname||'/').slice(0,300),app_version:'7.3.8',user_agent:String(navigator.userAgent||'').slice(0,250)
+   }),cache:'no-store'});
+  }catch{}finally{setTimeout(()=>{errorReportBusy=false},1500)}
  }
  function starText(value){const n=Math.max(0,Math.min(5,Math.round(Number(value)||0)));return '★'.repeat(n)+'☆'.repeat(5-n)}
  async function renderPublicRatingGate(){
@@ -124,7 +135,7 @@
   if(canRequest)document.getElementById('accessRequest').onsubmit=e=>{e.preventDefault();act(async()=>{await call('request',{name:document.getElementById('accessName').value});await status()})};
   document.getElementById('accessCheck').onclick=()=>act(status);document.getElementById('accessLogout').onclick=logout;
  }
- async function act(fn){if(busy)return;busy=true;gate.querySelectorAll('button').forEach(b=>b.disabled=true);try{await fn()}catch(e){message(e.message||messages.ACCESS_UNAVAILABLE)}finally{busy=false;gate.querySelectorAll('button').forEach(b=>b.disabled=false)}}
+ async function act(fn){if(busy)return;busy=true;gate.querySelectorAll('button').forEach(b=>b.disabled=true);try{await fn()}catch(e){message(e.message||messages.ACCESS_UNAVAILABLE);if(!e.code||e.code==='ACCESS_UNAVAILABLE')reportClientError(e.code||'ACTION_ERROR',e)}finally{busy=false;gate.querySelectorAll('button').forEach(b=>b.disabled=false)}}
  function scopeStorage(){
   const scoped=['ne2_state','ne2_state_before_import','ne2_state_before_reset','ne_cloud_link','ne_session'];
   const proto=Storage.prototype,get=proto.getItem,set=proto.setItem,remove=proto.removeItem;
@@ -139,7 +150,7 @@
  }
  async function load(){
   if(loadedUser&&loadedUser!==identity.user_id){location.reload();return}
-  if(!loaded){if(!loadedUser){scopeStorage();loadedUser=identity.user_id}for(const name of scripts.slice(loadedCount)){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/'+name+'?v=7.3.7';s.onload=resolve;s.onerror=reject;document.body.append(s)}) ;loadedCount++}await new Promise(resolve=>setTimeout(resolve,250));loaded=true}
+  if(!loaded){if(!loadedUser){scopeStorage();loadedUser=identity.user_id}for(const name of scripts.slice(loadedCount)){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/'+name+'?v=7.3.8';s.onload=resolve;s.onerror=reject;document.body.append(s)}) ;loadedCount++}await new Promise(resolve=>setTimeout(resolve,250));loaded=true}
   gate.hidden=true;app.hidden=false;
   if(isInstalled())markInstalled('standalone');
  }
@@ -159,9 +170,39 @@
  function formatTrial(value){if(!value)return '';try{return new Date(value).toLocaleString('ru-RU',{dateStyle:'medium',timeStyle:'short'})}catch{return String(value)}}
  async function panel(){
   const userStatus=identity?.status==='trial'?'<p>Пробный доступ активен до <b>'+safe(formatTrial(identity.trial_ends_at))+'</b>.</p>':identity?.owner?'<p>Учётная запись владельца.</p>':'<p>Доступ одобрен владельцем.</p>';
-  view('<h1>Доступ к приложению</h1><p>'+safe(identity?.email)+'</p>'+userStatus+'<div class="row"><button class="btn secondary" id="accessBack">К обучению</button><button class="btn ghost" id="accessLogout">Выйти</button></div>'+(identity?.owner?'<h2>Пользователи и пробный доступ</h2><p>Здесь видны регистрация, установка или первый запуск установленной версии, окончание пробного периода и статус заявки.</p><button class="btn secondary" id="accessRefreshList">Обновить список</button><div id="accessList">Загрузка…</div><h2>Отзывы и идеи</h2><p>Оценки, комментарии и пожелания пользователей.</p><button class="btn secondary" id="feedbackRefresh">Обновить отзывы</button><div id="feedbackList">Загрузка…</div>':'<p>Приглашённый друг может один раз добавить тебе ещё 5 дней пробного доступа.</p>'));
+  view('<h1>Доступ к приложению</h1><p>'+safe(identity?.email)+'</p>'+userStatus+'<div class="row"><button class="btn secondary" id="accessBack">К обучению</button><button class="btn ghost" id="accessLogout">Выйти</button></div>'+(identity?.owner?'<h2>Панель владельца</h2><div id="ownerDashboard">Загрузка аналитики…</div><div class="row"><button class="btn secondary" id="ownerRefreshDashboard">Обновить аналитику</button><button class="btn secondary" id="ownerBackup">Скачать резервную копию</button></div><h2>Пользователи и пробный доступ</h2><p>Здесь видны регистрация, установка или первый запуск установленной версии, окончание пробного периода и статус заявки.</p><button class="btn secondary" id="accessRefreshList">Обновить список</button><div id="accessList">Загрузка…</div><h2>Отзывы и идеи</h2><p>Оценки, публичные комментарии и приватные пожелания. Публичный комментарий можно скрыть или вернуть.</p><button class="btn secondary" id="feedbackRefresh">Обновить отзывы</button><div id="feedbackList">Загрузка…</div><h2>Ошибки приложения</h2><p>Последние клиентские ошибки после входа пользователя.</p><button class="btn secondary" id="ownerRefreshErrors">Обновить ошибки</button><div id="ownerErrors">Загрузка…</div>':'<p>Приглашённый друг может один раз добавить тебе ещё 5 дней пробного доступа.</p>'));
   document.getElementById('accessBack').onclick=()=>act(status);document.getElementById('accessLogout').onclick=logout;
   if(!identity?.owner)return;
+  async function refreshDashboard(){
+   const box=document.getElementById('ownerDashboard');if(!box)return;
+   try{
+    const out=await call('owner_dashboard'),d=out.dashboard||{};box.replaceChildren();
+    const grid=document.createElement('div');grid.className='owner-metrics';
+    const values=[
+     ['Пользователи',d.registered_users],['Подтвердили почту',d.confirmed_users],['Активный trial',d.active_trials],
+     ['Trial закончился',d.expired_trials],['Установки',d.installs],['Оценки',d.ratings],
+     ['Средняя оценка',Number(d.average_rating||0).toLocaleString('ru-RU')+'/5'],['Публичные комментарии',d.public_comments],
+     ['Скрытые комментарии',d.hidden_comments],['Ошибки за 24 ч',d.errors_24h],['Регистрации за 7 дней',d.registrations_7d],['Установки за 7 дней',d.installs_7d]
+    ];
+    for(const [label,value] of values){const card=document.createElement('article');card.className='owner-metric';const strong=document.createElement('strong');strong.textContent=String(value??0);const span=document.createElement('span');span.textContent=label;card.append(strong,span);grid.append(card)}box.append(grid)
+   }catch(e){box.textContent=e.message}
+  }
+  async function refreshErrors(){
+   const box=document.getElementById('ownerErrors');if(!box)return;
+   try{
+    const out=await call('owner_errors'),items=Array.isArray(out.errors)?out.errors:[];box.replaceChildren();
+    if(!items.length){box.textContent='Ошибок пока нет.';return}
+    const list=document.createElement('div');list.className='owner-error-list';
+    for(const item of items){const card=document.createElement('article');card.className='owner-error-card';const title=document.createElement('b');title.textContent=String(item.code||'CLIENT_ERROR');const meta=document.createElement('p');meta.textContent=[item.email,formatTrial(item.created_at),item.app_version].filter(Boolean).join(' · ');const msg=document.createElement('p');msg.textContent=String(item.message||'');const path=document.createElement('small');path.textContent=String(item.path||'');card.append(title,meta,msg,path);list.append(card)}box.append(list)
+   }catch(e){box.textContent=e.message}
+  }
+  async function downloadBackup(){
+   const out=await call('owner_backup'),backup=out.backup||{};const body=JSON.stringify(backup,null,2),blob=new Blob([body],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='norsk-eventyr-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)
+  }
+  document.getElementById('ownerRefreshDashboard').onclick=()=>act(refreshDashboard);
+  document.getElementById('ownerBackup').onclick=()=>act(downloadBackup);
+  document.getElementById('ownerRefreshErrors').onclick=()=>act(refreshErrors);
+  await refreshDashboard();await refreshErrors();
   async function list(){try{const out=await call('list');const box=document.getElementById('accessList');if(!box)return;box.replaceChildren();for(const item of out.requests){const card=document.createElement('article');card.className='card owner-user-card';const title=document.createElement('h3');title.textContent=String(item.display_name||item.email||'Пользователь');const status=document.createElement('p');status.textContent=String(item.email||'')+' · '+({unrequested:'Заявка не отправлена',pending:'Ожидает одобрения',approved:'Одобрен',denied:'Отказано',revoked:'Отозван'}[item.status]||item.status);card.append(title,status);const facts=document.createElement('div');facts.className='owner-user-facts';const add=(label,value)=>{const p=document.createElement('p');p.textContent=label+': '+(value?formatTrial(value):'—');facts.append(p)};add('Регистрация',item.registered_at);add('Подтверждение почты',item.email_confirmed_at);add('Начало пробного периода',item.trial_started_at);add('Пробный период до',item.trial_ends_at);add('Установка / первый запуск',item.first_installed_at);if(item.first_installed_at&&item.install_platform){const p=document.createElement('p');p.textContent='Платформа: '+String(item.install_platform);facts.append(p)}card.append(facts);if(['pending','approved','denied','revoked'].includes(item.status)){const row=document.createElement('div');row.className='row';for(const [value,label] of [['approved','Одобрить'],['denied','Отказать'],['revoked','Отозвать доступ']]){if(value===item.status)continue;const button=document.createElement('button');button.className='btn secondary';button.textContent=label;button.onclick=()=>act(async()=>{await call('decide',{user_id:item.user_id,status:value});await list();await window.NEOwnerBadge?.refresh()});row.append(button)}card.append(row)}box.append(card)}if(!out.requests.length)box.textContent='Пользователей пока нет.'}catch(e){message(e.message)}}
   document.getElementById('accessRefreshList').onclick=()=>act(list);await list();
   async function refreshFeedback(){const total=await window.NEFeedback.ownerList();if(typeof total==='number')markFeedbackSeen(total);await window.NEOwnerBadge?.refresh()}
@@ -190,6 +231,8 @@
  window.NEAccess={status,panel,logout,install,isInstalled,shareInfo,ready:()=>loaded,allowed:()=>identity?.access_granted===true,isOwner:()=>identity?.owner===true,notificationCount,info:()=>identity?{...identity}:null};
  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e});
  window.addEventListener('appinstalled',()=>{installPrompt=null;markInstalled('appinstalled')});
+ window.addEventListener('error',event=>{reportClientError('WINDOW_ERROR',event.error||event.message)});
+ window.addEventListener('unhandledrejection',event=>{reportClientError('UNHANDLED_REJECTION',event.reason)});
  window.addEventListener('focus',()=>{if(loaded&&!gate.querySelector('#accessList'))status()});
  setInterval(()=>{if(loaded&&!document.hidden&&!busy&&!checking&&!gate.querySelector('#accessList'))status()},60000);
  view('<h1>Проверяем доступ…</h1>');
