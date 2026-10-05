@@ -66,7 +66,7 @@
 
   shell=window.shell=function(content,active="home"){
     const isMainHome=active==="home"&&content.includes('<section class="hero">');
-    document.getElementById("app").innerHTML='<div class="shell"><header class="topbar"><div class="brand"><span class="brand-mark">N</span>Norsk Eventyr <small class="v4">5.0</small></div><div class="row top-actions"><span class="pill">'+esc(state.level)+'</span><span class="pill">'+(state.xp||0)+' XP</span><button class="icon-btn" onclick="navigate(\'cloud\')" title="Облачная синхронизация">'+(cloudLink()?'☁✓':'☁')+'</button><button class="icon-btn" onclick="navigate(\'settings\')" title="Настройки">⚙</button></div></header>'+(isMainHome?elitePanel():"")+content+nav(active)+'</div>';
+    document.getElementById("app").innerHTML='<div class="shell"><header class="topbar"><div class="brand"><span class="brand-mark">N</span>Norsk Eventyr <small class="v4">8.0 beta</small></div><div class="row top-actions"><span class="pill">'+esc(state.level)+'</span><span class="pill">'+(state.xp||0)+' XP</span><button class="icon-btn" onclick="navigate(\'cloud\')" title="Облачная синхронизация">'+(cloudLink()?'☁✓':'☁')+'</button><button class="icon-btn" onclick="navigate(\'settings\')" title="Настройки">⚙</button></div></header>'+(isMainHome?elitePanel():"")+content+nav(active)+'</div>';
   };
 
   navigate=window.navigate=function(view,data){
@@ -117,6 +117,7 @@
   function checkDictation(){
     const s=dictSession;if(!s||s.locked)return;const it=s.items[s.i],a=document.getElementById("dictAnswer").value,score=sim(a,it.audio_no);if(!a.trim())return;
     if(window.neUpdateSkill){neUpdateSkill("listening",score);neUpdateSkill("vocabulary",score)}
+    if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:state.level,skill:"listening",score,moduleId:state.level.toLowerCase()+"-supplemental",source:"dictation"});NEAdaptive.recordAttempt(state,{level:state.level,skill:"vocabulary",score,moduleId:state.level.toLowerCase()+"-supplemental",source:"dictation"});baseSaveState()}
     const ok=score>=75;if(ok){s.scores.push(score);s.locked=true}
     document.getElementById("dictFb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'"><b>'+(ok?'✓ Верно':'Исправь и попробуй ещё раз')+'</b><br><b>Правильно:</b> '+esc(it.audio_no||"")+'<br><span class="muted">'+esc(it.translation_ru||"")+'</span></div>';
     if(ok)neAdvance(()=>nextDictation(),650);else document.getElementById("dictAnswer").focus();
@@ -139,7 +140,7 @@
   }
   function answerGrammarLab(i){
     const s=grammarSession;if(!s||s.locked)return;
-    const it=s.items[s.i],c=Number(it.correct)||0,ok=i===c;if(ok){s.correct++;s.locked=true}if(window.neUpdateSkill)neUpdateSkill("grammar",ok?100:20);
+    const it=s.items[s.i],c=Number(it.correct)||0,ok=i===c;if(ok){s.correct++;s.locked=true}if(window.neUpdateSkill)neUpdateSkill("grammar",ok?100:20);if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:state.level,skill:"grammar",score:ok?100:20,moduleId:state.level.toLowerCase()+"-supplemental",source:"grammar_lab"});baseSaveState()}
     document.querySelectorAll(".choice").forEach((button,j)=>{if(ok){button.disabled=true;if(j===c)button.classList.add("good")}else if(j===i){button.disabled=true;button.classList.add("bad")}});
     document.getElementById("grammarLabFb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'">'+(ok?"✓ Верно":"Исправь и попробуй ещё раз")+'<br>'+esc(it.explanation_ru||"")+'</div>';
     if(ok)neAdvance(()=>nextGrammarLab(),650);
@@ -214,7 +215,7 @@
     box.innerHTML='<div class="auth-audio"><audio controls src="'+s.url+'"></audio></div><div class="prompt">'+esc(q.q)+'</div><div class="choice-list">'+q.opts.map((x,i)=>'<button class="choice" onclick="answerListeningLab('+i+')">'+esc(x)+'</button>').join("")+'</div><div id="listenQfb"></div>';
   }
   function answerListeningLab(i){
-    const s=listeningSession;if(!s||s.locked)return;const q=s.data.questions[s.i],ok=i===Number(q.correct);if(ok){s.correct++;s.locked=true}if(window.neUpdateSkill)neUpdateSkill("listening",ok?100:20);
+    const s=listeningSession;if(!s||s.locked)return;const q=s.data.questions[s.i],ok=i===Number(q.correct);if(ok){s.correct++;s.locked=true}if(window.neUpdateSkill)neUpdateSkill("listening",ok?100:20);if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:state.level,skill:"listening",score:ok?100:20,moduleId:state.level.toLowerCase()+"-supplemental",source:"listening_lab"});baseSaveState()}
     document.querySelectorAll("#listenLabBox .choice").forEach((button,j)=>{if(ok){button.disabled=true;if(j===Number(q.correct))button.classList.add("good")}else if(j===i){button.disabled=true;button.classList.add("bad")}});
     document.getElementById("listenQfb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'">'+(ok?"✓ Верно":"Послушай ещё раз и попробуй другой ответ")+(q.evidence_no?'<br><small>'+esc(q.evidence_no)+'</small>':'')+'</div>';
     if(ok)neAdvance(()=>nextListeningLab(),650);
@@ -291,7 +292,7 @@
 
   function renderSettings(){
     const canInstall=!!installPrompt;
-    shell('<div class="screen-head"><button class="back" onclick="navigate(\'hub\')">←</button><div><div class="eyebrow">Настройки</div><h2 style="margin:0">Norsk Eventyr 7.1</h2></div></div><section class="grid"><article class="card"><h3>Учебная цель</h3><div class="goal-options">'+Object.entries(GOALS).map(([k,v])=>'<button class="goal-option '+(state.elite.goal===k?"active":"")+'" onclick="setEliteGoal(\''+k+'\')"><b>'+esc(v[0])+'</b><small>'+esc(v[1])+'</small></button>').join("")+'</div></article><article class="card"><h3>Время в день</h3><div class="row">'+[10,20,30,45].map(n=>'<button class="btn '+(state.elite.dailyMinutes===n?"":"ghost")+'" onclick="setDailyMinutes('+n+')">'+n+' мин</button>').join("")+'</div><hr><h3>Приложение</h3><button class="btn secondary" '+(canInstall?"":"disabled")+' onclick="installApp()">'+(canInstall?"Установить на телефон":"Установка уже недоступна/выполнена")+'</button></article></section><div class="section-title"><h2>Системная проверка</h2></div><section class="card health-list"><div class="metric"><span>LocalStorage</span><strong>✓</strong></div><div class="metric"><span>Service Worker</span><strong>'+("serviceWorker" in navigator?"✓":"—")+'</strong></div><div class="metric"><span>Микрофон API</span><strong>'+(navigator.mediaDevices?.getUserMedia?"✓":"—")+'</strong></div><div class="metric"><span>Облако</span><strong>'+(cloudLink()?"✓":"не подключено")+'</strong></div><div id="healthRemote" class="metric"><span>Сервер AI</span><strong>—</strong></div><div class="row"><button class="btn ghost" onclick="runHealthCheck()">Проверить сервер</button><button class="btn ghost" onclick="navigate(\'cloud\')">Настроить облако</button></div></section>',"home");
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'hub\')">←</button><div><div class="eyebrow">Настройки</div><h2 style="margin:0">Norsk Eventyr 8.0 beta</h2></div></div><section class="grid"><article class="card"><h3>Учебная цель</h3><div class="goal-options">'+Object.entries(GOALS).map(([k,v])=>'<button class="goal-option '+(state.elite.goal===k?"active":"")+'" onclick="setEliteGoal(\''+k+'\')"><b>'+esc(v[0])+'</b><small>'+esc(v[1])+'</small></button>').join("")+'</div></article><article class="card"><h3>Время в день</h3><div class="row">'+[10,20,30,45].map(n=>'<button class="btn '+(state.elite.dailyMinutes===n?"":"ghost")+'" onclick="setDailyMinutes('+n+')">'+n+' мин</button>').join("")+'</div><hr><h3>Приложение</h3><button class="btn secondary" '+(canInstall?"":"disabled")+' onclick="installApp()">'+(canInstall?"Установить на телефон":"Установка уже недоступна/выполнена")+'</button></article></section><div class="section-title"><h2>Системная проверка</h2></div><section class="card health-list"><div class="metric"><span>LocalStorage</span><strong>✓</strong></div><div class="metric"><span>Service Worker</span><strong>'+("serviceWorker" in navigator?"✓":"—")+'</strong></div><div class="metric"><span>Микрофон API</span><strong>'+(navigator.mediaDevices?.getUserMedia?"✓":"—")+'</strong></div><div class="metric"><span>Облако</span><strong>'+(cloudLink()?"✓":"не подключено")+'</strong></div><div id="healthRemote" class="metric"><span>Сервер AI</span><strong>—</strong></div><div class="row"><button class="btn ghost" onclick="runHealthCheck()">Проверить сервер</button><button class="btn ghost" onclick="navigate(\'cloud\')">Настроить облако</button></div></section>',"home");
   }
   async function runHealthCheck(){
     const box=document.getElementById("healthRemote");if(box)box.querySelector("strong").textContent="…";
