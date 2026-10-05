@@ -1,9 +1,9 @@
 // Access is established by the server before any learning screen is loaded.
 (() => {
- const TERMS_VERSION='2026-10-05-v1',PRIVACY_VERSION='2026-10-05-v1';
+ const TERMS_VERSION='2026-10-05-v1',PRIVACY_VERSION='2026-10-05-v2';
  const scripts=['data.js','app.js','voice-pack.js','v3.js','lexicon.js','elite.js','story-data.js','story.js','ui-v6.js','ui-v7.js','ui-v8.js','updates.js','feedback.js'];
  const app=document.getElementById('app'),gate=document.createElement('main');gate.id='accessGate';gate.className='access-gate';document.body.append(gate);
- let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false,confirmationEmail=null;
+ let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false,confirmationEmail=null,installSeenSent=false;
  const safe=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const messages={LOGIN_FAILED:'Не удалось войти. Проверь адрес и пароль.',EMAIL_NOT_CONFIRMED:'Почта ещё не подтверждена. Отправь новое письмо подтверждения.',REGISTRATION_FAILED:'Не удалось зарегистрироваться. Попробуй позже.',ACCESS_UNAVAILABLE:'Не удалось проверить доступ. Проверь подключение и попробуй ещё раз.',BAD_CREDENTIALS:'Введи корректный адрес и пароль от 10 до 128 символов.',BAD_EMAIL:'Проверь адрес электронной почты.',EMAIL_DELIVERY_FAILED:'Не удалось отправить письмо подтверждения. Попробуй ещё раз позже.',CONFIRMATION_FAILED:'Ссылка подтверждения недействительна. Запроси новое письмо подтверждения.',CONFIRMATION_EXPIRED:'Эта ссылка уже использована или устарела. Отправь новое письмо подтверждения.',RATE_LIMIT:'Слишком много попыток. Подожди немного и попробуй снова.',TERMS_VERSION_MISMATCH:'Условия обновились. Открой страницу ещё раз и подтверди актуальную версию.',BAD_REFERRAL:'Ссылка приглашения повреждена.',TERMS_REQUIRED:'Сначала нужно принять пользовательское соглашение и уведомление о данных.'};
  function referralKey(){return 'ne_pending_referral'}
@@ -34,7 +34,35 @@
   const response=await fetch('/api/session',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...params}),cache:'no-store'});
   const data=await response.json().catch(()=>({}));if(!response.ok){const e=new Error(messages[data.error]||'Не удалось выполнить действие. Попробуй позже.');e.code=data.error;throw e}return data;
  }
- function view(html){app.hidden=true;gate.hidden=false;gate.innerHTML='<section class="card"><div class="eyebrow">Norsk Eventyr</div>'+html+'<p id="accessMessage" role="status" aria-live="polite"></p></section>'}
+ function starText(value){const n=Math.max(0,Math.min(5,Math.round(Number(value)||0)));return '★'.repeat(n)+'☆'.repeat(5-n)}
+ async function renderPublicRatingGate(){
+  const box=document.getElementById('publicRatingGate');if(!box)return;
+  try{
+   const out=await call('feedback_public'),data=out.feedback||{},items=Array.isArray(data.items)?data.items:[],count=Math.max(0,Number(data.count)||0),average=Number(data.average)||0;
+   box.replaceChildren();
+   const summary=document.createElement('div');summary.className='feedback-public-summary';
+   const score=document.createElement('div');score.className='feedback-public-score';score.textContent=count?average.toLocaleString('ru-RU',{maximumFractionDigits:1})+'/5':'—/5';
+   const stars=document.createElement('div');stars.className='feedback-public-stars';stars.textContent=starText(average);
+   const total=document.createElement('div');total.className='feedback-help';total.textContent=count?count+' оценок':'Оценок пока нет';
+   summary.append(score,stars,total);box.append(summary);
+   for(const item of items.slice(0,3)){
+    const card=document.createElement('article');card.className='feedback-public-card';
+    const meta=document.createElement('div');meta.className='feedback-owner-meta';
+    const who=document.createElement('span');who.textContent='Пользователь Norsk Eventyr';
+    const when=document.createElement('time');const date=new Date(item.created_at);when.textContent=Number.isNaN(date.getTime())?'':date.toLocaleDateString('ru-RU');meta.append(who,when);
+    const rating=document.createElement('div');rating.className='feedback-owner-rating';rating.textContent=starText(item.rating);
+    const comment=document.createElement('p');comment.textContent=String(item.comment||'');card.append(meta,rating,comment);box.append(card)
+   }
+  }catch{box.textContent='Рейтинг временно недоступен.'}
+ }
+ function platformName(){
+  return String(navigator.userAgentData?.platform||navigator.platform||(/Android/i.test(navigator.userAgent)?'Android':/iPhone|iPad|iPod/i.test(navigator.userAgent)?'iOS':'Web')).slice(0,80);
+ }
+ async function markInstalled(source){
+  if(installSeenSent||!identity?.user_id)return;installSeenSent=true;
+  try{await call('install_seen',{platform:platformName(),source:String(source||'unknown').slice(0,32)})}catch{installSeenSent=false}
+ }
+ function view(html){app.hidden=true;gate.hidden=false;gate.innerHTML='<section class="card"><div class="eyebrow">Norsk Eventyr</div>'+html+'<p id="accessMessage" role="status" aria-live="polite"></p></section><section class="card access-public-rating"><h2>Рейтинг Norsk Eventyr</h2><div id="publicRatingGate">Загрузка…</div></section>';renderPublicRatingGate()}
  function message(text){const e=document.getElementById('accessMessage');if(e)e.textContent=text}
  function login(){
   const invited=!!pendingReferral();
@@ -74,7 +102,8 @@
   document.getElementById('accessBackLogin').onclick=()=>{register=true;login()};
  }
  function terms(){
-  view('<h1>Условия использования</h1><p><b>Владелец и оператор:</b> Petro Vysochinenko.</p><div class="access-terms"><h2>Пользовательское соглашение</h2><p>Norsk Eventyr — учебное приложение. Оно не является официальным сервисом Norskprøven, не присваивает официальный уровень и не гарантирует результат экзамена. Автоматические и AI-объяснения могут содержать ошибки, поэтому важную информацию следует перепроверять.</p><p>Пробный доступ действует 5 дней после принятия этих условий. Один успешно активированный приглашённый пользователь может один раз добавить пригласившему ещё 5 дней. После окончания пробного срока доступ к обучению требует одобрения владельца. При злоупотреблении или нарушении правил владелец может отказать или отозвать доступ.</p><h2>Уведомление о данных</h2><p>Для работы учётной записи обрабатываются адрес электронной почты, идентификатор аккаунта, имя в заявке, статус доступа, даты принятия условий и сведения о приглашении. Прогресс хранится локально и передаётся в облако только через функцию синхронизации; отзывы и предложения сохраняются только при их отправке. Техническая инфраструктура может создавать служебные журналы запросов и ошибок.</p><p>Не отправляй в отзывы, задания или чат пароли, BankID, платёжные данные и другие секреты.</p></div><form id="accessTerms"><label class="access-check"><input id="acceptTerms" type="checkbox" required><span>Я принимаю Пользовательское соглашение '+safe(TERMS_VERSION)+'.</span></label><label class="access-check"><input id="acceptPrivacy" type="checkbox" required><span>Я ознакомился с уведомлением об обработке данных '+safe(PRIVACY_VERSION)+'.</span></label><button class="btn" type="submit">Принять и начать 5 дней</button></form><button class="btn ghost" id="accessLogout">Выйти</button>');
+  const continuing=Boolean(identity?.trial_started_at);
+  view('<h1>'+(continuing?'Обновлено уведомление о данных':'Условия использования')+'</h1><p><b>Владелец и оператор:</b> Petro Vysochinenko.</p><div class="access-terms"><h2>Пользовательское соглашение</h2><p>Norsk Eventyr — учебное приложение. Оно не является официальным сервисом Norskprøven, не присваивает официальный уровень и не гарантирует результат экзамена. Автоматические и AI-объяснения могут содержать ошибки, поэтому важную информацию следует перепроверять.</p><p>Пробный доступ действует 5 дней после первого принятия условий. Один успешно активированный приглашённый пользователь может один раз добавить пригласившему ещё 5 дней. После окончания пробного срока доступ к обучению требует одобрения владельца. При злоупотреблении или нарушении правил владелец может отказать или отозвать доступ.</p><h2>Уведомление о данных</h2><p>Для работы учётной записи обрабатываются адрес электронной почты, идентификатор аккаунта, имя в заявке, статус доступа, даты принятия условий и сведения о приглашении. При установке приложения также сохраняются время установки или первого запуска установленной версии и тип платформы, чтобы владелец видел использование приложения и срок пробного доступа.</p><p>Поставленная оценка и текст комментария могут быть показаны всем пользователям Norsk Eventyr. Поле «Что добавить в приложение?» остаётся доступным только владельцу. Прогресс хранится локально и передаётся в облако только через функцию синхронизации. Техническая инфраструктура может создавать служебные журналы запросов и ошибок.</p><p>Не отправляй в отзывы, задания или чат пароли, BankID, платёжные данные и другие секреты.</p></div><form id="accessTerms"><label class="access-check"><input id="acceptTerms" type="checkbox" required><span>Я принимаю Пользовательское соглашение '+safe(TERMS_VERSION)+'.</span></label><label class="access-check"><input id="acceptPrivacy" type="checkbox" required><span>Я ознакомился с уведомлением об обработке данных '+safe(PRIVACY_VERSION)+'.</span></label><button class="btn" type="submit">'+(continuing?'Принять и продолжить':'Принять и начать 5 дней')+'</button></form><button class="btn ghost" id="accessLogout">Выйти</button>');
   document.getElementById('accessLogout').onclick=logout;
   document.getElementById('accessTerms').onsubmit=e=>{e.preventDefault();act(async()=>{await call('accept_terms',{terms_version:TERMS_VERSION,privacy_version:PRIVACY_VERSION,referral_code:pendingReferral()});clearPendingReferral();await status()})};
  }
@@ -82,12 +111,21 @@
   const requestStatus=identity.request_status||identity.status;
   const labels={pending:'Заявка ожидает одобрения',denied:'Владелец отказал в доступе',revoked:'Доступ отозван владельцем',expired:'Пробный период завершён'};
   const canRequest=identity.status==='expired'&&requestStatus==='unrequested';
+  const askFeedback=identity.feedback_prompt_due===true;
   let text='Обучение недоступно.';
   if(identity.status==='expired')text=canRequest?'Пять пробных дней завершены. Отправь заявку владельцу, чтобы продолжить обучение.':'Пять пробных дней завершены. Заявка уже отправлена владельцу.';
   if(identity.status==='pending')text='Заявка отправлена. После одобрения обучение продолжится с сохранённого места.';
   if(identity.status==='denied')text='В доступе отказано владельцем.';
   if(identity.status==='revoked')text='Ранее выданный доступ отозван владельцем.';
-  view('<h1>'+safe(labels[identity.status]||'Доступ к приложению')+'</h1><p>'+safe(identity.email||'')+'</p><p>'+safe(text)+'</p>'+(canRequest?'<form id="accessRequest"><label>Твоё имя<input id="accessName" autocomplete="name" required maxlength="80"></label><button class="btn" type="submit">Отправить заявку владельцу</button></form>':'')+'<div class="row"><button class="btn secondary" id="accessCheck">Проверить доступ</button><button class="btn ghost" id="accessLogout">Выйти</button></div>');
+  const feedback=askFeedback?'<section class="trial-feedback-prompt"><h2>Оцени Norsk Eventyr</h2><p>Пробные 5 дней закончились. Поставь от 1 до 5 звёзд и, при желании, оставь комментарий.</p><div class="feedback-stars" id="trialFeedbackStars" role="radiogroup" aria-label="Оценка от 1 до 5">'+[1,2,3,4,5].map(value=>'<button type="button" role="radio" aria-label="'+value+' из 5" aria-checked="false" data-rating="'+value+'">★</button>').join('')+'</div><label>Комментарий<textarea id="trialFeedbackComment" maxlength="1200" placeholder="Что понравилось или что можно улучшить?"></textarea></label><p class="feedback-help">Комментарий будет виден всем пользователям.</p><div class="row"><button class="btn" id="trialFeedbackSubmit">Отправить оценку</button><button class="btn ghost" id="trialFeedbackLater">Не сейчас</button></div></section>':'';
+  view('<h1>'+safe(labels[identity.status]||'Доступ к приложению')+'</h1><p>'+safe(identity.email||'')+'</p><p>'+safe(text)+'</p>'+feedback+(canRequest?'<form id="accessRequest"><label>Твоё имя<input id="accessName" autocomplete="name" required maxlength="80"></label><button class="btn" type="submit">Отправить заявку владельцу</button></form>':'')+'<div class="row"><button class="btn secondary" id="accessCheck">Проверить доступ</button><button class="btn ghost" id="accessLogout">Выйти</button></div>');
+  if(askFeedback){
+   let rating=0;const buttons=[...document.querySelectorAll('#trialFeedbackStars button')];
+   const setRating=value=>{rating=value;for(const button of buttons){button.classList.toggle('selected',Number(button.dataset.rating)<=rating);button.setAttribute('aria-checked',String(Number(button.dataset.rating)===rating))}};
+   for(const button of buttons)button.onclick=()=>setRating(Number(button.dataset.rating));
+   document.getElementById('trialFeedbackSubmit').onclick=()=>act(async()=>{if(!rating){message('Выбери оценку от 1 до 5 звёзд.');return}await call('feedback_submit',{rating,comment:document.getElementById('trialFeedbackComment').value,suggestion:''});identity.feedback_submitted=true;identity.feedback_prompt_due=false;await status()});
+   document.getElementById('trialFeedbackLater').onclick=()=>{document.querySelector('.trial-feedback-prompt')?.remove()};
+  }
   if(canRequest)document.getElementById('accessRequest').onsubmit=e=>{e.preventDefault();act(async()=>{await call('request',{name:document.getElementById('accessName').value});await status()})};
   document.getElementById('accessCheck').onclick=()=>act(status);document.getElementById('accessLogout').onclick=logout;
  }
@@ -106,8 +144,9 @@
  }
  async function load(){
   if(loadedUser&&loadedUser!==identity.user_id){location.reload();return}
-  if(!loaded){if(!loadedUser){scopeStorage();loadedUser=identity.user_id}for(const name of scripts.slice(loadedCount)){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/'+name+'?v=7.3.6';s.onload=resolve;s.onerror=reject;document.body.append(s)}) ;loadedCount++}await new Promise(resolve=>setTimeout(resolve,250));loaded=true}
+  if(!loaded){if(!loadedUser){scopeStorage();loadedUser=identity.user_id}for(const name of scripts.slice(loadedCount)){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/'+name+'?v=7.3.7';s.onload=resolve;s.onerror=reject;document.body.append(s)}) ;loadedCount++}await new Promise(resolve=>setTimeout(resolve,250));loaded=true}
   gate.hidden=true;app.hidden=false;
+  if(isInstalled())markInstalled('standalone');
  }
  async function status(){
   if(checking)return checking;
@@ -128,7 +167,7 @@
   view('<h1>Доступ к приложению</h1><p>'+safe(identity?.email)+'</p>'+userStatus+'<div class="row"><button class="btn secondary" id="accessBack">К обучению</button><button class="btn ghost" id="accessLogout">Выйти</button></div>'+(identity?.owner?'<h2>Заявки и пользователи</h2><p>После пробного периода пользователь может отправить заявку. Доступ можно одобрить, отклонить или отозвать.</p><button class="btn secondary" id="accessRefreshList">Обновить список</button><div id="accessList">Загрузка…</div><h2>Отзывы и идеи</h2><p>Оценки, комментарии и пожелания пользователей.</p><button class="btn secondary" id="feedbackRefresh">Обновить отзывы</button><div id="feedbackList">Загрузка…</div>':'<p>Приглашённый друг может один раз добавить тебе ещё 5 дней пробного доступа.</p>'));
   document.getElementById('accessBack').onclick=()=>act(status);document.getElementById('accessLogout').onclick=logout;
   if(!identity?.owner)return;
-  async function list(){try{const out=await call('list');const box=document.getElementById('accessList');if(!box)return;box.replaceChildren();for(const item of out.requests){const card=document.createElement('article');card.className='card';const title=document.createElement('h3');title.textContent=item.display_name;const info=document.createElement('p');let extra=item.trial_ends_at?' · пробный до '+formatTrial(item.trial_ends_at):'';info.textContent=item.email+' · '+({pending:'Ожидает',approved:'Одобрен',denied:'Отказано',revoked:'Отозван'}[item.status]||item.status)+extra;card.append(title,info);const row=document.createElement('div');row.className='row';for(const [value,label] of [['approved','Одобрить'],['denied','Отказать'],['revoked','Отозвать доступ']]){if(value===item.status)continue;const button=document.createElement('button');button.className='btn secondary';button.textContent=label;button.onclick=()=>act(async()=>{await call('decide',{user_id:item.user_id,status:value});await list();await window.NEOwnerBadge?.refresh()});row.append(button)}card.append(row);box.append(card)}if(!out.requests.length)box.textContent='Заявок пока нет.'}catch(e){message(e.message)}}
+  async function list(){try{const out=await call('list');const box=document.getElementById('accessList');if(!box)return;box.replaceChildren();for(const item of out.requests){const card=document.createElement('article');card.className='card owner-user-card';const title=document.createElement('h3');title.textContent=String(item.display_name||item.email||'Пользователь');const status=document.createElement('p');status.textContent=String(item.email||'')+' · '+({unrequested:'Заявка не отправлена',pending:'Ожидает одобрения',approved:'Одобрен',denied:'Отказано',revoked:'Отозван'}[item.status]||item.status);card.append(title,status);const facts=document.createElement('div');facts.className='owner-user-facts';const add=(label,value)=>{const p=document.createElement('p');p.textContent=label+': '+(value?formatTrial(value):'—');facts.append(p)};add('Регистрация',item.registered_at);add('Подтверждение почты',item.email_confirmed_at);add('Начало пробного периода',item.trial_started_at);add('Пробный период до',item.trial_ends_at);add('Установка / первый запуск',item.first_installed_at);if(item.first_installed_at&&item.install_platform){const p=document.createElement('p');p.textContent='Платформа: '+String(item.install_platform);facts.append(p)}card.append(facts);if(['pending','approved','denied','revoked'].includes(item.status)){const row=document.createElement('div');row.className='row';for(const [value,label] of [['approved','Одобрить'],['denied','Отказать'],['revoked','Отозвать доступ']]){if(value===item.status)continue;const button=document.createElement('button');button.className='btn secondary';button.textContent=label;button.onclick=()=>act(async()=>{await call('decide',{user_id:item.user_id,status:value});await list();await window.NEOwnerBadge?.refresh()});row.append(button)}card.append(row)}box.append(card)}if(!out.requests.length)box.textContent='Пользователей пока нет.'}catch(e){message(e.message)}}
   document.getElementById('accessRefreshList').onclick=()=>act(list);await list();
   async function refreshFeedback(){const total=await window.NEFeedback.ownerList();if(typeof total==='number')markFeedbackSeen(total);await window.NEOwnerBadge?.refresh()}
   document.getElementById('feedbackRefresh').onclick=()=>act(refreshFeedback);await refreshFeedback();
@@ -155,7 +194,7 @@
  async function shareInfo(){return call('share_info')}
  window.NEAccess={status,panel,logout,install,isInstalled,shareInfo,ready:()=>loaded,allowed:()=>identity?.access_granted===true,isOwner:()=>identity?.owner===true,notificationCount,info:()=>identity?{...identity}:null};
  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e});
- window.addEventListener('appinstalled',()=>{installPrompt=null});
+ window.addEventListener('appinstalled',()=>{installPrompt=null;markInstalled('appinstalled')});
  window.addEventListener('focus',()=>{if(loaded&&!gate.querySelector('#accessList'))status()});
  setInterval(()=>{if(loaded&&!document.hidden&&!busy&&!checking&&!gate.querySelector('#accessList'))status()},60000);
  view('<h1>Проверяем доступ…</h1>');
