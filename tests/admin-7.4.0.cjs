@@ -32,7 +32,7 @@ assert(css.includes('.admin-nav'),'responsive admin navigation styles missing');
 const ownerIdentity=['Petro','Vysochinenko'].join(' ');
 const publicSurfaces=[admin,index,read('feedback.js'),read('ui-v8.js')];
 assert(publicSurfaces.every(text=>!text.includes(ownerIdentity)),'owner identity must not appear in normal/public application surfaces');
-assert((access.match(new RegExp(ownerIdentity.replace(' ','\\\\s+'),'g'))||[]).length===1,'owner identity should appear exactly once in the legal/privacy disclosure');
+assert(access.split(ownerIdentity).length-1===1,'owner identity should appear exactly once in the legal/privacy disclosure');
 assert(access.includes('Юридическая информация'),'legal identity disclosure must be explicitly labeled');
 
 for(const action of ['owner_admin_overview','owner_events','owner_payments','owner_user_detail']){
