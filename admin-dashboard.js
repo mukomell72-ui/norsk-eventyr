@@ -272,7 +272,7 @@
   const nav=el('nav','admin-nav');nav.setAttribute('aria-label','Разделы админ-панели');
   const tabs=[['overview','Главная'],['users','Пользователи'],['payments','Платежи'],['events','События'],['service','Ещё']];
   for(const [key,text] of tabs){const b=el('button','admin-nav-item',text);b.type='button';b.dataset.adminTab=key;b.onclick=()=>show(key);nav.append(b)}
-  shell.append(top,main,message,nav);root.append(shell);show(activeTab||'overview')
+  shell.append(top,nav,main,message);root.append(shell);show(activeTab||'overview')
  }
  window.NEAdminDashboard={mount,show};
 })();
