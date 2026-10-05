@@ -165,7 +165,7 @@
   if(canRequest)document.getElementById('accessRequest').onsubmit=e=>{e.preventDefault();act(async()=>{await call('request',{name:document.getElementById('accessName').value});await status()})};
   if(showInterest){
    const button=document.getElementById('purchaseInterest'),msg=document.getElementById('purchaseInterestMessage');
-   if(button)button.onclick=()=>act(async()=>{await call('purchase_interest',{price_nok:99});button.disabled=true;button.textContent='Интерес сохранён';if(msg)msg.textContent='Когда платный пилот будет открыт, в приложении появится кнопка оплаты.'});
+   if(button)button.onclick=()=>act(async()=>{await call('purchase_interest',{price_nok:99});button.hidden=true;if(msg)msg.textContent='Интерес сохранён. Когда платный пилот будет открыт, в приложении появится кнопка оплаты.'});
   }
   document.getElementById('accessCheck').onclick=()=>act(status);document.getElementById('accessLogout').onclick=logout;
  }
@@ -194,7 +194,7 @@
   checking=(async()=>{
    try{
     identity=await call('status');
-    if(identity.status==='terms_required'){terms();return false}
+    if(identity.status==='terms_required'||(!identity.owner&&identity.accepted_privacy_version&&identity.accepted_privacy_version!==PRIVACY_VERSION)){terms();return false}
     clearPendingReferral();
     if(identity.access_granted===true){await load();return true}
     waiting();return false;
