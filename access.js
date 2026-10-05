@@ -3,9 +3,9 @@
  const TERMS_VERSION='2026-10-05-v1',PRIVACY_VERSION='2026-10-05-v1';
  const scripts=['data.js','app.js','voice-pack.js','v3.js','lexicon.js','elite.js','story-data.js','story.js','ui-v6.js','ui-v7.js','ui-v8.js','updates.js','feedback.js'];
  const app=document.getElementById('app'),gate=document.createElement('main');gate.id='accessGate';gate.className='access-gate';document.body.append(gate);
- let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false;
+ let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false,confirmationEmail=null;
  const safe=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const messages={LOGIN_FAILED:'Не удалось войти. Проверь адрес, пароль и подтверждение почты.',REGISTRATION_FAILED:'Не удалось зарегистрироваться. Попробуй позже. Если письмо не приходит, сообщи владельцу.',ACCESS_UNAVAILABLE:'Не удалось проверить доступ. Проверь подключение и попробуй ещё раз.',BAD_CREDENTIALS:'Введи корректный адрес и пароль от 10 до 128 символов.',CONFIRMATION_FAILED:'Ссылка подтверждения недействительна или уже использована.',RATE_LIMIT:'Слишком много попыток. Попробуй позже.',TERMS_VERSION_MISMATCH:'Условия обновились. Открой страницу ещё раз и подтверди актуальную версию.',BAD_REFERRAL:'Ссылка приглашения повреждена.',TERMS_REQUIRED:'Сначала нужно принять пользовательское соглашение и уведомление о данных.'};
+ const messages={LOGIN_FAILED:'Не удалось войти. Проверь адрес, пароль и подтверждение почты.',REGISTRATION_FAILED:'Не удалось зарегистрироваться. Попробуй позже.',ACCESS_UNAVAILABLE:'Не удалось проверить доступ. Проверь подключение и попробуй ещё раз.',BAD_CREDENTIALS:'Введи корректный адрес и пароль от 10 до 128 символов.',BAD_EMAIL:'Проверь адрес электронной почты.',EMAIL_DELIVERY_FAILED:'Не удалось отправить письмо подтверждения. Попробуй ещё раз позже.',CONFIRMATION_FAILED:'Ссылка подтверждения недействительна или уже использована. Запроси новое письмо подтверждения.',RATE_LIMIT:'Слишком много попыток. Подожди немного и попробуй снова.',TERMS_VERSION_MISMATCH:'Условия обновились. Открой страницу ещё раз и подтверди актуальную версию.',BAD_REFERRAL:'Ссылка приглашения повреждена.',TERMS_REQUIRED:'Сначала нужно принять пользовательское соглашение и уведомление о данных.'};
  function referralKey(){return 'ne_pending_referral'}
  function storeReferral(code){
   code=String(code||'').trim().toUpperCase();if(!/^[A-Z0-9]{12,32}$/.test(code))return;
@@ -37,9 +37,38 @@
  function view(html){app.hidden=true;gate.hidden=false;gate.innerHTML='<section class="card"><div class="eyebrow">Norsk Eventyr</div>'+html+'<p id="accessMessage" role="status" aria-live="polite"></p></section>'}
  function message(text){const e=document.getElementById('accessMessage');if(e)e.textContent=text}
  function login(){
-  view('<h1>Вход в приложение</h1><p>После подтверждения почты и принятия условий доступен пробный период 5 дней. После его окончания обучение продолжится после одобрения владельца.</p><form id="accessLogin"><label>Электронная почта<input id="accessEmail" type="email" autocomplete="email" required maxlength="254"></label><label>Пароль<input id="accessPassword" type="password" autocomplete="'+(register?'new-password':'current-password')+'" required minlength="10" maxlength="128"></label><button class="btn" type="submit">'+(register?'Создать учётную запись':'Войти')+'</button></form><button class="btn secondary" id="accessToggle">'+(register?'Уже есть учётная запись':'Создать учётную запись')+'</button>');
+  const invited=!!pendingReferral();
+  const title=invited&&register?'Вас пригласили в Norsk Eventyr':'Вход в приложение';
+  const intro=invited&&register?'Укажите свою электронную почту и придумайте пароль. Вам придёт письмо подтверждения. После подтверждения и принятия условий начнутся 5 бесплатных дней.':'После подтверждения почты и принятия условий доступен пробный период 5 дней. После его окончания обучение продолжится после одобрения владельца.';
+  view('<h1>'+title+'</h1><p>'+intro+'</p><form id="accessLogin"><label>Электронная почта<input id="accessEmail" type="email" inputmode="email" autocomplete="email" required maxlength="254"></label><label>Пароль<input id="accessPassword" type="password" autocomplete="'+(register?'new-password':'current-password')+'" required minlength="10" maxlength="128"></label><button class="btn" type="submit">'+(register?'Создать учётную запись':'Войти')+'</button></form><button class="btn secondary" id="accessToggle">'+(register?'Уже есть учётная запись':'Создать учётную запись')+'</button>');
   document.getElementById('accessToggle').onclick=()=>{register=!register;login()};
-  document.getElementById('accessLogin').onsubmit=e=>{e.preventDefault();act(async()=>{const out=await call(register?'register':'login',{email:document.getElementById('accessEmail').value,password:document.getElementById('accessPassword').value});document.getElementById('accessPassword').value='';if(out.confirmEmail)message('Подтверди адрес по письму, затем вернись сюда и войди. Ссылка приглашения сохранена на этом устройстве.');else await status()})};
+  document.getElementById('accessLogin').onsubmit=e=>{e.preventDefault();act(async()=>{
+   const email=document.getElementById('accessEmail').value.trim().toLowerCase(),password=document.getElementById('accessPassword').value;
+   if(/@gmail\.con$/i.test(email)){message('Проверь адрес: вероятно, нужно gmail.com, а не gmail.con.');return}
+   const out=await call(register?'register':'login',{email,password,...(register&&pendingReferral()?{referral_code:pendingReferral()}:{})});document.getElementById('accessPassword').value='';
+   if(out.confirmEmail){confirmationEmail=email;confirmationPending(email)}else await status()
+  })};
+ }
+ function mailInboxUrl(email){
+  const domain=String(email||'').split('@')[1]?.toLowerCase()||'';
+  if(domain==='gmail.com'||domain==='googlemail.com')return 'https://mail.google.com/mail/u/0/#inbox';
+  if(['outlook.com','hotmail.com','live.com','msn.com'].includes(domain))return 'https://outlook.live.com/mail/0/inbox';
+  if(domain==='yahoo.com'||domain.endsWith('.yahoo.com'))return 'https://mail.yahoo.com/';
+  if(domain==='icloud.com'||domain==='me.com'||domain==='mac.com')return 'https://www.icloud.com/mail/';
+  return 'mailto:';
+ }
+ function openConfirmationMail(){
+  const url=mailInboxUrl(confirmationEmail);
+  if(url==='mailto:'){location.href=url;return}
+  const opened=window.open(url,'_blank','noopener,noreferrer');
+  if(!opened)location.href=url;
+ }
+ function confirmationPending(email){
+  confirmationEmail=String(email||'').trim().toLowerCase();
+  view('<h1>Подтверди почту</h1><p>Мы отправили письмо подтверждения на <b>'+safe(confirmationEmail)+'</b>.</p><p>Нажми «Подтвердить» — откроется твоя почта. Найди письмо от Norsk Eventyr и нажми ссылку подтверждения. После этого приложение откроется автоматически, а приглашение останется привязано к аккаунту.</p><button class="btn" id="accessOpenMail">Подтвердить</button><p class="muted">Если письма нет, проверь «Спам». Повторную отправку можно запросить ниже.</p><div class="row"><button class="btn secondary" id="accessResend">Отправить письмо ещё раз</button><button class="btn ghost" id="accessBackLogin">Изменить email</button></div>');
+  document.getElementById('accessOpenMail').onclick=openConfirmationMail;
+  document.getElementById('accessResend').onclick=()=>act(async()=>{await call('resend_confirmation',{email:confirmationEmail});message('Новое письмо отправлено. Нажми «Подтвердить» и используй последнюю полученную ссылку.')});
+  document.getElementById('accessBackLogin').onclick=()=>{register=true;login()};
  }
  function terms(){
   view('<h1>Условия использования</h1><p><b>Владелец и оператор:</b> Petro Vysochinenko.</p><div class="access-terms"><h2>Пользовательское соглашение</h2><p>Norsk Eventyr — учебное приложение. Оно не является официальным сервисом Norskprøven, не присваивает официальный уровень и не гарантирует результат экзамена. Автоматические и AI-объяснения могут содержать ошибки, поэтому важную информацию следует перепроверять.</p><p>Пробный доступ действует 5 дней после принятия этих условий. Один успешно активированный приглашённый пользователь может один раз добавить пригласившему ещё 5 дней. После окончания пробного срока доступ к обучению требует одобрения владельца. При злоупотреблении или нарушении правил владелец может отказать или отозвать доступ.</p><h2>Уведомление о данных</h2><p>Для работы учётной записи обрабатываются адрес электронной почты, идентификатор аккаунта, имя в заявке, статус доступа, даты принятия условий и сведения о приглашении. Прогресс хранится локально и передаётся в облако только через функцию синхронизации; отзывы и предложения сохраняются только при их отправке. Техническая инфраструктура может создавать служебные журналы запросов и ошибок.</p><p>Не отправляй в отзывы, задания или чат пароли, BankID, платёжные данные и другие секреты.</p></div><form id="accessTerms"><label class="access-check"><input id="acceptTerms" type="checkbox" required><span>Я принимаю Пользовательское соглашение '+safe(TERMS_VERSION)+'.</span></label><label class="access-check"><input id="acceptPrivacy" type="checkbox" required><span>Я ознакомился с уведомлением об обработке данных '+safe(PRIVACY_VERSION)+'.</span></label><button class="btn" type="submit">Принять и начать 5 дней</button></form><button class="btn ghost" id="accessLogout">Выйти</button>');
@@ -74,7 +103,7 @@
  }
  async function load(){
   if(loadedUser&&loadedUser!==identity.user_id){location.reload();return}
-  if(!loaded){if(!loadedUser){scopeStorage();loadedUser=identity.user_id}for(const name of scripts.slice(loadedCount)){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/'+name+'?v=7.3.3';s.onload=resolve;s.onerror=reject;document.body.append(s)}) ;loadedCount++}await new Promise(resolve=>setTimeout(resolve,250));loaded=true}
+  if(!loaded){if(!loadedUser){scopeStorage();loadedUser=identity.user_id}for(const name of scripts.slice(loadedCount)){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/'+name+'?v=7.3.4';s.onload=resolve;s.onerror=reject;document.body.append(s)}) ;loadedCount++}await new Promise(resolve=>setTimeout(resolve,250));loaded=true}
   gate.hidden=true;app.hidden=false;
  }
  async function status(){
@@ -115,9 +144,10 @@
  view('<h1>Проверяем доступ…</h1>');
  (async()=>{
   const params=new URLSearchParams(location.search),ref=params.get('ref');if(ref)storeReferral(ref);
+  if(pendingReferral())register=true;
   if(params.has('token_hash')){
    const hash=params.get('token_hash'),type=params.get('type');history.replaceState(null,'',location.pathname);
-   try{await call('confirm',{token_hash:hash,type})}catch(e){login();message(e.message);return}
+   try{await call('confirm',{token_hash:hash,type});confirmationEmail=null}catch(e){login();message(e.message);return}
   }else if(params.has('ref'))history.replaceState(null,'',location.pathname);
   await status();
  })();

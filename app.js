@@ -1,4 +1,4 @@
-const APP_VERSION="7.3.3";
+const APP_VERSION="7.3.4";
 const DEFAULT_STATE={level:"A1",xp:0,completed:{},testHistory:[],examHistory:[],streak:1,lastStudy:null};
 let state=loadState(),lessonSession=null,testSession=null,examSession=null,speechRec=null,timerHandle=null;
 
