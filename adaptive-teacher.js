@@ -71,7 +71,7 @@ function assessment(state,level,score,skillScores={}){
  p.assessments.push({date:new Date().toISOString(),level,score:s,skills:skillScores});p.assessments=p.assessments.slice(-50);
 }
 function completeLesson(state,lesson){
- const p=ensure(state),id=lesson?._adaptive?.moduleId||lesson?.id||'lesson',m=moduleState(p,id);m.lastCompleted=dayKey();m.completions=(m.completions||0)+1;
+ const p=ensure(state),id=lesson?._adaptive?.moduleId||lesson?.id||'lesson',m=moduleState(p,id);m.lastCompleted=dayKey();m.completions=(m.completions||0)+1;if(lesson?._adaptive)p.lastSessionDate=dayKey();
  if(lesson?._adaptive?.kind==='review'&&lesson._adaptive.reviewKey&&p.reviews[lesson._adaptive.reviewKey])p.reviews[lesson._adaptive.reviewKey].completedAt=new Date().toISOString();
 }
 function errors(state){return Object.entries(ensure(state).errorPatterns).sort((a,b)=>b[1]-a[1]).slice(0,6).map(x=>x[0])}
