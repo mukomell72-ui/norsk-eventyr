@@ -1,6 +1,6 @@
--- Norsk Eventyr 7.3.9: privacy-minimized growth funnel and acquisition attribution.
+-- Norsk Eventyr 7.4.0: privacy-minimized growth funnel and acquisition attribution.
 -- Phase 1 is backward compatible with 7.3.8: both privacy v1 and v2 are accepted.
--- Final v2 enforcement is applied only after the 7.3.9 frontend is live.
+-- Strict privacy v3 enforcement remains deferred until active older clients have upgraded.
 
 alter table public.norsk_eventyr_entitlements
   add column if not exists activity_days_count integer not null default 0,
@@ -219,7 +219,7 @@ begin
 end;
 $$;
 
--- Transitional privacy handling: 7.3.8 (v1) and 7.3.9 (v2) clients can coexist safely.
+-- Transitional privacy handling: older v1/v2 clients and the 7.4.0 v3 client can coexist safely.
 create or replace function public.ne_access_status()
 returns jsonb
 language plpgsql
@@ -231,7 +231,7 @@ declare
   req_status text;
   e public.norsk_eventyr_entitlements%rowtype;
   current_terms constant text := '2026-10-05-v1';
-  current_privacy constant text := '2026-10-05-v2';
+  current_privacy constant text := '2026-10-05-v3';
   granted boolean := false;
   effective_status text;
   remaining bigint := 0;
@@ -256,7 +256,7 @@ begin
     effective_status := req_status;
   elsif e.user_id is null
      or e.terms_version is distinct from current_terms
-     or coalesce(e.privacy_version,'') not in ('2026-10-05-v1','2026-10-05-v2')
+     or coalesce(e.privacy_version,'') not in ('2026-10-05-v1','2026-10-05-v2','2026-10-05-v3')
      or e.terms_accepted_at is null
      or e.privacy_accepted_at is null then
     effective_status := 'terms_required';
