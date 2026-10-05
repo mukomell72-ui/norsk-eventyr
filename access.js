@@ -96,7 +96,7 @@
   if(installSeenSent||!identity?.user_id)return;installSeenSent=true;
   try{await call('install_seen',{platform:platformName(),source:String(source||'unknown').slice(0,32)})}catch{installSeenSent=false}
  }
- function view(html){app.hidden=true;gate.hidden=false;gate.innerHTML='<section class="card"><div class="eyebrow">Norsk Eventyr</div>'+html+'<p id="accessMessage" role="status" aria-live="polite"></p></section><section class="card access-public-rating"><h2>Рейтинг Norsk Eventyr</h2><div id="publicRatingGate">Загрузка…</div></section>';renderPublicRatingGate()}
+ function view(html){app.hidden=true;gate.hidden=false;gate.classList.remove('admin-host');gate.innerHTML='<section class="card"><div class="eyebrow">Norsk Eventyr</div>'+html+'<p id="accessMessage" role="status" aria-live="polite"></p></section><section class="card access-public-rating"><h2>Рейтинг Norsk Eventyr</h2><div id="publicRatingGate">Загрузка…</div></section>';renderPublicRatingGate()}
  function message(text){const e=document.getElementById('accessMessage');if(e)e.textContent=text}
  function login(){
   const invited=!!pendingReferral();
@@ -206,7 +206,7 @@
  async function panel(){
   const userStatus=identity?.status==='trial'?'<p>Пробный доступ активен до <b>'+safe(formatTrial(identity.trial_ends_at))+'</b>.</p>':identity?.owner?'<p>Учётная запись владельца.</p>':'<p>Доступ одобрен владельцем.</p>';
   if(identity?.owner){
-   app.hidden=true;gate.hidden=false;gate.innerHTML='<div id="adminDashboardRoot"></div><p id="accessMessage" role="status" aria-live="polite"></p>';
+   app.hidden=true;gate.hidden=false;gate.classList.add('admin-host');gate.innerHTML='<div id="adminDashboardRoot"></div><p id="accessMessage" role="status" aria-live="polite"></p>';
    const root=document.getElementById('adminDashboardRoot');
    if(!window.NEAdminDashboard?.mount){view('<h1>Админ-панель недоступна</h1><p>Не удалось загрузить модуль Admin Dashboard.</p><button class="btn" id="accessRetry">Повторить</button>');document.getElementById('accessRetry').onclick=()=>location.reload();return}
    window.NEAdminDashboard.mount(root,{onBack:()=>act(status),onLogout:logout});
