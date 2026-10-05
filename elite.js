@@ -53,20 +53,15 @@
     touchStudy();state.xp=(state.xp||0)+3;refreshAchievements(false);baseSaveState();scheduleCloud();
   }
   function mission(){
-    const a=activity(),hasWords=!!state.dailyProgress?.[today()]?.completed,hasSrs=Object.keys(state.srs||{}).length>0,due=window.neDueWords?neDueWords().length:0;
+    const due=window.neDueWords?neDueWords().length:0,teacherDone=state.learningV8?.lastSessionDate===today();
     return [
-      ["teacher","Занятие с Норой",state.learningV8?.lastSessionDate===today(),"navigate('teacher')"],
-      ["words","5 новых слов",hasWords,"navigate('daily')"],
-      ["review","Повторить старые слова",hasSrs&&due===0,"navigate('review')"],
-      ["dictation","Диктант",!!a.dictation,"navigate('dictation')"],
-      ["conversation","5 минут Samtale",!!a.conversation,"navigate('chat')"],
-      ["pronunciation","Произношение",!!a.pronunciation,"navigate('pronunciation')"],
-      ["story","Fjordvik",!!state.story?.sideQuests?.[today()],"navigate('storyside')"]
+      ["teacher","Главное занятие с Норой",teacherDone,"navigate('teacher')"],
+      ["review",due?"Повторить то, что пора забыть":"Повторение по расписанию готово",due===0,"navigate('review')"]
     ];
   }
   function elitePanel(){
     refreshAchievements(false);const m=mission(),done=m.filter(x=>x[2]).length,pct=Math.round(done/m.length*100),goal=GOALS[state.elite.goal]||GOALS.norskprove;
-    return '<section class="elite-dashboard card"><div class="elite-dash-head"><div><div class="eyebrow">Сегодня · '+goal[0]+' · '+state.elite.dailyMinutes+' мин</div><h2>Дневной план '+done+'/'+m.length+'</h2></div><div class="mini-ring" style="--pct:'+pct+'%"><b>'+pct+'%</b></div></div><div class="mission-grid">'+m.map(x=>'<button class="mission '+(x[2]?"done":"")+'" onclick="'+x[3]+'"><span>'+(x[2]?"✓":"○")+'</span><b>'+x[1]+'</b></button>').join("")+'</div><div class="row" style="margin-top:12px"><button class="btn secondary" onclick="navigate(\'listeninglab\')">Настоящее аудирование</button><button class="btn ghost" onclick="navigate(\'plan\')">План и достижения</button></div></section>';
+    return '<section class="elite-dashboard card"><div class="elite-dash-head"><div><div class="eyebrow">Сегодня · '+goal[0]+' · '+state.elite.dailyMinutes+' мин</div><h2>Дневной план '+done+'/'+m.length+'</h2></div><div class="mini-ring" style="--pct:'+pct+'%"><b>'+pct+'%</b></div></div><div class="mission-grid">'+m.map(x=>'<button class="mission '+(x[2]?"done":"")+'" onclick="'+x[3]+'"><span>'+(x[2]?"✓":"○")+'</span><b>'+x[1]+'</b></button>').join("")+'</div><div class="row" style="margin-top:12px"><button class="btn secondary" onclick="navigate(\'plan\')">Дополнительная практика</button><button class="btn ghost" onclick="navigate(\'progress\')">Что реально освоено</button></div></section>';
   }
 
   shell=window.shell=function(content,active="home"){
