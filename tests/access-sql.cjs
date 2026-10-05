@@ -19,12 +19,12 @@ const {PGlite}=require(process.env.NE_PGLITE_PATH||'@electric-sql/pglite');
  for(const state of ['approved','revoked','denied']){await as(owner,`select public.ne_access_decide('${student}','${state}')`);assert.equal(val(await as(student,'select public.ne_access_status()')).status,state);assert.equal(val(await as(student,"select public.ne_access_request('Anna again')")).status,state)}
  assert.equal(val(await as(owner,'select public.ne_access_list()')).length,1);
  await as(owner,`select public.ne_access_decide('${student}','approved')`);
- const submitted=val(await as(student,`select public.ne_feedback_submit(5,'Хорошее приложение','Добавить больше историй')`));assert.equal(submitted.ok,true);
+ const submitted=val(await as(student,`select public.ne_feedback_submit(5::smallint,'Хорошее приложение','Добавить больше историй')`));assert.equal(submitted.ok,true);
  await assert.rejects(as(student,'select public.ne_feedback_list()'));
  const feedback=val(await as(owner,'select public.ne_feedback_list()'));assert.equal(feedback.count,1);assert.equal(feedback.average,5);assert.equal(feedback.items[0].email,'student@example.com');assert.equal(feedback.items[0].suggestion,'Добавить больше историй');
- await assert.rejects(as('33333333-3333-4333-8333-333333333333',`select public.ne_feedback_submit(4,'','')`));
- await assert.rejects(as(student,`select public.ne_feedback_submit(6,'','')`));
- await assert.rejects(as(student,`select public.ne_feedback_submit(4,repeat('x',1201),'')`));
+ await assert.rejects(as('33333333-3333-4333-8333-333333333333',`select public.ne_feedback_submit(4::smallint,'','')`));
+ await assert.rejects(as(student,`select public.ne_feedback_submit(6::smallint,'','')`));
+ await assert.rejects(as(student,`select public.ne_feedback_submit(4::smallint,repeat('x',1201),'')`));
  await assert.rejects(as(student,'select * from public.norsk_eventyr_feedback'));
  await assert.rejects(as('33333333-3333-4333-8333-333333333333','select public.ne_access_status()'));
  await db.exec('reset role;set role anon');await assert.rejects(db.query('select public.ne_access_status()'));await assert.rejects(db.query('select public.ne_feedback_list()'));await assert.rejects(db.query('select * from public.norsk_eventyr_feedback'));await db.close();console.log('PASS SQL migrations: access approval plus feedback; owner-only list, approved-user submission, bounds, and no direct or anonymous table/RPC access');
