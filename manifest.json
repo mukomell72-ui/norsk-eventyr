@@ -1,5 +1,5 @@
 {
-  "name": "Norsk Eventyr 7.3.0",
+  "name": "Norsk Eventyr",
   "short_name": "Norsk Eventyr",
   "start_url": "/",
   "scope": "/",
@@ -42,5 +42,7 @@
       "short_name": "Диктант",
       "url": "/?open=dictation"
     }
-  ]
+  ],
+  "id": "/",
+  "prefer_related_applications": false
 }
