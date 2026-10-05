@@ -45,7 +45,7 @@
  }
  function openPublic(){
   shell('<div class="screen-head"><button class="back" onclick="navigate(\'settings\')" aria-label="Назад">←</button><div><h2>Рейтинг и комментарии</h2><p class="muted">Оценки пользователей Norsk Eventyr.</p></div></div><section class="card"><div id="feedbackPublicFull">Загрузка…</div></section>','hub');
-  mountPublic('feedbackPublicFull',50);
+  mountPublic('feedbackPublicFull',100);
  }
  function open(){
   if(!allowed()){alert('Сначала войди в Norsk Eventyr.');return}
