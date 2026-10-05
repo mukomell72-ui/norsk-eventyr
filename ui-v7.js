@@ -8,7 +8,7 @@
   const LEVELS_V7=Array.isArray(window.LEVELS)?window.LEVELS:["A1","A2","B1","B2"];
   const PLACE_NAMES=["Вокзал","Кафе","Магазин","Автобус","Работа","Kommune"];
   const PLACE_ICONS=["🚉","☕","🛍","🚌","💼","🏛"];
-  const STEP_ICONS={words:"📖",review:"↻",lesson:"🎓",story:"🎬",talk:"💬"};
+  const STEP_ICONS={teacher:"N",review:"↻",words:"📖",lesson:"🎓",story:"🎬",talk:"💬"};
   const CHAT_TOPICS=[["💼","jobb","работа"],["⌂","hjem","дом"],["☁","vær","погода"],["◉","fritid","досуг"]];
 
   function h(v){
@@ -44,7 +44,7 @@
     let g=active||currentRouteV7;
     if(["lesson","topic"].includes(g))g="course";
     if(["storyepisode","storyjournal"].includes(g))g="story";
-    if(["daily","dailypractice","review","storyside","plan"].includes(g))g="home";
+    if(["daily","dailypractice","review","storyside","plan","teacher"].includes(g))g="home";
     if(["tests","test","exam","examrun","exampart","progress","dictionary","dictation","grammarlab","pronunciation","listeninglab","settings","cloud","placement"].includes(g))g="hub";
     return g;
   }
@@ -115,25 +115,15 @@
   Object.assign(window,{v7OpenHelp,v7AskHelp});
 
   function guidedV7(){
-    state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};
-    state.guidedJourney.lessonDates=state.guidedJourney.lessonDates||{};
-    state.guidedJourney.reviewDates=state.guidedJourney.reviewDates||{};
-    const day=todayKeyV7(),due=dueCountV7(),activity=dayActivityV7(),story=storyForLevelV7().current,lesson=nextLessonV7();
-    const dailyDone=Boolean(state.dailyProgress?.[day]?.completed);
-    const lessonDone=Boolean(state.guidedJourney.lessonDates[day]);
-    const storyDone=Boolean(state.story?.sideQuests?.[day]);
-    const talkDone=Boolean(activity.conversation);
-    const reviewRequired=due>0||Boolean(state.guidedJourney.reviewDates[day]);
-    const reviewDone=reviewRequired?Boolean(state.guidedJourney.reviewDates[day])&&due===0:true;
+    const day=todayKeyV7(),wordDue=dueCountV7(),adaptiveDue=window.NEAdaptive?NEAdaptive.dueReviews(state).length:0,teacherDone=state.learningV8?.lastSessionDate===day,mission=window.NEAdaptive?NEAdaptive.nextMission(state):null;
+    const reviewRequired=wordDue>0||adaptiveDue>0,reviewDone=!reviewRequired;
+    const focus=mission?.module?.title||"Следующий шаг по слабому навыку";
     const steps=[
-      {id:"words",title:"Домашнее задание",sub:"Слова и практика",mins:5,done:dailyDone,route:"daily"},
-      ...(reviewRequired?[{id:"review",title:"Повторение",sub:due?due+" слов ждут":"Закрепляем",mins:3,done:reviewDone,route:"review"}]:[]),
-      {id:"lesson",title:"Урок",sub:lesson?.title||"В контексте",mins:7,done:lessonDone,route:lesson?"lesson":"course",data:lesson?.id||state.level},
-      {id:"story",title:"Сцена",sub:"В Fjordvik",mins:4,done:storyDone,route:"storyside"},
-      {id:"talk",title:"Разговор",sub:"С Nora",mins:3,done:talkDone,route:"chat"}
+      {id:"teacher",title:"Главное занятие с Норой",sub:focus,mins:Math.max(10,Math.min(25,Number(state.elite?.dailyMinutes)||20)),done:teacherDone,route:"teacher"},
+      ...(reviewRequired?[{id:"review",title:"Повторение по памяти",sub:adaptiveDue?adaptiveDue+" адаптивных проверки":wordDue+" слов по интервалу",mins:5,done:reviewDone,route:adaptiveDue?"teacher":"review"}]:[])
     ];
-    const next=steps.find(x=>!x.done)||{title:"Исследовать Fjordvik",sub:"Сегодня всё готово",mins:0,route:"story"};
-    return {day,due,story,lesson,steps,next,done:steps.filter(x=>x.done).length,total:steps.length,mins:steps.filter(x=>!x.done).reduce((a,x)=>a+x.mins,0)};
+    const next=steps.find(x=>!x.done)||{title:"Дополнительная практика",sub:"Обязательная часть готова",mins:0,route:"hub"};
+    return {day,due:wordDue+adaptiveDue,story:storyForLevelV7().current,lesson:nextLessonV7(),steps,next,done:steps.filter(x=>x.done).length,total:steps.length,mins:steps.filter(x=>!x.done).reduce((a,x)=>a+x.mins,0)};
   }
   function v7ContinueToday(){const x=guidedV7().next;navigate(x.route,x.data)}
   function v7Step(i){const x=guidedV7().steps[i];if(x)navigate(x.route,x.data)}
@@ -304,13 +294,14 @@
   }
   function renderHubV7(){
     currentRouteV7="hub";
-    const progress=levelProgressV7(state.level),dict=Object.keys(state.dailyDictionary||{}).length,due=dueCountV7();
+    const routeProgress=levelProgressV7(state.level),gate=window.NEAdaptive?NEAdaptive.levelGate(state,state.level):null,mastery=gate?gate.avg:routeProgress,dict=Object.keys(state.dailyDictionary||{}).length,due=dueCountV7();
     shell(
       '<section class="hub-v7">'+
         '<section class="hub-hero-v7"><div class="hub-shade-v7"></div><div><small>Твой путь · твои результаты</small><h1>Прогресс<br>и экзамен</h1><p>Всё важное без лишних экранов.</p></div></section>'+
-        '<section class="stats-v7"><article><small>Текущий уровень</small><b>'+h(state.level)+'</b><i><em style="width:'+progress+'%"></em></i><span>'+progress+'%</span></article><article><small>Серия</small><b>🔥 '+Number(state.streak||0)+' дней</b></article><article><small>Слова</small><b>'+dict+'</b></article><article><small>XP</small><b>'+Number(state.xp||0)+'</b></article></section>'+
+        '<section class="stats-v7"><article><small>Профиль '+h(state.level)+'</small><b>'+(gate?.pass?'Подтверждён':'В работе')+'</b><i><em style="width:'+mastery+'%"></em></i><span>'+mastery+'%</span></article><article><small>Серия занятий</small><b>'+Number(state.streak||0)+' дней</b></article><article><small>Слова в словаре</small><b>'+dict+'</b></article><article><small>Маршрут курса</small><b>'+routeProgress+'%</b></article></section>'+
         '<section class="exam-v7"><div class="exam-bg-v7"></div><div class="exam-copy-v7"><small>Подготовка к Norskprøven</small><h2>Пробный экзамен</h2><p>Четыре навыка в одном маршруте.</p><div class="exam-parts-v7"><span>▤ Чтение</span><span>◉ Аудирование</span><span>✎ Письмо</span><span>◌ Говорение</span></div><button class="cta-v7 small" onclick="navigate(\'exam\')">Начать экзамен →</button></div></section>'+
         '<section class="tools-grid-v7">'+
+          hubTileV7("N","Нора","Адаптивный преподаватель","teacher")+
           hubTileV7("↻","Повторение","Интервалы и закрепление","review",due?String(due):"✓")+
           hubTileV7("▤","Выученные слова","Поиск · повтор · задания","learnedwords")+
           hubTileV7("✎","Домашнее задание","Изучение и практика","daily")+
