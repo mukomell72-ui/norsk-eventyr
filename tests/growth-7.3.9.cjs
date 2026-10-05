@@ -1,0 +1,37 @@
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const read=p=>fs.readFileSync(path.join(root,p),'utf8');
+const assert=(condition,message)=>{if(!condition)throw new Error(message)};
+
+const access=read('access.js');
+const handler=read('lib/access-handler.js');
+const migration=read('migrations/20261005_growth_funnel.sql');
+const privacy=read('migrations/20261005_growth_privacy_v2_finalize.sql');
+const app=read('app.js');
+const sw=read('sw.js');
+const ui=read('ui-v8.js');
+
+assert(app.includes('APP_VERSION="7.3.9"'),'APP_VERSION must be 7.3.9');
+assert(sw.includes('7.3.9'),'service worker must reference 7.3.9');
+assert(ui.includes('7.3.9'),'visible UI version must be 7.3.9');
+assert(access.includes("PRIVACY_VERSION='2026-10-05-v2'"),'privacy v2 frontend missing');
+assert(handler.includes("PRIVACY_VERSION='2026-10-05-v2'"),'privacy v2 server handler missing');
+assert(handler.includes("action==='growth_first_visit'"),'first visit API missing');
+assert(handler.includes("action==='growth_activity'"),'activity API missing');
+assert(handler.includes("action==='purchase_interest'"),'purchase interest API missing');
+assert(handler.includes("action==='owner_growth'"),'owner growth API missing');
+assert(access.includes('captureAcquisition(params)'),'acquisition capture missing');
+assert(access.includes('utm_source'),'UTM source tracking missing');
+assert(access.includes('Хочу продолжить за 99 NOK'),'purchase interest CTA missing');
+assert(access.includes('ownerGrowth'),'owner funnel UI missing');
+assert(access.includes('Активны 3+ дней'),'3-day activity stage missing');
+assert(migration.includes('norsk_eventyr_growth_daily'),'aggregate first-visit table missing');
+assert(migration.includes('activity_days_count'),'privacy-minimized activity counter missing');
+assert(migration.includes('ne_owner_growth_funnel'),'growth funnel RPC missing');
+assert(migration.includes("'2026-10-05-v1','2026-10-05-v2'"),'transition privacy compatibility missing');
+assert(privacy.includes("current_privacy constant text := '2026-10-05-v2'"),'privacy v2 finalization missing');
+assert(privacy.includes("e.privacy_version is distinct from current_privacy"),'privacy v2 enforcement missing');
+assert(!migration.includes('service_role'),'migration must not embed service-role secret');
+assert(!privacy.includes('service_role'),'privacy migration must not embed service-role secret');
+console.log('Norsk Eventyr 7.3.9 growth funnel checks: PASS');
