@@ -347,3 +347,36 @@ begin
   return public.ne_access_status();
 end;
 $$;
+
+
+create or replace function public.ne_owner_backup()
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+ if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
+ return jsonb_build_object(
+  'format','norsk-eventyr-backup-v2',
+  'created_at',now(),
+  'users',coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'id',u.id,'email',u.email,'created_at',u.created_at,'email_confirmed_at',u.email_confirmed_at,
+      'acquisition_source',coalesce(nullif(lower(left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_source','')),40)),''),'direct'),
+      'acquisition_campaign',left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_campaign','')),80)
+    ) order by u.created_at)
+    from auth.users u
+    where lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+  ),'[]'::jsonb),
+  'entitlements',coalesce((select jsonb_agg(to_jsonb(e) order by e.created_at) from public.norsk_eventyr_entitlements e),'[]'::jsonb),
+  'access',coalesce((select jsonb_agg(to_jsonb(a) order by a.requested_at) from public.norsk_eventyr_access a),'[]'::jsonb),
+  'feedback',coalesce((select jsonb_agg(to_jsonb(f) order by f.created_at) from public.norsk_eventyr_feedback f),'[]'::jsonb),
+  'installs',coalesce((select jsonb_agg(to_jsonb(i) order by i.first_installed_at) from public.norsk_eventyr_installs i),'[]'::jsonb),
+  'growth_daily',coalesce((select jsonb_agg(to_jsonb(g) order by g.day) from public.norsk_eventyr_growth_daily g),'[]'::jsonb),
+  'client_errors',coalesce((select jsonb_agg(to_jsonb(e) order by e.created_at desc) from (select * from public.norsk_eventyr_client_errors order by created_at desc limit 500) e),'[]'::jsonb)
+ );
+end;
+$$;
+revoke all on function public.ne_owner_backup() from public,anon;
+grant execute on function public.ne_owner_backup() to authenticated;
