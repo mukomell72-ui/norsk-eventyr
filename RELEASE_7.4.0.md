@@ -21,7 +21,7 @@ Included in this single release:
 - feedback moderation and error view;
 - backup v3;
 - privacy notice v3 with transition compatibility.
-- owner identity minimized in the normal UI; personal name appears only inside the legal/privacy disclosure where identification is required.
+- owner identity removed from normal UI and tracked public source; legal controller identity is loaded on demand from protected server configuration only inside the legal/privacy disclosure.
 
 ## Owner dashboard
 
@@ -46,6 +46,12 @@ Real paid state will be populated only by a future verified Stripe server/webhoo
 Until Stripe is connected, no card is charged and payment history stays empty unless trusted server-side data is written.
 
 Norsk Eventyr does not store bank card numbers.
+
+## Private owner-authorization preflight
+
+Before applying the 7.4.0 database migrations, privately mark the confirmed owner Auth account with `raw_app_meta_data.ne_owner=true`. Do not commit the owner's email, user ID, or other personal identifier to the repository.
+
+The 7.4.0 growth migration replaces the legacy email-based owner check with protected Auth app metadata. The owner flag must exist before that migration is applied, otherwise owner-only RPC access will be unavailable until the flag is set.
 
 ## Database release steps
 
@@ -97,15 +103,16 @@ Vercel preview has built successfully for the 7.4.0 branch.
 ## Production release order
 
 1. Reconfirm production main is still 7.3.8.
-2. Reconfirm PR head/base and preview.
-3. Apply growth migration.
-4. Verify growth and privacy transition.
-5. Apply admin lifecycle migration.
-6. Verify private payment/subscription tables and owner RPCs.
-7. Merge the 7.4.0 PR using its exact verified head SHA.
-8. Wait for Vercel production READY/SUCCESS.
-9. Smoke-check production version and owner dashboard.
-10. Do not apply deferred strict privacy-v3 migration.
+2. Reconfirm PR head/base and the latest available preview/build evidence.
+3. Privately set and verify the confirmed owner account's `raw_app_meta_data.ne_owner=true` without committing the identity.
+4. Apply growth migration.
+5. Verify owner authorization, growth and privacy transition.
+6. Apply admin lifecycle migration.
+7. Verify private payment/subscription tables and owner RPCs.
+8. Merge the 7.4.0 PR using its exact verified head SHA.
+9. Wait for Vercel production READY/SUCCESS.
+10. Smoke-check production version and owner dashboard.
+11. Do not apply deferred strict privacy-v3 migration.
 
 ## Rollback rule
 
