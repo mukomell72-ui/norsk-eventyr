@@ -5,7 +5,7 @@
  const app=document.getElementById('app'),gate=document.createElement('main');gate.id='accessGate';gate.className='access-gate';document.body.append(gate);
  let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false,confirmationEmail=null;
  const safe=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const messages={LOGIN_FAILED:'Не удалось войти. Проверь адрес, пароль и подтверждение почты.',REGISTRATION_FAILED:'Не удалось зарегистрироваться. Попробуй позже.',ACCESS_UNAVAILABLE:'Не удалось проверить доступ. Проверь подключение и попробуй ещё раз.',BAD_CREDENTIALS:'Введи корректный адрес и пароль от 10 до 128 символов.',BAD_EMAIL:'Проверь адрес электронной почты.',EMAIL_DELIVERY_FAILED:'Не удалось отправить письмо подтверждения. Попробуй ещё раз позже.',CONFIRMATION_FAILED:'Ссылка подтверждения недействительна или уже использована. Запроси новое письмо подтверждения.',RATE_LIMIT:'Слишком много попыток. Подожди немного и попробуй снова.',TERMS_VERSION_MISMATCH:'Условия обновились. Открой страницу ещё раз и подтверди актуальную версию.',BAD_REFERRAL:'Ссылка приглашения повреждена.',TERMS_REQUIRED:'Сначала нужно принять пользовательское соглашение и уведомление о данных.'};
+ const messages={LOGIN_FAILED:'Не удалось войти. Проверь адрес и пароль.',EMAIL_NOT_CONFIRMED:'Почта ещё не подтверждена. Отправь новое письмо подтверждения.',REGISTRATION_FAILED:'Не удалось зарегистрироваться. Попробуй позже.',ACCESS_UNAVAILABLE:'Не удалось проверить доступ. Проверь подключение и попробуй ещё раз.',BAD_CREDENTIALS:'Введи корректный адрес и пароль от 10 до 128 символов.',BAD_EMAIL:'Проверь адрес электронной почты.',EMAIL_DELIVERY_FAILED:'Не удалось отправить письмо подтверждения. Попробуй ещё раз позже.',CONFIRMATION_FAILED:'Ссылка подтверждения недействительна. Запроси новое письмо подтверждения.',CONFIRMATION_EXPIRED:'Эта ссылка уже использована или устарела. Отправь новое письмо подтверждения.',RATE_LIMIT:'Слишком много попыток. Подожди немного и попробуй снова.',TERMS_VERSION_MISMATCH:'Условия обновились. Открой страницу ещё раз и подтверди актуальную версию.',BAD_REFERRAL:'Ссылка приглашения повреждена.',TERMS_REQUIRED:'Сначала нужно принять пользовательское соглашение и уведомление о данных.'};
  function referralKey(){return 'ne_pending_referral'}
  function storeReferral(code){
   code=String(code||'').trim().toUpperCase();if(!/^[A-Z0-9]{12,32}$/.test(code))return;
@@ -45,7 +45,10 @@
   document.getElementById('accessLogin').onsubmit=e=>{e.preventDefault();act(async()=>{
    const email=document.getElementById('accessEmail').value.trim().toLowerCase(),password=document.getElementById('accessPassword').value;
    if(/@gmail\.con$/i.test(email)){message('Проверь адрес: вероятно, нужно gmail.com, а не gmail.con.');return}
-   const out=await call(register?'register':'login',{email,password,...(register&&pendingReferral()?{referral_code:pendingReferral()}:{})});document.getElementById('accessPassword').value='';
+   let out;
+   try{out=await call(register?'register':'login',{email,password,...(register&&pendingReferral()?{referral_code:pendingReferral()}:{})})}
+   catch(error){document.getElementById('accessPassword').value='';if(error.code==='EMAIL_NOT_CONFIRMED'){confirmationEmail=email;confirmationPending(email);message('Почта ещё не подтверждена. Отправь новое письмо и используй только последнюю ссылку.');return}throw error}
+   document.getElementById('accessPassword').value='';
    if(out.confirmEmail){confirmationEmail=email;confirmationPending(email)}else await status()
   })};
  }
@@ -161,7 +164,7 @@
   if(pendingReferral())register=true;
   if(params.has('token_hash')){
    const hash=params.get('token_hash'),type=params.get('type');history.replaceState(null,'',location.pathname);
-   try{await call('confirm',{token_hash:hash,type});confirmationEmail=null}catch(e){login();message(e.message);return}
+   try{await call('confirm',{token_hash:hash,type});confirmationEmail=null}catch(e){login();message(e.message+' Отправь новое письмо подтверждения и используй только последнюю ссылку.');return}
   }else if(params.has('ref'))history.replaceState(null,'',location.pathname);
   await status();
  })();
