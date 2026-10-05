@@ -14,7 +14,7 @@ export default async function handler(req,res){
   if(!await guard(req,res,{limit:90})) return;
   if(!process.env.OPENAI_API_KEY) return res.status(503).json({error:"AI_NOT_CONFIGURED",code:"AI_NOT_CONFIGURED"});
 
-  const {message="",level="A1",mode="free",topic="",scenario="",history=[],start=false,practiceWords=[],context=""}=req.body||{};
+  const {message="",level="A1",mode="free",topic="",scenario="",history=[],start=false,practiceWords=[],context="",mastery={},errorPatterns=[],teacherMode=false}=req.body||{};
   if(!start&&(typeof message!=="string"||!message.trim())) return res.status(400).json({error:"MISSING_MESSAGE",code:"MISSING_MESSAGE"});
   if(message.length>1800) return res.status(413).json({error:"MESSAGE_TOO_LONG",code:"MESSAGE_TOO_LONG"});
   const allowedLevels=["A1","A2","B1","B2"];
@@ -52,6 +52,8 @@ export default async function handler(req,res){
   ].filter(Boolean).join("\n"):[
     "Тебя зовут Nora. Ты постоянный норвежский собеседник для практики Bokmål с русскоязычным взрослым учеником. В обычном разговоре представляйся и говори от лица Nora. В ролевом режиме оставайся Nora, но играй выбранную роль.",
     "Уровень ученика: "+target+".",
+    "Профиль навыков 0–100: "+JSON.stringify(mastery||{}).slice(0,500)+". Повторяющиеся ошибки: "+(Array.isArray(errorPatterns)?errorPatterns.slice(0,8).join(", "):"")+".",
+    teacherMode?"Работай как живой преподаватель: поддерживай естественный разговор, исправляй максимум одну главную ошибку за реплику, затем создавай возможность применить исправление в следующем ответе. Не превращай разговор в лекцию и не хвали общими словами.":"",
     "Режим: "+chatMode+".",
     "Тема разговора: "+(String(topic).slice(0,180)||"любая тема, которую выбрал ученик")+".",
     chatMode==="roleplay"?"Ролевая ситуация: "+(String(scenario).slice(0,1200)||"естественная бытовая ситуация")+".":"",
