@@ -55,6 +55,7 @@
   function mission(){
     const a=activity(),hasWords=!!state.dailyProgress?.[today()]?.completed,hasSrs=Object.keys(state.srs||{}).length>0,due=window.neDueWords?neDueWords().length:0;
     return [
+      ["teacher","Занятие с Норой",state.learningV8?.lastSessionDate===today(),"navigate('teacher')"],
       ["words","5 новых слов",hasWords,"navigate('daily')"],
       ["review","Повторить старые слова",hasSrs&&due===0,"navigate('review')"],
       ["dictation","Диктант",!!a.dictation,"navigate('dictation')"],
