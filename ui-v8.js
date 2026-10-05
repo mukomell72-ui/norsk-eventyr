@@ -44,10 +44,26 @@
     }
     document.querySelector('.shell-v7')?.setAttribute('data-screen',route);
     document.querySelectorAll('.dock-v7 button').forEach(button=>button.classList.toggle('active',button.getAttribute('onclick')==="navigate('"+(['welcome','grammarlab','exam','settings','dictionary','learnedwords','progress','listeninglab'].includes(route)?'hub':route)+"')"));
-    const version=document.querySelector('.brand-v7 b');if(version)version.textContent='7.3.2';
+    const version=document.querySelector('.brand-v7 b');if(version)version.textContent='7.3.3';
   };
   function heading(title,subtitle=''){
     return '<div class="screen-head"><button class="back" onclick="navigate(\'hub\')" aria-label="Назад">←</button><div><h2>'+safe(title)+'</h2><p class="muted">'+safe(subtitle)+'</p></div></div>';
+  }
+  async function v8ShareApp(){
+    let url='https://norsk-eventyr-mvp.vercel.app/';
+    try{
+      const info=await window.NEAccess.shareInfo();
+      if(info?.referral_code)url+='?ref='+encodeURIComponent(info.referral_code);
+    }catch{}
+    const shareData={title:'Norsk Eventyr',text:'Norsk Eventyr — норвежский A1–B2 с Норой. После регистрации доступен 5-дневный пробный период.',url};
+    try{
+      if(navigator.share){await navigator.share(shareData);return}
+      await navigator.clipboard.writeText(url);alert('Ссылка на Norsk Eventyr скопирована.');
+    }catch(error){
+      if(error?.name==='AbortError')return;
+      try{await navigator.clipboard.writeText(url);alert('Ссылка на Norsk Eventyr скопирована.')}
+      catch{prompt('Скопируй ссылку на Norsk Eventyr:',url)}
+    }
   }
   function welcome(){
     shell('<section class="welcome-v8"><div class="welcome-copy-v8"><span class="welcome-flag-v8">🇳🇴</span><h1>Norsk Eventyr</h1><p>Учи норвежский с Норой<br>в жизни Fjordvik</p></div><div class="welcome-actions-v8"><button class="btn" onclick="navigate(\'home\')">Продолжить →</button><button class="btn secondary" onclick="navigate(\'cloud\')">Подключить сохранение прогресса</button><p>Можно учиться сразу. Прогресс сохраняется на этом устройстве.</p></div></section>','hub');
@@ -85,8 +101,9 @@
   }
   function v8ExamLevel(level){state.level=level;saveState();examMenu()}
   function profile(){
-    const goal=state.elite?.goal||'life',minutes=state.elite?.dailyMinutes||20;
-    shell(heading('Профиль и настройки','Твой норвежский маршрут')+'<section class="profile-hero-v8"><span class="nora-avatar-v7"></span><h2>Учимся с Норой</h2><p>'+safe(state.level)+' · '+minutes+' минут в день</p></section><section class="settings-list-v8 profile-shortcuts-v8"><button onclick="NEAccess.panel()">🔐 Доступ и учётная запись <b>›</b></button><button onclick="NEFeedback.open()">⭐ Оценить приложение и предложить идею <b>›</b></button></section><section class="card"><h3>Учебная цель</h3><div class="goal-options">'+Object.entries({life:['Жизнь в Норвегии','Повседневный язык'],work:['Работа','Общение и рабочие ситуации'],norskprove:['Norskprøven','Подготовка к экзамену'],b2:['B2','Точная и свободная речь']}).map(([key,[title,description]])=>'<button class="goal-option '+(goal===key?'active':'')+'" onclick="v8SetGoal(\''+key+'\')"><b>'+title+'</b><small>'+description+'</small></button>').join('')+'<h3>Время в день</h3><div class="row">'+[10,20,30,45].map(value=>'<button class="btn '+(minutes===value?'':'secondary')+'" onclick="v8SetMinutes('+value+')">'+value+' мин</button>').join('')+'</div></section><section class="settings-list-v8"><button onclick="installApp()">📲 Установить приложение <b>›</b></button><button onclick="v8ToggleVoice()">🔊 Голос Норы <b>'+(state.chatPrefs.autoSpeak?'Включён':'Выключен')+'</b></button><button onclick="navigate(\'pronunciation\')">🎤 Речь и произношение <b>›</b></button><button onclick="navigate(\'cloud\')">☁ Синхронизация прогресса <b>›</b></button><button onclick="exportProgress()">↓ Сохранить копию прогресса <b>›</b></button><button onclick="navigate(\'welcome\')">🇳🇴 Заставка приложения <b>›</b></button></section><p class="muted">Язык интерфейса: русский. Разрешение микрофона хранится в настройках браузера.</p>','hub');
+    const goal=state.elite?.goal||'life',minutes=state.elite?.dailyMinutes||20,accessInfo=window.NEAccess?.info?.();
+    const accessNote=accessInfo?.status==='trial'&&accessInfo?.trial_ends_at?' · пробный доступ до '+new Date(accessInfo.trial_ends_at).toLocaleDateString('ru-RU'):accessInfo?.owner?' · владелец':accessInfo?.status==='approved'?' · доступ одобрен':'';
+    shell(heading('Профиль и настройки','Твой норвежский маршрут')+'<section class="profile-hero-v8"><span class="nora-avatar-v7"></span><h2>Учимся с Норой</h2><p>'+safe(state.level)+' · '+minutes+' минут в день'+safe(accessNote)+'</p></section><section class="settings-list-v8 profile-shortcuts-v8"><button onclick="NEAccess.panel()">🔐 Доступ и учётная запись <b>›</b></button><button onclick="NEFeedback.open()">⭐ Оценить приложение и предложить идею <b>›</b></button></section><section class="card"><h3>Учебная цель</h3><div class="goal-options">'+Object.entries({life:['Жизнь в Норвегии','Повседневный язык'],work:['Работа','Общение и рабочие ситуации'],norskprove:['Norskprøven','Подготовка к экзамену'],b2:['B2','Точная и свободная речь']}).map(([key,[title,description]])=>'<button class="goal-option '+(goal===key?'active':'')+'" onclick="v8SetGoal(\''+key+'\')"><b>'+title+'</b><small>'+description+'</small></button>').join('')+'<h3>Время в день</h3><div class="row">'+[10,20,30,45].map(value=>'<button class="btn '+(minutes===value?'':'secondary')+'" onclick="v8SetMinutes('+value+')">'+value+' мин</button>').join('')+'</div></section><section class="settings-list-v8"><button onclick="installApp()">📲 Установить приложение <b>›</b></button><button onclick="v8ShareApp()">📤 Поделиться приложением <b>›</b></button><button onclick="v8ToggleVoice()">🔊 Голос Норы <b>'+(state.chatPrefs.autoSpeak?'Включён':'Выключен')+'</b></button><button onclick="navigate(\'pronunciation\')">🎤 Речь и произношение <b>›</b></button><button onclick="navigate(\'cloud\')">☁ Синхронизация прогресса <b>›</b></button><button onclick="exportProgress()">↓ Сохранить копию прогресса <b>›</b></button><button onclick="navigate(\'welcome\')">🇳🇴 Заставка приложения <b>›</b></button></section><p class="muted">Язык интерфейса: русский. Разрешение микрофона хранится в настройках браузера.</p>','hub');
   }
   function v8SetGoal(goal){state.elite.goal=goal;saveState();profile()}
   function v8SetMinutes(minutes){state.elite.dailyMinutes=minutes;saveState();profile()}
@@ -101,5 +118,5 @@
     if(view==='dictionary')return window.renderLearnedWords();
     return baseNavigate(view,data);
   };
-  Object.assign(window,{v8StartGrammar,v8GrammarAnswer,v8ExamLevel,v8SetGoal,v8SetMinutes,v8ToggleVoice});
+  Object.assign(window,{v8StartGrammar,v8GrammarAnswer,v8ExamLevel,v8SetGoal,v8SetMinutes,v8ToggleVoice,v8ShareApp});
 })();
