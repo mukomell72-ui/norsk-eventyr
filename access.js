@@ -103,7 +103,7 @@
  }
  async function load(){
   if(loadedUser&&loadedUser!==identity.user_id){location.reload();return}
-  if(!loaded){if(!loadedUser){scopeStorage();loadedUser=identity.user_id}for(const name of scripts.slice(loadedCount)){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/'+name+'?v=7.3.4';s.onload=resolve;s.onerror=reject;document.body.append(s)}) ;loadedCount++}await new Promise(resolve=>setTimeout(resolve,250));loaded=true}
+  if(!loaded){if(!loadedUser){scopeStorage();loadedUser=identity.user_id}for(const name of scripts.slice(loadedCount)){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/'+name+'?v=7.3.5';s.onload=resolve;s.onerror=reject;document.body.append(s)}) ;loadedCount++}await new Promise(resolve=>setTimeout(resolve,250));loaded=true}
   gate.hidden=true;app.hidden=false;
  }
  async function status(){
@@ -130,13 +130,27 @@
   async function refreshFeedback(){const total=await window.NEFeedback.ownerList();if(typeof total==='number')markFeedbackSeen(total);await window.NEOwnerBadge?.refresh()}
   document.getElementById('feedbackRefresh').onclick=()=>act(refreshFeedback);await refreshFeedback();
  }
+ function isInstalled(){
+  return window.matchMedia?.('(display-mode: standalone)')?.matches===true||window.navigator.standalone===true;
+ }
  async function install(){
   if(!await status())return;
-  if(installPrompt){await installPrompt.prompt();await installPrompt.userChoice;installPrompt=null}
-  else alert('Открой меню браузера и выбери «Установить приложение» или «Добавить на главный экран». Если приложение уже установлено, открой его значок.');
+  if(isInstalled()){alert('Norsk Eventyr уже установлено на этом устройстве.');return}
+  if(installPrompt){
+   await installPrompt.prompt();
+   const choice=await installPrompt.userChoice;
+   if(choice?.outcome==='accepted')installPrompt=null;
+   return;
+  }
+  const ua=String(navigator.userAgent||''),ios=/iPad|iPhone|iPod/.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  if(ios){
+   alert('На iPhone/iPad открой Norsk Eventyr в Safari, нажми «Поделиться» внизу экрана → «На экран Домой» → «Добавить».');
+   return;
+  }
+  alert('Открой меню браузера ⋮ и выбери «Установить приложение» или «Добавить на главный экран».');
  }
  async function shareInfo(){return call('share_info')}
- window.NEAccess={status,panel,logout,install,shareInfo,ready:()=>loaded,allowed:()=>identity?.access_granted===true,isOwner:()=>identity?.owner===true,notificationCount,info:()=>identity?{...identity}:null};
+ window.NEAccess={status,panel,logout,install,isInstalled,shareInfo,ready:()=>loaded,allowed:()=>identity?.access_granted===true,isOwner:()=>identity?.owner===true,notificationCount,info:()=>identity?{...identity}:null};
  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e});
  window.addEventListener('appinstalled',()=>{installPrompt=null});
  window.addEventListener('focus',()=>{if(loaded&&!gate.querySelector('#accessList'))status()});

@@ -36,11 +36,21 @@
       const share=document.createElement('button');
       share.className='share-top-v8';
       share.type='button';
-      share.textContent='↗';
+      share.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M22 2 11 13"></path><path d="m22 2-7 20-4-9-9-4Z"></path></svg>';
       share.title='Поделиться Norsk Eventyr';
       share.setAttribute('aria-label','Поделиться Norsk Eventyr');
       share.onclick=event=>{event.stopPropagation();v8ShareApp()};
       topbar.insertBefore(share,status);
+    }
+    if(topbar&&status&&!window.NEAccess?.isInstalled?.()&&!topbar.querySelector('.install-top-v8')){
+      const install=document.createElement('button');
+      install.className='install-top-v8';
+      install.type='button';
+      install.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg>';
+      install.title='Установить Norsk Eventyr';
+      install.setAttribute('aria-label','Установить Norsk Eventyr на телефон');
+      install.onclick=event=>{event.stopPropagation();window.NEAccess.install()};
+      topbar.insertBefore(install,status);
     }
     const ownerBrand=document.querySelector('.brand-v7');
     if(ownerBrand&&window.NEAccess?.isOwner?.()){
@@ -55,7 +65,7 @@
     }
     document.querySelector('.shell-v7')?.setAttribute('data-screen',route);
     document.querySelectorAll('.dock-v7 button').forEach(button=>button.classList.toggle('active',button.getAttribute('onclick')==="navigate('"+(['welcome','grammarlab','exam','settings','dictionary','learnedwords','progress','listeninglab'].includes(route)?'hub':route)+"')"));
-    const version=document.querySelector('.brand-v7 b');if(version)version.textContent='7.3.4';
+    const version=document.querySelector('.brand-v7 b');if(version)version.textContent='7.3.5';
   };
   function heading(title,subtitle=''){
     return '<div class="screen-head"><button class="back" onclick="navigate(\'hub\')" aria-label="Назад">←</button><div><h2>'+safe(title)+'</h2><p class="muted">'+safe(subtitle)+'</p></div></div>';
@@ -77,7 +87,7 @@
     }
   }
   function welcome(){
-    shell('<section class="welcome-v8"><div class="welcome-copy-v8"><span class="welcome-flag-v8">🇳🇴</span><h1>Norsk Eventyr</h1><p>Учи норвежский с Норой<br>в жизни Fjordvik</p></div><div class="welcome-actions-v8"><button class="btn" onclick="navigate(\'home\')">Продолжить →</button><button class="btn secondary" onclick="navigate(\'cloud\')">Подключить сохранение прогресса</button><p>Можно учиться сразу. Прогресс сохраняется на этом устройстве.</p></div></section>','hub');
+    shell('<section class="welcome-v8"><div class="welcome-copy-v8"><span class="welcome-flag-v8">🇳🇴</span><h1>Norsk Eventyr</h1><p>Учи норвежский с Норой<br>в жизни Fjordvik</p></div><div class="welcome-actions-v8"><button class="btn" onclick="navigate(\'home\')">Продолжить →</button>'+(!window.NEAccess?.isInstalled?.()?'<button class="btn secondary" onclick="NEAccess.install()">📲 Установить на телефон</button>':'<p>✓ Norsk Eventyr уже установлено на этом устройстве.</p>')+'<button class="btn secondary" onclick="navigate(\'cloud\')">Подключить сохранение прогресса</button><p>Можно учиться сразу. Прогресс сохраняется на этом устройстве.</p></div></section>','hub');
   }
   const grammarGuides={
     A1:{title:'Настоящее время · Presens',rule:'Чтобы говорить о том, что происходит сейчас или регулярно, обычно добавляем -r к начальной форме глагола. После модальных глаголов используем начальную форму без -r.',examples:[['Jeg bor i Norge.','Я живу в Норвегии.'],['Hun jobber i en butikk.','Она работает в магазине.'],['Vi lærer norsk.','Мы учим норвежский.'],['Jeg kan snakke norsk.','Я могу говорить по-норвежски.']]},
@@ -114,7 +124,7 @@
   function profile(){
     const goal=state.elite?.goal||'life',minutes=state.elite?.dailyMinutes||20,accessInfo=window.NEAccess?.info?.();
     const accessNote=accessInfo?.status==='trial'&&accessInfo?.trial_ends_at?' · пробный доступ до '+new Date(accessInfo.trial_ends_at).toLocaleDateString('ru-RU'):accessInfo?.owner?' · владелец':accessInfo?.status==='approved'?' · доступ одобрен':'';
-    shell(heading('Профиль и настройки','Твой норвежский маршрут')+'<section class="profile-hero-v8"><span class="nora-avatar-v7"></span><h2>Учимся с Норой</h2><p>'+safe(state.level)+' · '+minutes+' минут в день'+safe(accessNote)+'</p></section><section class="settings-list-v8 profile-shortcuts-v8"><button onclick="NEAccess.panel()">🔐 Доступ и учётная запись <b>›</b></button><button onclick="NEFeedback.open()">⭐ Оценить приложение и предложить идею <b>›</b></button></section><section class="card"><h3>Учебная цель</h3><div class="goal-options">'+Object.entries({life:['Жизнь в Норвегии','Повседневный язык'],work:['Работа','Общение и рабочие ситуации'],norskprove:['Norskprøven','Подготовка к экзамену'],b2:['B2','Точная и свободная речь']}).map(([key,[title,description]])=>'<button class="goal-option '+(goal===key?'active':'')+'" onclick="v8SetGoal(\''+key+'\')"><b>'+title+'</b><small>'+description+'</small></button>').join('')+'<h3>Время в день</h3><div class="row">'+[10,20,30,45].map(value=>'<button class="btn '+(minutes===value?'':'secondary')+'" onclick="v8SetMinutes('+value+')">'+value+' мин</button>').join('')+'</div></section><section class="settings-list-v8"><button onclick="installApp()">📲 Установить приложение <b>›</b></button><button onclick="v8ShareApp()">📤 Поделиться приложением <b>›</b></button><button onclick="v8ToggleVoice()">🔊 Голос Норы <b>'+(state.chatPrefs.autoSpeak?'Включён':'Выключен')+'</b></button><button onclick="navigate(\'pronunciation\')">🎤 Речь и произношение <b>›</b></button><button onclick="navigate(\'cloud\')">☁ Синхронизация прогресса <b>›</b></button><button onclick="exportProgress()">↓ Сохранить копию прогресса <b>›</b></button><button onclick="navigate(\'welcome\')">🇳🇴 Заставка приложения <b>›</b></button></section><p class="muted">Язык интерфейса: русский. Разрешение микрофона хранится в настройках браузера.</p>','hub');
+    shell(heading('Профиль и настройки','Твой норвежский маршрут')+'<section class="profile-hero-v8"><span class="nora-avatar-v7"></span><h2>Учимся с Норой</h2><p>'+safe(state.level)+' · '+minutes+' минут в день'+safe(accessNote)+'</p></section><section class="settings-list-v8 profile-shortcuts-v8"><button onclick="NEAccess.panel()">🔐 Доступ и учётная запись <b>›</b></button><button onclick="NEFeedback.open()">⭐ Оценить приложение и предложить идею <b>›</b></button></section><section class="card"><h3>Учебная цель</h3><div class="goal-options">'+Object.entries({life:['Жизнь в Норвегии','Повседневный язык'],work:['Работа','Общение и рабочие ситуации'],norskprove:['Norskprøven','Подготовка к экзамену'],b2:['B2','Точная и свободная речь']}).map(([key,[title,description]])=>'<button class="goal-option '+(goal===key?'active':'')+'" onclick="v8SetGoal(\''+key+'\')"><b>'+title+'</b><small>'+description+'</small></button>').join('')+'<h3>Время в день</h3><div class="row">'+[10,20,30,45].map(value=>'<button class="btn '+(minutes===value?'':'secondary')+'" onclick="v8SetMinutes('+value+')">'+value+' мин</button>').join('')+'</div></section><section class="settings-list-v8"><button onclick="NEAccess.install()">📲 Установить на телефон <b>›</b></button><button onclick="v8ShareApp()">📤 Поделиться приложением <b>›</b></button><button onclick="v8ToggleVoice()">🔊 Голос Норы <b>'+(state.chatPrefs.autoSpeak?'Включён':'Выключен')+'</b></button><button onclick="navigate(\'pronunciation\')">🎤 Речь и произношение <b>›</b></button><button onclick="navigate(\'cloud\')">☁ Синхронизация прогресса <b>›</b></button><button onclick="exportProgress()">↓ Сохранить копию прогресса <b>›</b></button><button onclick="navigate(\'welcome\')">🇳🇴 Заставка приложения <b>›</b></button></section><p class="muted">Язык интерфейса: русский. Разрешение микрофона хранится в настройках браузера.</p>','hub');
   }
   function v8SetGoal(goal){state.elite.goal=goal;saveState();profile()}
   function v8SetMinutes(minutes){state.elite.dailyMinutes=minutes;saveState();profile()}

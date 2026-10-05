@@ -1,6 +1,7 @@
 {
-  "name": "Norsk Eventyr 7.3.0",
+  "name": "Norsk Eventyr",
   "short_name": "Norsk Eventyr",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
@@ -10,37 +11,16 @@
   "lang": "ru",
   "description": "Bokmål A1–B2 в живом мире Fjordvik: Nora, ежедневный маршрут, разговор, курс, реальные ситуации, живое аудирование и Norskprøven.",
   "icons": [
-    {
-      "src": "/icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any maskable"
-    }
+    {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
+    {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+    {"src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any"}
   ],
-  "categories": [
-    "education",
-    "productivity"
-  ],
+  "categories": ["education", "productivity"],
   "shortcuts": [
-    {
-      "name": "Fjordvik",
-      "short_name": "История",
-      "url": "/?open=story"
-    },
-    {
-      "name": "Samtale",
-      "short_name": "Разговор",
-      "url": "/?open=chat"
-    },
-    {
-      "name": "5 слов",
-      "short_name": "5 слов",
-      "url": "/?open=daily"
-    },
-    {
-      "name": "Диктант",
-      "short_name": "Диктант",
-      "url": "/?open=dictation"
-    }
-  ]
+    {"name": "Fjordvik", "short_name": "История", "url": "/?open=story"},
+    {"name": "Samtale", "short_name": "Разговор", "url": "/?open=chat"},
+    {"name": "5 слов", "short_name": "5 слов", "url": "/?open=daily"},
+    {"name": "Диктант", "short_name": "Диктант", "url": "/?open=dictation"}
+  ],
+  "prefer_related_applications": false
 }

@@ -43,6 +43,10 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 .shell-v7[data-screen="daily"] .daily-word-card .daily-example .muted{color:#c7d6df}
 .shell-v7[data-screen="daily"] .daily-word-card .daily-example .tag{color:#dce9fb}
 
-.share-top-v8{flex:0 0 auto;margin-left:4px;margin-right:auto;width:32px;height:32px;padding:0;border:1px solid rgba(255,255,255,.10);border-radius:11px;background:#102438;color:#eaf4fa;font-size:18px;font-weight:900;line-height:1;display:grid;place-items:center}
-.share-top-v8:active{transform:translateY(1px)}
-@media(max-width:390px){.brand-v7 span{font-size:16px}.share-top-v8{width:30px;height:30px;margin-left:2px}.status-v7{gap:5px}.status-v7 button{padding:0 7px}}
+.share-top-v8,.install-top-v8{flex:0 0 auto;width:32px;height:32px;padding:0;border:1px solid rgba(255,255,255,.10);border-radius:11px;background:#102438;color:#eaf4fa;line-height:1;display:grid;place-items:center}
+.share-top-v8{margin-left:4px}
+.install-top-v8{margin-left:4px;margin-right:auto}
+.topbar-v7>.share-top-v8:nth-last-child(2){margin-right:auto}
+.share-top-v8 svg,.install-top-v8 svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.share-top-v8:active,.install-top-v8:active{transform:translateY(1px)}
+@media(max-width:390px){.brand-v7 span{font-size:16px}.share-top-v8,.install-top-v8{width:30px;height:30px;margin-left:2px}.status-v7{gap:5px}.status-v7 button{padding:0 7px}}
