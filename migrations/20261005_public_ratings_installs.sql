@@ -167,7 +167,7 @@ begin
     effective_status := req_status;
   elsif e.user_id is null
      or e.terms_version is distinct from current_terms
-     or e.privacy_version is distinct from current_privacy
+     or e.privacy_version not in ('2026-10-05-v1','2026-10-05-v2')
      or e.terms_accepted_at is null
      or e.privacy_accepted_at is null then
     effective_status := 'terms_required';
@@ -223,7 +223,7 @@ declare
 begin
   select * into u from auth.users where id=auth.uid() and email_confirmed_at is not null;
   if u.id is null then raise exception 'LOGIN_REQUIRED'; end if;
-  if p_terms_version is distinct from current_terms or p_privacy_version is distinct from current_privacy then
+  if p_terms_version is distinct from current_terms or p_privacy_version not in ('2026-10-05-v1','2026-10-05-v2') then
     raise exception 'TERMS_VERSION_MISMATCH';
   end if;
 
@@ -243,7 +243,7 @@ begin
     insert into public.norsk_eventyr_entitlements(
       user_id,referred_by,terms_version,terms_accepted_at,privacy_version,privacy_accepted_at
     ) values (
-      u.id,inviter,current_terms,now(),current_privacy,now()
+      u.id,inviter,current_terms,now(),p_privacy_version,now()
     )
     returning * into e;
 
@@ -258,8 +258,8 @@ begin
     update public.norsk_eventyr_entitlements
     set terms_version=current_terms,
         terms_accepted_at=case when terms_version is distinct from current_terms or terms_accepted_at is null then now() else terms_accepted_at end,
-        privacy_version=current_privacy,
-        privacy_accepted_at=case when privacy_version is distinct from current_privacy or privacy_accepted_at is null then now() else privacy_accepted_at end,
+        privacy_version=p_privacy_version,
+        privacy_accepted_at=case when privacy_version is distinct from p_privacy_version or privacy_accepted_at is null then now() else privacy_accepted_at end,
         updated_at=now()
     where user_id=u.id;
   end if;
