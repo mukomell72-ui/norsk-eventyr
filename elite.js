@@ -249,6 +249,7 @@
     m.guidedJourney={...(remote.guidedJourney||{}),...(local.guidedJourney||{})};m.guidedJourney.lessonDates={...(remote.guidedJourney?.lessonDates||{}),...(local.guidedJourney?.lessonDates||{})};m.guidedJourney.reviewDates={...(remote.guidedJourney?.reviewDates||{}),...(local.guidedJourney?.reviewDates||{})};
     m.learningV8={...(remote.learningV8||{}),...(local.learningV8||{})};
     m.learningV8.skills={...(remote.learningV8?.skills||{})};for(const [k,v] of Object.entries(local.learningV8?.skills||{}))m.learningV8.skills[k]=Math.max(m.learningV8.skills[k]||0,v||0);
+    m.learningV8.levelSkills={};for(const level of ["A1","A2","B1","B2"]){m.learningV8.levelSkills[level]={...(remote.learningV8?.levelSkills?.[level]||{})};for(const [k,v] of Object.entries(local.learningV8?.levelSkills?.[level]||{}))m.learningV8.levelSkills[level][k]=Math.max(m.learningV8.levelSkills[level][k]||0,v||0)}
     m.learningV8.modules={...(remote.learningV8?.modules||{}),...(local.learningV8?.modules||{})};
     m.learningV8.reviews={...(remote.learningV8?.reviews||{}),...(local.learningV8?.reviews||{})};
     m.learningV8.errorPatterns={...(remote.learningV8?.errorPatterns||{})};for(const [k,v] of Object.entries(local.learningV8?.errorPatterns||{}))m.learningV8.errorPatterns[k]=Math.max(m.learningV8.errorPatterns[k]||0,v||0);
