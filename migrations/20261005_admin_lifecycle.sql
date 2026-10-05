@@ -299,7 +299,7 @@ for each row execute function public.ne_subscription_lifecycle_trigger();
 insert into public.norsk_eventyr_lifecycle_events(user_id,event_type,event_key,occurred_at,source,metadata)
 select u.id,'email_confirmed','email_confirmed:'||u.id::text,u.email_confirmed_at,'system','{}'::jsonb
 from auth.users u
-where u.email_confirmed_at is not null and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+where u.email_confirmed_at is not null and public.ne_is_norsk_eventyr_user(u.id)
 on conflict(event_key) do nothing;
 
 insert into public.norsk_eventyr_lifecycle_events(user_id,event_type,event_key,occurred_at,source,metadata)
@@ -307,14 +307,14 @@ select e.user_id,'trial_started','trial_started:'||e.user_id::text,e.trial_start
        jsonb_build_object('trial_ends_at',e.trial_ends_at)
 from public.norsk_eventyr_entitlements e
 join auth.users u on u.id=e.user_id
-where lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+where public.ne_is_norsk_eventyr_user(u.id)
 on conflict(event_key) do nothing;
 
 insert into public.norsk_eventyr_lifecycle_events(user_id,event_type,event_key,occurred_at,source,metadata)
 select e.user_id,'trial_ends','trial_ends:'||e.user_id::text,e.trial_ends_at,'system','{}'::jsonb
 from public.norsk_eventyr_entitlements e
 join auth.users u on u.id=e.user_id
-where lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+where public.ne_is_norsk_eventyr_user(u.id)
 on conflict(event_key) do update set occurred_at=excluded.occurred_at;
 
 insert into public.norsk_eventyr_lifecycle_events(user_id,event_type,event_key,occurred_at,source,metadata)
@@ -325,7 +325,7 @@ select e.user_id,'terms_accepted',
 from public.norsk_eventyr_entitlements e
 join auth.users u on u.id=e.user_id
 where e.terms_accepted_at is not null and e.privacy_accepted_at is not null
-  and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+  and public.ne_is_norsk_eventyr_user(u.id)
 on conflict(event_key) do nothing;
 
 insert into public.norsk_eventyr_lifecycle_events(user_id,event_type,event_key,occurred_at,source,metadata)
@@ -333,7 +333,7 @@ select i.user_id,'installed','installed:'||i.user_id::text,i.first_installed_at,
        jsonb_build_object('platform',i.platform,'install_source',i.source)
 from public.norsk_eventyr_installs i
 join auth.users u on u.id=i.user_id
-where lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+where public.ne_is_norsk_eventyr_user(u.id)
 on conflict(event_key) do nothing;
 
 insert into public.norsk_eventyr_lifecycle_events(user_id,event_type,event_key,occurred_at,source,metadata)
@@ -341,7 +341,7 @@ select e.user_id,'purchase_interest','purchase_interest:'||e.user_id::text,e.pur
        jsonb_build_object('price_nok',e.purchase_interest_price_nok)
 from public.norsk_eventyr_entitlements e
 join auth.users u on u.id=e.user_id
-where e.purchase_interest_at is not null and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+where e.purchase_interest_at is not null and public.ne_is_norsk_eventyr_user(u.id)
 on conflict(event_key) do nothing;
 
 insert into public.norsk_eventyr_lifecycle_events(user_id,event_type,event_key,occurred_at,source,metadata)
@@ -349,7 +349,7 @@ select a.user_id,'access_requested','access_requested:'||a.user_id::text,a.reque
        jsonb_build_object('status',a.status)
 from public.norsk_eventyr_access a
 join auth.users u on u.id=a.user_id
-where lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+where public.ne_is_norsk_eventyr_user(u.id)
 on conflict(event_key) do nothing;
 
 insert into public.norsk_eventyr_lifecycle_events(user_id,event_type,event_key,occurred_at,source,metadata)
@@ -359,7 +359,7 @@ select a.user_id,'access_'||a.status,
 from public.norsk_eventyr_access a
 join auth.users u on u.id=a.user_id
 where a.decided_at is not null and a.status in ('approved','denied','revoked')
-  and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+  and public.ne_is_norsk_eventyr_user(u.id)
 on conflict(event_key) do nothing;
 
 insert into public.norsk_eventyr_lifecycle_events(user_id,event_type,event_key,occurred_at,source,metadata)
@@ -367,14 +367,14 @@ select e.user_id,'active_3_days','active_3_days:'||e.user_id::text,coalesce(e.up
        jsonb_build_object('activity_days_count',e.activity_days_count)
 from public.norsk_eventyr_entitlements e
 join auth.users u on u.id=e.user_id
-where e.activity_days_count>=3 and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+where e.activity_days_count>=3 and public.ne_is_norsk_eventyr_user(u.id)
 on conflict(event_key) do nothing;
 
 insert into public.norsk_eventyr_lifecycle_events(user_id,event_type,event_key,occurred_at,source,metadata)
 select e.user_id,'first_paid','first_paid:'||e.user_id::text,e.first_paid_at,'payment','{}'::jsonb
 from public.norsk_eventyr_entitlements e
 join auth.users u on u.id=e.user_id
-where e.first_paid_at is not null and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+where e.first_paid_at is not null and public.ne_is_norsk_eventyr_user(u.id)
 on conflict(event_key) do nothing;
 
 create or replace function public.ne_lifecycle_touch()
