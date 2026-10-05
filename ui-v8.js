@@ -36,7 +36,7 @@
       const share=document.createElement('button');
       share.className='share-top-v8';
       share.type='button';
-      share.textContent='↗';
+      share.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M22 2 11 13"></path><path d="m22 2-7 20-4-9-9-4Z"></path></svg>';
       share.title='Поделиться Norsk Eventyr';
       share.setAttribute('aria-label','Поделиться Norsk Eventyr');
       share.onclick=event=>{event.stopPropagation();v8ShareApp()};
@@ -55,7 +55,7 @@
     }
     document.querySelector('.shell-v7')?.setAttribute('data-screen',route);
     document.querySelectorAll('.dock-v7 button').forEach(button=>button.classList.toggle('active',button.getAttribute('onclick')==="navigate('"+(['welcome','grammarlab','exam','settings','dictionary','learnedwords','progress','listeninglab'].includes(route)?'hub':route)+"')"));
-    const version=document.querySelector('.brand-v7 b');if(version)version.textContent='7.3.4';
+    const version=document.querySelector('.brand-v7 b');if(version)version.textContent='7.3.5';
   };
   function heading(title,subtitle=''){
     return '<div class="screen-head"><button class="back" onclick="navigate(\'hub\')" aria-label="Назад">←</button><div><h2>'+safe(title)+'</h2><p class="muted">'+safe(subtitle)+'</p></div></div>';
