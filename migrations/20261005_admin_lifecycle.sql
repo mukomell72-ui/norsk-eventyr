@@ -402,7 +402,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path = ''
-as $
+as $$
 declare result jsonb;
 begin
  if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
@@ -427,7 +427,7 @@ begin
  ) into result;
  return result;
 end;
-$;
+$$;
 revoke all on function public.ne_owner_dashboard() from public,anon;
 grant execute on function public.ne_owner_dashboard() to authenticated;
 
@@ -616,7 +616,7 @@ begin
     where public.ne_is_norsk_eventyr_user(u.id)
   ),'[]'::jsonb);
 end;
-$;
+$$;
 
 create or replace function public.ne_owner_backup()
 returns jsonb
