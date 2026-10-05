@@ -55,9 +55,19 @@ A.assessment(state,'A2',88,{writing:88});
 assert(p.levelSkills.A1.writing===a1WritingBefore,'A2 assessment leaked into A1');
 assert(p.levelSkills.A2.writing>a2WritingBefore,'A2 assessment failed to update A2');
 
+// Spaced reviews must keep the CEFR level where the evidence was created.
+const reviewState={level:'B1',skills:{},learningV8:{}};
+A.ensure(reviewState);
+A.recordAttempt(reviewState,{level:'A2',skill:'listening',score:30,moduleId:'a2-supplemental',source:'qa'});
+reviewState.learningV8.reviews['a2-supplemental:listening'].due='2000-01-01';
+const reviewMission=A.nextMission(reviewState);
+assert(reviewMission.kind==='review'&&reviewMission.level==='A2','due A2 review was incorrectly promoted to current B1 level');
+
 const app=read('app.js'),access=read('access.js'),sw=read('sw.js'),generate=read('api/generate.js'),evaluate=read('api/evaluate.js');
 assert(app.includes('view==="teacher"')&&app.includes('startAdaptiveTeacher'),'teacher route missing');
 assert(app.includes('"learningV8"'),'adaptive state validation missing');
+assert(app.includes('previousLevel:state.level')&&!app.includes('function startTest(level){touchStudy();state.level=level'),'starting a diagnostic must not switch the active course level');
+assert(app.includes('level:testSession.level,skill'),'diagnostic evidence must be written to the tested CEFR level');
 assert(access.includes("'curriculum-v8.js'")&&access.includes("'adaptive-teacher.js'"),'adaptive scripts not loaded');
 assert(sw.includes('/curriculum-v8.js?v=7.4.0')&&sw.includes('/adaptive-teacher.js?v=7.4.0'),'adaptive assets not cached');
 assert(generate.includes('teacherMode')&&generate.includes('Can-do цели'),'objective-driven generator prompt missing');
