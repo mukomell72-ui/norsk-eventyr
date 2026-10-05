@@ -37,7 +37,7 @@ language sql
 stable
 security definer
 set search_path = ''
-as $
+as $$
   select exists(
     select 1
     from auth.users u
@@ -52,7 +52,7 @@ as $
         or exists(select 1 from public.norsk_eventyr_feedback f where f.user_id=u.id)
       )
   );
-$;
+$$;
 revoke all on function public.ne_is_norsk_eventyr_user(uuid) from public,anon,authenticated;
 
 create or replace function public.ne_growth_first_visit()
