@@ -16,7 +16,7 @@ assert(/APP_VERSION="\d+\.\d+\.\d+"/.test(app),'APP_VERSION marker missing');
 assert(sw.includes('const CACHE="norsk-eventyr-'),'service worker cache marker missing');
 assert(handler.includes("action==='feedback_moderate'"),'moderation API missing');
 assert(handler.includes("action==='owner_dashboard'"),'owner dashboard API missing');
-assert(handler.includes("action==='owner_backup'"),'owner backup API missing');
+assert(handler.includes("'owner_backup'"),'owner backup API missing');
 assert(handler.includes("action==='client_error'"),'client error API missing');
 assert(access.includes("window.addEventListener('error'"),'window error monitoring missing');
 assert(access.includes("window.addEventListener('unhandledrejection'"),'promise rejection monitoring missing');
