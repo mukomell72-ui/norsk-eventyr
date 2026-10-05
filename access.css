@@ -21,3 +21,13 @@
 .trial-feedback-prompt h2{margin-top:0}
 .trial-feedback-prompt textarea{width:100%;min-height:104px;box-sizing:border-box;padding:13px 14px;border:1px solid #456575;border-radius:12px;background:#102a39;color:#fff;font:inherit;resize:vertical}
 .trial-feedback-prompt .feedback-stars{margin:12px 0}
+
+.owner-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
+.owner-metric{padding:12px;border:1px solid #36556a;border-radius:14px;background:#0b2030;display:grid;gap:4px}
+.owner-metric strong{font-size:1.35rem}
+.owner-metric span{font-size:12px;color:#b8cbd6}
+.owner-error-list{display:grid;gap:10px;margin-top:12px}
+.owner-error-card{padding:12px;border:1px solid #36556a;border-radius:14px;background:#0b2030}
+.owner-error-card p{margin:7px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+.owner-error-card small{color:#9fb3c2;overflow-wrap:anywhere}
+@media(max-width:520px){.owner-metrics{grid-template-columns:1fr}}
