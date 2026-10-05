@@ -835,3 +835,14 @@ html,body{background:linear-gradient(180deg,#081421 0,#07111c 50%,#06101a 100%);
 .feedback-owner-meta{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:13px}
 .feedback-owner-rating{color:var(--gold);font-size:18px;font-weight:900}
 .feedback-owner-card p{white-space:pre-wrap;overflow-wrap:anywhere;margin:10px 0 0}
+.feedback-public-summary{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:4px 0 12px}
+.feedback-public-score{font-size:28px;font-weight:950;letter-spacing:-.04em}
+.feedback-public-stars{color:var(--gold);font-size:22px;letter-spacing:2px}
+.feedback-public-list{display:grid;gap:10px;margin-top:12px}
+.feedback-public-card{padding:14px;border-radius:16px;border:1px solid #ffffff18;background:#0c1b2e}
+.feedback-public-card p{white-space:pre-wrap;overflow-wrap:anywhere;margin:9px 0 0}
+.public-rating-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.public-rating-head h3,.public-rating-head p{margin:0}
+.owner-user-facts{display:grid;gap:3px;margin:10px 0}
+.owner-user-facts p{margin:0;color:var(--muted);font-size:13px}
+
