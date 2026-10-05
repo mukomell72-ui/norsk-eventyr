@@ -14,3 +14,10 @@
 .access-gate .access-check{display:grid;grid-template-columns:24px 1fr;align-items:start;gap:10px;margin:12px 0}
 .access-gate .access-check input{width:20px;height:20px;margin:1px 0 0;padding:0}
 .access-gate .access-check span{font-size:13px;line-height:1.45}
+
+.access-public-rating{margin-top:14px}
+.access-public-rating h2{margin-top:0}
+.trial-feedback-prompt{margin:18px 0;padding:14px;border:1px solid #36556a;border-radius:16px;background:#0b2030}
+.trial-feedback-prompt h2{margin-top:0}
+.trial-feedback-prompt textarea{width:100%;min-height:104px;box-sizing:border-box;padding:13px 14px;border:1px solid #456575;border-radius:12px;background:#102a39;color:#fff;font:inherit;resize:vertical}
+.trial-feedback-prompt .feedback-stars{margin:12px 0}
