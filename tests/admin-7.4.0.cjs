@@ -54,4 +54,12 @@ assert(migration.includes("'format','norsk-eventyr-backup-v3'"),'backup v3 missi
 assert(!handler.includes("action==='payment_write'"),'client payment write endpoint must not exist');
 assert(!handler.includes("action==='subscription_write'"),'client subscription write endpoint must not exist');
 assert(!migration.includes('service_role'),'migration must not embed service-role secret');
+const identitySensitiveSql=[
+ read('migrations/20261003_access_approval.sql'),
+ read('migrations/20261005_professional_hardening.sql'),
+ read('migrations/20261005_growth_funnel.sql'),
+ migration
+];
+assert(identitySensitiveSql.every(text=>!/@gmail\.com/i.test(text)),'public SQL must not hardcode a personal Gmail address');
+assert(read('migrations/20261005_growth_funnel.sql').includes("raw_app_meta_data")&&read('migrations/20261005_growth_funnel.sql').includes("ne_owner"),'owner authorization must use protected app metadata');
 console.log('Norsk Eventyr 7.4.0 admin dashboard checks: PASS');
