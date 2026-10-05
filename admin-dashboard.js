@@ -187,7 +187,7 @@
     ['Активных дней',p.activity_days_count||0],['Установка',p.first_installed_at?dateText(p.first_installed_at):'—'],
     ['Источник',p.acquisition_source||'direct'],['Готов платить',p.purchase_interest_at?dateText(p.purchase_interest_at)+' · '+money(p.purchase_interest_price_nok):'—'],
     ['Подписка',statusText[p.subscription_status]||p.subscription_status||'Нет'],['Оплачено до',dateText(p.paid_until)],
-    ['Следующая оплата',dateText(p.next_payment_at)],['Автопродление',p.cancel_at_period_end?'Отключено':'Включено / не настроено']
+    ['Следующая оплата',dateText(p.next_payment_at)],['Автопродление',['active','trialing'].includes(p.subscription_status)?(p.cancel_at_period_end?'Будет отключено':'Включено'):'—']
    ];
    for(const [name,value] of facts){const f=el('article','admin-detail-fact');f.append(el('span','',name),el('strong','',value));grid.append(f)}out.append(grid);
    const actions=el('div','admin-action-row');
@@ -209,7 +209,7 @@
   const top=el('div','admin-payment-top');top.append(el('strong','',money(item.amount_nok)),el('span','admin-badge payment-'+String(item.status),statusText[item.status]||item.status));
   card.append(top);
   const lines=[
-   'Пользователь: '+String(item.email||''),
+   ...(item.email?['Пользователь: '+String(item.email)]:[]),
    'Дата: '+dateText(item.paid_at||item.created_at),
    'Период: '+dateText(item.period_start,false)+' → '+dateText(item.period_end,false),
    'Комиссия: '+money(item.fee_nok)+(Number(item.refunded_nok)>0?' · Возврат: '+money(item.refunded_nok):'')
