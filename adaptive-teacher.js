@@ -40,14 +40,14 @@ function recordAttempt(state,input={}){
  const tag=String(input.errorTag||'').slice(0,50);if(tag&&score<80)p.errorPatterns[tag]=(p.errorPatterns[tag]||0)+1;
  p.attempts.push({date:new Date().toISOString(),level,skill,score,moduleId:id,source:String(input.source||'practice').slice(0,40),errorTag:tag,transfer:!!input.transfer});
  p.attempts=p.attempts.slice(-500);
- scheduleReview(p,id,skill,score);
+ scheduleReview(p,id,skill,score,level);
  return profile[skill];
 }
-function scheduleReview(p,moduleId,skill,score){
+function scheduleReview(p,moduleId,skill,score,level){
  const key=moduleId+':'+skill,r=p.reviews[key]||{stage:0,due:dayKey(),lastScore:null};
  if(score<60)r.stage=0;else if(score>=85)r.stage=Math.min(REVIEW_STEPS.length-1,(r.stage||0)+1);
  else r.stage=Math.max(0,r.stage||0);
- const wait=score<60?1:REVIEW_STEPS[r.stage]||7;r.lastScore=score;r.due=addDays(dayKey(),wait);p.reviews[key]=r;
+ const wait=score<60?1:REVIEW_STEPS[r.stage]||7;r.lastScore=score;r.due=addDays(dayKey(),wait);if(['A1','A2','B1','B2'].includes(level))r.level=level;p.reviews[key]=r;
 }
 function dueReviews(state){
  const p=ensure(state),today=dayKey();
@@ -78,8 +78,8 @@ function nextModule(state,level){
 function nextMission(state){
  const p=ensure(state),level=['A1','A2','B1','B2'].includes(state.level)?state.level:'A1',due=dueReviews(state);
  if(due.length){
-  const d=due[0],m=window.NECurriculum?.moduleById(d.moduleId)||nextModule(state,level);
-  return{kind:'review',level:m?.level||level,module:m,skill:d.skill,reason:'Пора проверить, сохранился ли материал после паузы.',reviewKey:d.key};
+  const d=due[0],known=window.NECurriculum?.moduleById(d.moduleId),reviewLevel=['A1','A2','B1','B2'].includes(d.level)?d.level:(known?.level||level),m=known||nextModule(state,reviewLevel);
+  return{kind:'review',level:reviewLevel,module:m,skill:d.skill,reason:'Пора проверить, сохранился ли материал после паузы.',reviewKey:d.key};
  }
  const skill=weakestSkill(state),module=nextModule(state,level);
  return{kind:'learn',level,module,skill,reason:'Сейчас это самое слабое звено в твоём профиле навыков.'};
