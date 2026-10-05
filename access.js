@@ -45,14 +45,9 @@
    const stars=document.createElement('div');stars.className='feedback-public-stars';stars.textContent=starText(average);
    const total=document.createElement('div');total.className='feedback-help';total.textContent=count?count+' оценок':'Оценок пока нет';
    summary.append(score,stars,total);box.append(summary);
-   for(const item of items.slice(0,3)){
-    const card=document.createElement('article');card.className='feedback-public-card';
-    const meta=document.createElement('div');meta.className='feedback-owner-meta';
-    const who=document.createElement('span');who.textContent='Пользователь Norsk Eventyr';
-    const when=document.createElement('time');const date=new Date(item.created_at);when.textContent=Number.isNaN(date.getTime())?'':date.toLocaleDateString('ru-RU');meta.append(who,when);
-    const rating=document.createElement('div');rating.className='feedback-owner-rating';rating.textContent=starText(item.rating);
-    const comment=document.createElement('p');comment.textContent=String(item.comment||'');card.append(meta,rating,comment);box.append(card)
-   }
+   const addComment=item=>{const card=document.createElement('article');card.className='feedback-public-card';const meta=document.createElement('div');meta.className='feedback-owner-meta';const who=document.createElement('span');who.textContent='Пользователь Norsk Eventyr';const when=document.createElement('time');const date=new Date(item.created_at);when.textContent=Number.isNaN(date.getTime())?'':date.toLocaleDateString('ru-RU');meta.append(who,when);const rating=document.createElement('div');rating.className='feedback-owner-rating';rating.textContent=starText(item.rating);const comment=document.createElement('p');comment.textContent=String(item.comment||'');card.append(meta,rating,comment);box.append(card)};
+   for(const item of items.slice(0,3))addComment(item);
+   if(items.length>3){const more=document.createElement('button');more.className='btn secondary';more.textContent='Показать все комментарии';more.onclick=()=>{for(const item of items.slice(3))addComment(item);more.remove()};box.append(more)}
   }catch{box.textContent='Рейтинг временно недоступен.'}
  }
  function platformName(){
