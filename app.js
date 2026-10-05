@@ -6,7 +6,7 @@ function validProgressState(value){
  if(!value||typeof value!=="object"||Array.isArray(value))return false;
  if(!["A1","A2","B1","B2"].includes(value.level))return false;
  for(const key of ["testHistory","examHistory","chatHistory"])if(key in value&&!Array.isArray(value[key]))return false;
- for(const key of ["completed","skills","srs","errors","elite","story","chatPrefs","dailyDictionary","dailyPacks","dailyProgress","generatedLessons","completedTopics","lexicalCandidates","chatThreads","chatMemories","wordFavorites"]){if(key in value&&(!value[key]||typeof value[key]!=="object"||Array.isArray(value[key])))return false;}
+ for(const key of ["completed","skills","srs","errors","elite","story","chatPrefs","dailyDictionary","dailyPacks","dailyProgress","generatedLessons","completedTopics","lexicalCandidates","chatThreads","chatMemories","wordFavorites","learningV8"]){if(key in value&&(!value[key]||typeof value[key]!=="object"||Array.isArray(value[key])))return false;}
  for(const key of ["xp","streak"])if(key in value&&(!Number.isFinite(value[key])||value[key]<0))return false;
  for(const key of ["srs","dailyDictionary","dailyPacks","dailyProgress","generatedLessons","lexicalCandidates"]){if(key in value&&Object.values(value[key]).some(item=>!item||typeof item!=="object"||Array.isArray(item)))return false;}
  if(value.skills&&Object.values(value.skills).some(score=>!Number.isFinite(score)))return false;
@@ -31,7 +31,7 @@ function touchStudy(){const t=new Date().toISOString().slice(0,10);if(state.last
 
 function nav(active){const a=[["home","⌂","Главная"],["course","▤","Курс"],["tests","✓","Тесты"],["exam","★","Экзамен"],["progress","↗","Прогресс"]];return `<nav class="nav">${a.map(x=>`<button class="${active===x[0]?"active":""}" onclick="navigate('${x[0]}')"><b>${x[1]}</b>${x[2]}</button>`).join("")}</nav>`}
 function shell(content,active="home"){document.getElementById("app").innerHTML=`<div class="shell"><header class="topbar"><div class="brand"><span class="brand-mark">N</span>Norsk Eventyr</div><div class="row"><span class="pill">${esc(state.level)}</span><span class="pill">${state.xp} XP</span></div></header>${content}${nav(active)}</div>`}
-function navigate(view,data){stopTimer();if(view==="home")renderHome();if(view==="course")renderCourse(data||state.level);if(view==="lesson")startLesson(data);if(view==="tests")renderTests();if(view==="test")startTest(data||state.level);if(view==="exam")renderExamHome();if(view==="examrun")startExam(data||"A1-A2");if(view==="progress")renderProgress();scrollTo({top:0,behavior:"smooth"})}
+function navigate(view,data){stopTimer();if(view==="home")renderHome();if(view==="course")renderCourse(data||state.level);if(view==="lesson")startLesson(data);if(view==="tests")renderTests();if(view==="test")startTest(data||state.level);if(view==="exam")renderExamHome();if(view==="examrun")startExam(data||"A1-A2");if(view==="progress")renderProgress();if(view==="teacher")startAdaptiveTeacher();scrollTo({top:0,behavior:"smooth"})}
 
 function renderHome(){
  const next=COURSE.find(x=>x.level===state.level&&!state.completed[x.id])||lessons(state.level)[0],last=state.examHistory.at(-1);
