@@ -62,4 +62,14 @@ const identitySensitiveSql=[
 ];
 assert(identitySensitiveSql.every(text=>!/@gmail\.com/i.test(text)),'public SQL must not hardcode a personal Gmail address');
 assert(read('migrations/20261005_growth_funnel.sql').includes("raw_app_meta_data")&&read('migrations/20261005_growth_funnel.sql').includes("ne_owner"),'owner authorization must use protected app metadata');
+const sourceExtensions=/\.(?:js|cjs|mjs|sql|md|html|css|json|ya?ml)$/i;
+function walk(dir){
+ return fs.readdirSync(dir,{withFileTypes:true}).flatMap(entry=>{
+  if(entry.name==='.git'||entry.name==='node_modules')return [];
+  const full=path.join(dir,entry.name);
+  return entry.isDirectory()?walk(full):[full];
+ });
+}
+const publicSourceFiles=walk(root).filter(file=>sourceExtensions.test(file));
+assert(publicSourceFiles.every(file=>!/@gmail\.com/i.test(fs.readFileSync(file,'utf8'))),'tracked public source must not contain personal Gmail addresses');
 console.log('Norsk Eventyr 7.4.0 admin dashboard checks: PASS');
