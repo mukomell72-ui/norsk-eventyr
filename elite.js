@@ -247,6 +247,13 @@
     m.lexicalCandidates={...(remote.lexicalCandidates||{})};for(const [k,v] of Object.entries(local.lexicalCandidates||{})){const r=m.lexicalCandidates[k];m.lexicalCandidates[k]=!r?v:{...r,...v,occurrences:Math.max(r.occurrences||0,v.occurrences||0),confidence:Math.max(r.confidence||0,v.confidence||0),firstSeen:[r.firstSeen,v.firstSeen].filter(Boolean).sort()[0],lastSeen:[r.lastSeen,v.lastSeen].filter(Boolean).sort().at(-1)}}
     m.lexicalCapture={...(remote.lexicalCapture||{}),...(local.lexicalCapture||{})};
     m.guidedJourney={...(remote.guidedJourney||{}),...(local.guidedJourney||{})};m.guidedJourney.lessonDates={...(remote.guidedJourney?.lessonDates||{}),...(local.guidedJourney?.lessonDates||{})};m.guidedJourney.reviewDates={...(remote.guidedJourney?.reviewDates||{}),...(local.guidedJourney?.reviewDates||{})};
+    m.learningV8={...(remote.learningV8||{}),...(local.learningV8||{})};
+    m.learningV8.skills={...(remote.learningV8?.skills||{})};for(const [k,v] of Object.entries(local.learningV8?.skills||{}))m.learningV8.skills[k]=Math.max(m.learningV8.skills[k]||0,v||0);
+    m.learningV8.modules={...(remote.learningV8?.modules||{}),...(local.learningV8?.modules||{})};
+    m.learningV8.reviews={...(remote.learningV8?.reviews||{}),...(local.learningV8?.reviews||{})};
+    m.learningV8.errorPatterns={...(remote.learningV8?.errorPatterns||{})};for(const [k,v] of Object.entries(local.learningV8?.errorPatterns||{}))m.learningV8.errorPatterns[k]=Math.max(m.learningV8.errorPatterns[k]||0,v||0);
+    const adaptiveAttempts=[...(remote.learningV8?.attempts||[]),...(local.learningV8?.attempts||[])],seenAdaptive=new Set();
+    m.learningV8.attempts=adaptiveAttempts.filter(x=>{const key=JSON.stringify([x?.date,x?.skill,x?.moduleId,x?.source,x?.score]);if(seenAdaptive.has(key))return false;seenAdaptive.add(key);return true}).sort((a,b)=>String(a?.date||"").localeCompare(String(b?.date||""))).slice(-500);
     m.story={...(remote.story||{}),...(local.story||{})};m.story.completed={...(remote.story?.completed||{}),...(local.story?.completed||{})};m.story.choices={...(remote.story?.choices||{}),...(local.story?.choices||{})};m.story.journal={...(remote.story?.journal||{}),...(local.story?.journal||{})};m.story.sideQuests={...(remote.story?.sideQuests||{}),...(local.story?.sideQuests||{})};m.story.stats={...(remote.story?.stats||{})};for(const [k,v] of Object.entries(local.story?.stats||{}))m.story.stats[k]=Math.max(m.story.stats[k]||0,v||0);
     for(const key of ["wordFavorites","chatThreads","chatMemories","generatedLessons"]){m[key]={...(remote[key]||{}),...(local[key]||{})};}
     m.elite={...(remote.elite||{}),...(local.elite||{})};
