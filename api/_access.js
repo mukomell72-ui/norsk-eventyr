@@ -34,7 +34,7 @@ export async function accessIdentity(req,res){
 export async function requireApproved(req,res){
  try{const identity=await accessIdentity(req,res);
   if(!identity){res.status(401).json({error:'LOGIN_REQUIRED',code:'LOGIN_REQUIRED'});return false}
-  if(identity.access.status!=='approved'){res.status(403).json({error:'APPROVAL_REQUIRED',code:'APPROVAL_REQUIRED'});return false}
+  if(identity.access.access_granted!==true){res.status(403).json({error:'APPROVAL_REQUIRED',code:'APPROVAL_REQUIRED'});return false}
   return true;
  }catch{res.status(503).json({error:'ACCESS_UNAVAILABLE',code:'ACCESS_UNAVAILABLE'});return false}
 }
