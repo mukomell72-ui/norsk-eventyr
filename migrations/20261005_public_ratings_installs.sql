@@ -137,7 +137,7 @@ declare
   req_status text;
   e public.norsk_eventyr_entitlements%rowtype;
   current_terms constant text := '2026-10-05-v1';
-  current_privacy constant text := '2026-10-05-v2';
+  current_privacy constant text := '2026-10-05-v1';
   granted boolean := false;
   effective_status text;
   remaining bigint := 0;
@@ -167,7 +167,7 @@ begin
     effective_status := req_status;
   elsif e.user_id is null
      or e.terms_version is distinct from current_terms
-     or e.privacy_version not in ('2026-10-05-v1','2026-10-05-v2')
+     or e.privacy_version is distinct from '2026-10-05-v1'
      or e.terms_accepted_at is null
      or e.privacy_accepted_at is null then
     effective_status := 'terms_required';
@@ -219,11 +219,11 @@ declare
   inviter uuid;
   code text;
   current_terms constant text := '2026-10-05-v1';
-  current_privacy constant text := '2026-10-05-v2';
+  current_privacy constant text := '2026-10-05-v1';
 begin
   select * into u from auth.users where id=auth.uid() and email_confirmed_at is not null;
   if u.id is null then raise exception 'LOGIN_REQUIRED'; end if;
-  if p_terms_version is distinct from current_terms or p_privacy_version not in ('2026-10-05-v1','2026-10-05-v2') then
+  if p_terms_version is distinct from current_terms or p_privacy_version is distinct from '2026-10-05-v1' then
     raise exception 'TERMS_VERSION_MISMATCH';
   end if;
 
