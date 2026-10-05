@@ -299,7 +299,7 @@ begin
     left join public.norsk_eventyr_entitlements e on e.user_id=u.id
     left join public.norsk_eventyr_access a on a.user_id=u.id
     left join public.norsk_eventyr_installs i on i.user_id=u.id
-    where lower(coalesce(u.email,'')) <> 'mukomell72@gmail.com'
+    where (coalesce(u.raw_app_meta_data,'{}'::jsonb)->>'ne_owner') is distinct from 'true'
       and (
         e.user_id is not null
         or a.user_id is not null
