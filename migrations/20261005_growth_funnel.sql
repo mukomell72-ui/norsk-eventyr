@@ -244,7 +244,7 @@ begin
     return jsonb_build_object(
       'status','approved','request_status','approved','access_granted',true,'owner',true,
       'user_id',u.id,'terms_required',false,'feedback_submitted',true,'feedback_prompt_due',false,
-      'terms_version',current_terms,'privacy_version',current_privacy
+      'terms_version',current_terms,'privacy_version',current_privacy,'accepted_privacy_version',current_privacy
     );
   end if;
 
@@ -275,7 +275,7 @@ begin
     'status',effective_status,'request_status',coalesce(req_status,'unrequested'),
     'access_granted',granted,'owner',false,'user_id',u.id,
     'terms_required',effective_status='terms_required','terms_version',current_terms,
-    'privacy_version',current_privacy,'trial_started_at',e.trial_started_at,
+    'privacy_version',current_privacy,'accepted_privacy_version',e.privacy_version,'trial_started_at',e.trial_started_at,
     'trial_ends_at',e.trial_ends_at,'trial_seconds_remaining',remaining,
     'referral_bonus_granted_at',e.referral_bonus_granted_at,
     'feedback_submitted',has_feedback,
