@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import handler from '../api/session.js';import {guard,createSession} from '../api/_guard.js';
+process.env.NE_LEGAL_CONTROLLER_NAME='QA Controller';
 let status='pending',owner=false,confirmed=true,down=false,rpcCalls=[];
 globalThis.fetch=async(url,options)=>{
  if(down)throw new Error('offline');
@@ -14,6 +15,7 @@ async function invoke(body,cookie){const res=response();await handler(request(bo
 assert.equal((await invoke({action:'status'},'')).code,401);
 assert.equal((await invoke({action:'feedback_list'})).code,403);
 assert.equal((await invoke({action:'status'})).data.status,'pending');
+assert.equal((await invoke({action:'legal_info'})).data.controller,'QA Controller');
 for(const action of ['list','decide'])assert.equal((await invoke({action,user_id:'11111111-1111-4111-8111-111111111111',status:'approved'})).code,403);
 assert(!rpcCalls.includes('ne_access_decide'));
 for(const state of ['pending','denied','revoked','unrequested','approved']){
