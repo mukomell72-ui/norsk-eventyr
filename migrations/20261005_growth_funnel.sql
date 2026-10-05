@@ -61,15 +61,17 @@ language plpgsql
 security definer
 set search_path = ''
 as $$
-declare total bigint;
+declare
+  total bigint;
+  visit_day date := (now() at time zone 'Europe/Oslo')::date;
 begin
   insert into public.norsk_eventyr_growth_daily(day,first_visits,updated_at)
-  values(current_date,1,now())
+  values(visit_day,1,now())
   on conflict(day) do update
     set first_visits=public.norsk_eventyr_growth_daily.first_visits+1,
         updated_at=now()
   returning first_visits into total;
-  return jsonb_build_object('ok',true,'counted',true,'day',current_date,'daily_total',total);
+  return jsonb_build_object('ok',true,'counted',true,'day',visit_day,'daily_total',total);
 end;
 $$;
 revoke all on function public.ne_growth_first_visit() from public;
@@ -85,6 +87,7 @@ declare
   uid uuid := auth.uid();
   changed boolean := false;
   days integer := 0;
+  activity_day date := (now() at time zone 'Europe/Oslo')::date;
 begin
   if uid is null or not exists(
     select 1 from auth.users where id=uid and email_confirmed_at is not null
@@ -92,10 +95,10 @@ begin
 
   update public.norsk_eventyr_entitlements
   set activity_days_count=activity_days_count+1,
-      last_activity_date=current_date,
+      last_activity_date=activity_day,
       updated_at=now()
   where user_id=uid
-    and last_activity_date is distinct from current_date
+    and last_activity_date is distinct from activity_day
   returning true,activity_days_count into changed,days;
 
   if not found then
@@ -153,7 +156,7 @@ begin
 
   select jsonb_build_object(
     'first_visits',coalesce((select sum(first_visits) from public.norsk_eventyr_growth_daily),0),
-    'first_visits_7d',coalesce((select sum(first_visits) from public.norsk_eventyr_growth_daily where day>=current_date-6),0),
+    'first_visits_7d',coalesce((select sum(first_visits) from public.norsk_eventyr_growth_daily where day>=(now() at time zone 'Europe/Oslo')::date-6),0),
     'registered',(select count(*) from auth.users u where public.ne_is_norsk_eventyr_user(u.id)),
     'confirmed',(select count(*) from auth.users u where u.email_confirmed_at is not null and public.ne_is_norsk_eventyr_user(u.id)),
     'trial_started',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.trial_started_at is not null and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
