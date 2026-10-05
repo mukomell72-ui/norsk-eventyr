@@ -226,6 +226,7 @@
     }
   };
 
+  const adaptiveRenderLesson=window.renderLesson,adaptiveLessonNext=window.lessonNext,adaptiveLessonChoice=window.lessonChoice,adaptiveCheckFree=window.checkFree,adaptiveFinishLesson=window.finishLesson;
   const oldNavigate=navigate;
   navigate=function(view,data){
     stopTimer();
@@ -303,12 +304,14 @@
     return '<article class="card"><div class="eyebrow">Аудирование</div><div class="notice"><b>AI-голос:</b> аудио синтезировано, это не запись реального человека.</div><div class="prompt">Прослушай и выбери точную фразу.</div><button class="btn" onclick="speakText(\''+escJs(l.phrase)+'\',.85)">▶ Прослушать</button><div class="choice-list">'+o.map((x,i)=>'<button class="choice" onclick="lessonChoice(this,'+i+','+c+',\''+escJs(l.ru)+'\')">'+esc(x)+'</button>').join("")+'</div><hr><div class="eyebrow">Речь и разборчивость</div><p class="muted">Повтори фразу вслух. Запись будет распознана и сравнена с образцом.</p><textarea id="pronText" class="input" placeholder="После записи здесь появится распознанный текст."></textarea><button id="pronBtn" class="btn secondary" style="margin-top:10px" onclick="toggleMic(\'pronText\',\''+escJs(l.phrase)+'\')">🎤 Повторить фразу</button><div id="pronFb"></div><div id="fb"></div></article>';
   }
   renderLesson=function(){
+    if(lessonSession?.lesson?._adaptive&&typeof adaptiveRenderLesson==="function")return adaptiveRenderLesson();
     const s=lessonSession,l=s.lesson,n=["Диалог","Грамматика","Словарь","Аудирование","Чтение","Письмо","Речь"];let b="";
     if(s.step===0)b=lessonIntro(l);if(s.step===1)b=grammarEx(l);if(s.step===2)b=vocabEx(l);if(s.step===3)b=listenExV3(l);if(s.step===4)b=readEx(l);if(s.step===5)b=freeEx(l,"writing");if(s.step===6)b=freeEx(l,"speaking");
     shell('<div class="screen-head"><button class="back" onclick="navigate(\'course\',\''+l.level+'\')">←</button><div><div class="eyebrow">'+l.level+' · '+esc(l.title)+'</div><h2 style="margin:0">'+n[s.step]+' · '+(s.step+1)+'/7</h2></div></div><div class="progress"><i style="width:'+pct(s.step,7)+'%"></i></div><section class="exercise">'+b+'</section>',"course");
   };
-  lessonNext=function(xp=0){state.xp+=xp;saveState();lessonSession.step++;lessonSession.locked=false;if(lessonSession.step>6)return finishLesson();renderLesson()};
-  lessonChoice=function(btn,i,c,note){
+  lessonNext=function(xp=0){if(lessonSession?.lesson?._adaptive&&typeof adaptiveLessonNext==="function")return adaptiveLessonNext(xp);state.xp+=xp;saveState();lessonSession.step++;lessonSession.locked=false;if(lessonSession.step>6)return finishLesson();renderLesson()};
+  lessonChoice=function(btn,i,c,note,skillHint=""){
+    if(lessonSession?.lesson?._adaptive&&typeof adaptiveLessonChoice==="function")return adaptiveLessonChoice(btn,i,c,note,skillHint);
     if(lessonSession.locked)return;const ok=i===c;
     const skill=lessonSession.step===2?"vocabulary":lessonSession.step===3?"listening":"reading";
     if(ok){
@@ -321,6 +324,7 @@
     lessonSession.locked=false;
   };
   checkFree=async function(mode){
+    if(lessonSession?.lesson?._adaptive&&typeof adaptiveCheckFree==="function")return adaptiveCheckFree(mode);
     const s=lessonSession,a=document.getElementById("freeAnswer")?.value.trim();if(!a||!s||s.locked)return;s.locked=true;const b=document.getElementById("freeFb"),l=s.lesson,p=mode==="speaking"?l.speaking:l.writing;
     b.innerHTML='<div class="feedback">Проверяю…</div>';const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode});
     if(!b.isConnected||lessonSession!==s){s.locked=false;return}
@@ -336,6 +340,7 @@
     document.getElementById("freeAnswer")?.focus();
   };
   finishLesson=function(){
+    if(lessonSession?.lesson?._adaptive&&typeof adaptiveFinishLesson==="function")return adaptiveFinishLesson();
     const l=lessonSession.lesson,first=l.topicId?!state.completedTopics[l.topicId]:!state.completed[l.id];
     if(l.topicId)state.completedTopics[l.topicId]=true;else state.completed[l.id]=true;
     seedSrs(l);if(first)state.xp+=40;
