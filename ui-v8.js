@@ -31,6 +31,17 @@
     if(content.includes('fsi-audio-list-v63'))content='<div class="listening-scene-v8"><h2>Слушай настоящий норвежский</h2><p>Выбери запись, послушай и перескажи смысл своими словами.</p></div>'+content;
     if(content.includes('lesson-head-v6'))content='<div class="lesson-scene-v8"><span>Nora · учимся в ситуации</span></div>'+content;
     baseShell(content,active);
+    const topbar=document.querySelector('.topbar-v7'),status=document.querySelector('.status-v7');
+    if(topbar&&status&&!topbar.querySelector('.share-top-v8')){
+      const share=document.createElement('button');
+      share.className='share-top-v8';
+      share.type='button';
+      share.textContent='↗';
+      share.title='Поделиться Norsk Eventyr';
+      share.setAttribute('aria-label','Поделиться Norsk Eventyr');
+      share.onclick=event=>{event.stopPropagation();v8ShareApp()};
+      topbar.insertBefore(share,status);
+    }
     const ownerBrand=document.querySelector('.brand-v7');
     if(ownerBrand&&window.NEAccess?.isOwner?.()){
       ownerBrand.onclick=()=>window.NEAccess.panel();
@@ -44,7 +55,7 @@
     }
     document.querySelector('.shell-v7')?.setAttribute('data-screen',route);
     document.querySelectorAll('.dock-v7 button').forEach(button=>button.classList.toggle('active',button.getAttribute('onclick')==="navigate('"+(['welcome','grammarlab','exam','settings','dictionary','learnedwords','progress','listeninglab'].includes(route)?'hub':route)+"')"));
-    const version=document.querySelector('.brand-v7 b');if(version)version.textContent='7.3.3';
+    const version=document.querySelector('.brand-v7 b');if(version)version.textContent='7.3.4';
   };
   function heading(title,subtitle=''){
     return '<div class="screen-head"><button class="back" onclick="navigate(\'hub\')" aria-label="Назад">←</button><div><h2>'+safe(title)+'</h2><p class="muted">'+safe(subtitle)+'</p></div></div>';
@@ -55,7 +66,7 @@
       const info=await window.NEAccess.shareInfo();
       if(info?.referral_code)url+='?ref='+encodeURIComponent(info.referral_code);
     }catch{}
-    const shareData={title:'Norsk Eventyr',text:'Norsk Eventyr — норвежский A1–B2 с Норой. После регистрации доступен 5-дневный пробный период.',url};
+    const shareData={title:'Norsk Eventyr',text:'Открой Norsk Eventyr по этой ссылке. Укажи свою почту, подтверди её письмом и получи 5 дней бесплатного доступа.',url};
     try{
       if(navigator.share){await navigator.share(shareData);return}
       await navigator.clipboard.writeText(url);alert('Ссылка на Norsk Eventyr скопирована.');
