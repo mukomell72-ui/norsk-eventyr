@@ -36,7 +36,7 @@ function recordAttempt(state,input={}){
  const m=moduleState(p,id),mo=Number.isFinite(m.skills[skill])?m.skills[skill]:old;
  m.skills[skill]=clamp(mo*(1-weight)+score*weight);m.attempts=(m.attempts||0)+1;m.lastSeen=dayKey();
  if(input.transfer&&score>=80)m.transferPasses=(m.transferPasses||0)+1;
- const vals=Object.values(m.skills).filter(Number.isFinite);m.mastery=vals.length?clamp(vals.reduce((a,b)=>a+b,0)/vals.length):0;
+ const vals=ALL.map(s=>m.skills[s]).filter(Number.isFinite),avg=vals.length?clamp(vals.reduce((a,b)=>a+b,0)/vals.length):0,min=vals.length?Math.min(...vals):0;m.mastery=vals.length===ALL.length&&min>=65?avg:Math.min(69,avg);
  const tag=String(input.errorTag||'').slice(0,50);if(tag&&score<80)p.errorPatterns[tag]=(p.errorPatterns[tag]||0)+1;
  p.attempts.push({date:new Date().toISOString(),level,skill,score,moduleId:id,source:String(input.source||'practice').slice(0,40),errorTag:tag,transfer:!!input.transfer});
  p.attempts=p.attempts.slice(-500);
@@ -107,7 +107,7 @@ async function teacherStartMission(){
  try{
   const r=typeof neApiPost==='function'?await neApiPost('/api/generate',payload):await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(async x=>({ok:x.ok,data:await x.json()}));
   if(!r.ok||!r.data)throw new Error(r.error||'GENERATION');
-  const lesson={...r.data,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,title:r.data.title||m.title,_adaptive:{moduleId:m.id,skill:mission.skill,kind:mission.kind,reviewKey:mission.reviewKey||'',canDo:m.canDo}};
+  const lesson={...r.data,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,title:r.data.title||m.title,grammar:r.data.grammarRuleRu||m.grammar,_adaptive:{moduleId:m.id,skill:mission.skill,kind:mission.kind,reviewKey:mission.reviewKey||'',canDo:m.canDo,transfer:mission.kind==='review'||/transfer|capstone/.test(m.id)}};
   state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;saveState();lessonSession={lesson,step:0,locked:false};renderLesson();
  }catch(e){shell('<section class="card"><h2>Занятие не создано</h2><p class="muted">Не засчитываю ничего без полноценного задания. Проверь соединение и повтори.</p><button class="btn" onclick="startAdaptiveTeacher()">Назад</button></section>','home')}
 }
