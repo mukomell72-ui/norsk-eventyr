@@ -9,11 +9,21 @@ function dayKey(date=new Date()){return date.toLocaleDateString('sv-SE')}
 function addDays(iso,days){const d=iso?new Date(iso+'T12:00:00'):new Date();d.setDate(d.getDate()+days);return d.toLocaleDateString('sv-SE')}
 function ensure(state){
  if(!state.learningV8||typeof state.learningV8!=='object'||Array.isArray(state.learningV8))state.learningV8={};
- const p=state.learningV8;
- p.version='8.0-method-1';p.skills=p.skills||{};p.modules=p.modules||{};p.reviews=p.reviews||{};p.errorPatterns=p.errorPatterns||{};p.assessments=Array.isArray(p.assessments)?p.assessments:[];p.attempts=Array.isArray(p.attempts)?p.attempts:[];
- for(const s of ALL)if(!Number.isFinite(p.skills[s]))p.skills[s]=Number.isFinite(state.skills?.[s])?clamp(state.skills[s]):35;
+ const p=state.learningV8,current=['A1','A2','B1','B2'].includes(state.level)?state.level:'A1';
+ p.version='8.0-method-2';p.skills=p.skills||{};p.levelSkills=p.levelSkills||{};p.modules=p.modules||{};p.reviews=p.reviews||{};p.errorPatterns=p.errorPatterns||{};p.assessments=Array.isArray(p.assessments)?p.assessments:[];p.attempts=Array.isArray(p.attempts)?p.attempts:[];
+ for(const level of ['A1','A2','B1','B2']){
+  p.levelSkills[level]=p.levelSkills[level]||{};
+  for(const s of ALL){
+   if(!Number.isFinite(p.levelSkills[level][s])){
+    const seed=level===current?(Number.isFinite(p.skills[s])?p.skills[s]:Number.isFinite(state.skills?.[s])?state.skills[s]:35):35;
+    p.levelSkills[level][s]=clamp(seed);
+   }
+  }
+ }
+ p.skills={...p.levelSkills[current]};
  return p;
 }
+function levelProfile(p,level){return p.levelSkills?.[level]||Object.fromEntries(ALL.map(s=>[s,35]))}
 function moduleState(p,id){return p.modules[id]||(p.modules[id]={skills:{},attempts:0,mastery:0,lastSeen:null,transferPasses:0})}
 function skillForStep(step,mode){
  if(mode==='writing'||mode==='speaking')return mode;
