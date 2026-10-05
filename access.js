@@ -45,7 +45,7 @@
   document.getElementById('accessLogin').onsubmit=e=>{e.preventDefault();act(async()=>{
    const email=document.getElementById('accessEmail').value.trim().toLowerCase(),password=document.getElementById('accessPassword').value;
    if(/@gmail\.con$/i.test(email)){message('Проверь адрес: вероятно, нужно gmail.com, а не gmail.con.');return}
-   const out=await call(register?'register':'login',{email,password});document.getElementById('accessPassword').value='';
+   const out=await call(register?'register':'login',{email,password,...(register&&pendingReferral()?{referral_code:pendingReferral()}:{})});document.getElementById('accessPassword').value='';
    if(out.confirmEmail){confirmationEmail=email;confirmationPending(email)}else await status()
   })};
  }
