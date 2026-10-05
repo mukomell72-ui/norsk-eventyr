@@ -85,7 +85,7 @@ begin
     from latest
     where btrim(coalesce(comment,''))<>''
     order by created_at desc,id desc
-    limit 50
+    limit 100
   ) x;
 
   return jsonb_build_object('items',items,'count',total_count,'average',average_rating);
