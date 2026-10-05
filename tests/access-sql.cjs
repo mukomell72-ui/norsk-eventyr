@@ -2,10 +2,13 @@ const assert=require('assert/strict'),fs=require('fs');
 const {PGlite}=require(process.env.NE_PGLITE_PATH||'@electric-sql/pglite');
 (async()=>{
  const db=new PGlite();await db.exec(`create role anon;create role authenticated;create schema auth;
- create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz);
+ create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,raw_app_meta_data jsonb not null default '{}'::jsonb);
  create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.sub',true),'')::uuid$$;
  grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;
- insert into auth.users values('11111111-1111-4111-8111-111111111111','mukomell72@gmail.com',now()),('22222222-2222-4222-8222-222222222222','student@example.com',now()),('33333333-3333-4333-8333-333333333333','unconfirmed@example.com',null);
+ insert into auth.users values
+ ('11111111-1111-4111-8111-111111111111','owner@example.test',now(),'{"ne_owner":true}'::jsonb),
+ ('22222222-2222-4222-8222-222222222222','student@example.com',now(),'{}'::jsonb),
+ ('33333333-3333-4333-8333-333333333333','unconfirmed@example.com',null,'{}'::jsonb);
  `);await db.exec(fs.readFileSync(require('path').join(__dirname,'../migrations/20261003_access_approval.sql'),'utf8'));
  await db.exec(fs.readFileSync(require('path').join(__dirname,'../migrations/20261004_user_feedback.sql'),'utf8'));
  const owner='11111111-1111-4111-8111-111111111111',student='22222222-2222-4222-8222-222222222222';
