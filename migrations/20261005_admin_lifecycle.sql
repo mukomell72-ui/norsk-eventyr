@@ -352,6 +352,31 @@ join auth.users u on u.id=a.user_id
 where lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
 on conflict(event_key) do nothing;
 
+insert into public.norsk_eventyr_lifecycle_events(user_id,event_type,event_key,occurred_at,source,metadata)
+select a.user_id,'access_'||a.status,
+       'access_backfill:'||a.user_id::text||':'||a.status,
+       a.decided_at,'owner',jsonb_build_object('status',a.status)
+from public.norsk_eventyr_access a
+join auth.users u on u.id=a.user_id
+where a.decided_at is not null and a.status in ('approved','denied','revoked')
+  and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+on conflict(event_key) do nothing;
+
+insert into public.norsk_eventyr_lifecycle_events(user_id,event_type,event_key,occurred_at,source,metadata)
+select e.user_id,'active_3_days','active_3_days:'||e.user_id::text,coalesce(e.updated_at,now()),'system',
+       jsonb_build_object('activity_days_count',e.activity_days_count)
+from public.norsk_eventyr_entitlements e
+join auth.users u on u.id=e.user_id
+where e.activity_days_count>=3 and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+on conflict(event_key) do nothing;
+
+insert into public.norsk_eventyr_lifecycle_events(user_id,event_type,event_key,occurred_at,source,metadata)
+select e.user_id,'first_paid','first_paid:'||e.user_id::text,e.first_paid_at,'payment','{}'::jsonb
+from public.norsk_eventyr_entitlements e
+join auth.users u on u.id=e.user_id
+where e.first_paid_at is not null and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+on conflict(event_key) do nothing;
+
 create or replace function public.ne_lifecycle_touch()
 returns jsonb
 language plpgsql
