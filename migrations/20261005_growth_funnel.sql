@@ -2,6 +2,26 @@
 -- Phase 1 is backward compatible with older clients: privacy v1, v2 and v3 are accepted during transition.
 -- Strict privacy v3 enforcement remains deferred until active older clients have upgraded.
 
+-- Owner authorization is based on protected Auth app metadata, never on a public identity literal.
+-- Release preflight must privately set raw_app_meta_data.ne_owner=true on the confirmed owner account.
+create or replace function public.ne_access_owner()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $
+  select exists(
+    select 1
+    from auth.users u
+    where u.id=auth.uid()
+      and u.email_confirmed_at is not null
+      and coalesce(u.raw_app_meta_data,'{}'::jsonb)->>'ne_owner'='true'
+  );
+$;
+revoke all on function public.ne_access_owner() from public,anon,authenticated;
+
+
 alter table public.norsk_eventyr_entitlements
   add column if not exists activity_days_count integer not null default 0,
   add column if not exists last_activity_date date,
@@ -42,7 +62,7 @@ as $$
     select 1
     from auth.users u
     where u.id=p_user_id
-      and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+      and (coalesce(u.raw_app_meta_data,'{}'::jsonb)->>'ne_owner') is distinct from 'true'
       and (
         coalesce(u.raw_user_meta_data,'{}'::jsonb)->>'ne_app'='norsk_eventyr'
         or coalesce(u.raw_user_meta_data,'{}'::jsonb) ? 'ne_utm_source'
@@ -160,12 +180,12 @@ begin
     'first_visits_7d',coalesce((select sum(first_visits) from public.norsk_eventyr_growth_daily where day>=(now() at time zone 'Europe/Oslo')::date-6),0),
     'registered',(select count(*) from auth.users u where public.ne_is_norsk_eventyr_user(u.id)),
     'confirmed',(select count(*) from auth.users u where u.email_confirmed_at is not null and public.ne_is_norsk_eventyr_user(u.id)),
-    'trial_started',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.trial_started_at is not null and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
-    'installed',(select count(*) from public.norsk_eventyr_installs i join auth.users u on u.id=i.user_id where lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
-    'active_3_days',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.activity_days_count>=3 and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
-    'trial_finished',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.trial_ends_at<=now() and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
-    'purchase_interest',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.purchase_interest_at is not null and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
-    'paid',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.first_paid_at is not null and lower(coalesce(u.email,''))<>'mukomell72@gmail.com')
+    'trial_started',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.trial_started_at is not null and (coalesce(u.raw_app_meta_data,'{}'::jsonb)->>'ne_owner') is distinct from 'true'),
+    'installed',(select count(*) from public.norsk_eventyr_installs i join auth.users u on u.id=i.user_id where (coalesce(u.raw_app_meta_data,'{}'::jsonb)->>'ne_owner') is distinct from 'true'),
+    'active_3_days',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.activity_days_count>=3 and (coalesce(u.raw_app_meta_data,'{}'::jsonb)->>'ne_owner') is distinct from 'true'),
+    'trial_finished',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.trial_ends_at<=now() and (coalesce(u.raw_app_meta_data,'{}'::jsonb)->>'ne_owner') is distinct from 'true'),
+    'purchase_interest',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.purchase_interest_at is not null and (coalesce(u.raw_app_meta_data,'{}'::jsonb)->>'ne_owner') is distinct from 'true'),
+    'paid',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.first_paid_at is not null and (coalesce(u.raw_app_meta_data,'{}'::jsonb)->>'ne_owner') is distinct from 'true')
   ) into stages;
 
   select coalesce(jsonb_agg(jsonb_build_object(
