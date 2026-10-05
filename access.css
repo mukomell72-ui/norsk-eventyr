@@ -31,3 +31,15 @@
 .owner-error-card p{margin:7px 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .owner-error-card small{color:#9fb3c2;overflow-wrap:anywhere}
 @media(max-width:520px){.owner-metrics{grid-template-columns:1fr}}
+
+.purchase-interest{margin:18px 0;padding:14px;border:1px solid #36556a;border-radius:16px;background:#0b2030}
+.purchase-interest h2{margin-top:0}
+.growth-funnel{display:grid;gap:10px;margin:14px 0}
+.growth-stage{display:grid;gap:6px}
+.growth-stage-top{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px}
+.growth-stage-top strong{font-size:15px}
+.growth-track{height:10px;border-radius:999px;background:#153447;overflow:hidden}
+.growth-fill{height:100%;border-radius:inherit;background:currentColor;opacity:.75;min-width:0}
+.growth-sources{display:grid;gap:8px;margin-top:10px}
+.growth-source-row{display:grid;gap:4px;padding:10px 12px;border:1px solid #36556a;border-radius:12px;background:#0b2030}
+.growth-source-row span{font-size:12px;color:#b8cbd6;line-height:1.45}
