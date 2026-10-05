@@ -8,3 +8,9 @@
 .access-gate .row{flex-wrap:wrap;gap:8px}
 #accessMessage:empty{display:none}
 #accessMessage{padding:12px;background:#123749;border-radius:12px}
+
+.access-terms{max-height:42vh;overflow:auto;margin:16px 0;padding:14px;border:1px solid #36556a;border-radius:14px;background:#0b2030}
+.access-terms h2{font-size:1rem;margin:12px 0 6px}.access-terms h2:first-child{margin-top:0}.access-terms p{font-size:13px;line-height:1.5;color:#d2e0e8}
+.access-gate .access-check{display:grid;grid-template-columns:24px 1fr;align-items:start;gap:10px;margin:12px 0}
+.access-gate .access-check input{width:20px;height:20px;margin:1px 0 0;padding:0}
+.access-gate .access-check span{font-size:13px;line-height:1.45}
