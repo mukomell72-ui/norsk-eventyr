@@ -44,7 +44,8 @@ as $$
     where u.id=p_user_id
       and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
       and (
-        coalesce(u.raw_user_meta_data,'{}'::jsonb) ? 'ne_utm_source'
+        coalesce(u.raw_user_meta_data,'{}'::jsonb)->>'ne_app'='norsk_eventyr'
+        or coalesce(u.raw_user_meta_data,'{}'::jsonb) ? 'ne_utm_source'
         or coalesce(u.raw_user_meta_data,'{}'::jsonb) ? 'ne_referral_code'
         or exists(select 1 from public.norsk_eventyr_entitlements e where e.user_id=u.id)
         or exists(select 1 from public.norsk_eventyr_access a where a.user_id=u.id)
