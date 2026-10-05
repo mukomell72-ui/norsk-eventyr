@@ -17,6 +17,10 @@ export async function accessRpc(token,name,params={}){
  const response=await fetch(URL+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(params),signal:AbortSignal.timeout(10000)});
  if(!response.ok)throw new Error('ACCESS_UNAVAILABLE');return response.json();
 }
+export async function publicRpc(name,params={}){
+ const response=await fetch(URL+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify(params),signal:AbortSignal.timeout(10000)});
+ if(!response.ok)throw new Error('ACCESS_UNAVAILABLE');return response.json();
+}
 export async function accessIdentity(req,res){
  const c=cookies(req);let token=c.ne_access;
  if(!token&&!c.ne_refresh)return null;
