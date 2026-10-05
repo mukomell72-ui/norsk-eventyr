@@ -21,6 +21,7 @@ Included in this single release:
 - feedback moderation and error view;
 - backup v3;
 - privacy notice v3 with transition compatibility.
+- owner identity minimized in the normal UI; personal name appears only inside the legal/privacy disclosure where identification is required.
 
 ## Owner dashboard
 
