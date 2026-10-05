@@ -29,11 +29,12 @@ assert(admin.includes("call('owner_events'"),'events feed call missing');
 assert(admin.includes('Оплачено до'),'paid-until UI missing');
 assert(admin.includes('Следующая оплата'),'next-payment UI missing');
 assert(css.includes('.admin-nav'),'responsive admin navigation styles missing');
-const ownerIdentity=['Petro','Vysochinenko'].join(' ');
 const publicSurfaces=[admin,index,read('feedback.js'),read('ui-v8.js')];
-assert(publicSurfaces.every(text=>!text.includes(ownerIdentity)),'owner identity must not appear in normal/public application surfaces');
-assert(access.split(ownerIdentity).length-1===1,'owner identity should appear exactly once in the legal/privacy disclosure');
 assert(access.includes('Юридическая информация'),'legal identity disclosure must be explicitly labeled');
+assert(access.includes("call('legal_info')"),'legal identity must be loaded only on demand');
+assert(handler.includes('NE_LEGAL_CONTROLLER_NAME'),'legal identity must come from protected server configuration');
+assert(!handler.includes('controller:\''),'legal identity must not be hardcoded in the handler');
+assert(publicSurfaces.every(text=>!text.includes('NE_LEGAL_CONTROLLER_NAME')),'server-only legal configuration must not leak into public surfaces');
 
 for(const action of ['owner_admin_overview','owner_events','owner_payments','owner_user_detail']){
  assert(handler.includes("'"+action+"'"),action+' API action missing');
