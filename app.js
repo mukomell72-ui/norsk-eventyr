@@ -97,7 +97,29 @@ async function checkDialogue(){
  s.locked=false;b.innerHTML='<div class="feedback bad"><b>Исправь одну главную вещь и ответь снова</b><br>'+esc(d.explanation_ru||"Исправь ответ и проверь снова.")+(d.micro_rule_ru?'<br><b>Правило:</b> '+esc(d.micro_rule_ru):"")+(d.corrected?'<br><b>Естественнее:</b> '+esc(d.corrected):"")+(d.retry_prompt_no?'<br><small>После исправления попробуй также: '+esc(d.retry_prompt_no)+'</small>':"")+'</div>';input.focus();
 }
 
-function vocabEx(l){const t=l.vocab[0],pool=COURSE.filter(x=>x.level===l.level).flatMap(x=>x.vocab.map(v=>v[1])).filter(x=>x!==t[1]),o=shuffle([t[1],...shuffle(pool).slice(0,3)]),c=o.indexOf(t[1]);return `<article class="card"><div class="eyebrow">Словарь</div><div class="prompt">Что значит «${esc(t[0])}»?</div><div class="choice-list">${o.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${c},'${escJs(t[0]+" = "+t[1])}','vocabulary')">${esc(x)}</button>`).join("")}</div><div id="fb"></div></article>`}
+function adaptiveVocabItems(l){
+ if(!lessonSession.vocabItems)lessonSession.vocabItems=(l.vocab||[]).slice(0,3);
+ return lessonSession.vocabItems;
+}
+function normalizeVocabAnswer(s=""){return String(s).normalize("NFKC").toLowerCase().trim().replace(/[.!?,;:]+$/,"").replace(/\s+/g," ")}
+function vocabEx(l){
+ if(l?._adaptive){
+  const items=adaptiveVocabItems(l),idx=Math.min(lessonSession.vocabIndex||0,Math.max(0,items.length-1)),t=items[idx]||["",""];
+  return `<article class="card"><div class="eyebrow">Словарь · активное вспоминание</div><div class="metric"><span>Слово</span><strong>${idx+1}/${items.length}</strong></div><div class="prompt">Напиши по-норвежски: «${esc(t[1])}»</div><input id="adaptiveVocabAnswer" class="input" autocomplete="off" autocapitalize="none" placeholder="Норвежское слово или выражение"><div class="row" style="margin-top:10px"><button class="btn" onclick="checkAdaptiveVocab()">Проверить</button></div><div id="fb"></div><small class="muted">Без вариантов ответа: сначала попробуй вспомнить сам.</small></article>`;
+ }
+ const t=l.vocab[0],pool=COURSE.filter(x=>x.level===l.level).flatMap(x=>x.vocab.map(v=>v[1])).filter(x=>x!==t[1]),o=shuffle([t[1],...shuffle(pool).slice(0,3)]),c=o.indexOf(t[1]);return `<article class="card"><div class="eyebrow">Словарь</div><div class="prompt">Что значит «${esc(t[0])}»?</div><div class="choice-list">${o.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${c},'${escJs(t[0]+" = "+t[1])}','vocabulary')">${esc(x)}</button>`).join("")}</div><div id="fb"></div></article>`
+}
+function checkAdaptiveVocab(){
+ const l=lessonSession?.lesson;if(!l?._adaptive||lessonSession.locked)return;
+ const items=adaptiveVocabItems(l),idx=lessonSession.vocabIndex||0,t=items[idx];if(!t)return lessonNext(5);
+ const input=document.getElementById("adaptiveVocabAnswer"),answer=input?.value||"";if(!answer.trim())return;
+ const ok=normalizeVocabAnswer(answer)===normalizeVocabAnswer(t[0]);
+ if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill:"vocabulary",score:ok?100:30,moduleId:l._adaptive.moduleId||l.id,source:"vocab_recall",transfer:!!l._adaptive.transfer,reviewKey:l._adaptive.reviewKey||""});saveState()}
+ const fb=document.getElementById("fb");
+ if(ok){fb.innerHTML='<div class="feedback good"><b>✓ Вспомнил сам</b></div>'}else{fb.innerHTML='<div class="feedback bad"><b>Нужно закрепить.</b> Правильно: '+esc(t[0])+'</div>'}
+ lessonSession.locked=true;
+ neAdvance(()=>{lessonSession.locked=false;lessonSession.vocabIndex=idx+1;if(lessonSession.vocabIndex<items.length)renderLesson();else{lessonSession.vocabIndex=0;lessonSession.vocabItems=null;lessonNext(ok?12:6)}},ok?420:850);
+}
 function grammarEx(l){const c=Number(l.grammarCorrect)||0;return `<article class="card"><div class="eyebrow">Грамматика · применение</div><div class="prompt">${esc(l.grammarQ||l.grammarTitle||"Выбери естественный вариант.")}</div><div class="choice-list">${l.grammarOpts.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${c},'${escJs(l.grammarRuleRu||l.grammar||"Проверь правило и попробуй снова.")}','grammar')">${esc(x)}</button>`).join("")}</div><details class="grammar-fold-v6"><summary>Короткое правило</summary><p>${esc(l.grammarRuleRu||l.grammar||"")}</p></details><div id="fb"></div></article>`}
 function listenEx(l){
  if(l?._adaptive&&typeof l.listeningAudio==="string"&&Array.isArray(l.listeningOpts)&&l.listeningOpts.length===4){
