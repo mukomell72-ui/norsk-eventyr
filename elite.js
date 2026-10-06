@@ -233,8 +233,21 @@
   function b64url(bytes){let s="";bytes.forEach(b=>s+=String.fromCharCode(b));return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")}
   async function rpc(name,body){const r=await neApiPost("/api/cloud",{name,params:body});if(!r.ok)throw new Error(r.error||"CLOUD");return r.data}
   function mergeHist(a=[],b=[]){const m=new Map();[...a,...b].forEach(x=>m.set(JSON.stringify([x.date,x.level,x.band,x.part,x.score]),x));return [...m.values()].sort((x,y)=>String(x.date||"").localeCompare(String(y.date||""))).slice(-100)}
+  function newestPlacement(a,b){
+    const valid=x=>x&&typeof x==="object"&&["A1","A2","B1","B2"].includes(x.recommendedStart||x.level);
+    if(!valid(a))return valid(b)?b:null;if(!valid(b))return a;
+    return String(a.date||"")>=String(b.date||"")?a:b;
+  }
+  function resolveStartLevel(local,remote,placement){
+    const levels=["A1","A2","B1","B2"],explicit=placement?.recommendedStart||placement?.level;
+    if(levels.includes(explicit))return explicit;
+    const vals=[local?.learningV8?.startLevel,remote?.learningV8?.startLevel].filter(x=>levels.includes(x));
+    if(!vals.length)return levels.includes(local?.level)?local.level:"A1";
+    return vals.sort((a,b)=>levels.indexOf(a)-levels.indexOf(b))[0];
+  }
   function mergeState(local,remote){
     const m={...remote,...local};m.xp=Math.max(local.xp||0,remote.xp||0);m.streak=Math.max(local.streak||0,remote.streak||0);
+    m.placement=newestPlacement(local.placement,remote.placement)||local.placement||remote.placement||null;
     m.completed={...(remote.completed||{}),...(local.completed||{})};m.completedTopics={...(remote.completedTopics||{}),...(local.completedTopics||{})};
     m.errors={...(remote.errors||{})};for(const [k,v] of Object.entries(local.errors||{}))m.errors[k]=Math.max(m.errors[k]||0,v||0);
     m.skills={...(remote.skills||{})};for(const [k,v] of Object.entries(local.skills||{}))m.skills[k]=Math.max(m.skills[k]||0,v||0);
@@ -243,7 +256,7 @@
     m.lexicalCandidates={...(remote.lexicalCandidates||{})};for(const [k,v] of Object.entries(local.lexicalCandidates||{})){const r=m.lexicalCandidates[k];m.lexicalCandidates[k]=!r?v:{...r,...v,occurrences:Math.max(r.occurrences||0,v.occurrences||0),confidence:Math.max(r.confidence||0,v.confidence||0),firstSeen:[r.firstSeen,v.firstSeen].filter(Boolean).sort()[0],lastSeen:[r.lastSeen,v.lastSeen].filter(Boolean).sort().at(-1)}}
     m.lexicalCapture={...(remote.lexicalCapture||{}),...(local.lexicalCapture||{})};
     m.guidedJourney={...(remote.guidedJourney||{}),...(local.guidedJourney||{})};m.guidedJourney.lessonDates={...(remote.guidedJourney?.lessonDates||{}),...(local.guidedJourney?.lessonDates||{})};m.guidedJourney.reviewDates={...(remote.guidedJourney?.reviewDates||{}),...(local.guidedJourney?.reviewDates||{})};
-    m.learningV8={...(remote.learningV8||{}),...(local.learningV8||{})};
+    m.learningV8={...(remote.learningV8||{}),...(local.learningV8||{})};m.learningV8.startLevel=resolveStartLevel(local,remote,m.placement);
     m.learningV8.skills={...(remote.learningV8?.skills||{})};for(const [k,v] of Object.entries(local.learningV8?.skills||{}))m.learningV8.skills[k]=Math.max(m.learningV8.skills[k]||0,v||0);
     m.learningV8.levelSkills={};for(const level of ["A1","A2","B1","B2"]){m.learningV8.levelSkills[level]={...(remote.learningV8?.levelSkills?.[level]||{})};for(const [k,v] of Object.entries(local.learningV8?.levelSkills?.[level]||{}))m.learningV8.levelSkills[level][k]=Math.max(m.learningV8.levelSkills[level][k]||0,v||0)}
     m.learningV8.modules={...(remote.learningV8?.modules||{}),...(local.learningV8?.modules||{})};
