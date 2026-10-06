@@ -73,7 +73,7 @@ assert(reviewMission.kind==='review'&&reviewMission.level==='A2','due A2 review 
 A.recordAttempt(reviewState,{level:'A2',skill:'listening',score:95,moduleId:reviewMission.module.id,source:'qa_review',reviewKey:reviewMission.reviewKey});
 assert(!A.dueReviews(reviewState).some(x=>x.key===reviewMission.reviewKey),'completed cross-module review remained permanently overdue');
 
-const app=read('app.js'),access=read('access.js'),sw=read('sw.js'),generate=read('api/generate.js'),evaluate=read('api/evaluate.js'),uiV7=read('ui-v7.js');
+const app=read('app.js'),access=read('access.js'),sw=read('sw.js'),generate=read('api/generate.js'),evaluate=read('api/evaluate.js'),uiV7=read('ui-v7.js'),elite=read('elite.js');
 assert(app.includes('view==="teacher"')&&app.includes('startAdaptiveTeacher'),'teacher route missing');
 assert(app.includes('"learningV8"'),'adaptive state validation missing');
 assert(app.includes('previousLevel:state.level')&&!app.includes('function startTest(level){touchStudy();state.level=level'),'starting a diagnostic must not switch the active course level');
@@ -98,6 +98,9 @@ assert(uiV7.includes('teacherStartModule'),'course modules must launch through t
 assert(uiV7.includes('const courseLevel=level&&LEVELS_V7.includes(level)?level:state.level'),'browsing a course level must use a local view level');
 assert(!uiV7.includes('if(level&&LEVELS_V7.includes(level))state.level=level'),'course tab browsing must not change the active learning level');
 assert(uiV7.includes('Дополнительная практика — не влияет сама по себе на прохождение уровня'),'legacy practice must be visually separated from mastery');
+assert(elite.includes('function resolveStartLevel'),'cloud merge must resolve the mastery starting level explicitly');
+assert(elite.includes('m.placement=newestPlacement'),'cloud merge must choose placement by recency');
+assert(elite.includes('m.learningV8.startLevel=resolveStartLevel'),'cloud merge must not blindly overwrite startLevel');
 assert(!v3.includes('if(key==="level")state.level=value'),'legacy chat settings must not switch the course level');
 assert(!uiV7.includes('if(k==="level")state.level=v'),'active chat settings must not switch the course level');
 assert(uiV7.includes('state.story.selectedLevel=picked.level'),'Fjordvik must store its own practice level');
