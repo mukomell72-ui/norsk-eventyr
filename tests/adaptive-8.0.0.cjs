@@ -62,12 +62,15 @@ A.recordAttempt(reviewState,{level:'A2',skill:'listening',score:30,moduleId:'a2-
 reviewState.learningV8.reviews['a2-supplemental:listening'].due='2000-01-01';
 const reviewMission=A.nextMission(reviewState);
 assert(reviewMission.kind==='review'&&reviewMission.level==='A2','due A2 review was incorrectly promoted to current B1 level');
+A.recordAttempt(reviewState,{level:'A2',skill:'listening',score:95,moduleId:reviewMission.module.id,source:'qa_review',reviewKey:reviewMission.reviewKey});
+assert(!A.dueReviews(reviewState).some(x=>x.key===reviewMission.reviewKey),'completed cross-module review remained permanently overdue');
 
 const app=read('app.js'),access=read('access.js'),sw=read('sw.js'),generate=read('api/generate.js'),evaluate=read('api/evaluate.js');
 assert(app.includes('view==="teacher"')&&app.includes('startAdaptiveTeacher'),'teacher route missing');
 assert(app.includes('"learningV8"'),'adaptive state validation missing');
 assert(app.includes('previousLevel:state.level')&&!app.includes('function startTest(level){touchStudy();state.level=level'),'starting a diagnostic must not switch the active course level');
 assert(app.includes('level:testSession.level,skill'),'diagnostic evidence must be written to the tested CEFR level');
+assert(app.includes('reviewKey:l?._adaptive?.reviewKey||""'),'adaptive attempts must preserve the originating spaced-review key');
 assert(access.includes("'curriculum-v8.js'")&&access.includes("'adaptive-teacher.js'"),'adaptive scripts not loaded');
 assert(sw.includes('/curriculum-v8.js?v=7.4.0')&&sw.includes('/adaptive-teacher.js?v=7.4.0'),'adaptive assets not cached');
 assert(generate.includes('teacherMode')&&generate.includes('Can-do цели'),'objective-driven generator prompt missing');
