@@ -130,8 +130,44 @@ function listenEx(l){
 }
 function readEx(l){return `<article class="card"><div class="eyebrow">Чтение</div><div class="translation">${esc(l.read)}</div><div class="prompt">${esc(l.q)}</div><div class="choice-list">${l.opts.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${l.correct},'Ответ находится в тексте.','reading')">${esc(x)}</button>`).join("")}</div><div id="fb"></div></article>`}
 function lessonChoice(btn,i,c,note,skillHint=""){if(lessonSession.locked)return;const ok=i===c;if(window.NEAdaptive){const l=lessonSession.lesson,skill=skillHint||NEAdaptive.skillForStep(lessonSession.step);NEAdaptive.recordAttempt(state,{level:l.level,skill,score:ok?100:35,moduleId:l?._adaptive?.moduleId||l?.id,source:"lesson_choice",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}const buttons=[...document.querySelectorAll(".choice")];if(ok){lessonSession.locked=true;buttons.forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good")});document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно</b></div>';neAdvance(()=>lessonNext(15),420);return}btn.classList.add("bad");btn.disabled=true;document.getElementById("fb").innerHTML='<div class="feedback bad"><b>Неверно.</b> '+esc(note)+'<br><small>Выбери другой вариант.</small></div>';lessonSession.locked=false}
-function freeEx(l,mode){const sp=mode==="speaking",p=sp?l.speaking:l.writing;return `<article class="card"><div class="eyebrow">${sp?"Устная речь":"Письмо"} · AI</div><div class="prompt">${esc(p)}</div>${sp?'<div class="notice">Нажми микрофон и говори по-норвежски. Можно также ввести ответ.</div>':""}<textarea id="freeAnswer" class="input" placeholder="Ответ по-норвежски…"></textarea><div class="row" style="margin-top:10px">${sp?'<button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>':""}<button class="btn" onclick="checkFree('${mode}')">🧠 Проверить AI</button></div><div id="freeFb"></div></article>`}
-async function checkFree(mode){const a=document.getElementById("freeAnswer").value.trim();if(!a)return;const b=document.getElementById("freeFb"),l=lessonSession.lesson,p=mode==="speaking"?l.speaking:l.writing;b.innerHTML='<div class="feedback">Проверяю…</div>';const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode});if(!r.ok){b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}const d=r.data,ok=d.accepted!==false&&(d.score??70)>=55;if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill:mode==="speaking"?"speaking":"writing",score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l?.id,source:"lesson_free",errorTag:d.error_tag||"",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}if(ok){const specific=Array.isArray(d.strengths_ru)&&d.strengths_ru[0]?'<br><small>'+esc(d.strengths_ru[0])+'</small>':"";b.innerHTML='<div class="feedback good"><b>✓ Коммуникативная задача выполнена</b>'+specific+'</div>';neAdvance(()=>lessonNext(20),500);return}b.innerHTML='<div class="feedback bad"><b>Исправь главную ошибку и попробуй снова</b><br>'+esc(d.explanation_ru||"")+(d.micro_rule_ru?'<br><b>Правило:</b> '+esc(d.micro_rule_ru):"")+(d.corrected?'<br><b>Естественнее:</b> '+esc(d.corrected):"")+(d.retry_prompt_no?'<br><small>Контроль переноса: '+esc(d.retry_prompt_no)+'</small>':"")+'</div>';document.getElementById("freeAnswer")?.focus()}
+function freeEx(l,mode){
+ const sp=mode==="speaking",rem=l?._adaptive&&lessonSession.remediation?.mode===mode?lessonSession.remediation:null,p=rem?.prompt||(sp?l.speaking:l.writing);
+ return `<article class="card"><div class="eyebrow">${sp?"Устная речь":"Письмо"} · ${rem?"перенос исправления":"AI"}</div>${rem?'<div class="notice"><b>Новая ситуация.</b> Примени исправление сам, без копирования готового ответа.'+(rem.rule?'<br><small>'+esc(rem.rule)+'</small>':'')+'</div><br>':""}<div class="prompt">${esc(p)}</div>${sp?'<div class="notice">Нажми микрофон и говори по-норвежски. Можно также ввести ответ.</div>':""}<textarea id="freeAnswer" class="input" placeholder="Ответ по-норвежски…"></textarea><div class="row" style="margin-top:10px">${sp?'<button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>':""}<button class="btn" onclick="checkFree('${mode}')">🧠 Проверить AI</button></div><div id="freeFb"></div></article>`
+}
+function openFreeTransfer(){if(lessonSession?.remediation){lessonSession.locked=false;renderLesson()}}
+function deferFreeRemediation(){
+ if(!lessonSession)return;lessonSession.remediation=null;lessonSession.locked=false;lessonNext(4);
+}
+async function checkFree(mode){
+ const s=lessonSession,input=document.getElementById("freeAnswer"),a=input?.value.trim();if(!a||!s||s.locked)return;
+ const l=s.lesson,rem=l?._adaptive&&s.remediation?.mode===mode?s.remediation:null,p=rem?.prompt||(mode==="speaking"?l.speaking:l.writing),b=document.getElementById("freeFb");
+ s.locked=true;b.innerHTML='<div class="feedback">Проверяю…</div>';
+ const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode:rem?mode+"_transfer":mode});
+ if(!b.isConnected||lessonSession!==s){s.locked=false;return}
+ if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
+ const d=r.data,ok=d.accepted!==false&&(d.score??70)>=55,skill=mode==="speaking"?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer;
+ if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill,score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l?.id,source:rem?"lesson_free_transfer":"lesson_free",errorTag:d.error_tag||"",transfer:isTransfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}
+ if(ok){
+  s.remediation=null;s.locked=false;const specific=Array.isArray(d.strengths_ru)&&d.strengths_ru[0]?'<br><small>'+esc(d.strengths_ru[0])+'</small>':"";
+  b.innerHTML='<div class="feedback good"><b>✓ '+(rem?"Исправление перенесено в новую ситуацию":"Коммуникативная задача выполнена")+'</b>'+specific+'</div>';
+  neAdvance(()=>lessonNext(rem?25:20),520);return;
+ }
+ const explanation=esc(d.explanation_ru||"Исправь ответ и проверь снова."),rule=d.micro_rule_ru?'<br><b>Правило:</b> '+esc(d.micro_rule_ru):"",corrected=d.corrected?'<br><b>Естественнее:</b> '+esc(d.corrected):"";
+ if(l?._adaptive&&d.retry_prompt_no){
+  if(!rem){
+   s.remediation={mode,prompt:d.retry_prompt_no,rule:d.micro_rule_ru||"",retries:0,errorTag:d.error_tag||""};s.locked=false;
+   b.innerHTML='<div class="feedback bad"><b>Исправь главную ошибку.</b><br>'+explanation+rule+corrected+'<br><br><b>Теперь проверь перенос:</b> новый вопрос будет другим.<br><button class="btn secondary" style="margin-top:10px" onclick="openFreeTransfer()">Применить в новой ситуации →</button></div>';return;
+  }
+  rem.retries=(rem.retries||0)+1;
+  if(rem.retries<2){
+   rem.prompt=d.retry_prompt_no;rem.rule=d.micro_rule_ru||rem.rule||"";s.locked=false;
+   b.innerHTML='<div class="feedback bad"><b>Пока неустойчиво.</b><br>'+explanation+rule+corrected+'<br><button class="btn secondary" style="margin-top:10px" onclick="openFreeTransfer()">Ещё одна новая ситуация →</button></div>';return;
+  }
+  s.locked=false;
+  b.innerHTML='<div class="feedback bad"><b>Эту ошибку Нора вернёт позже.</b><br>'+explanation+rule+'<br><small>Не зацикливаемся: повторение уже запланировано интервальной системой.</small><br><button class="btn secondary" style="margin-top:10px" onclick="deferFreeRemediation()">Продолжить урок →</button></div>';return;
+ }
+ s.locked=false;b.innerHTML='<div class="feedback bad"><b>Исправь главную ошибку и попробуй снова</b><br>'+explanation+rule+corrected+'</div>';input?.focus()
+}
 function lessonNext(xp=0){state.xp+=xp;saveState();lessonSession.step++;lessonSession.locked=false;if(lessonSession.step>=lessonSteps(lessonSession.lesson).length)return finishLesson();renderLesson()}
 function finishLesson(){const l=lessonSession.lesson,first=!state.completed[l.id];state.completed[l.id]=true;if(first)state.xp+=40;if(window.NEAdaptive)NEAdaptive.completeLesson(state,l);const today=new Date().toLocaleDateString("sv-SE");state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.lessonDates=state.guidedJourney.lessonDates||{};state.guidedJourney.lessonDates[today]=l.id;saveState();shell(`<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">${l.level} · готово на сегодня</div><h1>${esc(l.title)}</h1><p class="muted">Урок засчитан в сегодняшний маршрут.</p><button class="btn" onclick="navigate('home')">Продолжить день →</button><button class="btn ghost" onclick="navigate('course','${l.level}')">К курсу</button></section>`,"home")}
 
