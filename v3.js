@@ -631,7 +631,8 @@
   async function startChat(){
     state.chatHistory=[];state.chatMemories=state.chatMemories||{};delete state.chatMemories[state.chatThreadId||"general"];saveState();renderChat();
     const box=document.getElementById("chatMessages");if(box)box.innerHTML='<div class="chat-thinking">Собеседник начинает разговор…</div>';
-    const p=state.chatPrefs,r=await apiPost("/api/chat",{start:true,message:"",level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:[],practiceWords:reinforcementWordList(15)});
+    const p=state.chatPrefs;if(window.NEAdaptive)NEAdaptive.ensure(state);const mastery=state.learningV8?.levelSkills?.[p.level]||{},errorPatterns=window.NEAdaptive?NEAdaptive.errors(state):[];
+    const r=await apiPost("/api/chat",{start:true,message:"",level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:[],practiceWords:reinforcementWordList(15),mastery,errorPatterns,teacherMode:true});
     if(!r.ok){if(box)box.innerHTML='<div class="feedback bad">Собеседник временно недоступен: '+esc(r.error)+'</div>';return}
     const d=r.data;state.chatHistory=[{role:"assistant",text:d.reply_no,meta:d}];saveState();if(!window.neChatVisible||neChatVisible()){renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);}
   }
@@ -646,10 +647,12 @@
     state.chatHistory.push({role:"user",text:msg,voice:wasVoice});state.chatHistory=state.chatHistory.slice(-40);saveState();renderChat();
     const box=document.getElementById("chatMessages");if(box){box.insertAdjacentHTML("beforeend",'<div class="chat-thinking">Norsk samtalepartner skriver…</div>');box.scrollTop=box.scrollHeight}
     const hist=state.chatHistory.slice(0,-1).slice(-32).map(x=>({role:x.role,text:x.text}));
-    const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:hist,context:state.chatMemories[memoryKey].map(x=>(x.role==="user"?"Ученик: ":"Nora: ")+x.text).join("\n"),practiceWords:reinforcementWordList(15)});
+    if(window.NEAdaptive)NEAdaptive.ensure(state);const mastery=state.learningV8?.levelSkills?.[p.level]||{},errorPatterns=window.NEAdaptive?NEAdaptive.errors(state):[];
+    const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:hist,context:state.chatMemories[memoryKey].map(x=>(x.role==="user"?"Ученик: ":"Nora: ")+x.text).join("\n"),practiceWords:reinforcementWordList(15),mastery,errorPatterns,teacherMode:true});
     if(!r.ok){state.chatHistory.push({role:"assistant",text:"Beklager, jeg fikk et teknisk problem. Prøv igjen.",meta:{translation_ru:"Извините, произошла техническая ошибка. Попробуйте ещё раз."}});saveState();if(!window.neChatVisible||neChatVisible())return renderChat();return;}
     const d=r.data;state.chatHistory.push({role:"assistant",text:d.reply_no,meta:d});state.chatHistory=state.chatHistory.slice(-40);
-    updateSkill(wasVoice?"speaking":"writing",d.score||50);if(d.error_tag){rememberError(d.error_tag);updateSkill("grammar",Math.max(20,(d.score||50)-8))}
+    updateSkill(wasVoice?"speaking":"writing",d.score_valid?d.score:50);if(d.error_tag){rememberError(d.error_tag);updateSkill("grammar",Math.max(20,(d.score_valid?d.score:50)-8))}
+    if(window.NEAdaptive&&d.score_valid===true)NEAdaptive.recordAttempt(state,{level:p.level,skill:wasVoice?"speaking":"writing",score:d.score,moduleId:p.level.toLowerCase()+"-conversation",source:"conversation",errorTag:d.error_tag||"",transfer:false});
     if(d.suggested_level&&d.suggested_level!==p.level)state.chatPrefs.level=d.suggested_level;
     state.xp+=2;saveState();if(!window.neChatVisible||neChatVisible()){renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);}
   }
