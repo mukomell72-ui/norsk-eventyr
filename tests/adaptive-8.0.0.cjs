@@ -97,7 +97,7 @@ assert(v3.includes('source:"level_test"')&&v3.includes('source:"level_test_free"
 assert(v3.includes('scope:"receptive_screening"'),'placement must be stored as a starting-point screening');
 assert(v3.includes('profile.writing=35;profile.speaking=35'),'fresh placement must not invent productive-skill mastery');
 assert(v3.includes('Это не означает, что уровень '),'placement result must not present the recommended start as a confirmed CEFR level');
-assert(uiV7.includes('window.NECurriculum?.modules(state.level)'),'active course screen must use the 32-module adaptive curriculum');
+assert(uiV7.includes('window.NECurriculum?.modules(courseLevel)'),'active course screen must use the 32-module adaptive curriculum');
 assert(uiV7.includes('teacherStartModule'),'course modules must launch through the adaptive teacher');
 assert(uiV7.includes('const courseLevel=level&&LEVELS_V7.includes(level)?level:state.level'),'browsing a course level must use a local view level');
 assert(!uiV7.includes('if(level&&LEVELS_V7.includes(level))state.level=level'),'course tab browsing must not change the active learning level');
