@@ -11,7 +11,7 @@ function addDays(iso,days){const d=iso?new Date(iso+'T12:00:00'):new Date();d.se
 function ensure(state){
  if(!state.learningV8||typeof state.learningV8!=='object'||Array.isArray(state.learningV8))state.learningV8={};
  const p=state.learningV8,current=['A1','A2','B1','B2'].includes(state.level)?state.level:'A1';
- p.version='8.0-method-3';p.skills=p.skills||{};p.levelSkills=p.levelSkills||{};p.modules=p.modules||{};p.reviews=p.reviews||{};p.errorPatterns=p.errorPatterns||{};p.assessments=Array.isArray(p.assessments)?p.assessments:[];p.attempts=Array.isArray(p.attempts)?p.attempts:[];
+ p.version='8.0-method-4';p.skills=p.skills||{};p.levelSkills=p.levelSkills||{};p.modules=p.modules||{};p.reviews=p.reviews||{};p.errorPatterns=p.errorPatterns||{};p.assessments=Array.isArray(p.assessments)?p.assessments:[];p.attempts=Array.isArray(p.attempts)?p.attempts:[];
  if(!LEVEL_ORDER.includes(p.startLevel))p.startLevel=LEVEL_ORDER.includes(state.placement?.recommendedStart)?state.placement.recommendedStart:(LEVEL_ORDER.includes(state.placement?.level)?state.placement.level:(LEVEL_ORDER.includes(state.level)?state.level:'A1'));
  for(const level of ['A1','A2','B1','B2']){
   p.levelSkills[level]=p.levelSkills[level]||{};
@@ -42,10 +42,13 @@ function recordAttempt(state,input={}){
  const tag=String(input.errorTag||'').slice(0,50);if(tag&&score<80)p.errorPatterns[tag]=(p.errorPatterns[tag]||0)+1;
  p.attempts.push({date:new Date().toISOString(),level,skill,score,moduleId:id,source:String(input.source||'practice').slice(0,40),errorTag:tag,transfer:!!input.transfer});
  p.attempts=p.attempts.slice(-500);
- const key=scheduleReview(p,id,skill,score,level),originKey=String(input.reviewKey||'');
- if(originKey&&originKey!==key&&p.reviews[originKey]){
-  const cut=originKey.lastIndexOf(':'),originSkill=originKey.slice(cut+1);
-  if(originSkill===skill)advanceReview(p.reviews[originKey],score,level);
+ const originKey=String(input.reviewKey||''),originReview=originKey?p.reviews[originKey]:null,originCut=originKey.lastIndexOf(':'),originSkill=originCut>=0?originKey.slice(originCut+1):'';
+ const delayedDue=!!(originReview&&originSkill===skill&&originReview.due&&originReview.due<=dayKey());
+ const key=scheduleReview(p,id,skill,score,level);
+ if(originKey&&originKey!==key&&originReview&&originSkill===skill)advanceReview(originReview,score,level);
+ if(delayedDue&&originReview){
+  originReview.lastDelayedScore=score;originReview.lastDelayedAt=new Date().toISOString();
+  if(score>=80)originReview.delayedPasses=(originReview.delayedPasses||0)+1;
  }
  return profile[skill];
 }
@@ -77,7 +80,7 @@ function levelModules(level){return window.NECurriculum?.modules(level)||[]}
 function levelGate(state,level){
  const p=ensure(state),profile=levelProfile(p,level),mods=levelModules(level),transfer=mods.at(-1),scores=CORE.map(s=>clamp(profile[s])),avg=scores.reduce((a,b)=>a+b,0)/scores.length;
  const mastered=mods.filter(m=>moduleMastery(state,m.id)>=78).length,transferScore=transfer?moduleMastery(state,transfer.id):0;
- const delayedCore=new Set(Object.entries(p.reviews).flatMap(([key,r])=>{const cut=key.lastIndexOf(':'),moduleId=key.slice(0,cut),skill=key.slice(cut+1);return window.NECurriculum?.moduleById(moduleId)?.level===level&&CORE.includes(skill)&&r&&r.stage>=2&&(r.lastScore||0)>=80?[skill]:[]}));
+ const delayedCore=new Set(Object.entries(p.reviews).flatMap(([key,r])=>{const cut=key.lastIndexOf(':'),moduleId=key.slice(0,cut),skill=key.slice(cut+1);return window.NECurriculum?.moduleById(moduleId)?.level===level&&CORE.includes(skill)&&r&&(r.delayedPasses||0)>=1&&(r.lastDelayedScore||0)>=80?[skill]:[]}));
  const delayed=delayedCore.size;
  const pass=avg>=80&&Math.min(...scores)>=70&&clamp(profile.grammar)>=70&&clamp(profile.vocabulary)>=70&&mastered>=Math.max(1,mods.length-2)&&transferScore>=80&&delayed===CORE.length;
  return{pass,avg:clamp(avg),minCore:Math.min(...scores),mastered,total:mods.length,transferScore,delayed};
