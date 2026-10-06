@@ -17,6 +17,14 @@ function validProgressState(value){
 function loadState(){try{return {...DEFAULT_STATE,...JSON.parse(localStorage.getItem("ne2_state")||"{}")}}catch{return {...DEFAULT_STATE}}}
 let storageWarningShown=false;
 function saveState(){try{localStorage.setItem("ne2_state",JSON.stringify(state));storageWarningShown=false;return true}catch{if(!storageWarningShown){storageWarningShown=true;alert("Не удалось сохранить прогресс на устройстве. Освободи место и скачай резервную копию в разделе «Прогресс».")}return false}}
+function ensureLearningStartLevel(){
+ const levels=["A1","A2","B1","B2"];state.learningV8=state.learningV8&&typeof state.learningV8==="object"&&!Array.isArray(state.learningV8)?state.learningV8:{};
+ if(!levels.includes(state.learningV8.startLevel)){
+  const seed=state.placement?.recommendedStart||state.placement?.level||state.level||"A1";
+  state.learningV8.startLevel=levels.includes(seed)?seed:"A1";saveState();
+ }
+}
+ensureLearningStartLevel();
 function esc(s=""){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 function escJs(s=""){return String(s).replace(/\\/g,"\\\\").replace(/'/g,"\\'").replace(/\n/g," ")}
 function shuffle(a){return [...a].sort(()=>Math.random()-.5)}
