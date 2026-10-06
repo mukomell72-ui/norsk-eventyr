@@ -165,26 +165,35 @@
   function renderCourseV7(level=state.level){
     currentRouteV7="course";
     if(level&&LEVELS_V7.includes(level))state.level=level;
+    if(window.NEAdaptive)NEAdaptive.ensure(state);
     saveState();
-    const core=coreLessonsV7(state.level),progress=levelProgressV7(state.level),done=completedCountV7(state.level),next=core.find(x=>!state.completed?.[x.id])||core[0];
-    const mapLessons=core.slice(0,6);
-    const nodePos=[[28,84],[66,72],[29,60],[67,48],[29,36],[67,24]];
-    const nodes=mapLessons.map((x,i)=>{
-      const isDone=Boolean(state.completed?.[x.id]),isNext=next?.id===x.id,p=nodePos[i]||[50,50];
-      return '<button class="map-node-v7 '+(isDone?"done ":"")+(isNext?"current":"")+'" style="left:'+p[0]+'%;top:'+p[1]+'%" onclick="navigate(\'lesson\',\''+js(x.id)+'\')"><span>'+PLACE_ICONS[i]+'</span><div><b>'+(i+1)+'. '+h(x.title)+'</b><small>'+h(state.completed?.[x.id]?'Пройдено':'Урок '+state.level)+'</small></div><em>'+h(state.level)+'</em></button>';
+    const modules=window.NECurriculum?.modules(state.level)||[],gate=window.NEAdaptive?NEAdaptive.levelGate(state,state.level):null;
+    if(!modules.length)return baseRenderCourseV7?baseRenderCourseV7(state.level):baseNavigateV7("course",state.level);
+    const masteryOf=m=>window.NEAdaptive?NEAdaptive.moduleMastery(state,m.id):0,done=modules.filter(m=>masteryOf(m)>=78).length,next=modules.find(m=>masteryOf(m)<78)||modules.at(-1),routeProgress=Math.round(done/modules.length*100),profile=gate?.avg||0;
+    const nodePos=[[27,86],[66,77],[30,67],[68,57],[30,47],[67,37],[31,27],[65,17]];
+    const nodes=modules.map((m,i)=>{
+      const mastery=masteryOf(m),isDone=mastery>=78,isNext=next?.id===m.id,p=nodePos[i]||[50,50],locked=!isDone&&!isNext;
+      return '<button class="map-node-v7 '+(isDone?"done ":"")+(isNext?"current ":"")+(locked?"locked":"")+'" style="left:'+p[0]+'%;top:'+p[1]+'%" onclick="teacherStartModule(\''+js(m.id)+'\')"><span>'+(isDone?"✓":i+1)+'</span><div><b>'+h(m.title)+'</b><small>'+h(isDone?"Освоено":isNext?"Текущий модуль":"После предыдущего")+'</small></div><em>'+mastery+'%</em></button>';
     }).join("");
-    const near=core.map((x,i)=>'<button class="near-lesson-v7 '+(state.completed?.[x.id]?"done":"")+'" onclick="navigate(\'lesson\',\''+js(x.id)+'\')"><span>'+(state.completed?.[x.id]?"✓":i+1)+'</span><div><b>'+h(x.title)+'</b><small>'+h(x.grammar||"Практика в ситуации")+'</small></div><em>'+h(state.level)+'</em></button>').join("");
-    const topics=(typeof TOPIC_CATALOG!=="undefined"?TOPIC_CATALOG:[]).filter(x=>x.level===state.level).slice(0,8);
+    const list=modules.map((m,i)=>{
+      const mastery=masteryOf(m),isDone=mastery>=78,isNext=next?.id===m.id,locked=!isDone&&!isNext;
+      return '<button class="near-lesson-v7 '+(isDone?"done ":"")+(locked?"locked":"")+'" onclick="teacherStartModule(\''+js(m.id)+'\')"><span>'+(isDone?"✓":i+1)+'</span><div><b>'+h(m.title)+'</b><small>'+h(m.canDo?.[0]||"Практическая цель")+'</small></div><em>'+mastery+'%</em></button>';
+    }).join("");
+    const legacy=coreLessonsV7(state.level),topics=(typeof TOPIC_CATALOG!=="undefined"?TOPIC_CATALOG:[]).filter(x=>x.level===state.level).slice(0,8);
     shell(
       '<section class="course-v7">'+
-        '<section class="course-hero-v7"><div class="course-copy-v7"><small>Твой путь по Bokmål A1–B2</small><h1>Курс</h1><p>Учись через места и реальные ситуации в жизни Fjordvik.</p></div><div class="level-tabs-v7">'+LEVELS_V7.map(l=>'<button class="'+(l===state.level?"active":"")+'" onclick="renderCourse(\''+l+'\')">'+l+'</button>').join("")+'</div>'+
-        '<div class="progress-card-v7"><div><b>'+h(state.level)+'</b><small>'+done+' из '+core.length+' уроков</small></div><i><em style="width:'+progress+'%"></em></i><strong>'+progress+'%</strong></div></section>'+
-        '<section class="course-map-v7"><div class="map-shade-v7"></div><div class="map-title-v7"><small>Маршрут '+h(state.level)+'</small><b>Каждый урок — новое место</b></div>'+nodes+
-          (next?'<button class="map-continue-v7" onclick="navigate(\'lesson\',\''+js(next.id)+'\')">Продолжить маршрут →</button>':'')+
+        '<section class="course-hero-v7"><div class="course-copy-v7"><small>Адаптивный путь Bokmål · A1–B2</small><h1>Курс '+h(state.level)+'</h1><p>Каждый модуль закрывается только после доказательств по навыкам, а не после просмотра урока.</p></div><div class="level-tabs-v7">'+LEVELS_V7.map(l=>'<button class="'+(l===state.level?"active":"")+'" onclick="renderCourse(\''+l+'\')">'+l+'</button>').join("")+'</div>'+
+        '<div class="progress-card-v7"><div><b>'+h(state.level)+'</b><small>'+done+' из '+modules.length+' модулей освоено</small></div><i><em style="width:'+routeProgress+'%"></em></i><strong>'+routeProgress+'%</strong></div>'+
+        '<div class="notice" style="margin-top:12px"><b>Профиль навыков: '+profile+'%</b> · '+(gate?.pass?"уровень подтверждён внутренними критериями":"уровень ещё не подтверждён")+'. Маршрут и профиль — разные показатели.</div></section>'+
+        '<section class="course-map-v7"><div class="map-shade-v7"></div><div class="map-title-v7"><small>32-модульный маршрут</small><b>'+h(state.level)+' · '+h(next?.title||"Повторение")+'</b></div>'+nodes+
+          (next?'<button class="map-continue-v7" onclick="teacherStartModule(\''+js(next.id)+'\')">Продолжить с Норой →</button>':'')+
         '</section>'+
-        '<section class="course-side-v7"><div class="nora-guide-v7"><span class="nora-avatar-v7"></span><div><small>Nora сегодня</small><b>'+(next?"Следующий шаг: "+h(next.title):"Маршрут завершён")+'</b><p>Учимся говорить так, как это понадобится в обычной жизни.</p></div></div>'+
-        '<div class="section-head-v7"><div><small>Все уроки уровня</small><h2>Продолжай обучение</h2></div></div><div class="near-list-v7">'+near+'</div>'+
-        (topics.length?'<details class="ai-topics-v7"><summary>Дополнительные AI-темы</summary><div>'+topics.map(t=>'<button onclick="navigate(\'topic\',\''+js(t.id)+'\')"><b>'+h(t.title)+'</b><small>'+h(t.goal||"")+'</small></button>').join("")+'</div></details>':'')+
+        '<section class="course-side-v7"><div class="nora-guide-v7"><span class="nora-avatar-v7"></span><div><small>Nora · преподаватель</small><b>'+(next?"Следующая цель: "+h(next.canDo?.[0]||next.title):"Повторение уровня")+'</b><p>Я меняю нагрузку по твоим ответам и возвращаю слабые места через интервалы.</p></div></div>'+
+        '<div class="section-head-v7"><div><small>Основной маршрут</small><h2>8 модулей '+h(state.level)+'</h2></div></div><div class="near-list-v7">'+list+'</div>'+
+        '<details class="ai-topics-v7"><summary>Дополнительная практика — не влияет сама по себе на прохождение уровня</summary><div>'+
+          legacy.map(x=>'<button onclick="navigate(\'lesson\',\''+js(x.id)+'\')"><b>'+h(x.title)+'</b><small>'+h(x.grammar||"Закрепление")+'</small></button>').join("")+
+          topics.map(t=>'<button onclick="navigate(\'topic\',\''+js(t.id)+'\')"><b>'+h(t.title)+'</b><small>'+h(t.goal||"")+'</small></button>').join("")+
+        '</div></details>'+
         '</section>'+
       '</section>',
     "course");
