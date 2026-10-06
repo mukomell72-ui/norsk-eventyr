@@ -12,7 +12,7 @@ function ensure(state){
  if(!state.learningV8||typeof state.learningV8!=='object'||Array.isArray(state.learningV8))state.learningV8={};
  const p=state.learningV8,current=['A1','A2','B1','B2'].includes(state.level)?state.level:'A1';
  p.version='8.1-method-1';p.skills=p.skills||{};p.levelSkills=p.levelSkills||{};p.modules=p.modules||{};p.reviews=p.reviews||{};p.errorPatterns=p.errorPatterns||{};p.patternStats=p.patternStats||{};p.assessments=Array.isArray(p.assessments)?p.assessments:[];p.attempts=Array.isArray(p.attempts)?p.attempts:[];
- for(const [tag,count] of Object.entries(p.errorPatterns)){const key=current+':'+tag;if(tag&&!p.patternStats[key])p.patternStats[key]={tag,level:current,skill:skillForError(tag),misses:Number(count)||0,passes:0,transferPasses:0,severity:clamp(Math.min(90,35+(Number(count)||0)*8)),lastSeen:null,lastSuccess:null,due:dayKey()}}
+ if(p.patternStatsMigrated!==true){for(const [tag,count] of Object.entries(p.errorPatterns)){const key=current+':'+tag;if(tag&&!p.patternStats[key])p.patternStats[key]={tag,level:current,skill:skillForError(tag),misses:Number(count)||0,passes:0,transferPasses:0,severity:clamp(Math.min(90,35+(Number(count)||0)*8)),lastSeen:null,lastSuccess:null,due:dayKey()}}p.patternStatsMigrated=true}
  if(!LEVEL_ORDER.includes(p.startLevel))p.startLevel=LEVEL_ORDER.includes(state.placement?.recommendedStart)?state.placement.recommendedStart:(LEVEL_ORDER.includes(state.placement?.level)?state.placement.level:(LEVEL_ORDER.includes(state.level)?state.level:'A1'));
  for(const level of ['A1','A2','B1','B2']){
   p.levelSkills[level]=p.levelSkills[level]||{};
