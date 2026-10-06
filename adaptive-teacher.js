@@ -10,7 +10,8 @@ function addDays(iso,days){const d=iso?new Date(iso+'T12:00:00'):new Date();d.se
 function ensure(state){
  if(!state.learningV8||typeof state.learningV8!=='object'||Array.isArray(state.learningV8))state.learningV8={};
  const p=state.learningV8,current=['A1','A2','B1','B2'].includes(state.level)?state.level:'A1';
- p.version='8.0-method-2';p.skills=p.skills||{};p.levelSkills=p.levelSkills||{};p.modules=p.modules||{};p.reviews=p.reviews||{};p.errorPatterns=p.errorPatterns||{};p.assessments=Array.isArray(p.assessments)?p.assessments:[];p.attempts=Array.isArray(p.attempts)?p.attempts:[];
+ p.version='8.0-method-3';p.skills=p.skills||{};p.levelSkills=p.levelSkills||{};p.modules=p.modules||{};p.reviews=p.reviews||{};p.errorPatterns=p.errorPatterns||{};p.assessments=Array.isArray(p.assessments)?p.assessments:[];p.attempts=Array.isArray(p.attempts)?p.attempts:[];
+ if(!LEVEL_ORDER.includes(p.startLevel))p.startLevel=LEVEL_ORDER.includes(state.placement?.recommendedStart)?state.placement.recommendedStart:(LEVEL_ORDER.includes(state.placement?.level)?state.placement.level:(LEVEL_ORDER.includes(state.level)?state.level:'A1'));
  for(const level of ['A1','A2','B1','B2']){
   p.levelSkills[level]=p.levelSkills[level]||{};
   for(const s of ALL){
@@ -122,10 +123,20 @@ function moduleFocusSkill(state,m){
  const p=ensure(state),profile=levelProfile(p,m.level),evidence=p.modules[m.id]?.skills||{};
  return ALL.slice().sort((a,b)=>(Number.isFinite(evidence[a])?evidence[a]:profile[a])-(Number.isFinite(evidence[b])?evidence[b]:profile[b]))[0];
 }
+function highestUnlockedLevel(state){
+ const p=ensure(state),start=Math.max(0,LEVEL_ORDER.indexOf(p.startLevel));let unlocked=start;
+ for(let i=start;i<LEVEL_ORDER.length-1;i++){if(levelGate(state,LEVEL_ORDER[i]).pass)unlocked=i+1;else break}
+ return LEVEL_ORDER[unlocked];
+}
 function moduleMission(state,moduleId){
  const m=window.NECurriculum?.moduleById(moduleId);if(!m)return null;
+ const p=ensure(state),targetIndex=LEVEL_ORDER.indexOf(m.level),unlocked=highestUnlockedLevel(state),unlockedIndex=LEVEL_ORDER.indexOf(unlocked);
+ if(targetIndex>unlockedIndex){
+  const firstOpen=nextModule(state,unlocked);
+  return{blocked:true,blockedByLevel:true,module:m,level:m.level,unlockedLevel:unlocked,firstOpen};
+ }
  const mods=levelModules(m.level),idx=mods.findIndex(x=>x.id===m.id),firstOpen=mods.findIndex(x=>moduleMastery(state,x.id)<78),mastery=moduleMastery(state,m.id);
- if(mastery<78&&firstOpen>=0&&idx>firstOpen)return{blocked:true,module:m,level:m.level,firstOpen:mods[firstOpen]};
+ if(mastery<78&&firstOpen>=0&&idx>firstOpen)return{blocked:true,module:m,level:m.level,unlockedLevel:unlocked,firstOpen:mods[firstOpen]};
  const due=dueReviews(state).find(x=>x.moduleId===m.id);
  return{kind:due?'review':mastery>=78?'review':'learn',level:m.level,module:m,skill:due?.skill||moduleFocusSkill(state,m),reason:due?'Пора подтвердить этот навык после паузы.':mastery>=78?'Повторяем освоенный модуль в новом контексте.':'Продолжаем текущий модуль до устойчивого результата.',reviewKey:due?.key||''};
 }
@@ -144,11 +155,11 @@ async function teacherStartMission(){return runTeacherMission(nextMission(state)
 async function teacherStartModule(moduleId){
  const mission=moduleMission(state,moduleId);if(!mission)return;
  if(mission.blocked){
-  const next=mission.firstOpen;
-  return shell('<section class="card" style="max-width:680px;margin:35px auto"><div class="eyebrow">Маршрут '+esc(mission.level)+'</div><h2>Сначала закрепи предыдущий модуль</h2><p class="muted">Следующий обязательный шаг — '+esc(next?.title||'текущий модуль')+'. Будущий материал виден заранее, но не заменяет незакрытые навыки.</p><div class="row"><button class="btn" onclick="teacherStartModule(\''+escJs(next?.id||'')+'\')">Продолжить маршрут</button><button class="btn ghost" onclick="navigate(\'course\',\''+escJs(mission.level)+'\')">К карте курса</button></div></section>','course');
+  const next=mission.firstOpen,byLevel=!!mission.blockedByLevel,title=byLevel?'Сначала подтверди '+mission.unlockedLevel:'Сначала закрепи предыдущий модуль',text=byLevel?'Следующий уровень откроется только после устойчивого результата по '+mission.unlockedLevel+'. Можно посмотреть программу выше, но нельзя засчитать её вместо незакрытого уровня.':'Следующий обязательный шаг — '+(next?.title||'текущий модуль')+'. Будущий материал виден заранее, но не заменяет незакрытые навыки.';
+  return shell('<section class="card" style="max-width:680px;margin:35px auto"><div class="eyebrow">Маршрут '+esc(mission.unlockedLevel||mission.level)+'</div><h2>'+esc(title)+'</h2><p class="muted">'+esc(text)+'</p><div class="row"><button class="btn" onclick="teacherStartModule(\''+escJs(next?.id||'')+'\')">Продолжить маршрут</button><button class="btn ghost" onclick="navigate(\'course\',\''+escJs(mission.unlockedLevel||mission.level)+'\')">К карте курса</button></div></section>','course');
  }
- state.level=mission.level;saveState();return runTeacherMission(mission);
+ const currentIndex=LEVEL_ORDER.indexOf(state.level),targetIndex=LEVEL_ORDER.indexOf(mission.level);if(targetIndex>=currentIndex)state.level=mission.level;saveState();return runTeacherMission(mission);
 }
-window.NEAdaptive={ensure,recordAttempt,assessment,completeLesson,dueReviews,nextMission,levelGate,moduleMastery,skillForStep,errors,moduleMission};
+window.NEAdaptive={ensure,recordAttempt,assessment,completeLesson,dueReviews,nextMission,levelGate,moduleMastery,skillForStep,errors,moduleMission,highestUnlockedLevel};
 Object.assign(window,{startAdaptiveTeacher,teacherStartMission,teacherStartModule});
 })();
