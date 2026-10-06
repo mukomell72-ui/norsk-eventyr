@@ -12,10 +12,10 @@ const migration=read('migrations/20261005_admin_lifecycle.sql');
 const index=read('index.html');
 const sw=read('sw.js');
 
-assert(index.includes('/admin-dashboard.js?v=7.4.0'),'admin dashboard script missing');
-assert(index.includes('/admin-dashboard.css?v=7.4.0'),'admin dashboard stylesheet missing');
-assert(sw.includes('/admin-dashboard.js?v=7.4.0'),'admin dashboard not cached');
-assert(sw.includes('/admin-dashboard.css?v=7.4.0'),'admin dashboard CSS not cached');
+assert(index.includes('/admin-dashboard.js?v=8.0.0'),'admin dashboard script missing');
+assert(index.includes('/admin-dashboard.css?v=8.0.0'),'admin dashboard stylesheet missing');
+assert(sw.includes('/admin-dashboard.js?v=8.0.0'),'admin dashboard not cached');
+assert(sw.includes('/admin-dashboard.css?v=8.0.0'),'admin dashboard CSS not cached');
 assert(access.includes('NEAdminDashboard.mount'),'owner panel is not using new dashboard');
 assert(access.includes('ownerMarkFeedbackSeen'),'owner feedback badge bridge missing');
 assert(admin.includes("['overview','Главная']"),'overview tab missing');
