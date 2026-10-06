@@ -94,7 +94,7 @@ assert(app.includes('previousLevel:state.level')&&!app.includes('function startT
 assert(app.includes('level:testSession.level,skill'),'diagnostic evidence must be written to the tested CEFR level');
 assert(app.includes('reviewKey:l?._adaptive?.reviewKey||""'),'adaptive attempts must preserve the originating spaced-review key');
 assert(access.includes("'curriculum-v8.js'")&&access.includes("'adaptive-teacher.js'"),'adaptive scripts not loaded');
-assert(sw.includes('/curriculum-v8.js?v=7.4.0')&&sw.includes('/adaptive-teacher.js?v=7.4.0'),'adaptive assets not cached');
+assert(sw.includes('/curriculum-v8.js?v=8.0.0')&&sw.includes('/adaptive-teacher.js?v=8.0.0'),'adaptive assets not cached');
 assert(generate.includes('teacherMode')&&generate.includes('Can-do цели'),'objective-driven generator prompt missing');
 assert(generate.includes('listeningAudio')&&generate.includes('listeningQ')&&generate.includes('listeningOpts'),'adaptive lesson generator must create comprehension listening');
 assert(generate.includes('смысловыми перефразами')&&generate.includes('не копиями фразы из текста'),'reading/listening distractors must test meaning rather than surface matching');
