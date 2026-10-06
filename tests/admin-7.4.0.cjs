@@ -9,6 +9,7 @@ const admin=read('admin-dashboard.js');
 const css=read('admin-dashboard.css');
 const handler=read('lib/access-handler.js');
 const migration=read('migrations/20261005_admin_lifecycle.sql');
+const triggerHardening=read('migrations/20261006_internal_trigger_rpc_hardening.sql');
 const index=read('index.html');
 const sw=read('sw.js');
 
@@ -54,6 +55,10 @@ assert(migration.includes("'format','norsk-eventyr-backup-v3'"),'backup v3 missi
 assert(!handler.includes("action==='payment_write'"),'client payment write endpoint must not exist');
 assert(!handler.includes("action==='subscription_write'"),'client subscription write endpoint must not exist');
 assert(!migration.includes('service_role'),'migration must not embed service-role secret');
+for(const fn of ['ne_access_lifecycle_trigger','ne_entitlement_lifecycle_trigger','ne_install_lifecycle_trigger','ne_payment_lifecycle_trigger','ne_subscription_lifecycle_trigger']){
+ assert(triggerHardening.includes('revoke execute on function public.'+fn+'() from public, anon, authenticated'),fn+' must not be exposed as a public RPC');
+}
+
 const identitySensitiveSql=[
  read('migrations/20261003_access_approval.sql'),
  read('migrations/20261005_professional_hardening.sql'),
