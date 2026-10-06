@@ -90,4 +90,6 @@ assert(uiV7.includes('teacherStartModule'),'course modules must launch through t
 assert(uiV7.includes('Дополнительная практика — не влияет сама по себе на прохождение уровня'),'legacy practice must be visually separated from mastery');
 assert(!v3.includes('if(key==="level")state.level=value'),'legacy chat settings must not switch the course level');
 assert(!uiV7.includes('if(k==="level")state.level=v'),'active chat settings must not switch the course level');
+assert(uiV7.includes('state.story.selectedLevel=picked.level'),'Fjordvik must store its own practice level');
+assert(!uiV7.includes('if(picked?.level&&picked.level!==state.level){state.level=picked.level'),'Fjordvik season selection must not switch the course');
 console.log('Norsk Eventyr adaptive teacher 8.0 foundation checks: PASS');
