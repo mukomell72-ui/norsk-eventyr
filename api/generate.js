@@ -9,7 +9,7 @@ function validChoice(opts,correct){return Array.isArray(opts)&&opts.length===4&&
 function validateShape(kind,x){
   if(!x||typeof x!=="object")return false;
   if(kind==="test")return Array.isArray(x.questions)&&x.questions.length>=8&&x.questions.every(q=>q&&typeof q.q==="string"&&q.q.trim()&&validChoice(q.opts,q.correct));
-  return Array.isArray(x.vocab)&&x.vocab.length>=6&&x.vocab.every(v=>Array.isArray(v)&&v.length===2&&v.every(w=>typeof w==="string"&&w.trim()))&&validChoice(x.opts,x.correct)&&validChoice(x.grammarOpts,x.grammarCorrect)&&typeof x.phrase==="string"&&typeof x.read==="string"&&typeof x.writing==="string"&&typeof x.speaking==="string";
+  return Array.isArray(x.vocab)&&x.vocab.length>=6&&x.vocab.every(v=>Array.isArray(v)&&v.length===2&&v.every(w=>typeof w==="string"&&w.trim()))&&validChoice(x.opts,x.correct)&&validChoice(x.grammarOpts,x.grammarCorrect)&&validChoice(x.listeningOpts,x.listeningCorrect)&&typeof x.phrase==="string"&&x.phrase.trim()&&typeof x.listeningAudio==="string"&&x.listeningAudio.trim()&&typeof x.listeningQ==="string"&&x.listeningQ.trim()&&typeof x.read==="string"&&x.read.trim()&&typeof x.writing==="string"&&x.writing.trim()&&typeof x.speaking==="string"&&x.speaking.trim();
 }
 export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY"});
@@ -41,7 +41,7 @@ export default async function handler(req,res){
   if(kind==="test"){
     prompt=[...common,"Слабые навыки: "+(Array.isArray(weakSkills)?weakSkills.join(", "):"")+".","Создай разнообразный тест, который нельзя пройти по памяти.","JSON: {\"questions\":[8 объектов],\"writing\":\"...\",\"speaking\":\"...\"}.","Каждый questions: {\"type\":\"reading|grammar|vocabulary|listening\",\"context\":\"...\",\"audio\":\"...\",\"q\":\"вопрос по-русски\",\"opts\":[4 варианта],\"correct\":0}. Сделай по 2 задания каждого типа."].join("\n");
   }else{
-    prompt=[...common,"Создай полноценный тематический микроурок.","JSON: {\"title\":\"...\",\"grammarTitle\":\"...\",\"grammarRuleRu\":\"...\",\"grammarExamples\":[3 строки],\"grammarQ\":\"...\",\"grammarOpts\":[4 строки],\"grammarCorrect\":0,\"phrase\":\"...\",\"ru\":\"...\",\"vocab\":[[\"no\",\"ru\"],... 8 элементов],\"read\":\"...\",\"q\":\"...\",\"opts\":[4 строки],\"correct\":0,\"writing\":\"...\",\"speaking\":\"...\"}.","На A1 текст короткий; на A2 длиннее; на B1-B2 — связный и содержательный. Письмо и речь требуют самостоятельного ответа."].join("\n");
+    prompt=[...common,"Создай полноценный тематический микроурок.","JSON: {\"title\":\"...\",\"grammarTitle\":\"...\",\"grammarRuleRu\":\"...\",\"grammarExamples\":[3 строки],\"grammarQ\":\"...\",\"grammarOpts\":[4 строки],\"grammarCorrect\":0,\"phrase\":\"...\",\"ru\":\"...\",\"vocab\":[[\"no\",\"ru\"],... 8 элементов],\"listeningAudio\":\"отдельный естественный аудиофрагмент на норвежском\",\"listeningQ\":\"вопрос на смысл или важную деталь\",\"listeningOpts\":[4 строки],\"listeningCorrect\":0,\"read\":\"...\",\"q\":\"...\",\"opts\":[4 строки],\"correct\":0,\"writing\":\"...\",\"speaking\":\"...\"}.","Аудирование НЕ должно просить выбрать точную услышанную строку. Оно проверяет смысл, намерение говорящего, важную деталь или вывод. На A1 аудиофрагмент 1–2 коротких предложения; A2 — 2–4; B1–B2 — более естественный связный фрагмент обычной сложности уровня.","На A1 текст короткий; на A2 длиннее; на B1-B2 — связный и содержательный. Письмо и речь требуют самостоятельного ответа."].join("\n");
   }
   try{
     const firstText=await ask(prompt),first=parseJson(firstText);
