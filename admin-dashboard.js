@@ -264,7 +264,7 @@
   root=container;opts=options;root.replaceChildren();
   const shell=el('div','admin-shell');
   const top=el('header','admin-topbar');
-  const title=el('div','admin-brand');title.append(el('span','admin-kicker','Norsk Eventyr'),el('h1','','Admin Dashboard'),el('small','','Версия 7.4.0'));
+  const title=el('div','admin-brand');title.append(el('span','admin-kicker','Norsk Eventyr'),el('h1','','Admin Dashboard'),el('small','','Версия 8.0.0'));
   const topActions=el('div','admin-top-actions'),back=button('К обучению','secondary'),logout=button('Выйти','ghost');
   back.onclick=()=>opts.onBack?.();logout.onclick=()=>opts.onLogout?.();topActions.append(back,logout);top.append(title,topActions);
   const main=el('main','admin-main'),view=el('section','admin-view');view.id='adminView';main.append(view);
