@@ -118,8 +118,19 @@ function startAdaptiveTeacher(){
  (attempts<8?'<section class="notice" style="margin-top:14px"><b>Пока мало данных.</b> Пройди контроль уровня: после нескольких ответов преподаватель будет выбирать задания точнее. <button class="btn secondary" style="margin-top:10px" onclick="navigate(\'test\',\''+escJs(state.level)+'\')">Диагностика '+esc(state.level)+'</button></section>':'')+
  '<section class="card" style="margin-top:14px"><h3>Как работает преподаватель</h3><p class="muted">Не переводит дальше только за факт прохождения. Он собирает доказательства по аудированию, чтению, письму, речи, грамматике и словарю; возвращает ошибки через интервалы; усложняет контекст; требует самостоятельного ответа и переноса навыка.</p></section>','home');
 }
-async function teacherStartMission(){
- const mission=nextMission(state),m=mission.module;if(!m)return;
+function moduleFocusSkill(state,m){
+ const p=ensure(state),profile=levelProfile(p,m.level),evidence=p.modules[m.id]?.skills||{};
+ return ALL.slice().sort((a,b)=>(Number.isFinite(evidence[a])?evidence[a]:profile[a])-(Number.isFinite(evidence[b])?evidence[b]:profile[b]))[0];
+}
+function moduleMission(state,moduleId){
+ const m=window.NECurriculum?.moduleById(moduleId);if(!m)return null;
+ const mods=levelModules(m.level),idx=mods.findIndex(x=>x.id===m.id),firstOpen=mods.findIndex(x=>moduleMastery(state,x.id)<78),mastery=moduleMastery(state,m.id);
+ if(mastery<78&&firstOpen>=0&&idx>firstOpen)return{blocked:true,module:m,level:m.level,firstOpen:mods[firstOpen]};
+ const due=dueReviews(state).find(x=>x.moduleId===m.id);
+ return{kind:due?'review':mastery>=78?'review':'learn',level:m.level,module:m,skill:due?.skill||moduleFocusSkill(state,m),reason:due?'Пора подтвердить этот навык после паузы.':mastery>=78?'Повторяем освоенный модуль в новом контексте.':'Продолжаем текущий модуль до устойчивого результата.',reviewKey:due?.key||''};
+}
+async function runTeacherMission(mission){
+ const m=mission?.module;if(!m)return;
  shell('<section class="card loading-card"><div class="spinner"></div><h2>Нора готовит занятие</h2><p class="muted">Цель — '+esc(m.canDo[0])+'. Задания будут подстроены под слабые места, а не случайно сгенерированы.</p></section>','home');
  const p=ensure(state),targetProfile=levelProfile(p,mission.level),payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...targetProfile},errorPatterns:errors(state),weakSkills:ALL.filter(s=>targetProfile[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review'};
  try{
@@ -129,6 +140,15 @@ async function teacherStartMission(){
   state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;saveState();lessonSession={lesson,step:0,locked:false};renderLesson();
  }catch(e){shell('<section class="card"><h2>Занятие не создано</h2><p class="muted">Не засчитываю ничего без полноценного задания. Проверь соединение и повтори.</p><button class="btn" onclick="startAdaptiveTeacher()">Назад</button></section>','home')}
 }
-window.NEAdaptive={ensure,recordAttempt,assessment,completeLesson,dueReviews,nextMission,levelGate,moduleMastery,skillForStep,errors};
-Object.assign(window,{startAdaptiveTeacher,teacherStartMission});
+async function teacherStartMission(){return runTeacherMission(nextMission(state))}
+async function teacherStartModule(moduleId){
+ const mission=moduleMission(state,moduleId);if(!mission)return;
+ if(mission.blocked){
+  const next=mission.firstOpen;
+  return shell('<section class="card" style="max-width:680px;margin:35px auto"><div class="eyebrow">Маршрут '+esc(mission.level)+'</div><h2>Сначала закрепи предыдущий модуль</h2><p class="muted">Следующий обязательный шаг — '+esc(next?.title||'текущий модуль')+'. Будущий материал виден заранее, но не заменяет незакрытые навыки.</p><div class="row"><button class="btn" onclick="teacherStartModule(\''+escJs(next?.id||'')+'\')">Продолжить маршрут</button><button class="btn ghost" onclick="navigate(\'course\',\''+escJs(mission.level)+'\')">К карте курса</button></div></section>','course');
+ }
+ state.level=mission.level;saveState();return runTeacherMission(mission);
+}
+window.NEAdaptive={ensure,recordAttempt,assessment,completeLesson,dueReviews,nextMission,levelGate,moduleMastery,skillForStep,errors,moduleMission};
+Object.assign(window,{startAdaptiveTeacher,teacherStartMission,teacherStartModule});
 })();
