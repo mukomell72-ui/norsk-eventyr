@@ -12,9 +12,9 @@ const app=read('app.js');
 const sw=read('sw.js');
 const ui=read('ui-v8.js');
 
-assert(app.includes('APP_VERSION="7.4.0"'),'APP_VERSION must be 7.4.0');
-assert(sw.includes('7.4.0'),'service worker must reference 7.4.0');
-assert(ui.includes('7.4.0'),'visible UI version must be 7.4.0');
+assert(app.includes('APP_VERSION="8.0.0"'),'APP_VERSION must be 8.0.0');
+assert(sw.includes('8.0.0'),'service worker must reference 8.0.0');
+assert(ui.includes('8.0.0'),'visible UI version must be 8.0.0');
 assert(access.includes("PRIVACY_VERSION='2026-10-05-v3'"),'privacy v3 frontend missing');
 assert(handler.includes("PRIVACY_VERSION='2026-10-05-v3'"),'privacy v3 server handler missing');
 assert(handler.includes("action==='growth_first_visit'"),'first visit API missing');
