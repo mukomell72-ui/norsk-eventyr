@@ -492,32 +492,37 @@
     shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Контроль знаний</div><h2 style="margin:0">Адаптивные тесты</h2></div></div><div class="notice">Каждый запуск создаёт новый набор заданий и усиливает твои слабые навыки. Есть чтение, грамматика, словарь, аудирование, письмо и речь.</div><section class="grid" style="margin-top:14px">'+LEVELS.map(l=>{const t=lastTest(l);return '<article class="card"><div style="font-size:34px;font-weight:950">'+l+'</div><p class="muted">'+levelDesc(l)+'</p><div class="metric"><span>Последний результат</span><strong>'+(t?t.score+"%":"—")+'</strong></div><button class="btn" onclick="navigate(\'test\',\''+l+'\')">'+(t?"Новый вариант":"Начать тест")+'</button></article>'}).join("")+'</section>',"tests");
   };
   startTest=async function(level){
-    touchStudy();state.level=level;saveState();shell('<section class="card loading-card"><div class="spinner"></div><h2>Создаю новый тест '+level+'</h2><p class="muted">Учитываю слабые навыки: '+weakSkills().map(skillLabel).join(", ")+'</p></section>',"tests");
+    touchStudy();if(window.NEAdaptive)NEAdaptive.ensure(state);
+    const previousLevel=state.level,profile=state.learningV8?.levelSkills?.[level]||{},adaptiveWeak=Object.keys(profile).sort((a,b)=>(profile[a]||0)-(profile[b]||0)).slice(0,3);
+    shell('<section class="card loading-card"><div class="spinner"></div><h2>Создаю диагностику '+level+'</h2><p class="muted">Проверяю навыки отдельно. Текущий учебный маршрут не изменится только из-за запуска теста.</p></section>',"tests");
     const revision=window.neScreenRevision;
-    const topic="Разные бытовые и общественные темы уровня "+level,r=await apiPost("/api/generate",{kind:"test",level,topic,goal:"проверка общего уровня",weakSkills:weakSkills(),reviewWords:reinforcementWordList(15)});
+    const topic="Разные бытовые и общественные темы уровня "+level,r=await apiPost("/api/generate",{kind:"test",level,topic,goal:"диагностика чтения, аудирования, письма, речи, грамматики и словаря",weakSkills:adaptiveWeak,mastery:profile,reviewWords:reinforcementWordList(15),teacherMode:true});
     if(revision!==window.neScreenRevision)return;
     let qs=[];
     if(r.ok&&Array.isArray(r.data.questions)){
-      qs=r.data.questions.map(q=>({type:q.type==="listening"?"listen":"mc",subskill:q.type,text:q.q,context:q.context||"",audio:q.audio||"",opts:q.opts,correct:Number(q.correct)||0}));
+      qs=r.data.questions.map(q=>({type:q.type==="listening"?"listen":q.type||"mc",subskill:q.type,text:q.q,context:q.context||"",audio:q.audio||"",opts:q.opts,correct:Number(q.correct)||0}));
       qs.push({type:"free",mode:"writing",subskill:"writing",text:r.data.writing||"Напиши связный текст по знакомой теме."});
       qs.push({type:"free",mode:"speaking",subskill:"speaking",text:r.data.speaking||"Выскажись по знакомой теме."});
-    }else qs=buildTest(level).map(q=>({...q,subskill:q.type==="listen"?"listening":q.type==="free"?(q.mode||"writing"):"grammar"}));
-    testSession={level,questions:qs,i:0,correct:0,freeScores:[]};renderTest();
+    }else qs=buildTest(level).map(q=>({...q,subskill:q.type==="listen"?"listening":q.type==="free"?(q.mode||"writing"):q.type==="reading"?"reading":q.type==="vocabulary"?"vocabulary":"grammar"}));
+    testSession={level,previousLevel,questions:qs,i:0,correct:0,freeScores:[],skillEvidence:{reading:[],listening:[],writing:[],speaking:[],grammar:[],vocabulary:[]}};saveState();renderTest();
   };
   answerTest=function(i){
     const s=testSession,q=s?.questions[s.i];if(!q||s.locked||!Number.isInteger(i)||i<0||i>=q.opts.length)return;s.locked=true;const ok=i===q.correct;if(ok)s.correct++;
-    const sk=SKILLS.includes(q.subskill)?q.subskill:(q.type==="listen"?"listening":"grammar");updateSkill(sk,ok?100:20);if(!ok)rememberError(sk);
+    const sk=SKILLS.includes(q.subskill)?q.subskill:(q.type==="listen"?"listening":q.type==="reading"?"reading":q.type==="vocabulary"?"vocabulary":"grammar"),score=ok?100:30;
+    s.skillEvidence=s.skillEvidence||{};(s.skillEvidence[sk]||(s.skillEvidence[sk]=[])).push(score);updateSkill(sk,score);if(!ok)rememberError(sk);
+    if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:s.level,skill:sk,score,moduleId:s.level+"-diagnostic",source:"level_test",transfer:true});
     document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===q.correct)b.classList.add("good");if(j===i&&!ok)b.classList.add("bad")});
     document.getElementById("testFb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'">'+(ok?"✓ Верно":"Неверно")+'</div>';
-    neAdvance(()=>{s.locked=false;testNext()},ok?380:900);
+    saveState();neAdvance(()=>{s.locked=false;testNext()},ok?380:900);
   };
   answerTestFree=async function(){
     const s=testSession,q=s?.questions[s.i],a=document.getElementById("testFree")?.value.trim();if(!q||!a||s.locked)return;s.locked=true;const b=document.getElementById("testFb");b.innerHTML='<div class="feedback">Оцениваю…</div>';
     const mode=q.mode||"writing",r=await aiEvaluate({answer:a,question:q.text,goal:q.text,level:testSession.level,mode:"test_"+mode});
     if(!b.isConnected||testSession!==s){s.locked=false;return}
     if(r.ok){
-      const pts=Math.max(0,Math.min(1,(r.data.score||0)/100));testSession.freeScores.push(pts);updateSkill(mode,pts*100);updateSkill("grammar",r.data.breakdown?.grammar??pts*100);updateSkill("vocabulary",r.data.breakdown?.vocabulary??pts*100);rememberError(r.data.error_tag);
-      b.innerHTML='<div class="feedback '+(pts>=.55?"good":"bad")+'"><b>'+Math.round(pts*100)+'/100</b> · '+esc(r.data.explanation_ru||"Оценено.")+(r.data.corrected?'<br><b>Лучше:</b> '+esc(r.data.corrected):"")+'</div>';
+      const pts=Math.max(0,Math.min(1,(r.data.score||0)/100)),score=Math.round(pts*100);testSession.freeScores.push(pts);testSession.skillEvidence=testSession.skillEvidence||{};(testSession.skillEvidence[mode]||(testSession.skillEvidence[mode]=[])).push(score);updateSkill(mode,score);updateSkill("grammar",r.data.breakdown?.grammar??score);updateSkill("vocabulary",r.data.breakdown?.vocabulary??score);rememberError(r.data.error_tag);
+      if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:testSession.level,skill:mode,score,moduleId:testSession.level+"-diagnostic",source:"level_test_free",errorTag:r.data.error_tag||"",transfer:true});
+      saveState();b.innerHTML='<div class="feedback '+(pts>=.55?"good":"bad")+'"><b>'+score+'/100</b> · '+esc(r.data.explanation_ru||"Оценено.")+(r.data.corrected?'<br><b>Лучше:</b> '+esc(r.data.corrected):"")+'</div>';
       neAdvance(()=>{s.locked=false;testNext()},pts>=.55?500:1100);
     }else{
       testSession.freeScores.push(null);b.innerHTML='<div class="feedback bad">AI недоступен; ответ не войдёт в процент.</div>';neAdvance(()=>{s.locked=false;testNext()},900);
