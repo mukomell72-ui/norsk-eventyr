@@ -11,6 +11,11 @@ const server=http.createServer(async(req,res)=>{
  console.log('PASS 21 routes including adaptive teacher');
   await page.evaluate(()=>{state.level='A1';navigate('teacher')});assert((await page.locator('#app main').innerText()).includes('Нора ведёт занятие'));
   await page.evaluate(()=>teacherStartMission());await page.waitForTimeout(500);const adaptiveDebug=await page.evaluate(()=>({moduleId:lessonSession?.lesson?._adaptive?.moduleId,title:lessonSession?.lesson?.title,text:document.querySelector('#app main')?.innerText||''}));assert(adaptiveDebug.moduleId==='a1-foundation',JSON.stringify(adaptiveDebug));assert(adaptiveDebug.text.toLowerCase().includes('qa adaptive lesson'),JSON.stringify(adaptiveDebug));console.log('PASS adaptive teacher opens a generated mastery lesson');
+  await page.evaluate(()=>{lessonSession.step=1;lessonSession.vocabIndex=0;lessonSession.vocabItems=null;renderLesson()});assert((await page.locator('#app main').innerText()).includes('Словарь · активное вспоминание'));assert.equal(await page.locator('.choice-list').count(),0);
+  const vocabTargets=await page.evaluate(()=>lessonSession.lesson.vocab.slice(0,3).map(x=>x[0])),vocabBefore=await page.evaluate(()=>state.learningV8?.attempts?.filter(x=>x.source==='vocab_recall').length||0);
+  for(const target of vocabTargets){await page.locator('#adaptiveVocabAnswer').fill(target);await page.evaluate(()=>checkAdaptiveVocab());await page.waitForTimeout(520)}
+  const vocabAfter=await page.evaluate(()=>({count:state.learningV8?.attempts?.filter(x=>x.source==='vocab_recall').length||0,step:lessonSession.step}));
+  assert.equal(vocabAfter.count,vocabBefore+3);assert.equal(vocabAfter.step,2);console.log('PASS adaptive vocabulary uses three-item active recall');
   const beforeConversationEvidence=await page.evaluate(()=>state.learningV8?.attempts?.filter(x=>x.source==='conversation').length||0);
   await page.evaluate(()=>{state.chatPrefs={...(state.chatPrefs||{}),level:'A1',mode:'free',topic:'jobb',autoSpeak:false};navigate('chat');document.getElementById('chatInput').value='Jeg jobber i dag.';v7SendChat()});await page.waitForTimeout(650);
   const conversationEvidence=await page.evaluate(()=>state.learningV8?.attempts?.filter(x=>x.source==='conversation')||[]);
