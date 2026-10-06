@@ -98,7 +98,7 @@ export default async function handler(req,res){
     out.translation_ru=String(out.translation_ru||"").slice(0,1800);
     out.corrected=String(out.corrected||"").slice(0,1200);
     out.explanation_ru=String(out.explanation_ru||"").slice(0,chatMode==="explain"?3000:1000);
-    out.score=Math.max(0,Math.min(100,Math.round(Number(out.score)||0)));
+    const rawScore=Number(out.score);out.score_valid=Number.isFinite(rawScore);out.score=out.score_valid?Math.max(0,Math.min(100,Math.round(rawScore))):0;
     out.error_tag=String(out.error_tag||"").slice(0,50);
     out.suggested_level=allowedLevels.includes(out.suggested_level)?out.suggested_level:"";
     return res.status(200).json(out);
