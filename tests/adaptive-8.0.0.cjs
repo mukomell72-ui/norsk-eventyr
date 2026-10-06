@@ -42,6 +42,14 @@ assert(A.levelGate(state,'A1').pass===false,'stored mastery without grammar/voca
 for(const m of C.modules('A1'))p.modules[m.id]={skills:{listening:90,reading:90,writing:90,speaking:90,grammar:90,vocabulary:90},mastery:90,attempts:12,transferPasses:8};
 assert(A.levelGate(state,'A1').pass===true,'mastery gate should pass only after broad six-component evidence');
 
+const gated={level:'A1',skills:{},learningV8:{startLevel:'A1'}};
+A.ensure(gated);
+const blockedB2=A.moduleMission(gated,'b2-argument');
+assert(blockedB2?.blocked===true&&blockedB2?.blockedByLevel===true&&blockedB2?.unlockedLevel==='A1','A1 learner must not jump directly to B2');
+const placedB2={level:'B2',skills:{},placement:{recommendedStart:'B2'},learningV8:{startLevel:'B2'}};
+A.ensure(placedB2);
+assert(A.moduleMission(placedB2,'b2-argument')?.blocked!==true,'B2 placement start must be allowed to begin B2');
+
 // Delayed evidence must cover all four communicative skills, not four checks of one skill.
 p.reviews={};
 for(let i=0;i<4;i++)p.reviews['a1-'+i+':reading']={stage:2,lastScore:90,due:'2999-01-01'};
@@ -87,6 +95,8 @@ assert(v3.includes('profile.writing=35;profile.speaking=35'),'fresh placement mu
 assert(v3.includes('Это не означает, что уровень '),'placement result must not present the recommended start as a confirmed CEFR level');
 assert(uiV7.includes('window.NECurriculum?.modules(state.level)'),'active course screen must use the 32-module adaptive curriculum');
 assert(uiV7.includes('teacherStartModule'),'course modules must launch through the adaptive teacher');
+assert(uiV7.includes('const courseLevel=level&&LEVELS_V7.includes(level)?level:state.level'),'browsing a course level must use a local view level');
+assert(!uiV7.includes('if(level&&LEVELS_V7.includes(level))state.level=level'),'course tab browsing must not change the active learning level');
 assert(uiV7.includes('Дополнительная практика — не влияет сама по себе на прохождение уровня'),'legacy practice must be visually separated from mastery');
 assert(!v3.includes('if(key==="level")state.level=value'),'legacy chat settings must not switch the course level');
 assert(!uiV7.includes('if(k==="level")state.level=v'),'active chat settings must not switch the course level');
