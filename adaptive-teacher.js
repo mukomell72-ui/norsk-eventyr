@@ -2,6 +2,7 @@
 'use strict';
 const CORE=['listening','reading','writing','speaking'];
 const ALL=['listening','reading','writing','speaking','grammar','vocabulary'];
+const LEVEL_ORDER=['A1','A2','B1','B2'];
 const LABEL={listening:'Аудирование',reading:'Чтение',writing:'Письмо',speaking:'Речь',grammar:'Грамматика',vocabulary:'Словарь'};
 const REVIEW_STEPS=[1,3,7,14,30,60];
 function clamp(x){return Math.max(0,Math.min(100,Math.round(Number(x)||0)))}
