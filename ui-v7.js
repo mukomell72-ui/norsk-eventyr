@@ -29,10 +29,11 @@
     try{
       const seasons=Array.isArray(window.STORY_SEASONS)?window.STORY_SEASONS:STORY_SEASONS;
       const eps=Array.isArray(window.STORY_EPISODES)?window.STORY_EPISODES:STORY_EPISODES;
-      const season=seasons.find(s=>s.level===state.level)||seasons[0];
+      const practiceLevel=LEVELS_V7.includes(state.story?.selectedLevel)?state.story.selectedLevel:state.level;
+      const season=seasons.find(s=>s.level===practiceLevel)||seasons[0];
       const list=eps.filter(e=>e.season===season?.id);
-      return {season,list,current:list.find(e=>!state.story?.completed?.[e.id])||list[0]||null};
-    }catch{return {season:null,list:[],current:null}}
+      return {season,list,current:list.find(e=>!state.story?.completed?.[e.id])||list[0]||null,practiceLevel};
+    }catch{return {season:null,list:[],current:null,practiceLevel:state.level}}
   }
   function nextLessonV7(){
     const core=coreLessonsV7(state.level);
@@ -223,16 +224,17 @@
     {id:'work',title:'Работа',icon:'💼',description:'Коллеги · задачи · рабочий день',scene:'Первый рабочий день в Fjordvik. Nora — коллега. Обсуждайте конкретные рабочие задачи, график, инструменты, перерыв и помощь. Давай по одной естественной реплике и уточняй понимание ученика.'},
     {id:'port',title:'Порт',icon:'⚓',description:'Путешествия · паром · планы',scene:'Порт Fjordvik. Nora — сотрудница у паромного причала. Обсуждайте направление поездки, отправление парома, билеты, багаж, погоду и планы путешествия.'}
   ];
-  function selectConversationV7(id,title,topic,scene=''){
+  function selectConversationV7(id,title,topic,scene='',practiceLevel=''){
     if(chatBusyV7)return;
     state.chatThreads=state.chatThreads||{};
     state.chatThreads[state.chatThreadId||'general']=state.chatHistory||[];
     state.chatThreadId=id;state.chatHistory=state.chatThreads[id]||[];
-    state.chatPrefs={...state.chatPrefs,level:state.level,topic,mode:scene?'roleplay':'free',sceneContext:scene,conversationTitle:title};
+    const level=LEVELS_V7.includes(practiceLevel)?practiceLevel:(LEVELS_V7.includes(state.chatPrefs?.level)?state.chatPrefs.level:state.level);
+    state.chatPrefs={...state.chatPrefs,level,topic,mode:scene?'roleplay':'free',sceneContext:scene,conversationTitle:title};
     saveState();navigate('chat');if(!state.chatHistory.length)v7StartChat();
   }
-  function v7OpenPlace(id){const place=PLACES_V7.find(x=>x.id===id);if(place)selectConversationV7('place:'+id,place.title,place.description,place.scene)}
-  function v7UseTopic(word){const topic=CHAT_TOPICS.find(x=>x[1]===word);selectConversationV7('topic:'+word,topic?.[2]||word,topic?.[2]||word)}
+  function v7OpenPlace(id){const place=PLACES_V7.find(x=>x.id===id);if(place)selectConversationV7('place:'+id,place.title,place.description,place.scene,state.story?.selectedLevel||state.level)}
+  function v7UseTopic(word){const topic=CHAT_TOPICS.find(x=>x[1]===word);selectConversationV7('topic:'+word,topic?.[2]||word,topic?.[2]||word,'',state.chatPrefs?.level||state.level)}
 
   function v7ChatKey(e){
     if(e?.key==="Enter"&&!e.shiftKey){
@@ -275,20 +277,20 @@
   }
 
   function renderStoryV7(seasonId=""){
-    currentRouteV7="story";
+    currentRouteV7="story";state.story=state.story||{};
     try{
       if(seasonId){
         const seasons=Array.isArray(window.STORY_SEASONS)?window.STORY_SEASONS:STORY_SEASONS;
         const picked=seasons.find(x=>x.id===seasonId);
-        if(picked?.level&&picked.level!==state.level){state.level=picked.level;saveState()}
-      }
+        if(picked?.level){state.story.selectedLevel=picked.level;saveState()}
+      }else if(!LEVELS_V7.includes(state.story.selectedLevel)){state.story.selectedLevel=state.level;saveState()}
     }catch{}
-    const {season,list,current}=storyForLevelV7(),nodes=PLACES_V7,pos=[[27,80],[64,26],[65,67],[29,54],[64,41],[28,93]];
+    const {season,list,current,practiceLevel}=storyForLevelV7(),nodes=PLACES_V7,pos=[[27,80],[64,26],[65,67],[29,54],[64,41],[28,93]];
     const labels=PLACES_V7.map(x=>x.title);
     const icons=PLACES_V7.map(x=>x.icon);
     shell(
       '<section class="fjord-v7">'+
-        '<section class="fjord-map-v7"><div class="fjord-shade-v7"></div><div class="fjord-title-v7"><small>'+h(season?.title||state.level)+'</small><h1>Fjordvik</h1><p>Живой норвежский город. Выбирай место и говори в реальной ситуации.</p></div>'+
+        '<section class="fjord-map-v7"><div class="fjord-shade-v7"></div><div class="fjord-title-v7"><small>'+h(season?.title||practiceLevel)+'</small><h1>Fjordvik</h1><p>Живой норвежский город. Выбирай место и говори в реальной ситуации.</p></div>'+
         nodes.map((e,i)=>'<button class="fjord-pin-v7 '+(state.story?.completed?.[e.id]?"done":"")+'" style="left:'+pos[i][0]+'%;top:'+pos[i][1]+'%" onclick="v7OpenPlace(\''+js(e.id)+'\')"><span>'+iconV7(e.id)+'</span><b>'+labels[i]+'</b></button>').join("")+
         '</section>'+
         '<section class="scene-day-v7"><div><small>🎬 Сцена дня · ~14 минут</small><h2>'+h(current?.title||"Встреча в Fjordvik")+'</h2><p>'+h(current?.hook||"Небольшая история, новые слова и живой разговор.")+'</p><button class="cta-v7 small" onclick="'+(current?("navigate(\'storyepisode\',\'"+js(current.id)+"\')"):"navigate(\'storyside\')")+'">Войти в сцену →</button></div><span class="nora-scene-v7"></span></section>'+
