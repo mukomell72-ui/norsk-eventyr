@@ -40,14 +40,24 @@ function recordAttempt(state,input={}){
  const tag=String(input.errorTag||'').slice(0,50);if(tag&&score<80)p.errorPatterns[tag]=(p.errorPatterns[tag]||0)+1;
  p.attempts.push({date:new Date().toISOString(),level,skill,score,moduleId:id,source:String(input.source||'practice').slice(0,40),errorTag:tag,transfer:!!input.transfer});
  p.attempts=p.attempts.slice(-500);
- scheduleReview(p,id,skill,score,level);
+ const key=scheduleReview(p,id,skill,score,level),originKey=String(input.reviewKey||'');
+ if(originKey&&originKey!==key&&p.reviews[originKey]){
+  const cut=originKey.lastIndexOf(':'),originSkill=originKey.slice(cut+1);
+  if(originSkill===skill)advanceReview(p.reviews[originKey],score,level);
+ }
  return profile[skill];
+}
+function advanceReview(r,score,level){
+ if(score<60)r.stage=0;else if(score>=85)r.stage=Math.min(REVIEW_STEPS.length-1,(r.stage||0)+1);
+ else r.stage=Math.max(0,r.stage||0);
+ const wait=score<60?1:REVIEW_STEPS[r.stage]||7;
+ r.lastScore=score;r.lastAttemptAt=new Date().toISOString();r.due=addDays(dayKey(),wait);
+ if(['A1','A2','B1','B2'].includes(level))r.level=level;
+ return r;
 }
 function scheduleReview(p,moduleId,skill,score,level){
  const key=moduleId+':'+skill,r=p.reviews[key]||{stage:0,due:dayKey(),lastScore:null};
- if(score<60)r.stage=0;else if(score>=85)r.stage=Math.min(REVIEW_STEPS.length-1,(r.stage||0)+1);
- else r.stage=Math.max(0,r.stage||0);
- const wait=score<60?1:REVIEW_STEPS[r.stage]||7;r.lastScore=score;r.due=addDays(dayKey(),wait);if(['A1','A2','B1','B2'].includes(level))r.level=level;p.reviews[key]=r;
+ advanceReview(r,score,level);p.reviews[key]=r;return key;
 }
 function dueReviews(state){
  const p=ensure(state),today=dayKey();
