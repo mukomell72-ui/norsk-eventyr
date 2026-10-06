@@ -168,7 +168,7 @@
     if(window.NEAdaptive)NEAdaptive.ensure(state);
     saveState();
     const modules=window.NECurriculum?.modules(state.level)||[],gate=window.NEAdaptive?NEAdaptive.levelGate(state,state.level):null;
-    if(!modules.length)return baseRenderCourseV7?baseRenderCourseV7(state.level):baseNavigateV7("course",state.level);
+    if(!modules.length)return baseNavigateV7("course",state.level);
     const masteryOf=m=>window.NEAdaptive?NEAdaptive.moduleMastery(state,m.id):0,done=modules.filter(m=>masteryOf(m)>=78).length,next=modules.find(m=>masteryOf(m)<78)||modules.at(-1),routeProgress=Math.round(done/modules.length*100),profile=gate?.avg||0;
     const nodePos=[[27,86],[66,77],[30,67],[68,57],[30,47],[67,37],[31,27],[65,17]];
     const nodes=modules.map((m,i)=>{
