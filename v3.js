@@ -644,7 +644,7 @@
     }).join("");
   }
   function setChatPref(key,value){
-    state.chatPrefs[key]=value;if(key==="level")state.level=value;saveState();renderChat();
+    state.chatPrefs[key]=value;saveState();renderChat();
   }
   function setChatTopic(topic){state.chatPrefs.topic=topic;saveState();renderChat()}
   function toggleChatTranslation(i){const e=document.getElementById("chatTr"+i);if(e)e.style.display=e.style.display==="none"?"block":"none"}
