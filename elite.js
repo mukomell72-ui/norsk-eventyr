@@ -317,7 +317,7 @@
 
   function errorCard(title,msg){shell('<section class="card"><h2>'+esc(title)+'</h2><p class="muted">'+esc(msg||"Неизвестная ошибка")+'</p><button class="btn" onclick="navigate(\'home\')">На главную</button></section>',"home")}
 
-  Object.assign(window,{renderPlan,startDictation,checkDictation,nextDictation,startGrammarLab,answerGrammarLab,nextGrammarLab,renderPronunciationLab,selectSoundGroup,selectPronPhrase,practicePronounce,renderListeningLab,analyzeListeningFile,answerListeningLab,nextListeningLab,renderCloud,createCloud,cloudSync,connectCloud,copyRecovery,disconnectCloud,renderSettings,runHealthCheck,setEliteGoal,setDailyMinutes,installApp});
+  Object.assign(window,{renderPlan,startDictation,checkDictation,nextDictation,startGrammarLab,answerGrammarLab,nextGrammarLab,renderPronunciationLab,selectSoundGroup,selectPronPhrase,practicePronounce,renderListeningLab,analyzeListeningFile,answerListeningLab,nextListeningLab,renderCloud,createCloud,cloudSync,connectCloud,copyRecovery,disconnectCloud,renderSettings,runHealthCheck,setEliteGoal,setDailyMinutes,installApp,neMergeState:mergeState,neResolveStartLevel:resolveStartLevel});
 
   window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e});
   window.addEventListener("appinstalled",()=>{installPrompt=null});
