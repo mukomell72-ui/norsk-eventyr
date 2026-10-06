@@ -185,7 +185,7 @@
   function v6ToggleChatSetup(){document.getElementById("chatSetupV6")?.classList.toggle("open")}
   function v6ChatPref(key,value){
     state.chatPrefs=state.chatPrefs||{};
-    state.chatPrefs[key]=value;if(key==="level")state.level=value;saveState();renderChatV6();
+    state.chatPrefs[key]=value;saveState();renderChatV6();
   }
   function v6ToggleTranslation(i){const e=document.getElementById("v6tr"+i);if(e)e.hidden=!e.hidden}
   async function v6SendChat(){
