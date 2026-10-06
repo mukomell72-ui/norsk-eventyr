@@ -65,7 +65,7 @@ assert(reviewMission.kind==='review'&&reviewMission.level==='A2','due A2 review 
 A.recordAttempt(reviewState,{level:'A2',skill:'listening',score:95,moduleId:reviewMission.module.id,source:'qa_review',reviewKey:reviewMission.reviewKey});
 assert(!A.dueReviews(reviewState).some(x=>x.key===reviewMission.reviewKey),'completed cross-module review remained permanently overdue');
 
-const app=read('app.js'),access=read('access.js'),sw=read('sw.js'),generate=read('api/generate.js'),evaluate=read('api/evaluate.js');
+const app=read('app.js'),access=read('access.js'),sw=read('sw.js'),generate=read('api/generate.js'),evaluate=read('api/evaluate.js'),uiV7=read('ui-v7.js');
 assert(app.includes('view==="teacher"')&&app.includes('startAdaptiveTeacher'),'teacher route missing');
 assert(app.includes('"learningV8"'),'adaptive state validation missing');
 assert(app.includes('previousLevel:state.level')&&!app.includes('function startTest(level){touchStudy();state.level=level'),'starting a diagnostic must not switch the active course level');
@@ -85,4 +85,7 @@ assert(v3.includes('source:"level_test"')&&v3.includes('source:"level_test_free"
 assert(v3.includes('scope:"receptive_screening"'),'placement must be stored as a starting-point screening');
 assert(v3.includes('profile.writing=35;profile.speaking=35'),'fresh placement must not invent productive-skill mastery');
 assert(v3.includes('Это не означает, что уровень '),'placement result must not present the recommended start as a confirmed CEFR level');
+assert(uiV7.includes('window.NECurriculum?.modules(state.level)'),'active course screen must use the 32-module adaptive curriculum');
+assert(uiV7.includes('teacherStartModule'),'course modules must launch through the adaptive teacher');
+assert(uiV7.includes('Дополнительная практика — не влияет сама по себе на прохождение уровня'),'legacy practice must be visually separated from mastery');
 console.log('Norsk Eventyr adaptive teacher 8.0 foundation checks: PASS');
