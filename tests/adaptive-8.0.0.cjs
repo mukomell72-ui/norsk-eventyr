@@ -72,4 +72,8 @@ assert(access.includes("'curriculum-v8.js'")&&access.includes("'adaptive-teacher
 assert(sw.includes('/curriculum-v8.js?v=7.4.0')&&sw.includes('/adaptive-teacher.js?v=7.4.0'),'adaptive assets not cached');
 assert(generate.includes('teacherMode')&&generate.includes('Can-do цели'),'objective-driven generator prompt missing');
 assert(evaluate.includes('retry_prompt_no')&&evaluate.includes('micro_rule_ru'),'teacher feedback schema missing');
+const chat=read('api/chat.js'),v3=read('v3.js');
+assert(chat.includes('score_valid=Number.isFinite(rawScore)'),'chat score validation marker missing');
+assert(v3.includes('mastery,errorPatterns,teacherMode:true'),'conversation does not receive adaptive learner context');
+assert(v3.includes('d.score_valid===true')&&v3.includes('source:"conversation"'),'conversation evidence is not guarded by a valid score');
 console.log('Norsk Eventyr adaptive teacher 8.0 foundation checks: PASS');
