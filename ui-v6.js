@@ -185,7 +185,7 @@
   function v6ToggleChatSetup(){document.getElementById("chatSetupV6")?.classList.toggle("open")}
   function v6ChatPref(key,value){
     state.chatPrefs=state.chatPrefs||{};
-    state.chatPrefs[key]=value;if(key==="level")state.level=value;saveState();renderChatV6();
+    state.chatPrefs[key]=value;saveState();renderChatV6();
   }
   function v6ToggleTranslation(i){const e=document.getElementById("v6tr"+i);if(e)e.hidden=!e.hidden}
   async function v6SendChat(){
@@ -211,6 +211,7 @@
     shell(
       compactHeader("Все инструменты","Ещё",'<span class="head-score-v6">'+Number(state.xp||0)+' XP · '+Number(state.streak||0)+' дн.</span>')+
       '<section class="hub-v6">'+
+        hubItem("N","Нора","Адаптивный преподаватель","teacher")+
         hubItem("↻","Повторение","Слова по интервалам","review",due?String(due):"✓")+
         hubItem("5","Словарь","Персональные слова","dictionary",dict?String(dict):"")+
         hubItem("✓","Тесты","Проверка уровня","tests")+
@@ -230,7 +231,7 @@
   const ROUTES_V62=new Set([
     "home","course","chat","story","hub","daily","dailypractice","dictionary","review",
     "tests","test","exam","examrun","exampart","progress","dictation","grammarlab",
-    "pronunciation","listeninglab","cloud","settings","plan","placement","lesson","topic",
+    "pronunciation","listeninglab","cloud","settings","plan","placement","teacher","lesson","topic",
     "storyepisode","storyjournal","storyside"
   ]);
   function routeTopV62(){

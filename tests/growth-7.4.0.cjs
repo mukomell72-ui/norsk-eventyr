@@ -1,0 +1,37 @@
+const fs=require('node:fs');
+const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const read=p=>fs.readFileSync(path.join(root,p),'utf8');
+const assert=(condition,message)=>{if(!condition)throw new Error(message)};
+
+const access=read('access.js');
+const handler=read('lib/access-handler.js');
+const migration=read('migrations/20261005_growth_funnel.sql');
+const privacy=read('deferred/20261005_privacy_v3_finalize.sql');
+const app=read('app.js');
+const sw=read('sw.js');
+const ui=read('ui-v8.js');
+
+assert(app.includes('APP_VERSION="8.0.0"'),'APP_VERSION must be 8.0.0');
+assert(sw.includes('8.0.0'),'service worker must reference 8.0.0');
+assert(ui.includes('8.0.0'),'visible UI version must be 8.0.0');
+assert(access.includes("PRIVACY_VERSION='2026-10-05-v3'"),'privacy v3 frontend missing');
+assert(handler.includes("PRIVACY_VERSION='2026-10-05-v3'"),'privacy v3 server handler missing');
+assert(handler.includes("action==='growth_first_visit'"),'first visit API missing');
+assert(handler.includes("action==='growth_activity'"),'activity API missing');
+assert(handler.includes("action==='purchase_interest'"),'purchase interest API missing');
+assert(handler.includes("action==='owner_growth'"),'owner growth API missing');
+assert(access.includes('captureAcquisition(params)'),'acquisition capture missing');
+assert(access.includes('utm_source'),'UTM source tracking missing');
+assert(access.includes('Хочу продолжить за 99 NOK'),'purchase interest CTA missing');
+assert(migration.includes('norsk_eventyr_growth_daily'),'aggregate first-visit table missing');
+assert(migration.includes('activity_days_count'),'privacy-minimized activity counter missing');
+assert(migration.includes('ne_owner_growth_funnel'),'growth funnel RPC missing');
+assert(migration.includes("'2026-10-05-v1','2026-10-05-v2','2026-10-05-v3'"),'transition privacy compatibility missing');
+assert(migration.includes("'accepted_privacy_version',e.privacy_version"),'graceful privacy upgrade marker missing');
+assert(privacy.includes('DEFERRED: do not apply during the initial 7.4.0 release'),'privacy enforcement must be deferred');
+assert(privacy.includes("current_privacy constant text := '2026-10-05-v3'"),'deferred privacy v3 finalization missing');
+assert(privacy.includes("e.privacy_version is distinct from current_privacy"),'privacy v3 enforcement missing');
+assert(!migration.includes('service_role'),'migration must not embed service-role secret');
+assert(!privacy.includes('service_role'),'privacy migration must not embed service-role secret');
+console.log('Norsk Eventyr 7.4.0 growth funnel checks: PASS');

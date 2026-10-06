@@ -172,11 +172,11 @@ declare result jsonb;
 begin
  if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
  select jsonb_build_object(
-   'registered_users',(select count(*) from auth.users u where lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
-   'confirmed_users',(select count(*) from auth.users u where u.email_confirmed_at is not null and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
-   'active_trials',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.trial_ends_at>now() and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
-   'expired_trials',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.trial_ends_at<=now() and lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
-   'installs',(select count(*) from public.norsk_eventyr_installs i join auth.users u on u.id=i.user_id where lower(coalesce(u.email,''))<>'mukomell72@gmail.com'),
+   'registered_users',(select count(*) from auth.users u where (coalesce(u.raw_app_meta_data,'{}'::jsonb)->>'ne_owner') is distinct from 'true'),
+   'confirmed_users',(select count(*) from auth.users u where u.email_confirmed_at is not null and (coalesce(u.raw_app_meta_data,'{}'::jsonb)->>'ne_owner') is distinct from 'true'),
+   'active_trials',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.trial_ends_at>now() and (coalesce(u.raw_app_meta_data,'{}'::jsonb)->>'ne_owner') is distinct from 'true'),
+   'expired_trials',(select count(*) from public.norsk_eventyr_entitlements e join auth.users u on u.id=e.user_id where e.trial_ends_at<=now() and (coalesce(u.raw_app_meta_data,'{}'::jsonb)->>'ne_owner') is distinct from 'true'),
+   'installs',(select count(*) from public.norsk_eventyr_installs i join auth.users u on u.id=i.user_id where (coalesce(u.raw_app_meta_data,'{}'::jsonb)->>'ne_owner') is distinct from 'true'),
    'ratings',(select count(distinct user_id) from public.norsk_eventyr_feedback),
    'average_rating',(select round(coalesce(avg(x.rating),0)::numeric,1) from (
        select distinct on (user_id) user_id,rating
@@ -186,7 +186,7 @@ begin
    'public_comments',(select count(*) from public.norsk_eventyr_feedback where is_public=true and btrim(coalesce(comment,''))<>''),
    'hidden_comments',(select count(*) from public.norsk_eventyr_feedback where is_public=false),
    'errors_24h',(select count(*) from public.norsk_eventyr_client_errors where created_at>=now()-interval '24 hours'),
-   'registrations_7d',(select count(*) from auth.users where created_at>=now()-interval '7 days' and lower(coalesce(email,''))<>'mukomell72@gmail.com'),
+   'registrations_7d',(select count(*) from auth.users where created_at>=now()-interval '7 days' and (coalesce(raw_app_meta_data,'{}'::jsonb)->>'ne_owner') is distinct from 'true'),
    'installs_7d',(select count(*) from public.norsk_eventyr_installs where first_installed_at>=now()-interval '7 days')
  ) into result;
  return result;
@@ -237,7 +237,7 @@ begin
       'id',u.id,'email',u.email,'created_at',u.created_at,'email_confirmed_at',u.email_confirmed_at
     ) order by u.created_at)
     from auth.users u
-    where lower(coalesce(u.email,''))<>'mukomell72@gmail.com'
+    where (coalesce(u.raw_app_meta_data,'{}'::jsonb)->>'ne_owner') is distinct from 'true'
   ),'[]'::jsonb),
   'entitlements',coalesce((select jsonb_agg(to_jsonb(e) order by e.created_at) from public.norsk_eventyr_entitlements e),'[]'::jsonb),
   'access',coalesce((select jsonb_agg(to_jsonb(a) order by a.requested_at) from public.norsk_eventyr_access a),'[]'::jsonb),
