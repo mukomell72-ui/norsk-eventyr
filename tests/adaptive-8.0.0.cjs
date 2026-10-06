@@ -79,4 +79,7 @@ const chat=read('api/chat.js'),v3=read('v3.js');
 assert(chat.includes('score_valid=Number.isFinite(rawScore)'),'chat score validation marker missing');
 assert(v3.includes('mastery,errorPatterns,teacherMode:true'),'conversation does not receive adaptive learner context');
 assert(v3.includes('d.score_valid===true')&&v3.includes('source:"conversation"'),'conversation evidence is not guarded by a valid score');
+assert(!v3.includes('startTest=async function(level){\n    touchStudy();state.level=level'),'active v3 diagnostics must not switch the course level on start');
+assert(v3.includes('skillEvidence:{reading:[],listening:[],writing:[],speaking:[],grammar:[],vocabulary:[]}'),'active v3 diagnostics must collect six-skill evidence');
+assert(v3.includes('source:"level_test"')&&v3.includes('source:"level_test_free"'),'active v3 diagnostics must feed adaptive evidence');
 console.log('Norsk Eventyr adaptive teacher 8.0 foundation checks: PASS');
