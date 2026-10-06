@@ -88,4 +88,6 @@ assert(v3.includes('Это не означает, что уровень '),'plac
 assert(uiV7.includes('window.NECurriculum?.modules(state.level)'),'active course screen must use the 32-module adaptive curriculum');
 assert(uiV7.includes('teacherStartModule'),'course modules must launch through the adaptive teacher');
 assert(uiV7.includes('Дополнительная практика — не влияет сама по себе на прохождение уровня'),'legacy practice must be visually separated from mastery');
+assert(!v3.includes('if(key==="level")state.level=value'),'legacy chat settings must not switch the course level');
+assert(!uiV7.includes('if(k==="level")state.level=v'),'active chat settings must not switch the course level');
 console.log('Norsk Eventyr adaptive teacher 8.0 foundation checks: PASS');
