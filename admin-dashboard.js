@@ -1,4 +1,4 @@
-// Norsk Eventyr 7.4.0 owner dashboard.
+// Norsk Eventyr 8.0.0 owner dashboard.
 (() => {
  const labels={
   email_confirmed:'Подтвердил email',
