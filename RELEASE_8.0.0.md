@@ -181,7 +181,9 @@ Apply in this exact order:
 1. `migrations/20261005_growth_funnel.sql`
 2. verify owner authorization, lifecycle/growth RPCs and privacy transition;
 3. `migrations/20261005_admin_lifecycle.sql`
-4. verify private payment/subscription tables and owner RPCs.
+4. verify private payment/subscription tables and owner RPCs;
+5. `migrations/20261006_internal_trigger_rpc_hardening.sql`
+6. verify internal lifecycle trigger functions are not executable by PUBLIC/anon/authenticated.
 
 Do **not** apply:
 
@@ -189,7 +191,7 @@ Do **not** apply:
 
 during the initial 8.0.0 release.
 
-The two release migrations have been repeatedly dry-run against the production schema inside `BEGIN ... ROLLBACK`; post-rollback checks confirmed no release schema/data persisted.
+The growth and admin lifecycle migrations were repeatedly dry-run against the production schema inside `BEGIN ... ROLLBACK` before release. The internal trigger RPC hardening migration was then applied after the post-migration security advisor exposed unnecessary public EXECUTE grants on internal trigger functions.
 
 ## Known security-advisor items
 
@@ -223,9 +225,10 @@ Leaked-password protection should be enabled when supported/appropriate for the 
 6. Owner `raw_app_meta_data.ne_owner=true` is set and verified.
 7. Growth migration applies and its verification passes.
 8. Admin lifecycle migration applies and its verification passes.
-9. PR #32 is merged from the exact verified head.
-10. Vercel production deployment is READY.
-11. Production smoke-test passes.
+9. Internal trigger RPC hardening migration applies and its verification passes.
+10. PR #32 is merged from the exact verified head.
+11. Vercel production deployment is READY.
+12. Production smoke-test passes.
 
 If any gate fails, stop before the next irreversible/public step and report the blocker. Do not bypass a failed Preview or migration verification.
 
