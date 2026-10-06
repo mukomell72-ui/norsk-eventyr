@@ -35,7 +35,7 @@ for(const s of ['listening','reading','writing','speaking','grammar','vocabulary
 
 // Imported/stale progress must not certify a module from a stored vanity percentage alone.
 for(const m of C.modules('A1'))p.modules[m.id]={skills:{listening:90,reading:90,writing:90,speaking:90},mastery:99,attempts:8,transferPasses:8};
-for(let i=0;i<4;i++)p.reviews['a1-foundation:'+['listening','reading','writing','speaking'][i]]={stage:2,lastScore:90,due:'2999-01-01'};
+for(let i=0;i<4;i++)p.reviews['a1-foundation:'+['listening','reading','writing','speaking'][i]]={stage:2,lastScore:90,due:'2999-01-01',delayedPasses:1,lastDelayedScore:90};
 assert(A.levelGate(state,'A1').pass===false,'stored mastery without grammar/vocabulary evidence must not certify A1');
 
 // All six components must be evidenced in each mastered module.
@@ -50,12 +50,26 @@ const placedB2={level:'B2',skills:{},placement:{recommendedStart:'B2'},learningV
 A.ensure(placedB2);
 assert(A.moduleMission(placedB2,'b2-argument')?.blocked!==true,'B2 placement start must be allowed to begin B2');
 
-// Delayed evidence must cover all four communicative skills, not four checks of one skill.
+// Delayed evidence must come from genuinely due review missions and cover all four communicative skills.
 p.reviews={};
-for(let i=0;i<4;i++)p.reviews['a1-'+i+':reading']={stage:2,lastScore:90,due:'2999-01-01'};
+for(let i=0;i<4;i++)p.reviews['a1-'+i+':reading']={stage:2,lastScore:90,due:'2999-01-01',delayedPasses:1,lastDelayedScore:90};
 assert(A.levelGate(state,'A1').pass===false,'four delayed checks of one skill must not certify A1');
-for(const skill of ['listening','reading','writing','speaking'])p.reviews['a1-foundation:'+skill]={stage:2,lastScore:90,due:'2999-01-01'};
+for(const skill of ['listening','reading','writing','speaking'])p.reviews['a1-foundation:'+skill]={stage:2,lastScore:90,due:'2999-01-01',delayedPasses:1,lastDelayedScore:90};
 assert(A.levelGate(state,'A1').pass===true,'delayed evidence across all four core skills should satisfy the retention gate');
+
+p.reviews={};
+for(const skill of ['listening','reading','writing','speaking'])p.reviews['a1-foundation:'+skill]={stage:5,lastScore:100,due:'2999-01-01'};
+assert(A.levelGate(state,'A1').pass===false,'same-day stage advancement without a due review must not satisfy retention');
+
+const retentionState={level:'A1',skills:{},learningV8:{}};
+A.ensure(retentionState);
+A.recordAttempt(retentionState,{level:'A1',skill:'reading',score:100,moduleId:'a1-foundation',source:'qa'});
+A.recordAttempt(retentionState,{level:'A1',skill:'reading',score:100,moduleId:'a1-foundation',source:'qa'});
+const sameDayReview=retentionState.learningV8.reviews['a1-foundation:reading'];
+assert(!(sameDayReview.delayedPasses>0),'ordinary repeated answers must not create delayed retention evidence');
+sameDayReview.due='2000-01-01';
+A.recordAttempt(retentionState,{level:'A1',skill:'reading',score:95,moduleId:'a1-foundation',source:'qa_review',reviewKey:'a1-foundation:reading'});
+assert(sameDayReview.delayedPasses===1&&sameDayReview.lastDelayedScore===95,'a genuinely due review must create delayed retention evidence');
 
 // An assessment for another level must update that level only.
 const a1WritingBefore=p.levelSkills.A1.writing,a2WritingBefore=p.levelSkills.A2.writing;
