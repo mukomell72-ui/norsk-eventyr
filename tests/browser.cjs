@@ -24,6 +24,15 @@ const server=http.createServer(async(req,res)=>{
   await page.evaluate(()=>teacherStartModule('a1-home'));await page.waitForTimeout(120);assert((await page.locator('#app main').innerText()).includes('Сначала закрепи предыдущий модуль'));console.log('PASS future curriculum module is gated by prior mastery');
   const crossLevelGate=await page.evaluate(()=>{state.level='A1';state.learningV8=state.learningV8||{};state.learningV8.startLevel='A1';saveState();navigate('course','B2');return{active:state.level,text:document.querySelector('#app main')?.innerText||''}});
   assert.equal(crossLevelGate.active,'A1');assert(crossLevelGate.text.includes('Курс B2'));await page.evaluate(()=>teacherStartModule('b2-argument'));await page.waitForTimeout(120);assert((await page.locator('#app main').innerText()).includes('Сначала подтверди A1'));console.log('PASS browsing B2 does not change A1 and direct B2 start is gated');
+  const cloudStart=await page.evaluate(()=>{
+    const conservative=neResolveStartLevel({level:'B2',learningV8:{startLevel:'B2'}},{level:'A1',learningV8:{startLevel:'A1'}},null);
+    const merged=neMergeState(
+      {level:'A1',placement:{recommendedStart:'A1',date:'2026-01-01T00:00:00Z'},learningV8:{startLevel:'A1'}},
+      {level:'B2',placement:{recommendedStart:'B2',date:'2026-02-01T00:00:00Z'},learningV8:{startLevel:'B2'}}
+    );
+    return{conservative,mergedStart:merged.learningV8.startLevel,placement:merged.placement?.recommendedStart};
+  });
+  assert.equal(cloudStart.conservative,'A1');assert.equal(cloudStart.mergedStart,'B2');assert.equal(cloudStart.placement,'B2');console.log('PASS cloud sync preserves safe mastery starting level');
   const chatLevelIsolation=await page.evaluate(()=>{state.level='A1';state.chatPrefs={...(state.chatPrefs||{}),level:'A1'};saveState();navigate('chat');v7ChatPref('level','B2');return{course:state.level,chat:state.chatPrefs.level}});
   assert.equal(chatLevelIsolation.course,'A1');assert.equal(chatLevelIsolation.chat,'B2');console.log('PASS B2 conversation practice does not switch the A1 course');
   const storyLevelIsolation=await page.evaluate(()=>{state.level='A1';state.story=state.story||{};state.story.selectedLevel='A1';saveState();renderStoryV7('s4');return{course:state.level,story:state.story.selectedLevel,text:document.querySelector('#app main')?.innerText||''}});
