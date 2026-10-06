@@ -126,7 +126,7 @@ function completeLesson(state,lesson){
  const p=ensure(state),id=lesson?._adaptive?.moduleId||lesson?.id||'lesson',m=moduleState(p,id);m.lastCompleted=dayKey();m.completions=(m.completions||0)+1;if(lesson?._adaptive)p.lastSessionDate=dayKey();
  if(lesson?._adaptive?.kind==='review'&&lesson._adaptive.reviewKey&&p.reviews[lesson._adaptive.reviewKey])p.reviews[lesson._adaptive.reviewKey].completedAt=new Date().toISOString();
 }
-function errors(state){const p=ensure(state),ranked=Object.values(p.patternStats||{}).filter(x=>x&&x.tag&&x.level===state.level&&(x.severity||0)>0).sort((a,b)=>(b.severity||0)-(a.severity||0)||(b.misses||0)-(a.misses||0)).slice(0,6).map(x=>x.tag);return ranked.length?ranked:Object.entries(p.errorPatterns).sort((a,b)=>b[1]-a[1]).slice(0,6).map(x=>x[0])}
+function errors(state,level=state.level){const p=ensure(state),target=LEVEL_ORDER.includes(level)?level:state.level,ranked=Object.values(p.patternStats||{}).filter(x=>x&&x.tag&&x.level===target&&(x.severity||0)>0).sort((a,b)=>(b.severity||0)-(a.severity||0)||(b.misses||0)-(a.misses||0)).slice(0,6).map(x=>x.tag);return ranked.length?ranked:Object.entries(p.errorPatterns).sort((a,b)=>b[1]-a[1]).slice(0,6).map(x=>x[0])}
 function reviewWords(state){if(typeof window.neReinforcementWords==='function')return window.neReinforcementWords(12);return[]}
 function bars(state){
  const p=ensure(state),profile=levelProfile(p,state.level);return ALL.map(s=>'<div class="metric"><span>'+LABEL[s]+'</span><strong>'+clamp(profile[s])+'%</strong></div><div class="progress"><i style="width:'+clamp(profile[s])+'%"></i></div>').join('');
@@ -165,7 +165,7 @@ function moduleMission(state,moduleId){
 async function runTeacherMission(mission){
  const m=mission?.module;if(!m)return;
  shell('<section class="card loading-card"><div class="spinner"></div><h2>Нора готовит занятие</h2><p class="muted">Цель — '+esc(m.canDo[0])+'. Задания будут подстроены под слабые места, а не случайно сгенерированы.</p></section>','home');
- const p=ensure(state),targetProfile=levelProfile(p,mission.level),payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,targetErrorTag:mission.errorTag||'',canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...targetProfile},errorPatterns:errors(state),weakSkills:ALL.filter(s=>targetProfile[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review'};
+ const p=ensure(state),targetProfile=levelProfile(p,mission.level),payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,targetErrorTag:mission.errorTag||'',canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...targetProfile},errorPatterns:errors(state,mission.level),weakSkills:ALL.filter(s=>targetProfile[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review'};
  try{
   const r=typeof neApiPost==='function'?await neApiPost('/api/generate',payload):await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(async x=>({ok:x.ok,data:await x.json()}));
   if(!r.ok||!r.data)throw new Error(r.error||'GENERATION');
