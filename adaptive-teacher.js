@@ -12,7 +12,7 @@ function ensure(state){
  if(!state.learningV8||typeof state.learningV8!=='object'||Array.isArray(state.learningV8))state.learningV8={};
  const p=state.learningV8,current=['A1','A2','B1','B2'].includes(state.level)?state.level:'A1';
  p.version='8.1-method-1';p.skills=p.skills||{};p.levelSkills=p.levelSkills||{};p.modules=p.modules||{};p.reviews=p.reviews||{};p.errorPatterns=p.errorPatterns||{};p.patternStats=p.patternStats||{};p.assessments=Array.isArray(p.assessments)?p.assessments:[];p.attempts=Array.isArray(p.attempts)?p.attempts:[];
- for(const [tag,count] of Object.entries(p.errorPatterns)){if(tag&&!p.patternStats[tag])p.patternStats[tag]={tag,level:current,skill:'grammar',misses:Number(count)||0,passes:0,transferPasses:0,severity:clamp(Math.min(90,35+(Number(count)||0)*8)),lastSeen:null,lastSuccess:null,due:dayKey()}}
+ for(const [tag,count] of Object.entries(p.errorPatterns)){const key=current+':'+tag;if(tag&&!p.patternStats[key])p.patternStats[key]={tag,level:current,skill:skillForError(tag),misses:Number(count)||0,passes:0,transferPasses:0,severity:clamp(Math.min(90,35+(Number(count)||0)*8)),lastSeen:null,lastSuccess:null,due:dayKey()}}
  if(!LEVEL_ORDER.includes(p.startLevel))p.startLevel=LEVEL_ORDER.includes(state.placement?.recommendedStart)?state.placement.recommendedStart:(LEVEL_ORDER.includes(state.placement?.level)?state.placement.level:(LEVEL_ORDER.includes(state.level)?state.level:'A1'));
  for(const level of ['A1','A2','B1','B2']){
   p.levelSkills[level]=p.levelSkills[level]||{};
@@ -29,9 +29,9 @@ function ensure(state){
 function levelProfile(p,level){return p.levelSkills?.[level]||Object.fromEntries(ALL.map(s=>[s,35]))}
 function skillForError(tag){return({word_order:'grammar',verb_form:'grammar',article:'grammar',vocabulary:'vocabulary',task:'writing',coherence:'writing'})[String(tag||'')]||'grammar'}
 function patternStat(p,tag,level,skill){
- const key=String(tag||'').slice(0,50);if(!key)return null;
- const s=p.patternStats[key]||(p.patternStats[key]={tag:key,level:LEVEL_ORDER.includes(level)?level:'A1',skill:ALL.includes(skill)?skill:skillForError(key),misses:0,passes:0,transferPasses:0,severity:0,lastSeen:null,lastSuccess:null,due:dayKey()});
- if(LEVEL_ORDER.includes(level))s.level=level;if(ALL.includes(skill))s.skill=skill;return s;
+ const tagKey=String(tag||'').slice(0,50);if(!tagKey)return null;const safeLevel=LEVEL_ORDER.includes(level)?level:'A1',key=safeLevel+':'+tagKey;
+ const s=p.patternStats[key]||(p.patternStats[key]={tag:tagKey,level:safeLevel,skill:ALL.includes(skill)?skill:skillForError(tagKey),misses:0,passes:0,transferPasses:0,severity:0,lastSeen:null,lastSuccess:null,due:dayKey()});
+ if(ALL.includes(skill))s.skill=skill;return s;
 }
 function recordPatternEvidence(p,{tag,level,skill,score,transfer=false,target=false}){
  const s=patternStat(p,tag,level,skill);if(!s)return null;const n=clamp(score),today=dayKey();s.lastSeen=new Date().toISOString();
@@ -126,7 +126,7 @@ function completeLesson(state,lesson){
  const p=ensure(state),id=lesson?._adaptive?.moduleId||lesson?.id||'lesson',m=moduleState(p,id);m.lastCompleted=dayKey();m.completions=(m.completions||0)+1;if(lesson?._adaptive)p.lastSessionDate=dayKey();
  if(lesson?._adaptive?.kind==='review'&&lesson._adaptive.reviewKey&&p.reviews[lesson._adaptive.reviewKey])p.reviews[lesson._adaptive.reviewKey].completedAt=new Date().toISOString();
 }
-function errors(state){const p=ensure(state),ranked=Object.values(p.patternStats||{}).filter(x=>x&&x.tag&&(x.severity||0)>0).sort((a,b)=>(b.severity||0)-(a.severity||0)||(b.misses||0)-(a.misses||0)).slice(0,6).map(x=>x.tag);return ranked.length?ranked:Object.entries(p.errorPatterns).sort((a,b)=>b[1]-a[1]).slice(0,6).map(x=>x[0])}
+function errors(state){const p=ensure(state),ranked=Object.values(p.patternStats||{}).filter(x=>x&&x.tag&&x.level===state.level&&(x.severity||0)>0).sort((a,b)=>(b.severity||0)-(a.severity||0)||(b.misses||0)-(a.misses||0)).slice(0,6).map(x=>x.tag);return ranked.length?ranked:Object.entries(p.errorPatterns).sort((a,b)=>b[1]-a[1]).slice(0,6).map(x=>x[0])}
 function reviewWords(state){if(typeof window.neReinforcementWords==='function')return window.neReinforcementWords(12);return[]}
 function bars(state){
  const p=ensure(state),profile=levelProfile(p,state.level);return ALL.map(s=>'<div class="metric"><span>'+LABEL[s]+'</span><strong>'+clamp(profile[s])+'%</strong></div><div class="progress"><i style="width:'+clamp(profile[s])+'%"></i></div>').join('');
