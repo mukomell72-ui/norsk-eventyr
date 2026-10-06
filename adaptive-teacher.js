@@ -11,7 +11,8 @@ function addDays(iso,days){const d=iso?new Date(iso+'T12:00:00'):new Date();d.se
 function ensure(state){
  if(!state.learningV8||typeof state.learningV8!=='object'||Array.isArray(state.learningV8))state.learningV8={};
  const p=state.learningV8,current=['A1','A2','B1','B2'].includes(state.level)?state.level:'A1';
- p.version='8.0-method-4';p.skills=p.skills||{};p.levelSkills=p.levelSkills||{};p.modules=p.modules||{};p.reviews=p.reviews||{};p.errorPatterns=p.errorPatterns||{};p.assessments=Array.isArray(p.assessments)?p.assessments:[];p.attempts=Array.isArray(p.attempts)?p.attempts:[];
+ p.version='8.1-method-1';p.skills=p.skills||{};p.levelSkills=p.levelSkills||{};p.modules=p.modules||{};p.reviews=p.reviews||{};p.errorPatterns=p.errorPatterns||{};p.patternStats=p.patternStats||{};p.assessments=Array.isArray(p.assessments)?p.assessments:[];p.attempts=Array.isArray(p.attempts)?p.attempts:[];
+ for(const [tag,count] of Object.entries(p.errorPatterns)){if(tag&&!p.patternStats[tag])p.patternStats[tag]={tag,level:current,skill:'grammar',misses:Number(count)||0,passes:0,transferPasses:0,severity:clamp(Math.min(90,35+(Number(count)||0)*8)),lastSeen:null,lastSuccess:null,due:dayKey()}}
  if(!LEVEL_ORDER.includes(p.startLevel))p.startLevel=LEVEL_ORDER.includes(state.placement?.recommendedStart)?state.placement.recommendedStart:(LEVEL_ORDER.includes(state.placement?.level)?state.placement.level:(LEVEL_ORDER.includes(state.level)?state.level:'A1'));
  for(const level of ['A1','A2','B1','B2']){
   p.levelSkills[level]=p.levelSkills[level]||{};
@@ -26,6 +27,22 @@ function ensure(state){
  return p;
 }
 function levelProfile(p,level){return p.levelSkills?.[level]||Object.fromEntries(ALL.map(s=>[s,35]))}
+function skillForError(tag){return({word_order:'grammar',verb_form:'grammar',article:'grammar',vocabulary:'vocabulary',task:'writing',coherence:'writing'})[String(tag||'')]||'grammar'}
+function patternStat(p,tag,level,skill){
+ const key=String(tag||'').slice(0,50);if(!key)return null;
+ const s=p.patternStats[key]||(p.patternStats[key]={tag:key,level:LEVEL_ORDER.includes(level)?level:'A1',skill:ALL.includes(skill)?skill:skillForError(key),misses:0,passes:0,transferPasses:0,severity:0,lastSeen:null,lastSuccess:null,due:dayKey()});
+ if(LEVEL_ORDER.includes(level))s.level=level;if(ALL.includes(skill))s.skill=skill;return s;
+}
+function recordPatternEvidence(p,{tag,level,skill,score,transfer=false,target=false}){
+ const s=patternStat(p,tag,level,skill);if(!s)return null;const n=clamp(score),today=dayKey();s.lastSeen=new Date().toISOString();
+ if(target&&n>=75){s.passes=(s.passes||0)+1;if(transfer&&n>=80)s.transferPasses=(s.transferPasses||0)+1;s.lastSuccess=s.lastSeen;s.severity=clamp((s.severity||0)-(transfer&&n>=80?32:18));s.due=addDays(today,transfer&&n>=80?7:3)}
+ else if(n<80){s.misses=(s.misses||0)+1;s.severity=clamp((s.severity||0)+(n<55?24:14));s.due=today}
+ return s;
+}
+function priorityError(state,level){
+ const p=ensure(state),today=dayKey();
+ return Object.values(p.patternStats||{}).filter(s=>s&&s.tag&&s.level===level&&(s.severity||0)>=35&&(!s.due||s.due<=today)).sort((a,b)=>(b.severity||0)-(a.severity||0)||(b.misses||0)-(a.misses||0))[0]||null;
+}
 function moduleState(p,id){return p.modules[id]||(p.modules[id]={skills:{},attempts:0,mastery:0,lastSeen:null,transferPasses:0})}
 function skillForStep(step,mode){
  if(mode==='writing'||mode==='speaking')return mode;
@@ -39,8 +56,8 @@ function recordAttempt(state,input={}){
  m.skills[skill]=clamp(mo*(1-weight)+score*weight);m.attempts=(m.attempts||0)+1;m.lastSeen=dayKey();
  if(input.transfer&&score>=80)m.transferPasses=(m.transferPasses||0)+1;
  const vals=ALL.map(s=>m.skills[s]).filter(Number.isFinite),avg=vals.length?clamp(vals.reduce((a,b)=>a+b,0)/vals.length):0,min=vals.length?Math.min(...vals):0;m.mastery=vals.length===ALL.length&&min>=65?avg:Math.min(69,avg);
- const tag=String(input.errorTag||'').slice(0,50);if(tag&&score<80)p.errorPatterns[tag]=(p.errorPatterns[tag]||0)+1;
- p.attempts.push({date:new Date().toISOString(),level,skill,score,moduleId:id,source:String(input.source||'practice').slice(0,40),errorTag:tag,transfer:!!input.transfer});
+ const tag=String(input.errorTag||'').slice(0,50),targetTag=String(input.targetErrorTag||'').slice(0,50);if(tag&&score<80){p.errorPatterns[tag]=(p.errorPatterns[tag]||0)+1;recordPatternEvidence(p,{tag,level,skill,score,transfer:!!input.transfer,target:false})}if(targetTag&&(targetTag!==tag||score>=80))recordPatternEvidence(p,{tag:targetTag,level,skill,score,transfer:!!input.transfer,target:true});
+ p.attempts.push({date:new Date().toISOString(),level,skill,score,moduleId:id,source:String(input.source||'practice').slice(0,40),errorTag:tag,targetErrorTag:targetTag,transfer:!!input.transfer});
  p.attempts=p.attempts.slice(-500);
  const originKey=String(input.reviewKey||''),originReview=originKey?p.reviews[originKey]:null,originCut=originKey.lastIndexOf(':'),originSkill=originCut>=0?originKey.slice(originCut+1):'';
  const delayedDue=!!(originReview&&originSkill===skill&&originReview.due&&originReview.due<=dayKey());
@@ -96,6 +113,7 @@ function nextMission(state){
   const d=due[0],known=window.NECurriculum?.moduleById(d.moduleId),reviewLevel=['A1','A2','B1','B2'].includes(d.level)?d.level:(known?.level||level),m=known||nextModule(state,reviewLevel);
   return{kind:'review',level:reviewLevel,module:m,skill:d.skill,reason:'Пора проверить, сохранился ли материал после паузы.',reviewKey:d.key};
  }
+ const pattern=priorityError(state,level);if(pattern){const module=nextModule(state,level),skill=ALL.includes(pattern.skill)?pattern.skill:skillForError(pattern.tag);return{kind:'remediation',level,module,skill,errorTag:pattern.tag,reason:'Возвращаемся к повторяющейся ошибке «'+pattern.tag+'» и проверяем её в новой ситуации.'}}
  const skill=weakestSkill(state),module=nextModule(state,level);
  return{kind:'learn',level,module,skill,reason:'Сейчас это самое слабое звено в твоём профиле навыков.'};
 }
@@ -108,7 +126,7 @@ function completeLesson(state,lesson){
  const p=ensure(state),id=lesson?._adaptive?.moduleId||lesson?.id||'lesson',m=moduleState(p,id);m.lastCompleted=dayKey();m.completions=(m.completions||0)+1;if(lesson?._adaptive)p.lastSessionDate=dayKey();
  if(lesson?._adaptive?.kind==='review'&&lesson._adaptive.reviewKey&&p.reviews[lesson._adaptive.reviewKey])p.reviews[lesson._adaptive.reviewKey].completedAt=new Date().toISOString();
 }
-function errors(state){return Object.entries(ensure(state).errorPatterns).sort((a,b)=>b[1]-a[1]).slice(0,6).map(x=>x[0])}
+function errors(state){const p=ensure(state),ranked=Object.values(p.patternStats||{}).filter(x=>x&&x.tag&&(x.severity||0)>0).sort((a,b)=>(b.severity||0)-(a.severity||0)||(b.misses||0)-(a.misses||0)).slice(0,6).map(x=>x.tag);return ranked.length?ranked:Object.entries(p.errorPatterns).sort((a,b)=>b[1]-a[1]).slice(0,6).map(x=>x[0])}
 function reviewWords(state){if(typeof window.neReinforcementWords==='function')return window.neReinforcementWords(12);return[]}
 function bars(state){
  const p=ensure(state),profile=levelProfile(p,state.level);return ALL.map(s=>'<div class="metric"><span>'+LABEL[s]+'</span><strong>'+clamp(profile[s])+'%</strong></div><div class="progress"><i style="width:'+clamp(profile[s])+'%"></i></div>').join('');
@@ -117,7 +135,7 @@ function startAdaptiveTeacher(){
  ensure(state);const mission=nextMission(state),gate=levelGate(state,state.level),p=state.learningV8,attempts=p.attempts.length;
  const m=mission.module,reason=mission.reason+(m?' Цель: '+m.canDo[0]+'.':'');
  shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Адаптивный преподаватель · '+esc(state.level)+'</div><h2 style="margin:0">Нора ведёт занятие</h2></div></div>'+
- '<section class="grid"><article class="card"><div class="eyebrow">Следующий шаг</div><h2>'+esc(m?.title||'Диагностика')+'</h2><p>'+esc(reason)+'</p><div class="row"><span class="tag">'+esc(LABEL[mission.skill]||mission.skill)+'</span><span class="tag">'+(mission.kind==='review'?'Повторение':'Новый материал')+'</span></div><br><button class="btn" onclick="teacherStartMission()">Начать занятие</button></article>'+
+ '<section class="grid"><article class="card"><div class="eyebrow">Следующий шаг</div><h2>'+esc(m?.title||'Диагностика')+'</h2><p>'+esc(reason)+'</p><div class="row"><span class="tag">'+esc(LABEL[mission.skill]||mission.skill)+'</span><span class="tag">'+(mission.kind==='review'?'Повторение':mission.kind==='remediation'?'Исправление ошибки':'Новый материал')+'</span></div><br><button class="btn" onclick="teacherStartMission()">Начать занятие</button></article>'+
  '<article class="card"><div class="eyebrow">Допуск к '+esc(state.level)+'</div><h2>'+gate.avg+'% профиль</h2><p class="muted">Уровень не засчитывается по одному тесту. Нужны четыре навыка, перенос в новой ситуации и отложенная проверка.</p><div class="metric"><span>Освоено модулей</span><strong>'+gate.mastered+'/'+gate.total+'</strong></div><div class="metric"><span>Отложенных подтверждений</span><strong>'+gate.delayed+'/4</strong></div><div class="metric"><span>Статус</span><strong>'+(gate.pass?'Пройден':'Есть работа')+'</strong></div></article></section>'+
  '<div class="section-title"><h2>Профиль навыков</h2></div><section class="card">'+bars(state)+'</section>'+
  (attempts<8?'<section class="notice" style="margin-top:14px"><b>Пока мало данных.</b> Пройди контроль уровня: после нескольких ответов преподаватель будет выбирать задания точнее. <button class="btn secondary" style="margin-top:10px" onclick="navigate(\'test\',\''+escJs(state.level)+'\')">Диагностика '+esc(state.level)+'</button></section>':'')+
@@ -147,11 +165,11 @@ function moduleMission(state,moduleId){
 async function runTeacherMission(mission){
  const m=mission?.module;if(!m)return;
  shell('<section class="card loading-card"><div class="spinner"></div><h2>Нора готовит занятие</h2><p class="muted">Цель — '+esc(m.canDo[0])+'. Задания будут подстроены под слабые места, а не случайно сгенерированы.</p></section>','home');
- const p=ensure(state),targetProfile=levelProfile(p,mission.level),payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...targetProfile},errorPatterns:errors(state),weakSkills:ALL.filter(s=>targetProfile[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review'};
+ const p=ensure(state),targetProfile=levelProfile(p,mission.level),payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,targetErrorTag:mission.errorTag||'',canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...targetProfile},errorPatterns:errors(state),weakSkills:ALL.filter(s=>targetProfile[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review'};
  try{
   const r=typeof neApiPost==='function'?await neApiPost('/api/generate',payload):await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(async x=>({ok:x.ok,data:await x.json()}));
   if(!r.ok||!r.data)throw new Error(r.error||'GENERATION');
-  const lesson={...r.data,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,title:r.data.title||m.title,grammar:r.data.grammarRuleRu||m.grammar,_adaptive:{moduleId:m.id,skill:mission.skill,kind:mission.kind,reviewKey:mission.reviewKey||'',canDo:m.canDo,transfer:mission.kind==='review'||/transfer|capstone/.test(m.id)}};
+  const lesson={...r.data,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,title:r.data.title||m.title,grammar:r.data.grammarRuleRu||m.grammar,_adaptive:{moduleId:m.id,skill:mission.skill,kind:mission.kind,errorTag:mission.errorTag||'',reviewKey:mission.reviewKey||'',canDo:m.canDo,transfer:mission.kind==='review'||mission.kind==='remediation'||/transfer|capstone/.test(m.id)}};
   state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;saveState();lessonSession={lesson,step:0,locked:false};renderLesson();
  }catch(e){shell('<section class="card"><h2>Занятие не создано</h2><p class="muted">Не засчитываю ничего без полноценного задания. Проверь соединение и повтори.</p><button class="btn" onclick="startAdaptiveTeacher()">Назад</button></section>','home')}
 }
@@ -164,6 +182,6 @@ async function teacherStartModule(moduleId){
  }
  const currentIndex=LEVEL_ORDER.indexOf(state.level),targetIndex=LEVEL_ORDER.indexOf(mission.level);if(targetIndex>=currentIndex)state.level=mission.level;saveState();return runTeacherMission(mission);
 }
-window.NEAdaptive={ensure,recordAttempt,assessment,completeLesson,dueReviews,nextMission,levelGate,moduleMastery,skillForStep,errors,moduleMission,highestUnlockedLevel};
+window.NEAdaptive={ensure,recordAttempt,assessment,completeLesson,dueReviews,nextMission,levelGate,moduleMastery,skillForStep,errors,moduleMission,highestUnlockedLevel,priorityError};
 Object.assign(window,{startAdaptiveTeacher,teacherStartMission,teacherStartModule});
 })();
