@@ -37,6 +37,10 @@ A.recordAttempt(state,{level:'B1',skill:'speaking',score:40,moduleId:'b1-work',s
 A.recordAttempt(state,{level:'B1',skill:'speaking',score:40,moduleId:'b1-work',source:'qa',errorTag:'word_order'});
 assert(state.learningV8.patternStats['B1:word_order'],'same error at B1 was not stored separately');
 assert(state.learningV8.patternStats['A1:word_order']===wordOrder,'B1 error overwrote A1 error memory');
+assert(A.errors(state).includes('word_order')===false,'current A1 error list unexpectedly used B1 context');
+state.level='B1';
+assert(A.errors(state).includes('word_order'),'B1 error context was not selected for the B1 course level');
+state.level='A1';
 
 const legacy={level:'A1',skills:{},learningV8:{errorPatterns:{article:4}}};
 A.ensure(legacy);
