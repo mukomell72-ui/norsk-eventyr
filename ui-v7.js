@@ -163,9 +163,9 @@
     "home");
   }
 
-  function renderCourseV7(level=courseLevel){
+  function renderCourseV7(level=state.level){
     currentRouteV7="course";
-    const courseLevel=level&&LEVELS_V7.includes(level)?level:courseLevel;
+    const courseLevel=level&&LEVELS_V7.includes(level)?level:state.level;
     if(window.NEAdaptive)NEAdaptive.ensure(state);
     const modules=window.NECurriculum?.modules(courseLevel)||[],gate=window.NEAdaptive?NEAdaptive.levelGate(state,courseLevel):null;
     if(!modules.length)return baseNavigateV7("course",courseLevel);
