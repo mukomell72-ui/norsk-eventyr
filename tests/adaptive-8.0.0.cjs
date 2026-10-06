@@ -85,6 +85,9 @@ assert(generate.includes('teacherMode')&&generate.includes('Can-do цели'),'o
 assert(generate.includes('listeningAudio')&&generate.includes('listeningQ')&&generate.includes('listeningOpts'),'adaptive lesson generator must create comprehension listening');
 assert(app.includes('Аудирование · понимание смысла')&&app.includes('l.listeningAudio'),'adaptive lesson UI must test listening comprehension');
 assert(app.includes('Словарь · активное вспоминание')&&app.includes('source:"vocab_recall"'),'adaptive vocabulary must use productive recall evidence');
+assert(app.includes('source:rem?"lesson_free_transfer":"lesson_free"'),'adaptive free response must record transfer evidence separately');
+assert(app.includes('openFreeTransfer')&&app.includes('Применить в новой ситуации'),'adaptive error feedback must require a new-context retry');
+assert(app.includes('Эту ошибку Нора вернёт позже'),'repeated transfer failure must defer to spaced review instead of looping forever');
 assert(app.includes('slice(0,3)'),'adaptive lesson must retrieve multiple vocabulary items, not only one');
 assert(evaluate.includes('retry_prompt_no')&&evaluate.includes('micro_rule_ru'),'teacher feedback schema missing');
 const chat=read('api/chat.js'),v3=read('v3.js');
