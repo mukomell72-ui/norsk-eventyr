@@ -84,6 +84,8 @@ assert(sw.includes('/curriculum-v8.js?v=7.4.0')&&sw.includes('/adaptive-teacher.
 assert(generate.includes('teacherMode')&&generate.includes('Can-do цели'),'objective-driven generator prompt missing');
 assert(generate.includes('listeningAudio')&&generate.includes('listeningQ')&&generate.includes('listeningOpts'),'adaptive lesson generator must create comprehension listening');
 assert(app.includes('Аудирование · понимание смысла')&&app.includes('l.listeningAudio'),'adaptive lesson UI must test listening comprehension');
+assert(app.includes('Словарь · активное вспоминание')&&app.includes('source:"vocab_recall"'),'adaptive vocabulary must use productive recall evidence');
+assert(app.includes('slice(0,3)'),'adaptive lesson must retrieve multiple vocabulary items, not only one');
 assert(evaluate.includes('retry_prompt_no')&&evaluate.includes('micro_rule_ru'),'teacher feedback schema missing');
 const chat=read('api/chat.js'),v3=read('v3.js');
 assert(chat.includes('score_valid=Number.isFinite(rawScore)'),'chat score validation marker missing');
