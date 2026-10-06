@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "test": "node access-api.mjs && node access-sql.cjs && node access-browser.cjs && node api-shapes.mjs && node browser.cjs && node async-media.cjs && node updates.cjs && node professional-7.3.8.cjs && node growth-7.4.0.cjs && node admin-7.4.0.cjs && node adaptive-8.0.0.cjs"
+    "test": "node access-api.mjs && node access-sql.cjs && node access-browser.cjs && node api-shapes.mjs && node browser.cjs && node async-media.cjs && node updates.cjs && node professional-7.3.8.cjs && node growth-7.4.0.cjs && node admin-7.4.0.cjs && node adaptive-8.0.0.cjs && node adaptive-8.1.0.cjs"
   },
   "devDependencies": {
     "playwright": "1.62.1",
