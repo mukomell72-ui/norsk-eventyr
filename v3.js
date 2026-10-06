@@ -469,23 +469,39 @@
   function finishReview(){state.xp+=10;const today=localDateKey();state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.reviewDates=state.guidedJourney.reviewDates||{};state.guidedJourney.reviewDates[today]=true;saveState();shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">Повторение завершено</div><h1>Готово</h1><p class="muted">Следующие даты пересчитаны. Возвращаемся к сегодняшнему маршруту.</p><button class="btn" onclick="navigate(\'home\')">Продолжить день →</button></section>',"home")}
 
   function renderPlacement(){
-    shell('<section class="card" style="max-width:760px;margin:30px auto"><div class="eyebrow">Входная диагностика</div><h1>Определим стартовый уровень</h1><p class="muted">20 заданий A1–B2: грамматика, словарь, чтение и аудирование. Результат нужен только для учебного маршрута.</p><div class="notice">Это не официальный Norskprøven и не подтверждение уровня CEFR.</div><br><button class="btn" onclick="startPlacement()">Начать</button></section>',"home");
+    shell('<section class="card" style="max-width:760px;margin:30px auto"><div class="eyebrow">Входной скрининг</div><h1>С какого материала лучше начать?</h1><p class="muted">20 коротких заданий A1–B2 проверяют грамматику, словарь, чтение и аудирование. Это быстрый выбор точки старта, а не определение полного уровня.</p><div class="notice"><b>Письмо и речь здесь не измеряются.</b> Их Нора проверит в реальных ответах первых занятий. Скрининг не подтверждает CEFR и не заменяет Norskprøven.</div><br><button class="btn" onclick="startPlacement()">Начать скрининг</button></section>',"home");
   }
-  function startPlacement(){placementSession={qs:[...PLACEMENT_BANK],i:0,byLevel:{A1:[0,0],A2:[0,0],B1:[0,0],B2:[0,0]},bySkill:{}};renderPlacementQ()}
+  function startPlacement(){placementSession={qs:[...PLACEMENT_BANK],i:0,byLevel:{A1:[0,0],A2:[0,0],B1:[0,0],B2:[0,0]},bySkill:{},byLevelSkill:{A1:{},A2:{},B1:{},B2:{}}};renderPlacementQ()}
   function renderPlacementQ(){
     const s=placementSession,q=s.qs[s.i];if(!q)return finishPlacement();
     shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Диагностика</div><h2 style="margin:0">Задание '+(s.i+1)+'/20</h2></div></div><div class="progress"><i style="width:'+pct(s.i,20)+'%"></i></div><section class="exercise"><article class="card">'+(q.context?'<div class="translation">'+esc(q.context)+'</div><br>':"")+(q.audio?'<button class="btn" onclick="speakText(\''+escJs(q.audio)+'\')">▶ Прослушать</button><br><br>':"")+'<div class="prompt">'+esc(q.q)+'</div><div class="choice-list">'+q.opts.map((x,i)=>'<button class="choice" onclick="answerPlacement('+i+')">'+esc(x)+'</button>').join("")+'</div></article></section>',"home");
   }
   function answerPlacement(i){
     const s=placementSession,q=s.qs[s.i],ok=i===q.correct;s.byLevel[q.level][1]++;if(ok)s.byLevel[q.level][0]++;
-    s.bySkill[q.skill]=s.bySkill[q.skill]||[0,0];s.bySkill[q.skill][1]++;if(ok)s.bySkill[q.skill][0]++;s.i++;renderPlacementQ();
+    s.bySkill[q.skill]=s.bySkill[q.skill]||[0,0];s.bySkill[q.skill][1]++;if(ok)s.bySkill[q.skill][0]++;
+    const cell=s.byLevelSkill[q.level][q.skill]||(s.byLevelSkill[q.level][q.skill]=[0,0]);cell[1]++;if(ok)cell[0]++;
+    s.i++;renderPlacementQ();
   }
   function finishPlacement(){
-    const s=placementSession,rat=Object.fromEntries(LEVELS.map(l=>[l,s.byLevel[l][0]/s.byLevel[l][1]]));let rec="A1";
-    if(rat.A1>=.6&&rat.A2>=.6)rec="A2";if(rat.A2>=.6&&rat.B1>=.6)rec="B1";if(rat.B1>=.6&&rat.B2>=.6)rec="B2";
-    for(const [k,[c,t]] of Object.entries(s.bySkill))updateSkill(k,Math.round(c/t*100));
-    state.level=rec;state.placement={level:rec,byLevel:rat,date:new Date().toISOString()};saveState();
-    shell('<section class="card" style="max-width:720px;margin:35px auto;text-align:center"><div class="eyebrow">Результат диагностики</div><h1>Рекомендуемый старт: '+rec+'</h1><p class="muted">A1 '+Math.round(rat.A1*100)+'% · A2 '+Math.round(rat.A2*100)+'% · B1 '+Math.round(rat.B1*100)+'% · B2 '+Math.round(rat.B2*100)+'%</p><div class="notice">Это внутренняя диагностика приложения, не официальный уровень.</div><br><button class="btn" onclick="navigate(\'course\',\''+rec+'\')">Начать с '+rec+'</button></section>',"home");
+    const s=placementSession,rat=Object.fromEntries(LEVELS.map(l=>[l,s.byLevel[l][1]?s.byLevel[l][0]/s.byLevel[l][1]:0]));let rec="A1";
+    if(rat.A1>=.8&&rat.A2>=.6)rec="A2";
+    if(rec==="A2"&&rat.B1>=.6)rec="B1";
+    if(rec==="B1"&&rat.B2>=.6)rec="B2";
+    for(const [k,[correct,total]] of Object.entries(s.bySkill))if(total)updateSkill(k,Math.round(correct/total*100));
+    if(window.NEAdaptive){
+      const p=NEAdaptive.ensure(state),fresh=(p.attempts||[]).length===0;
+      for(const level of LEVELS){
+        const profile=p.levelSkills[level]||(p.levelSkills[level]={});
+        for(const skill of ["reading","listening","grammar","vocabulary"]){
+          const cell=s.byLevelSkill[level]?.[skill];
+          if(cell?.[1]){const ratio=cell[0]/cell[1],screenScore=Math.round(30+ratio*40);profile[skill]=fresh?screenScore:Math.round((profile[skill]||35)*.75+screenScore*.25)}
+        }
+        if(fresh){profile.writing=35;profile.speaking=35}
+      }
+    }
+    state.level=rec;if(state.chatPrefs)state.chatPrefs.level=rec;
+    state.placement={level:rec,recommendedStart:rec,scope:"receptive_screening",byLevel:rat,byLevelSkill:s.byLevelSkill,date:new Date().toISOString()};saveState();
+    shell('<section class="card" style="max-width:720px;margin:35px auto;text-align:center"><div class="eyebrow">Результат входного скрининга</div><h1>Начать материалы с '+rec+'</h1><p class="muted">A1 '+Math.round(rat.A1*100)+'% · A2 '+Math.round(rat.A2*100)+'% · B1 '+Math.round(rat.B1*100)+'% · B2 '+Math.round(rat.B2*100)+'%</p><div class="notice"><b>Это не означает, что уровень '+rec+' подтверждён.</b> Скрининг не проверял письмо и речь. Нора начнёт с '+rec+' и уточнит профиль по реальным ответам; при пробелах автоматически вернёт нужный материал.</div><br><button class="btn" onclick="navigate(\'teacher\')">Начать с Норой</button></section>',"home");
   }
 
   renderTests=function(){
