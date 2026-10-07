@@ -5,7 +5,7 @@
  const app=document.getElementById('app'),gate=document.createElement('main');gate.id='accessGate';gate.className='access-gate';document.body.append(gate);
  let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false,confirmationEmail=null,installSeenSent=false,errorReportBusy=false,growthActivityDateSent='';
  const safe=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const messages={LOGIN_FAILED:'Не удалось войти. Проверь адрес и пароль.',EMAIL_NOT_CONFIRMED:'Почта ещё не подтверждена. Отправь новое письмо подтверждения.',REGISTRATION_FAILED:'Не удалось зарегистрироваться. Попробуй позже.',ACCESS_UNAVAILABLE:'Не удалось проверить доступ. Проверь подключение и попробуй ещё раз.',BAD_CREDENTIALS:'Введи корректный адрес и пароль от 10 до 128 символов.',BAD_EMAIL:'Проверь адрес электронной почты.',EMAIL_DELIVERY_FAILED:'Не удалось отправить письмо подтверждения. Попробуй ещё раз позже.',CONFIRMATION_FAILED:'Ссылка подтверждения недействительна. Запроси новое письмо подтверждения.',CONFIRMATION_EXPIRED:'Эта ссылка уже использована или устарела. Отправь новое письмо подтверждения.',RATE_LIMIT:'Слишком много попыток. Подожди немного и попробуй снова.',TERMS_VERSION_MISMATCH:'Условия обновились. Открой страницу ещё раз и подтверди актуальную версию.',BAD_REFERRAL:'Ссылка приглашения повреждена.',TERMS_REQUIRED:'Сначала нужно принять пользовательское соглашение и уведомление о данных.'};
+ const messages={LOGIN_FAILED:'Не удалось войти. Проверь адрес и пароль.',EMAIL_NOT_CONFIRMED:'Почта ещё не подтверждена. Отправь новое письмо подтверждения.',REGISTRATION_FAILED:'Не удалось зарегистрироваться. Попробуй позже.',ACCESS_UNAVAILABLE:'Не удалось проверить доступ. Проверь подключение и попробуй ещё раз.',BAD_CREDENTIALS:'Введи корректный адрес и пароль от 10 до 128 символов.',BAD_EMAIL:'Проверь адрес электронной почты.',EMAIL_DELIVERY_FAILED:'Не удалось отправить письмо подтверждения. Попробуй ещё раз позже.',PASSWORD_RESET_UNAVAILABLE:'Не удалось отправить письмо восстановления. Попробуй ещё раз позже.',RECOVERY_FAILED:'Ссылка восстановления недействительна или устарела. Запроси новое письмо.',BAD_NEW_PASSWORD:'Новый пароль должен содержать от 10 до 128 символов.',PASSWORD_UPDATE_FAILED:'Не удалось изменить пароль. Запроси новую ссылку восстановления.',CONFIRMATION_FAILED:'Ссылка подтверждения недействительна. Запроси новое письмо подтверждения.',CONFIRMATION_EXPIRED:'Эта ссылка уже использована или устарела. Отправь новое письмо подтверждения.',RATE_LIMIT:'Слишком много попыток. Подожди немного и попробуй снова.',TERMS_VERSION_MISMATCH:'Условия обновились. Открой страницу ещё раз и подтверди актуальную версию.',BAD_REFERRAL:'Ссылка приглашения повреждена.',TERMS_REQUIRED:'Сначала нужно принять пользовательское соглашение и уведомление о данных.'};
  function referralKey(){return 'ne_pending_referral'}
  function storeReferral(code){
   code=String(code||'').trim().toUpperCase();if(!/^[A-Z0-9]{12,32}$/.test(code))return;
@@ -102,8 +102,10 @@
   const invited=!!pendingReferral();
   const title=invited&&register?'Вас пригласили в Norsk Eventyr':'Вход в приложение';
   const intro=invited&&register?'Укажите свою электронную почту и придумайте пароль. Вам придёт письмо подтверждения. После подтверждения и принятия условий начнутся 5 бесплатных дней.':'После подтверждения почты и принятия условий доступен пробный период 5 дней. После его окончания обучение продолжится после одобрения владельца.';
-  view('<h1>'+title+'</h1><p>'+intro+'</p><form id="accessLogin"><label>Электронная почта<input id="accessEmail" type="email" inputmode="email" autocomplete="email" required maxlength="254"></label><label>Пароль<input id="accessPassword" type="password" autocomplete="'+(register?'new-password':'current-password')+'" required minlength="10" maxlength="128"></label><button class="btn" type="submit">'+(register?'Создать учётную запись':'Войти')+'</button></form><button class="btn secondary" id="accessToggle">'+(register?'Уже есть учётная запись':'Создать учётную запись')+'</button>');
+  const forgot=register?'':'<button class="btn ghost" id="accessForgot" type="button">Забыли пароль?</button>';
+  view('<h1>'+title+'</h1><p>'+intro+'</p><form id="accessLogin"><label>Электронная почта<input id="accessEmail" type="email" inputmode="email" autocomplete="email" required maxlength="254"></label><label>Пароль<input id="accessPassword" type="password" autocomplete="'+(register?'new-password':'current-password')+'" required minlength="10" maxlength="128"></label><button class="btn" type="submit">'+(register?'Создать учётную запись':'Войти')+'</button></form>'+forgot+'<button class="btn secondary" id="accessToggle">'+(register?'Уже есть учётная запись':'Создать учётную запись')+'</button>');
   document.getElementById('accessToggle').onclick=()=>{register=!register;login()};
+  const forgotButton=document.getElementById('accessForgot');if(forgotButton)forgotButton.onclick=passwordResetRequest;
   document.getElementById('accessLogin').onsubmit=e=>{e.preventDefault();act(async()=>{
    const email=document.getElementById('accessEmail').value.trim().toLowerCase(),password=document.getElementById('accessPassword').value;
    if(/@gmail\.con$/i.test(email)){message('Проверь адрес: вероятно, нужно gmail.com, а не gmail.con.');return}
@@ -112,6 +114,33 @@
    catch(error){document.getElementById('accessPassword').value='';if(error.code==='EMAIL_NOT_CONFIRMED'){confirmationEmail=email;confirmationPending(email);message('Почта ещё не подтверждена. Отправь новое письмо и используй только последнюю ссылку.');return}throw error}
    document.getElementById('accessPassword').value='';
    if(out.confirmEmail){confirmationEmail=email;confirmationPending(email)}else await status()
+  })};
+ }
+ function passwordResetRequest(){
+  register=false;
+  view('<h1>Восстановление пароля</h1><p>Укажи электронную почту своего аккаунта Norsk Eventyr. Если аккаунт существует, на неё придёт письмо со ссылкой для создания нового пароля.</p><form id="passwordResetRequest"><label>Электронная почта<input id="passwordResetEmail" type="email" inputmode="email" autocomplete="email" required maxlength="254"></label><button class="btn" type="submit">Отправить ссылку</button></form><button class="btn ghost" id="passwordResetBack" type="button">Назад ко входу</button>');
+  document.getElementById('passwordResetBack').onclick=login;
+  document.getElementById('passwordResetRequest').onsubmit=e=>{e.preventDefault();act(async()=>{
+   const email=document.getElementById('passwordResetEmail').value.trim().toLowerCase();
+   await call('password_reset_request',{email});
+   confirmationEmail=email;passwordResetSent(email)
+  })};
+ }
+ function passwordResetSent(email){
+  confirmationEmail=String(email||'').trim().toLowerCase();
+  view('<h1>Проверь почту</h1><p>Если аккаунт с адресом <b>'+safe(confirmationEmail)+'</b> существует, мы отправили ссылку для восстановления пароля.</p><p class="muted">Проверь также папку «Спам». Используй только последнее письмо восстановления.</p><button class="btn" id="passwordResetOpenMail" type="button">Открыть почту</button><button class="btn ghost" id="passwordResetBack" type="button">Назад ко входу</button>');
+  document.getElementById('passwordResetOpenMail').onclick=openConfirmationMail;
+  document.getElementById('passwordResetBack').onclick=login;
+ }
+ function resetPassword(){
+  view('<h1>Новый пароль</h1><p>Придумай новый пароль для своего аккаунта Norsk Eventyr.</p><form id="passwordResetForm"><label>Новый пароль<input id="newPassword" type="password" autocomplete="new-password" required minlength="10" maxlength="128"></label><label>Повтори пароль<input id="newPasswordConfirm" type="password" autocomplete="new-password" required minlength="10" maxlength="128"></label><button class="btn" type="submit">Сохранить новый пароль</button></form>');
+  document.getElementById('passwordResetForm').onsubmit=e=>{e.preventDefault();act(async()=>{
+   const password=document.getElementById('newPassword').value,confirm=document.getElementById('newPasswordConfirm').value;
+   if(password.length<10||password.length>128){message(messages.BAD_NEW_PASSWORD);return}
+   if(password!==confirm){message('Пароли не совпадают.');return}
+   await call('update_password',{password});
+   history.replaceState(null,'',location.pathname);
+   await status()
   })};
  }
  function mailInboxUrl(email){
@@ -246,11 +275,30 @@
  setInterval(()=>{if(loaded&&!document.hidden&&!busy&&!checking&&!gate.querySelector('#accessList'))status()},60000);
  view('<h1>Проверяем доступ…</h1>');
  (async()=>{
-  const params=new URLSearchParams(location.search),ref=params.get('ref');captureAcquisition(params);markFirstVisit();if(ref)storeReferral(ref);
+  const params=new URLSearchParams(location.search),hashParams=new URLSearchParams(location.hash.replace(/^#/,''));
+  const ref=params.get('ref');captureAcquisition(params);markFirstVisit();if(ref)storeReferral(ref);
   if(pendingReferral())register=true;
+  const hashError=hashParams.get('error_code')||hashParams.get('error');
+  if(hashError){
+   history.replaceState(null,'',location.pathname);login();message('Ссылка восстановления недействительна или устарела. Запроси новое письмо.');return
+  }
+  if(hashParams.get('type')==='recovery'&&hashParams.get('access_token')&&hashParams.get('refresh_token')){
+   const access_token=hashParams.get('access_token'),refresh_token=hashParams.get('refresh_token');
+   history.replaceState(null,'',location.pathname);
+   try{await call('recovery_session',{access_token,refresh_token});resetPassword();return}catch(e){login();message(e.message);return}
+  }
   if(params.has('token_hash')){
    const hash=params.get('token_hash'),type=params.get('type');history.replaceState(null,'',location.pathname);
-   try{await call('confirm',{token_hash:hash,type});confirmationEmail=null}catch(e){login();message(e.message+' Отправь новое письмо подтверждения и используй только последнюю ссылку.');return}
+   try{
+    const out=await call('confirm',{token_hash:hash,type});confirmationEmail=null;
+    if(type==='recovery'||out.recovery){resetPassword();return}
+   }catch(e){
+    login();
+    message((type==='recovery'?messages.RECOVERY_FAILED:e.message)+' '+(type==='recovery'?'Запроси новое письмо восстановления.':'Отправь новое письмо подтверждения и используй только последнюю ссылку.'));
+    return
+   }
+  }else if(params.has('password_recovery')){
+   history.replaceState(null,'',location.pathname);login();message('Ссылка восстановления не содержит действующей сессии. Запроси новое письмо.');return
   }else if(params.has('ref'))history.replaceState(null,'',location.pathname);
   await status();
  })();
