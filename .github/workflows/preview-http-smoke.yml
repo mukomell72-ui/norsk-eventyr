@@ -1,0 +1,69 @@
+name: Preview HTTP smoke 3387526
+
+on:
+  push:
+    branches:
+      - qa/preview-http-smoke-3387526
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BASE_URL: https://norsk-eventyr-oh2usg8dg-fffff19.vercel.app
+    steps:
+      - name: Fetch app
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 4 --retry-delay 2 "$BASE_URL/" -o /tmp/index.html
+          grep -F "Norsk Eventyr 8.0.0" /tmp/index.html
+          grep -F "/access.js?v=8.0.0" /tmp/index.html
+      - name: Check health
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 4 --retry-delay 2 "$BASE_URL/api/health" -o /tmp/health.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/health.json'))
+          assert d.get('ok') is True, d
+          assert d.get('version') == '8.0.0', d
+          assert d.get('aiConfigured') is True, d
+          print('health PASS', d['version'], 'aiConfigured=', d['aiConfigured'])
+          PY
+      - name: Check evaluator configuration
+        run: |
+          set -euo pipefail
+          curl -fsS --retry 4 --retry-delay 2 "$BASE_URL/api/evaluate" -o /tmp/eval.json
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/eval.json'))
+          assert d.get('ok') is True, d
+          assert d.get('configured') is True, d
+          assert d.get('model') == 'gpt-5.6-luna', d
+          print('evaluate config PASS')
+          PY
+      - name: Check 8.0 runtime assets
+        run: |
+          set -euo pipefail
+          curl -fsS "$BASE_URL/app.js?v=8.0.0" -o /tmp/app.js
+          curl -fsS "$BASE_URL/sw.js" -o /tmp/sw.js
+          curl -fsS "$BASE_URL/access.js?v=8.0.0" -o /tmp/access.js
+          grep -F 'APP_VERSION="8.0.0"' /tmp/app.js
+          grep -F 'norsk-eventyr-v8-0-0-adaptive-teacher' /tmp/sw.js
+          grep -F "app_version:'8.0.0'" /tmp/access.js
+      - name: Check security headers
+        run: |
+          set -euo pipefail
+          curl -fsSI "$BASE_URL/" -o /tmp/headers.txt
+          grep -i '^x-content-type-options: *nosniff' /tmp/headers.txt
+          grep -i '^x-frame-options: *DENY' /tmp/headers.txt
+          grep -i '^content-security-policy:' /tmp/headers.txt
+      - name: Verify guarded AI endpoint is not public
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /tmp/generate.json -w '%{http_code}' -X POST             -H 'Content-Type: application/json'             --data '{"kind":"lesson","level":"A1","topic":"qa"}'             "$BASE_URL/api/generate")
+          test "$code" = "401" -o "$code" = "403"
+          echo "guard PASS ($code)"
