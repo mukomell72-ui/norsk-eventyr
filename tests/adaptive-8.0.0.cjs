@@ -138,6 +138,9 @@ assert(elite.includes('m.placement=newestPlacement'),'cloud merge must choose pl
 assert(elite.includes('m.learningV8.startLevel=resolveStartLevel'),'cloud merge must not blindly overwrite startLevel');
 assert(!v3.includes('if(key==="level")state.level=value'),'legacy chat settings must not switch the course level');
 assert(!uiV7.includes('if(k==="level")state.level=v'),'active chat settings must not switch the course level');
+assert(app.includes('target==="chatInput"?"chatMicBtn":"micBtn"'),'chat microphone must expose live listening state on the correct button');
+assert(app.includes('Нора слушает…')&&uiV7.includes('Нора думает…'),'Nora chat must show immediate listening/thinking status');
+assert(chat.includes('max_output_tokens:chatMode==="explain"?800:500'),'normal Nora replies must use the lower latency output budget');
 assert(uiV7.includes('state.story.selectedLevel=picked.level'),'Fjordvik must store its own practice level');
 assert(!uiV7.includes('if(picked?.level&&picked.level!==state.level){state.level=picked.level'),'Fjordvik season selection must not switch the course');
 console.log('Norsk Eventyr adaptive teacher 8.0 foundation checks: PASS');
