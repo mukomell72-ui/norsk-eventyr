@@ -106,6 +106,9 @@ assert(generate.includes('listeningAudio')&&generate.includes('listeningQ')&&gen
 assert(generate.includes('смысловыми перефразами')&&generate.includes('не копиями фразы из текста'),'reading/listening distractors must test meaning rather than surface matching');
 assert(generate.includes('B1: причину, связь, намерение или простой вывод')&&generate.includes('B2: позицию, аргументацию, контраст'),'B1-B2 receptive tasks must require higher-order comprehension');
 assert(generate.includes('не решаются поиском одного совпадающего слова')||generate.includes('избегай вопросов, которые решаются поиском одного совпадающего слова'),'B1-B2 tasks must resist keyword matching');
+assert(generate.includes('grammarQ обязан содержать понятную учебную задачу')&&generate.includes('Velg riktig setning'),'grammar generator must require contextual grammar tasks');
+assert(generate.includes('validGrammarQuestion'),'generic context-free grammar questions must be rejected');
+assert(app.includes('function grammarPrompt')&&app.includes('Выберите грамматически правильное предложение.'),'stored generic grammar prompts must get a clear runtime fallback');
 assert(app.includes('Аудирование · понимание смысла')&&app.includes('l.listeningAudio'),'adaptive lesson UI must test listening comprehension');
 assert(app.includes('Словарь · активное вспоминание')&&app.includes('source:"vocab_recall"'),'adaptive vocabulary must use productive recall evidence');
 assert(app.includes('source:rem?"lesson_free_transfer":"lesson_free"'),'adaptive free response must record transfer evidence separately');
