@@ -166,24 +166,26 @@ Never print or commit their values.
 
 ## Database preflight
 
-Before applying the release migrations, privately set the confirmed owner Supabase Auth account:
+Production Supabase is already prepared for 8.0.0.
+
+The confirmed owner Auth account already has:
 
 `raw_app_meta_data.ne_owner=true`
 
 Do not commit the owner's email, Auth UUID or another personal identifier.
 
-The first release migration replaces the legacy email-based owner check with app-metadata authorization. The owner flag must be present before the migration is applied.
+## Production database state — verify only
 
-## Production database migrations
-
-Apply in this exact order:
+The following release migrations are **already applied and verified in production**:
 
 1. `migrations/20261005_growth_funnel.sql`
-2. verify owner authorization, lifecycle/growth RPCs and privacy transition;
-3. `migrations/20261005_admin_lifecycle.sql`
-4. verify private payment/subscription tables and owner RPCs;
-5. `migrations/20261006_internal_trigger_rpc_hardening.sql`
-6. verify internal lifecycle trigger functions are not executable by PUBLIC/anon/authenticated.
+2. `migrations/20261005_admin_lifecycle.sql`
+3. `migrations/20261006_internal_trigger_rpc_hardening.sql`
+
+**Do not re-apply them during publication.** The release step is verification only:
+- verify owner authorization and lifecycle/growth RPCs;
+- verify private payment/subscription tables and owner RPCs;
+- verify internal lifecycle trigger functions are not executable by PUBLIC/anon/authenticated.
 
 Do **not** apply:
 
@@ -191,7 +193,7 @@ Do **not** apply:
 
 during the initial 8.0.0 release.
 
-The growth and admin lifecycle migrations were repeatedly dry-run against the production schema inside `BEGIN ... ROLLBACK` before release. The internal trigger RPC hardening migration was then applied after the post-migration security advisor exposed unnecessary public EXECUTE grants on internal trigger functions.
+The growth/admin lifecycle state and trigger RPC hardening were already applied and checked in production before the final frontend gate.
 
 ## Known security-advisor items
 
@@ -222,10 +224,10 @@ Leaked-password protection should be enabled when supported/appropriate for the 
    - spaced review;
    - course map/gating;
    - no blocking console/runtime errors.
-6. Owner `raw_app_meta_data.ne_owner=true` is set and verified.
-7. Growth migration applies and its verification passes.
-8. Admin lifecycle migration applies and its verification passes.
-9. Internal trigger RPC hardening migration applies and its verification passes.
+6. Owner `raw_app_meta_data.ne_owner=true` remains set and verified.
+7. Already-applied growth state is re-verified; migration is **not** re-applied.
+8. Already-applied admin lifecycle state is re-verified; migration is **not** re-applied.
+9. Already-applied internal trigger RPC hardening is re-verified; migration is **not** re-applied.
 10. PR #32 is merged from the exact verified head.
 11. Vercel production deployment is READY.
 12. Production smoke-test passes.
