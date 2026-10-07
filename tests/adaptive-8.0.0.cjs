@@ -140,7 +140,8 @@ assert(!v3.includes('if(key==="level")state.level=value'),'legacy chat settings 
 assert(!uiV7.includes('if(k==="level")state.level=v'),'active chat settings must not switch the course level');
 assert(app.includes('target==="chatInput"?"chatMicBtn":"micBtn"'),'chat microphone must expose live listening state on the correct button');
 assert(app.includes('Нора слушает…')&&uiV7.includes('Нора думает…'),'Nora chat must show immediate listening/thinking status');
-assert((app.match(/Math\.max\(0,2000-\(Date\.now\(\)-noraCheckStarted\)\)/g)||[]).length>=2,'Nora feedback should keep a natural two-second check pause');
+assert(!app.includes('noraCheckStarted'),'Nora feedback must not be artificially delayed before display');
+assert((app.match(/2200\);return;/g)||[]).length>=2,'successful Nora feedback should remain visible before advancing');
 assert(chat.includes('max_output_tokens:chatMode==="explain"?800:500'),'normal Nora replies must use the lower latency output budget');
 assert(uiV7.includes('state.story.selectedLevel=picked.level'),'Fjordvik must store its own practice level');
 assert(!uiV7.includes('if(picked?.level&&picked.level!==state.level){state.level=picked.level'),'Fjordvik season selection must not switch the course');
