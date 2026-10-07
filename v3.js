@@ -651,7 +651,7 @@
   function clearChat(){if(!state.chatHistory.length||confirm("Очистить историю этого разговора?")){state.chatHistory=[];saveState();renderChat()}}
   async function startChat(){
     state.chatHistory=[];state.chatMemories=state.chatMemories||{};delete state.chatMemories[state.chatThreadId||"general"];saveState();renderChat();
-    const box=document.getElementById("chatMessages");if(box)box.innerHTML='<div class="chat-thinking">Собеседник начинает разговор…</div>';
+    const box=document.getElementById("chatMessages");if(box)box.innerHTML='<div class="chat-thinking">Нора начинает разговор…</div>';
     const p=state.chatPrefs;if(window.NEAdaptive)NEAdaptive.ensure(state);const mastery=state.learningV8?.levelSkills?.[p.level]||{},errorPatterns=window.NEAdaptive?NEAdaptive.errors(state):[];
     const r=await apiPost("/api/chat",{start:true,message:"",level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:[],practiceWords:reinforcementWordList(15),mastery,errorPatterns,teacherMode:true});
     if(!r.ok){if(box)box.innerHTML='<div class="feedback bad">Собеседник временно недоступен: '+esc(r.error)+'</div>';return}
@@ -666,7 +666,7 @@
       state.chatMemories[memoryKey]=[...state.chatHistory.map(x=>({role:x.role,text:x.text})),{role:'user',text:msg}].slice(0,8);
     }
     state.chatHistory.push({role:"user",text:msg,voice:wasVoice});state.chatHistory=state.chatHistory.slice(-40);saveState();renderChat();
-    const box=document.getElementById("chatMessages");if(box){box.insertAdjacentHTML("beforeend",'<div class="chat-thinking">Norsk samtalepartner skriver…</div>');box.scrollTop=box.scrollHeight}
+    const box=document.getElementById("chatMessages");if(box){box.insertAdjacentHTML("beforeend",'<div class="chat-thinking">Нора думает…</div>');box.scrollTop=box.scrollHeight}
     const hist=state.chatHistory.slice(0,-1).slice(-32).map(x=>({role:x.role,text:x.text}));
     if(window.NEAdaptive)NEAdaptive.ensure(state);const mastery=state.learningV8?.levelSkills?.[p.level]||{},errorPatterns=window.NEAdaptive?NEAdaptive.errors(state):[];
     const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:hist,context:state.chatMemories[memoryKey].map(x=>(x.role==="user"?"Ученик: ":"Nora: ")+x.text).join("\n"),practiceWords:reinforcementWordList(15),mastery,errorPatterns,teacherMode:true});
