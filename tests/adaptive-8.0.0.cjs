@@ -87,7 +87,11 @@ assert(reviewMission.kind==='review'&&reviewMission.level==='A2','due A2 review 
 A.recordAttempt(reviewState,{level:'A2',skill:'listening',score:95,moduleId:reviewMission.module.id,source:'qa_review',reviewKey:reviewMission.reviewKey});
 assert(!A.dueReviews(reviewState).some(x=>x.key===reviewMission.reviewKey),'completed cross-module review remained permanently overdue');
 
-const health=read('api/health.js');\nassert(health.includes('version:\"8.0.0\"'),'health endpoint version must match 8.0.0');\nassert(!health.includes('version:\"7.3.0\"'),'health endpoint must not expose stale 7.3.0 version');\n\nconst app=read('app.js'),access=read('access.js'),sw=read('sw.js'),generate=read('api/generate.js'),evaluate=read('api/evaluate.js'),uiV7=read('ui-v7.js'),elite=read('elite.js');
+const health=read('api/health.js');
+assert(health.includes('version:"8.0.0"'),'health endpoint version must match 8.0.0');
+assert(!health.includes('version:"7.3.0"'),'health endpoint must not expose stale 7.3.0 version');
+
+const app=read('app.js'),access=read('access.js'),sw=read('sw.js'),generate=read('api/generate.js'),evaluate=read('api/evaluate.js'),uiV7=read('ui-v7.js'),elite=read('elite.js');
 assert(app.includes('view==="teacher"')&&app.includes('startAdaptiveTeacher'),'teacher route missing');
 assert(app.includes('"learningV8"'),'adaptive state validation missing');
 assert(app.includes('previousLevel:state.level')&&!app.includes('function startTest(level){touchStudy();state.level=level'),'starting a diagnostic must not switch the active course level');
