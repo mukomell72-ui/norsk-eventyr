@@ -48,6 +48,9 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 .lesson-exercise-v6 .lesson-words-v6 b{color:#f7fafb!important}
 .lesson-exercise-v6 .lesson-words-v6 small{color:#c7d6df!important}
 
+/* 8.0: reading passages live directly inside the light lesson card. */
+.lesson-exercise-v6 .card>.translation{background:#eaf1f4;color:#173346!important;border-left-color:#5aa9ff}
+
 .share-top-v8,.install-top-v8{flex:0 0 auto;width:32px;height:32px;padding:0;border:1px solid rgba(255,255,255,.10);border-radius:11px;background:#102438;color:#eaf4fa;line-height:1;display:grid;place-items:center}
 .share-top-v8{margin-left:4px}
 .install-top-v8{margin-left:4px;margin-right:auto}
