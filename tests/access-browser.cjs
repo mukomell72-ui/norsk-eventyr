@@ -1,5 +1,5 @@
 const fs=require('fs'),http=require('http'),path=require('path'),assert=require('assert/strict'),{chromium}=require('playwright');
-const root=path.resolve(__dirname,'..'),ownerId='11111111-1111-4111-8111-111111111111',studentId='22222222-2222-4222-8222-222222222222';let status='expired',name='',feedback=[];
+const root=path.resolve(__dirname,'..'),ownerId='11111111-1111-4111-8111-111111111111',studentId='22222222-2222-4222-8222-222222222222';let status='expired',name='',feedback=[],resetEmail='',updatedPassword='';
 const server=http.createServer(async(req,res)=>{
  const pathname=new URL(req.url,'http://localhost').pathname;
  if(pathname==='/api/session'){
@@ -7,8 +7,12 @@ const server=http.createServer(async(req,res)=>{
   if(b.action==='login'){res.setHeader('Set-Cookie','user='+(b.email.startsWith('owner')?'owner':'student')+'; Path=/');}
   else if(b.action==='register')out={confirmEmail:true};
   else if(b.action==='logout')res.setHeader('Set-Cookie','user=; Path=/; Max-Age=0');
+  else if(b.action==='password_reset_request'){resetEmail=b.email;out={ok:true}}
+  else if(b.action==='confirm'){res.setHeader('Set-Cookie','user=student; Path=/');out={ok:true,recovery:b.type==='recovery'}}
+  else if(b.action==='recovery_session'){res.setHeader('Set-Cookie','user=student; Path=/');out={ok:true}}
   else if(b.action==='growth_first_visit')out={ok:true};
   else if(!user){res.statusCode=401;out={error:'LOGIN_REQUIRED'}}
+  else if(b.action==='update_password'){updatedPassword=b.password;out={ok:true}}
   else if(b.action==='status'){
    const owner=user==='owner',approved=owner||status==='approved';
    out={status:owner?'approved':status,request_status:owner?'approved':(status==='expired'?'unrequested':status),access_granted:approved,owner,user_id:owner?ownerId:studentId,email:user+'@example.com',privacy_version:'2026-10-05-v3',accepted_privacy_version:'2026-10-05-v3'};
@@ -35,6 +39,8 @@ const server=http.createServer(async(req,res)=>{
 (async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch({executablePath:process.env.NE_CHROMIUM_PATH,args:['--no-sandbox','--disable-gpu','--disable-dev-shm-usage']});const origin='http://127.0.0.1:'+server.address().port,context=await browser.newContext({serviceWorkers:'block',viewport:{width:360,height:800}}),page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.goto(origin);await page.waitForSelector('#accessLogin');assert.equal(await page.evaluate(()=>typeof state),'undefined');assert.equal(await page.locator('#app').isVisible(),false);
+ await page.getByRole('button',{name:'Забыли пароль?',exact:true}).click();await page.waitForSelector('#passwordResetRequest');await page.locator('#passwordResetEmail').fill('student@example.com');await page.locator('#passwordResetRequest button').click();await page.waitForFunction(()=>document.querySelector('#accessGate h1')?.textContent.includes('Проверь почту'));assert.equal(resetEmail,'student@example.com');await page.getByRole('button',{name:'Назад ко входу',exact:true}).click();await page.waitForSelector('#accessLogin');
+ const recovery=await context.newPage();recovery.on('pageerror',e=>errors.push('recovery:'+e.message));await recovery.goto(origin+'/?token_hash='+('a'.repeat(32))+'&type=recovery');await recovery.waitForSelector('#passwordResetForm');await recovery.locator('#newPassword').fill('new-secure-password-123');await recovery.locator('#newPasswordConfirm').fill('new-secure-password-123');await recovery.locator('#passwordResetForm button').click();await recovery.waitForFunction(()=>!document.querySelector('#passwordResetForm'));assert.equal(updatedPassword,'new-secure-password-123');await recovery.close();console.log('PASS forgot-password request and recovery password update');
  async function login(target,email){await target.locator('#accessEmail').fill(email);await target.locator('#accessPassword').fill('qa-password-123');await target.locator('#accessLogin button').click()}
  await login(page,'student@example.com');await page.waitForSelector('#accessRequest');await page.locator('#accessName').fill('<img src=x onerror=alert(1)>');await page.locator('#accessRequest button').click();await page.waitForFunction(()=>document.querySelector('#accessGate h1').textContent.includes('ожидает'));assert.equal(await page.evaluate(()=>typeof state),'undefined');await page.evaluate(async()=>{window.qaPrompts=0;const event=new Event('beforeinstallprompt',{cancelable:true});event.prompt=async()=>{window.qaPrompts++};event.userChoice=Promise.resolve({outcome:'accepted'});dispatchEvent(event);await NEAccess.install()});assert.equal(await page.evaluate(()=>qaPrompts),0);
 
@@ -52,5 +58,5 @@ const server=http.createServer(async(req,res)=>{
 
  await admin.getByRole('button',{name:'Пользователи',exact:true}).click();await admin.waitForSelector('.admin-user-row');await admin.getByRole('button',{name:'Открыть',exact:true}).click();await admin.getByRole('button',{name:'Одобрить',exact:true}).click();await admin.waitForFunction(()=>document.body.textContent.includes('Одобрен'));await page.locator('#accessCheck').click();await page.waitForFunction(()=>window.NEAccess?.ready());assert.equal(await page.evaluate(()=>state.xp),77);
  for(const target of [page,admin])assert(!await target.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2));
- assert.deepEqual(errors,[]);await browser.close();server.close();console.log('PASS browser access: request, 7.4 admin decisions, feedback, revocation, owner migration, separated progress and responsive dashboard');
+ assert.deepEqual(errors,[]);await browser.close();server.close();console.log('PASS browser access: password recovery, request, 7.4 admin decisions, feedback, revocation, owner migration, separated progress and responsive dashboard');
 })().catch(e=>{console.error(e);server.close();process.exit(1)});
