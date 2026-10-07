@@ -1,4 +1,4 @@
-name: Preview HTTP smoke d8e1365
+name: Preview HTTP smoke 97839db
 
 on:
   push:
@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      BASE_URL: https://norsk-eventyr-pc9buaa6e-fffff19.vercel.app
+      BASE_URL: https://norsk-eventyr-gilhl06jv-fffff19.vercel.app
     steps:
       - name: Fetch app
         run: |
@@ -54,6 +54,9 @@ jobs:
           grep -F 'APP_VERSION="8.0.0"' /tmp/app.js
           grep -F 'norsk-eventyr-v8-0-0-adaptive-teacher' /tmp/sw.js
           grep -F "app_version:'8.0.0'" /tmp/access.js
+          grep -F 'Забыли пароль?' /tmp/access.js
+          grep -F "password_reset_request" /tmp/access.js
+          grep -F "update_password" /tmp/access.js
       - name: Check security headers
         run: |
           set -euo pipefail
@@ -67,3 +70,18 @@ jobs:
           code=$(curl -sS -o /tmp/generate.json -w '%{http_code}' -X POST             -H 'Content-Type: application/json'             --data '{"kind":"lesson","level":"A1","topic":"qa"}'             "$BASE_URL/api/generate")
           test "$code" = "401" -o "$code" = "403"
           echo "guard PASS ($code)"
+      - name: Check password reset request
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /tmp/reset.json -w '%{http_code}' -X POST \
+            -H 'Content-Type: application/json' \
+            --data '{"action":"password_reset_request","email":"norsk-eventyr-qa-no-user@example.com"}' \
+            "$BASE_URL/api/session")
+          cat /tmp/reset.json
+          test "$code" = "200"
+          python - <<'PY'
+          import json
+          d=json.load(open('/tmp/reset.json'))
+          assert d.get('ok') is True, d
+          print('password reset request PASS')
+          PY
