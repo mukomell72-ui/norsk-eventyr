@@ -143,6 +143,13 @@ assert(app.includes('Нора слушает…')&&uiV7.includes('Нора ду�
 assert(!app.includes('noraCheckStarted'),'Nora feedback must not be artificially delayed before display');
 assert(!app.includes('continueCheckedDialogue'),'Nora dialogue feedback must auto-advance without a manual continue button');
 assert((app.match(/,3000\);return;/g)||[]).length>=2,'successful Nora feedback must remain visible for three seconds before advancing');
+assert(app.includes('const XP_REWARDS=[')&&app.includes('{xp:100,id:"cafe"')&&app.includes('{xp:1000,id:"port"'),'XP reward milestones must be defined');
+assert(app.includes('repeat===0?base:repeat===1?Math.max(4,Math.round(base*.25)):0'),'same-day lesson repeats must not allow unlimited XP farming');
+assert(app.includes('Оценка занятия Норы:')&&app.includes('xpRewardStatus'),'lesson completion must show score-based XP and next reward progress');
+assert(app.includes('trackLessonScore')&&!app.includes('function lessonNext(xp=0){state.xp+=xp'),'lesson XP must be awarded from session quality rather than fixed step farming');
+assert(adaptive.includes('xpScores:[]'),'adaptive lessons must start a fresh XP scoring session');
+assert(uiV7.includes('XP · награды Норы')&&uiV7.includes('Языковые уровни по-прежнему открываются только знаниями'),'XP UI must keep CEFR progression separate from rewards');
+assert(uiV7.includes('function v7XpMission')&&uiV7.includes("XP-миссия Норы"),'unlocked XP milestones must launch distinct Nora bonus missions');
 assert(chat.includes('max_output_tokens:chatMode==="explain"?800:500'),'normal Nora replies must use the lower latency output budget');
 assert(uiV7.includes('state.story.selectedLevel=picked.level'),'Fjordvik must store its own practice level');
 assert(!uiV7.includes('if(picked?.level&&picked.level!==state.level){state.level=picked.level'),'Fjordvik season selection must not switch the course');
