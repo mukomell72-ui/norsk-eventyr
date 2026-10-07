@@ -93,6 +93,7 @@ assert(!health.includes('version:"7.3.0"'),'health endpoint must not expose stal
 
 const app=read('app.js'),access=read('access.js'),sw=read('sw.js'),generate=read('api/generate.js'),evaluate=read('api/evaluate.js'),uiV7=read('ui-v7.js'),elite=read('elite.js'),v8css=read('v8.css');
 assert(v8css.includes('.lesson-exercise-v6 .lesson-words-v6 b{color:#f7fafb!important}')&&v8css.includes('.lesson-exercise-v6 .lesson-words-v6 small{color:#c7d6df!important}'),'8.0 lesson vocabulary contrast regression');
+assert(v8css.includes('.lesson-exercise-v6 .card>.translation{background:#eaf1f4;color:#173346!important;border-left-color:#5aa9ff}'),'8.0 reading passage contrast regression');
 assert(app.includes('view==="teacher"')&&app.includes('startAdaptiveTeacher'),'teacher route missing');
 assert(app.includes('"learningV8"'),'adaptive state validation missing');
 assert(app.includes('previousLevel:state.level')&&!app.includes('function startTest(level){touchStudy();state.level=level'),'starting a diagnostic must not switch the active course level');
