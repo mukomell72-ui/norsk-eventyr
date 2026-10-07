@@ -152,7 +152,7 @@ async function runTeacherMission(mission){
   const r=typeof neApiPost==='function'?await neApiPost('/api/generate',payload):await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(async x=>({ok:x.ok,data:await x.json()}));
   if(!r.ok||!r.data)throw new Error(r.error||'GENERATION');
   const lesson={...r.data,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,title:r.data.title||m.title,grammar:r.data.grammarRuleRu||m.grammar,_adaptive:{moduleId:m.id,skill:mission.skill,kind:mission.kind,reviewKey:mission.reviewKey||'',canDo:m.canDo,transfer:mission.kind==='review'||/transfer|capstone/.test(m.id)}};
-  state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;saveState();lessonSession={lesson,step:0,locked:false};renderLesson();
+  state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;saveState();lessonSession={lesson,step:0,locked:false,xpScores:[]};renderLesson();
  }catch(e){shell('<section class="card"><h2>Занятие не создано</h2><p class="muted">Не засчитываю ничего без полноценного задания. Проверь соединение и повтори.</p><button class="btn" onclick="startAdaptiveTeacher()">Назад</button></section>','home')}
 }
 async function teacherStartMission(){return runTeacherMission(nextMission(state))}
