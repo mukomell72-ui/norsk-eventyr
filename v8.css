@@ -56,6 +56,7 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 .lesson-exercise-v6 .card .feedback{background:#eef3f6;color:#173346!important;border-color:#cad8df}
 .lesson-exercise-v6 .card .feedback.good{background:#eaf7f0;color:#174b34!important;border-color:#9dcdb4}
 .lesson-exercise-v6 .card .feedback.bad{background:#fff0f2;color:#6b2630!important;border-color:#e0a5ad}
+.chat-live-status-v8{min-height:1.35em;margin:6px 10px 0;color:#9fb8ca;font-size:.92rem}
 
 .share-top-v8,.install-top-v8{flex:0 0 auto;width:32px;height:32px;padding:0;border:1px solid rgba(255,255,255,.10);border-radius:11px;background:#102438;color:#eaf4fa;line-height:1;display:grid;place-items:center}
 .share-top-v8{margin-left:4px}
