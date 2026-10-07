@@ -277,7 +277,7 @@
     }
     if(revision!==window.neScreenRevision)return;
     if(!lesson){alert("Не удалось создать урок. Попробуй ещё раз.");return renderCourse(topic.level)}
-    state.level=lesson.level;lessonSession={lesson,step:0,locked:false};touchStudy();renderLesson();
+    state.level=lesson.level;lessonSession={lesson,step:0,locked:false,xpScores:[]};touchStudy();renderLesson();
   }
 
   function grammarDataFor(l){
@@ -289,7 +289,7 @@
     return '<article class="card"><div class="eyebrow">Грамматика</div><h2>'+esc(g.title)+'</h2><div class="notice">'+esc(g.rule)+'</div><div class="example-list">'+(g.examples||[]).map(x=>'<div class="example">'+esc(x)+'</div>').join("")+'</div><div class="prompt">'+esc(g.q)+'</div><div class="choice-list">'+(g.opts||[]).map((x,i)=>'<button class="choice" onclick="checkGrammar(this,'+i+','+g.correct+')">'+esc(x)+'</button>').join("")+'</div><div id="fb"></div></article>';
   }
   function checkGrammar(btn,i,c){
-    if(lessonSession.locked)return;const ok=i===c;
+    if(lessonSession.locked)return;const ok=i===c;trackLessonScore(ok?100:35);
     if(ok){
       lessonSession.locked=true;document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good")});
       updateSkill("grammar",100);document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно</b></div>';
@@ -309,10 +309,10 @@
     if(s.step===0)b=lessonIntro(l);if(s.step===1)b=grammarEx(l);if(s.step===2)b=vocabEx(l);if(s.step===3)b=listenExV3(l);if(s.step===4)b=readEx(l);if(s.step===5)b=freeEx(l,"writing");if(s.step===6)b=freeEx(l,"speaking");
     shell('<div class="screen-head"><button class="back" onclick="navigate(\'course\',\''+l.level+'\')">←</button><div><div class="eyebrow">'+l.level+' · '+esc(l.title)+'</div><h2 style="margin:0">'+n[s.step]+' · '+(s.step+1)+'/7</h2></div></div><div class="progress"><i style="width:'+pct(s.step,7)+'%"></i></div><section class="exercise">'+b+'</section>',"course");
   };
-  lessonNext=function(xp=0){if(lessonSession?.lesson?._adaptive&&typeof adaptiveLessonNext==="function")return adaptiveLessonNext(xp);state.xp+=xp;saveState();lessonSession.step++;lessonSession.locked=false;if(lessonSession.step>6)return finishLesson();renderLesson()};
+  lessonNext=function(xp=0){if(lessonSession?.lesson?._adaptive&&typeof adaptiveLessonNext==="function")return adaptiveLessonNext(xp);saveState();lessonSession.step++;lessonSession.locked=false;if(lessonSession.step>6)return finishLesson();renderLesson()};
   lessonChoice=function(btn,i,c,note,skillHint=""){
     if(lessonSession?.lesson?._adaptive&&typeof adaptiveLessonChoice==="function")return adaptiveLessonChoice(btn,i,c,note,skillHint);
-    if(lessonSession.locked)return;const ok=i===c;
+    if(lessonSession.locked)return;const ok=i===c;trackLessonScore(ok?100:35);
     const skill=lessonSession.step===2?"vocabulary":lessonSession.step===3?"listening":"reading";
     if(ok){
       lessonSession.locked=true;document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good")});
@@ -329,7 +329,7 @@
     b.innerHTML='<div class="feedback">Проверяю…</div>';const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode});
     if(!b.isConnected||lessonSession!==s){s.locked=false;return}
     if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
-    const d=r.data,score=Number(d.score||0),ok=d.accepted!==false&&score>=55;
+    const d=r.data,score=Number(d.score||0),ok=d.accepted!==false&&score>=55;trackLessonScore(score);
     updateSkill(mode,score);updateSkill("grammar",d.breakdown?.grammar??score);updateSkill("vocabulary",d.breakdown?.vocabulary??score);rememberError(d.error_tag);
     if(ok){
       b.innerHTML='<div class="feedback good"><b>✓ Хороший ответ</b></div>';
@@ -341,12 +341,13 @@
   };
   finishLesson=function(){
     if(lessonSession?.lesson?._adaptive&&typeof adaptiveFinishLesson==="function")return adaptiveFinishLesson();
-    const l=lessonSession.lesson,first=l.topicId?!state.completedTopics[l.topicId]:!state.completed[l.id];
+    const l=lessonSession.lesson;
     if(l.topicId)state.completedTopics[l.topicId]=true;else state.completed[l.id]=true;
-    seedSrs(l);if(first)state.xp+=40;
+    seedSrs(l);const reward=awardLessonXp(l),xp=xpRewardStatus();
     const today=localDateKey();state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.lessonDates=state.guidedJourney.lessonDates||{};state.guidedJourney.lessonDates[today]=l.id;
     saveState();
-    shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">'+l.level+' · готово на сегодня</div><h1>'+esc(l.title)+'</h1><p class="muted">Урок засчитан в сегодняшний маршрут.</p><button class="btn" onclick="navigate(\'home\')">Продолжить день →</button><button class="btn ghost" onclick="navigate(\'course\',\''+l.level+'\')">К курсу</button></section>',"home");
+    const unlocked=reward.newlyUnlocked.length?'<div class="xp-unlock-v8"><b>Открыто:</b> '+reward.newlyUnlocked.map(x=>esc(x.title)).join(", ")+'</div>':"",repeat=reward.repeat===1?'<small class="muted">Повтор этого урока сегодня: начислено 25% обычных XP.</small>':reward.repeat>1?'<small class="muted">За этот урок сегодня XP уже получены.</small>':"",next=xp.next?'<div class="xp-next-v8"><span>До награды «'+esc(xp.next.title)+'»</span><b>'+xp.toNext+' XP</b><i><em style="width:'+xp.progress+'%"></em></i></div>':'<div class="xp-next-v8"><b>Все текущие XP-миссии открыты</b></div>';
+    shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">'+l.level+' · готово на сегодня</div><h1>'+esc(l.title)+'</h1><p class="muted">Урок засчитан в сегодняшний маршрут.</p><div class="xp-award-v8"><strong>+'+reward.earned+' XP</strong><span>Оценка занятия Норы: '+reward.avg+'/100</span></div>'+repeat+unlocked+next+'<button class="btn" onclick="navigate(\'home\')">Продолжить день →</button><button class="btn ghost" onclick="navigate(\'course\',\''+l.level+'\')">К курсу</button></section>',"home");
   };
 
 
@@ -416,7 +417,7 @@
   function nextDailyTask(){dailyTaskSession.i++;renderDailyPractice()}
   function finishDailyPractice(){
     const s=dailyTaskSession,avg=s.scores.length?Math.round(s.scores.reduce((a,b)=>a+b,0)/s.scores.length):0;
-    state.dailyProgress[s.date]={completed:true,scores:s.scores,average:avg,completedAt:new Date().toISOString()};state.xp+=15;saveState();
+    state.dailyProgress[s.date]={completed:true,scores:s.scores,average:avg,completedAt:new Date().toISOString()};saveState();
     shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">Домашнее задание выполнено</div><h1>'+avg+'%</h1><p class="muted">Новые слова останутся активными в следующих заданиях и разговоре.</p><button class="btn" onclick="navigate(\'home\')">Продолжить день →</button><button class="btn ghost" onclick="navigate(\'learnedwords\')">Выученные слова</button></section>',"home");dailyTaskSession=null;
   }
 
@@ -466,7 +467,7 @@
     }
     buttons[i]?.classList.add("bad");buttons[i].disabled=true;if(fb)fb.innerHTML='<div class="feedback bad"><b>Неверно.</b> Попробуй другой перевод.</div>';
   }
-  function finishReview(){state.xp+=10;const today=localDateKey();state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.reviewDates=state.guidedJourney.reviewDates||{};state.guidedJourney.reviewDates[today]=true;saveState();shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">Повторение завершено</div><h1>Готово</h1><p class="muted">Следующие даты пересчитаны. Возвращаемся к сегодняшнему маршруту.</p><button class="btn" onclick="navigate(\'home\')">Продолжить день →</button></section>',"home")}
+  function finishReview(){const today=localDateKey();state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.reviewDates=state.guidedJourney.reviewDates||{};state.guidedJourney.reviewDates[today]=true;saveState();shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">Повторение завершено</div><h1>Готово</h1><p class="muted">Следующие даты пересчитаны. Возвращаемся к сегодняшнему маршруту.</p><button class="btn" onclick="navigate(\'home\')">Продолжить день →</button></section>',"home")}
 
   function renderPlacement(){
     shell('<section class="card" style="max-width:760px;margin:30px auto"><div class="eyebrow">Входной скрининг</div><h1>С какого материала лучше начать?</h1><p class="muted">20 коротких заданий A1–B2 проверяют грамматику, словарь, чтение и аудирование. Это быстрый выбор точки старта, а не определение полного уровня.</p><div class="notice"><b>Письмо и речь здесь не измеряются.</b> Их Нора проверит в реальных ответах первых занятий. Скрининг не подтверждает CEFR и не заменяет Norskprøven.</div><br><button class="btn" onclick="startPlacement()">Начать скрининг</button></section>',"home");
@@ -602,7 +603,7 @@
     stopTimer();const s=examV3;let score=0,detail="";
     if(s.part==="reading"||s.part==="listening"){score=pct(s.correct,s.total);detail="Адаптивная ветка: "+(s.band||"—")+" · "+s.correct+"/"+s.total+" правильных."}
     else{score=s.scores.length?Math.round(s.scores.reduce((a,b)=>a+b,0)/s.scores.length):0;detail=(s.part==="speaking"?"AI оценивал содержание распознанной речи, грамматику и словарь; не фонетику.":"AI оценивал выполнение задания, структуру, грамматику и словарь.")}
-    state.examHistory.push({part:s.part,band:s.band||"adaptive",score,date:new Date().toISOString()});state.xp+=Math.round(score/4);saveState();
+    state.examHistory.push({part:s.part,band:s.band||"adaptive",score,date:new Date().toISOString()});saveState();
     shell('<section class="card" style="max-width:720px;margin:35px auto;text-align:center"><div class="score-ring" style="--pct:'+score+'%"><b>'+score+'%</b></div><br><div class="eyebrow">Результат тренировки</div><h1>'+({reading:"Чтение",listening:"Аудирование",writing:"Письмо",speaking:"Устная речь"}[s.part])+'</h1><p class="muted">'+esc(detail)+'</p><div class="notice">Это внутренняя учебная метрика, не официальный балл Norskprøven.</div><br><button class="btn" onclick="navigate(\'exam\')">К экзамену</button></section>',"exam");examV3=null;
   }
   function exitExamV3(){if(confirm("Завершить эту тренировку без результата?")){examV3=null;navigate("exam")}}
@@ -675,7 +676,7 @@
     updateSkill(wasVoice?"speaking":"writing",d.score_valid?d.score:50);if(d.error_tag){rememberError(d.error_tag);updateSkill("grammar",Math.max(20,(d.score_valid?d.score:50)-8))}
     if(window.NEAdaptive&&d.score_valid===true)NEAdaptive.recordAttempt(state,{level:p.level,skill:wasVoice?"speaking":"writing",score:d.score,moduleId:p.level.toLowerCase()+"-conversation",source:"conversation",errorTag:d.error_tag||"",transfer:false});
     if(d.suggested_level&&d.suggested_level!==p.level)state.chatPrefs.level=d.suggested_level;
-    state.xp+=2;saveState();if(!window.neChatVisible||neChatVisible()){renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);}
+    saveState();if(!window.neChatVisible||neChatVisible()){renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);}
   }
 
   renderProgress=function(){

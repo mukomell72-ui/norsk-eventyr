@@ -50,7 +50,7 @@
   function activity(){return state.elite.activity[today()]||(state.elite.activity[today()]={})}
   function markActivity(k){
     const a=activity();if(!a[k]){a[k]=true;state.elite.counts[k]=(state.elite.counts[k]||0)+1}
-    touchStudy();state.xp=(state.xp||0)+3;refreshAchievements(false);baseSaveState();scheduleCloud();
+    touchStudy();refreshAchievements(false);baseSaveState();scheduleCloud();
   }
   function mission(){
     const due=window.neDueWords?neDueWords().length:0,teacherDone=state.learningV8?.lastSessionDate===today();
@@ -249,6 +249,12 @@
     const m={...remote,...local};m.xp=Math.max(local.xp||0,remote.xp||0);m.streak=Math.max(local.streak||0,remote.streak||0);
     m.placement=newestPlacement(local.placement,remote.placement)||local.placement||remote.placement||null;
     m.completed={...(remote.completed||{}),...(local.completed||{})};m.completedTopics={...(remote.completedTopics||{}),...(local.completedTopics||{})};
+    m.gamification={...(remote.gamification||{}),...(local.gamification||{})};m.gamification.lessonAwards={};
+    const awardDays=new Set([...Object.keys(remote.gamification?.lessonAwards||{}),...Object.keys(local.gamification?.lessonAwards||{})]);
+    for(const day of awardDays){const rr=remote.gamification?.lessonAwards?.[day]||{},ll=local.gamification?.lessonAwards?.[day]||{},merged={...rr};for(const [k,v] of Object.entries(ll))merged[k]=Math.max(Number(merged[k]||0),Number(v||0));m.gamification.lessonAwards[day]=merged}
+    Object.keys(m.gamification.lessonAwards).sort().slice(0,-14).forEach(day=>delete m.gamification.lessonAwards[day]);
+    m.gamification.startedRewards={...(remote.gamification?.startedRewards||{})};for(const [k,v] of Object.entries(local.gamification?.startedRewards||{}))m.gamification.startedRewards[k]=Math.max(Number(m.gamification.startedRewards[k]||0),Number(v||0));
+    const lastAwards=[remote.gamification?.lastAward,local.gamification?.lastAward].filter(Boolean).sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")));m.gamification.lastAward=lastAwards.at(-1)||null;
     m.errors={...(remote.errors||{})};for(const [k,v] of Object.entries(local.errors||{}))m.errors[k]=Math.max(m.errors[k]||0,v||0);
     m.skills={...(remote.skills||{})};for(const [k,v] of Object.entries(local.skills||{}))m.skills[k]=Math.max(m.skills[k]||0,v||0);
     m.srs={...(remote.srs||{}),...(local.srs||{})};m.dailyPacks={...(remote.dailyPacks||{}),...(local.dailyPacks||{})};m.dailyProgress={...(remote.dailyProgress||{}),...(local.dailyProgress||{})};

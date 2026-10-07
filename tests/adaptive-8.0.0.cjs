@@ -152,6 +152,9 @@ assert(app.includes('repeat===0?base:repeat===1?Math.max(4,Math.round(base*.25))
 assert(app.includes('Оценка занятия Норы:')&&app.includes('xpRewardStatus'),'lesson completion must show score-based XP and next reward progress');
 assert(app.includes('trackLessonScore')&&!app.includes('function lessonNext(xp=0){state.xp+=xp'),'lesson XP must be awarded from session quality rather than fixed step farming');
 assert(!/state\.xp\s*\+=/.test(app)&&app.includes('state.xp=before+earned'),'all XP gains must go through the anti-farm lesson award path');
+assert(!/state\.xp\s*\+=/.test(v3)&&!v3.includes('state.xp=(state.xp||0)+')&&!elite.includes('state.xp=(state.xp||0)+'),'legacy lessons, chat, reviews, exams and activity tracking must not bypass XP anti-farm');
+assert(v3.includes('trackLessonScore(ok?100:35)')&&v3.includes('trackLessonScore(score)')&&v3.includes('const reward=awardLessonXp(l),xp=xpRewardStatus()'),'legacy lessons must use the quality-based XP path');
+assert(elite.includes('m.gamification.lessonAwards={}')&&elite.includes('Math.max(Number(merged[k]||0),Number(v||0))'),'cloud merge must preserve the strongest same-day anti-farm counters');
 assert(adaptive.includes('xpScores:[]'),'adaptive lessons must start a fresh XP scoring session');
 assert(uiV7.includes('XP · награды Норы')&&uiV7.includes('Языковые уровни по-прежнему открываются только знаниями'),'XP UI must keep CEFR progression separate from rewards');
 assert(uiV7.includes('function v7XpMission')&&uiV7.includes("XP-миссия Норы"),'unlocked XP milestones must launch distinct Nora bonus missions');
