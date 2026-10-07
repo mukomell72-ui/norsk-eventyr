@@ -138,6 +138,12 @@
     return [...list,...fallback].slice(0,5);
   }
 
+  function xpJourneyV7(){
+    const status=window.xpRewardStatus?xpRewardStatus():{xp:state.xp||0,unlocked:[],next:null,progress:0,toNext:0},rewards=window.xpRewardCatalog?xpRewardCatalog():[];
+    const rewardButtons=rewards.map(r=>{const open=status.xp>=r.xp;return '<button class="xp-reward-v8 '+(open?'open':'locked')+'" '+(open?'onclick="v7XpMission(\''+js(r.id)+'\')"':'disabled')+'><span>'+r.xp+' XP</span><b>'+h(r.title)+'</b><small>'+(open?'Открыто · начать':'Ещё '+Math.max(0,r.xp-status.xp)+' XP')+'</small></button>'}).join("");
+    const next=status.next?'<div class="xp-progress-v8"><div><span>Следующая награда</span><b>'+h(status.next.title)+'</b><em>ещё '+status.toNext+' XP</em></div><i><strong style="width:'+status.progress+'%"></strong></i></div>':'<div class="xp-progress-v8 complete"><b>Все текущие миссии Норы открыты</b></div>';
+    return '<section class="xp-journey-v8"><div class="section-head-v7"><div><small>XP · награды Норы</small><h2>'+status.xp+' XP</h2><p>XP открывают бонусные задания. Языковые уровни по-прежнему открываются только знаниями.</p></div></div>'+next+'<div class="xp-rewards-v8">'+rewardButtons+'</div></section>';
+  }
   function renderHomeV7(){
     currentRouteV7="home";
     const j=guidedV7(),story=j.story,words=dailyWordsV7(),district=story?.district||"Fjordvik";
@@ -157,6 +163,7 @@
           '<div class="hero-note-v7">Små steg<br>store eventyr ♡</div>'+
         '</section>'+
         '<section class="route-card-v7"><div class="section-head-v7"><div><small>Твой маршрут на сегодня</small><h2>'+(j.mins?"Ещё примерно "+j.mins+" минут":"Маршрут завершён")+'</h2></div><span>◷ '+(j.mins||0)+' мин</span></div><div class="route-steps-v7">'+route+'</div></section>'+
+        xpJourneyV7()+
         '<section class="words-card-v7"><div class="section-head-v7"><div><h2>Домашнее задание</h2><p>Изучи слова и используй их в своих ответах.</p></div><button onclick="navigate(\'daily\')">Открыть →</button></div></section>'+
         '<section class="nora-note-v7"><span class="nora-avatar-v7"></span><div><small>Nora</small><p>«Сегодня продолжим без спешки. Говори своими словами — я помогу.»</p></div><button onclick="navigate(\'chat\')">Написать →</button></section>'+
       '</section>',
@@ -233,6 +240,13 @@
     saveState();navigate('chat');if(!state.chatHistory.length)v7StartChat();
   }
   function v7OpenPlace(id){const place=PLACES_V7.find(x=>x.id===id);if(place)selectConversationV7('place:'+id,place.title,place.description,place.scene,state.story?.selectedLevel||state.level)}
+  function v7XpMission(id){
+    const reward=(window.xpRewardCatalog?xpRewardCatalog():[]).find(x=>x.id===id);if(!reward||(state.xp||0)<reward.xp)return;
+    const place=PLACES_V7.find(x=>x.id===id);if(!place)return;
+    const scene='XP-миссия Норы. Не давай готовые реплики без просьбы. Ученик должен сам решить ситуацию по-норвежски. '+place.scene+' Цель миссии: '+reward.description;
+    state.gamification=state.gamification&&typeof state.gamification==="object"?state.gamification:{};state.gamification.startedRewards=state.gamification.startedRewards||{};state.gamification.startedRewards[id]=(state.gamification.startedRewards[id]||0)+1;saveState();
+    selectConversationV7('xp:'+id,'XP-миссия · '+reward.title,reward.description,scene,state.level);
+  }
   function v7UseTopic(word){const topic=CHAT_TOPICS.find(x=>x[1]===word);selectConversationV7('topic:'+word,topic?.[2]||word,topic?.[2]||word,'',state.chatPrefs?.level||state.level)}
 
   function v7ChatKey(e){
@@ -358,7 +372,7 @@
   window.renderChat=renderChatV7;
   window.renderHub=renderHubV7;
   window.renderStoryWorld=renderStoryV7;
-  Object.assign(window,{v7ContinueToday,v7Step,v7Toggle,v7ChatSettings,v7ChatPref,v7UseTopic,v7ChatKey,v7SendChat,v7StartChat,v7ClearChat,v7OpenPlace,renderStoryV7});
+  Object.assign(window,{v7ContinueToday,v7Step,v7Toggle,v7ChatSettings,v7ChatPref,v7UseTopic,v7ChatKey,v7SendChat,v7StartChat,v7ClearChat,v7OpenPlace,v7XpMission,renderStoryV7});
   // Translate the selected word in its sentence without replacing the learner's answer.
   const wordTranslationsV7=new Map();
   function decorateWordsV7(){
