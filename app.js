@@ -151,7 +151,7 @@ async function checkFree(mode){
  if(ok){
   s.remediation=null;s.locked=false;const specific=Array.isArray(d.strengths_ru)&&d.strengths_ru[0]?'<br><small>'+esc(d.strengths_ru[0])+'</small>':"";
   b.innerHTML='<div class="feedback good"><b>✓ '+(rem?"Исправление перенесено в новую ситуацию":"Коммуникативная задача выполнена")+'</b>'+specific+'</div>';
-  neAdvance(()=>lessonNext(rem?25:20),520);return;
+  neAdvance(()=>lessonNext(rem?25:20),3000);return;
  }
  const explanation=esc(d.explanation_ru||"Исправь ответ и проверь снова."),rule=d.micro_rule_ru?'<br><b>Правило:</b> '+esc(d.micro_rule_ru):"",corrected=d.corrected?'<br><b>Естественнее:</b> '+esc(d.corrected):"";
  if(l?._adaptive&&d.retry_prompt_no){
