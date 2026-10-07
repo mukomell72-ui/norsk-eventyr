@@ -141,7 +141,8 @@ assert(!uiV7.includes('if(k==="level")state.level=v'),'active chat settings must
 assert(app.includes('target==="chatInput"?"chatMicBtn":"micBtn"'),'chat microphone must expose live listening state on the correct button');
 assert(app.includes('Нора слушает…')&&uiV7.includes('Нора думает…'),'Nora chat must show immediate listening/thinking status');
 assert(!app.includes('noraCheckStarted'),'Nora feedback must not be artificially delayed before display');
-assert(app.includes('continueCheckedDialogue')&&app.includes('Продолжить →'),'successful Nora dialogue feedback must remain visible until the learner continues');
+assert(!app.includes('continueCheckedDialogue'),'Nora dialogue feedback must auto-advance without a manual continue button');
+assert((app.match(/,3000\);return;/g)||[]).length>=2,'successful Nora feedback must remain visible for three seconds before advancing');
 assert((app.match(/2200\);return;/g)||[]).length>=2,'successful Nora feedback should remain visible before advancing');
 assert(chat.includes('max_output_tokens:chatMode==="explain"?800:500'),'normal Nora replies must use the lower latency output budget');
 assert(uiV7.includes('state.story.selectedLevel=picked.level'),'Fjordvik must store its own practice level');
