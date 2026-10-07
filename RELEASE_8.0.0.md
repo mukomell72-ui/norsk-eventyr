@@ -128,6 +128,7 @@ The service-worker cache namespace and public asset versioning are aligned to 8.
 - 5-day trial foundation;
 - referral attribution and bonus foundation;
 - email-confirm lifecycle;
+- password recovery by verified email without creating a new account;
 - install/activity tracking;
 - purchase-interest signal;
 - public ratings/comments with moderation;
