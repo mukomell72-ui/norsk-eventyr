@@ -87,14 +87,17 @@ async function checkDialogue(){
  if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:l.level,skill:"speaking",score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l.id,source:"dialogue",errorTag:d.error_tag||"",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});saveState();
  if(ok){
   const specific=Array.isArray(d.strengths_ru)&&d.strengths_ru[0]?'<br><small>'+esc(d.strengths_ru[0])+'</small>':"";
-  b.innerHTML='<div class="feedback good"><b>✓ Задача выполнена</b>'+specific+'</div>';
-  neAdvance(()=>{
-   if(l.id==="a1-1"&&(s.dialogueIndex||0)<INTRODUCTION_DIALOGUE.length-1){
-    s.dialogueIndex=(s.dialogueIndex||0)+1;state.xp+=10;saveState();s.locked=false;renderLesson();
-   }else lessonNext(10);
-  },450);return;
+  b.innerHTML='<div class="feedback good"><b>✓ Задача выполнена</b>'+specific+'<br><button class="btn secondary dialogue-continue-v8" style="margin-top:10px" onclick="continueCheckedDialogue()">Продолжить →</button></div>';
+  return;
  }
  s.locked=false;b.innerHTML='<div class="feedback bad"><b>Исправь одну главную вещь и ответь снова</b><br>'+esc(d.explanation_ru||"Исправь ответ и проверь снова.")+(d.micro_rule_ru?'<br><b>Правило:</b> '+esc(d.micro_rule_ru):"")+(d.corrected?'<br><b>Естественнее:</b> '+esc(d.corrected):"")+(d.retry_prompt_no?'<br><small>После исправления попробуй также: '+esc(d.retry_prompt_no)+'</small>':"")+'</div>';input.focus();
+}
+
+function continueCheckedDialogue(){
+ const s=lessonSession,l=s?.lesson;if(!s||!l||!s.locked)return;
+ if(l.id==="a1-1"&&(s.dialogueIndex||0)<INTRODUCTION_DIALOGUE.length-1){
+  s.dialogueIndex=(s.dialogueIndex||0)+1;state.xp+=10;saveState();s.locked=false;renderLesson();
+ }else lessonNext(10);
 }
 
 function adaptiveVocabItems(l){
@@ -215,6 +218,6 @@ function startTimer(){stopTimer();timerHandle=setInterval(()=>{if(!examSession)r
 function updateTimer(){const e=document.getElementById("timer");if(!e||!examSession)return;const m=Math.floor(examSession.remaining/60),s=examSession.remaining%60;e.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")}
 function stopTimer(){if(timerHandle){clearInterval(timerHandle);timerHandle=null}}
 
-Object.assign(window,{navigate,renderCourse,lessonNext,lessonChoice,checkDialogue,checkFree,speakText,toggle,toggleMic,answerTest,answerTestFree,testNext,answerExamObj,answerExamFree,examNext,exitExam,resetProgress});
+Object.assign(window,{navigate,renderCourse,lessonNext,lessonChoice,checkDialogue,continueCheckedDialogue,checkFree,speakText,toggle,toggleMic,answerTest,answerTestFree,testNext,answerExamObj,answerExamFree,examNext,exitExam,resetProgress});
 renderHome();
 // Service worker registration and update notices are handled by updates.js.
