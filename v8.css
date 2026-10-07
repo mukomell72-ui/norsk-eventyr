@@ -65,3 +65,30 @@ body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-seri
 .share-top-v8 svg,.install-top-v8 svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .share-top-v8:active,.install-top-v8:active{transform:translateY(1px)}
 @media(max-width:390px){.brand-v7 span{font-size:16px}.share-top-v8,.install-top-v8{width:30px;height:30px;margin-left:2px}.status-v7{gap:5px}.status-v7 button{padding:0 7px}}
+
+/* 8.0: score-based XP journey and Nora bonus missions. */
+.xp-journey-v8{margin:16px 0;padding:18px;border:1px solid rgba(150,190,215,.2);border-radius:22px;background:linear-gradient(180deg,rgba(15,42,58,.96),rgba(10,31,44,.96))}
+.xp-journey-v8 .section-head-v7{margin-bottom:12px}
+.xp-journey-v8 .section-head-v7 p{margin:6px 0 0;color:#b8cad6}
+.xp-progress-v8{display:grid;gap:8px;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.05)}
+.xp-progress-v8>div{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center}
+.xp-progress-v8 span{font-size:.78rem;color:#9eb5c4}
+.xp-progress-v8 b{min-width:0}
+.xp-progress-v8 em{font-style:normal;font-size:.82rem;color:#d3e0e7}
+.xp-progress-v8>i{height:8px;overflow:hidden;border-radius:999px;background:rgba(255,255,255,.09)}
+.xp-progress-v8>i>strong{display:block;height:100%;border-radius:999px;background:#7bc7ff}
+.xp-rewards-v8{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.xp-reward-v8{min-width:0;text-align:left;padding:12px;border:1px solid rgba(160,195,215,.18);border-radius:15px;background:rgba(255,255,255,.04);color:#f4f8fa}
+.xp-reward-v8 span,.xp-reward-v8 small{display:block}
+.xp-reward-v8 span{font-size:.72rem;font-weight:800;color:#9fc6dd}
+.xp-reward-v8 b{display:block;margin:4px 0}
+.xp-reward-v8 small{color:#afc0ca}
+.xp-reward-v8.open{cursor:pointer;border-color:rgba(123,199,255,.48);background:rgba(123,199,255,.09)}
+.xp-reward-v8.locked{opacity:.58}
+.xp-award-v8{display:grid;gap:4px;margin:16px 0;padding:14px;border-radius:16px;background:#eaf7f0;color:#174b34}
+.xp-award-v8 strong{font-size:1.7rem}
+.xp-next-v8{display:grid;grid-template-columns:1fr auto;gap:8px 12px;align-items:center;margin:12px 0 16px}
+.xp-next-v8 i{grid-column:1/-1;height:8px;border-radius:999px;overflow:hidden;background:#d9e5eb}
+.xp-next-v8 i em{display:block;height:100%;background:#327aa3}
+.xp-unlock-v8{margin:12px 0;padding:12px 14px;border-radius:14px;background:#eef4ff;color:#173d66}
+@media(max-width:520px){.xp-rewards-v8{grid-template-columns:1fr}.xp-progress-v8>div{grid-template-columns:1fr}.xp-progress-v8 em{justify-self:start}.xp-next-v8{grid-template-columns:1fr}}
