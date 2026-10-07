@@ -46,6 +46,10 @@ const gated={level:'A1',skills:{},learningV8:{startLevel:'A1'}};
 A.ensure(gated);
 const blockedB2=A.moduleMission(gated,'b2-argument');
 assert(blockedB2?.blocked===true&&blockedB2?.blockedByLevel===true&&blockedB2?.unlockedLevel==='A1','A1 learner must not jump directly to B2');
+const xpRichGated={level:'A1',xp:5000,skills:{},learningV8:{startLevel:'A1'}};
+A.ensure(xpRichGated);
+const xpBlockedB2=A.moduleMission(xpRichGated,'b2-argument');
+assert(xpBlockedB2?.blocked===true&&xpBlockedB2?.blockedByLevel===true&&xpBlockedB2?.unlockedLevel==='A1','XP must never unlock CEFR course levels');
 const placedB2={level:'B2',skills:{},placement:{recommendedStart:'B2'},learningV8:{startLevel:'B2'}};
 A.ensure(placedB2);
 assert(A.moduleMission(placedB2,'b2-argument')?.blocked!==true,'B2 placement start must be allowed to begin B2');
@@ -147,6 +151,7 @@ assert(app.includes('const XP_REWARDS=[')&&app.includes('{xp:100,id:"cafe"')&&ap
 assert(app.includes('repeat===0?base:repeat===1?Math.max(4,Math.round(base*.25)):0'),'same-day lesson repeats must not allow unlimited XP farming');
 assert(app.includes('Оценка занятия Норы:')&&app.includes('xpRewardStatus'),'lesson completion must show score-based XP and next reward progress');
 assert(app.includes('trackLessonScore')&&!app.includes('function lessonNext(xp=0){state.xp+=xp'),'lesson XP must be awarded from session quality rather than fixed step farming');
+assert(!/state\.xp\s*\+=/.test(app)&&app.includes('state.xp=before+earned'),'all XP gains must go through the anti-farm lesson award path');
 assert(adaptive.includes('xpScores:[]'),'adaptive lessons must start a fresh XP scoring session');
 assert(uiV7.includes('XP · награды Норы')&&uiV7.includes('Языковые уровни по-прежнему открываются только знаниями'),'XP UI must keep CEFR progression separate from rewards');
 assert(uiV7.includes('function v7XpMission')&&uiV7.includes("XP-миссия Норы"),'unlocked XP milestones must launch distinct Nora bonus missions');
