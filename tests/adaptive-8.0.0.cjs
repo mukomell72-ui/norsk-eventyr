@@ -91,7 +91,7 @@ const health=read('api/health.js');
 assert(health.includes('version:"8.0.0"'),'health endpoint version must match 8.0.0');
 assert(!health.includes('version:"7.3.0"'),'health endpoint must not expose stale 7.3.0 version');
 
-const app=read('app.js'),access=read('access.js'),sw=read('sw.js'),generate=read('api/generate.js'),evaluate=read('api/evaluate.js'),uiV7=read('ui-v7.js'),elite=read('elite.js'),v8css=read('v8.css');
+const app=read('app.js'),adaptive=read('adaptive-teacher.js'),access=read('access.js'),sw=read('sw.js'),generate=read('api/generate.js'),evaluate=read('api/evaluate.js'),uiV7=read('ui-v7.js'),elite=read('elite.js'),v8css=read('v8.css');
 assert(v8css.includes('.lesson-exercise-v6 .lesson-words-v6 b{color:#f7fafb!important}')&&v8css.includes('.lesson-exercise-v6 .lesson-words-v6 small{color:#c7d6df!important}'),'8.0 lesson vocabulary contrast regression');
 assert(v8css.includes('.lesson-exercise-v6 .card>.translation{background:#eaf1f4;color:#173346!important;border-left-color:#5aa9ff}'),'8.0 reading passage contrast regression');
 assert(v8css.includes('.lesson-exercise-v6 .card>.notice{background:#fff7df;color:#5a4615!important;border-color:#dfc56d}'),'8.0 lesson guidance contrast regression');
