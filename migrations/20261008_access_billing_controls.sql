@@ -1,5 +1,13 @@
--- Norsk Eventyr 8.0.1: time-bound access, free grants, promo codes, manual paid periods and device controls.
--- Additive migration. Apply once during the 8.0.1 release only after Preview QA passes.
+-- Norsk Eventyr 8.0.1: time-bound access, free grants, promo codes,
+-- owner-confirmed manual paid periods, and trusted-device controls.
+--
+-- STAGED / BACKWARD-COMPATIBLE:
+-- - Existing 8.0.0 RPCs ne_access_status(), ne_accept_terms(), ne_purchase_interest()
+--   are intentionally left unchanged so Production 8.0.0 keeps working if this
+--   schema is pre-applied for Preview verification.
+-- - 8.0.1 uses ne_access_status_v2(), ne_accept_terms_v2() and
+--   ne_purchase_interest_v2().
+-- - Direct table access remains revoked from browser roles.
 
 begin;
 
@@ -24,7 +32,8 @@ create table if not exists public.norsk_eventyr_access_grants (
 );
 alter table public.norsk_eventyr_access_grants enable row level security;
 revoke all on table public.norsk_eventyr_access_grants from public,anon,authenticated;
-create index if not exists ne_access_grants_user_time_idx on public.norsk_eventyr_access_grants(user_id,created_at desc);
+create index if not exists ne_access_grants_user_time_idx
+  on public.norsk_eventyr_access_grants(user_id,created_at desc);
 
 create table if not exists public.norsk_eventyr_promo_codes (
   id uuid primary key default gen_random_uuid(),
@@ -45,7 +54,8 @@ create table if not exists public.norsk_eventyr_promo_codes (
 );
 alter table public.norsk_eventyr_promo_codes enable row level security;
 revoke all on table public.norsk_eventyr_promo_codes from public,anon,authenticated;
-create index if not exists ne_promo_active_idx on public.norsk_eventyr_promo_codes(active,valid_until);
+create index if not exists ne_promo_active_idx
+  on public.norsk_eventyr_promo_codes(active,valid_until);
 
 create table if not exists public.norsk_eventyr_promo_redemptions (
   promo_id uuid not null references public.norsk_eventyr_promo_codes(id) on delete cascade,
@@ -56,7 +66,8 @@ create table if not exists public.norsk_eventyr_promo_redemptions (
 );
 alter table public.norsk_eventyr_promo_redemptions enable row level security;
 revoke all on table public.norsk_eventyr_promo_redemptions from public,anon,authenticated;
-create index if not exists ne_promo_redemptions_user_idx on public.norsk_eventyr_promo_redemptions(user_id,redeemed_at desc);
+create index if not exists ne_promo_redemptions_user_idx
+  on public.norsk_eventyr_promo_redemptions(user_id,redeemed_at desc);
 
 create table if not exists public.norsk_eventyr_devices (
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -71,20 +82,24 @@ create table if not exists public.norsk_eventyr_devices (
 );
 alter table public.norsk_eventyr_devices enable row level security;
 revoke all on table public.norsk_eventyr_devices from public,anon,authenticated;
-create index if not exists ne_devices_user_active_idx on public.norsk_eventyr_devices(user_id,revoked_at,last_seen_at desc);
+create index if not exists ne_devices_user_active_idx
+  on public.norsk_eventyr_devices(user_id,revoked_at,last_seen_at desc);
 
--- Preserve users that were already explicitly approved under 8.0.0.
--- They receive one 30-day transition window rather than suddenly losing access.
+-- Existing approved 8.0.0 users previously had effectively unlimited access.
+-- Give them a finite 30-day transition window for 8.0.1 so switching the
+-- entitlement model never locks them out suddenly.
 with candidates as (
   select e.user_id,
          greatest(now(),e.trial_ends_at,coalesce(e.free_access_until,now())) as start_at
   from public.norsk_eventyr_entitlements e
-  join public.norsk_eventyr_access a on a.user_id=e.user_id and a.status='approved'
-  where coalesce((select raw_app_meta_data->>'ne_owner' from auth.users u where u.id=e.user_id),'false')<>'true'
+  join public.norsk_eventyr_access a
+    on a.user_id=e.user_id and a.status='approved'
+  where coalesce((select u.raw_app_meta_data->>'ne_owner' from auth.users u where u.id=e.user_id),'false')<>'true'
     and e.free_access_until is null
 ), changed as (
   update public.norsk_eventyr_entitlements e
-  set free_access_until=c.start_at+interval '30 days',updated_at=now()
+  set free_access_until=c.start_at+interval '30 days',
+      updated_at=now()
   from candidates c
   where e.user_id=c.user_id
   returning e.user_id,c.start_at,e.free_access_until
@@ -93,6 +108,82 @@ insert into public.norsk_eventyr_access_grants(user_id,grant_type,days,starts_at
 select user_id,'migration_grace',30,start_at,free_access_until,'8.0.1 переход с бессрочного approved-доступа'
 from changed;
 
+-- Internal helper. The 30-day "ready to pay" bonus is granted only when BOTH:
+-- 1) the learner has marked purchase interest, and
+-- 2) the owner has approved the account.
+-- Therefore sharing a login or pressing the CTA cannot bypass owner approval.
+create or replace function public.ne_ready_bonus_apply(p_user_id uuid)
+returns timestamptz
+language plpgsql
+security definer
+set search_path=''
+as $$
+declare
+  e public.norsk_eventyr_entitlements%rowtype;
+  req_status text;
+  paid_end timestamptz;
+  base_at timestamptz;
+  new_until timestamptz;
+begin
+  if p_user_id is null then return null; end if;
+
+  select * into e
+  from public.norsk_eventyr_entitlements
+  where user_id=p_user_id
+  for update;
+
+  if e.user_id is null
+     or e.purchase_interest_at is null
+     or e.ready_bonus_granted_at is not null then
+    return null;
+  end if;
+
+  select status into req_status
+  from public.norsk_eventyr_access
+  where user_id=p_user_id;
+
+  if req_status is distinct from 'approved' then return null; end if;
+
+  select current_period_end into paid_end
+  from public.norsk_eventyr_subscriptions
+  where user_id=p_user_id
+    and status in ('active','trialing')
+    and current_period_end>now();
+
+  base_at := greatest(
+    now(),
+    e.trial_ends_at,
+    coalesce(e.free_access_until,now()),
+    coalesce(paid_end,now())
+  );
+  new_until := base_at+interval '30 days';
+
+  update public.norsk_eventyr_entitlements
+  set ready_bonus_granted_at=now(),
+      free_access_until=new_until,
+      updated_at=now()
+  where user_id=p_user_id;
+
+  insert into public.norsk_eventyr_access_grants(
+    user_id,grant_type,days,starts_at,ends_at,note
+  ) values (
+    p_user_id,'ready_bonus',30,base_at,new_until,
+    'Одноразовый бонус после готовности оформить подписку и одобрения владельцем'
+  );
+
+  perform public.ne_lifecycle_record(
+    p_user_id,'ready_to_pay_bonus',now(),'system',
+    jsonb_build_object('days',30,'free_access_until',new_until),
+    'ready_to_pay_bonus:'||p_user_id::text
+  );
+
+  return new_until;
+end;
+$$;
+
+-- New 8.0.1 access model. Approval is an account permission, not an entitlement.
+-- Initial trial remains available without approval. After trial, free/paid periods
+-- are usable only for an approved account.
 create or replace function public.ne_access_status_v2()
 returns jsonb
 language plpgsql
@@ -114,59 +205,95 @@ declare
   remaining bigint := 0;
   has_feedback boolean := false;
 begin
-  select * into u from auth.users where id=auth.uid() and email_confirmed_at is not null;
+  select * into u
+  from auth.users
+  where id=auth.uid() and email_confirmed_at is not null;
   if u.id is null then raise exception 'LOGIN_REQUIRED'; end if;
 
   if public.ne_access_owner() then
     return jsonb_build_object(
-      'status','owner','request_status','approved','access_granted',true,'owner',true,
-      'user_id',u.id,'terms_required',false,'feedback_submitted',true,'feedback_prompt_due',false,
-      'terms_version',current_terms,'privacy_version',current_privacy,'accepted_privacy_version',current_privacy,
+      'status','owner','request_status','approved',
+      'access_granted',true,'owner',true,'user_id',u.id,
+      'terms_required',false,'terms_version',current_terms,
+      'privacy_version',current_privacy,'accepted_privacy_version',current_privacy,
+      'feedback_submitted',true,'feedback_prompt_due',false,
       'access_source','owner'
     );
   end if;
 
-  select status into req_status from public.norsk_eventyr_access where user_id=u.id;
-  select * into e from public.norsk_eventyr_entitlements where user_id=u.id;
+  select status into req_status
+  from public.norsk_eventyr_access
+  where user_id=u.id;
+
+  select * into e
+  from public.norsk_eventyr_entitlements
+  where user_id=u.id;
+
   select s.status,s.current_period_start,s.current_period_end
-    into sub_status,paid_start,paid_end
-  from public.norsk_eventyr_subscriptions s where s.user_id=u.id;
-  select exists(select 1 from public.norsk_eventyr_feedback where user_id=u.id) into has_feedback;
+  into sub_status,paid_start,paid_end
+  from public.norsk_eventyr_subscriptions s
+  where s.user_id=u.id;
+
+  select exists(
+    select 1 from public.norsk_eventyr_feedback where user_id=u.id
+  ) into has_feedback;
 
   if req_status in ('denied','revoked') then
     effective_status := req_status;
+
   elsif e.user_id is null
      or e.terms_version is distinct from current_terms
      or e.privacy_version is distinct from current_privacy
      or e.terms_accepted_at is null
      or e.privacy_accepted_at is null then
     effective_status := 'terms_required';
+
+  elsif e.trial_ends_at>now() then
+    effective_status := 'trial';
+    access_source := 'trial';
+    granted := true;
+    remaining := greatest(0,floor(extract(epoch from (e.trial_ends_at-now())))::bigint);
+
+  elsif req_status is distinct from 'approved' then
+    effective_status := case when req_status='pending' then 'pending' else 'expired' end;
+
   elsif sub_status in ('active','trialing')
      and coalesce(paid_start,now())<=now()
      and paid_end>now() then
-    effective_status := 'paid'; granted := true; access_source := 'paid';
+    effective_status := 'paid';
+    access_source := 'paid';
+    granted := true;
     remaining := greatest(0,floor(extract(epoch from (paid_end-now())))::bigint);
+
   elsif e.free_access_until>now() then
-    effective_status := 'free'; granted := true; access_source := 'free';
+    effective_status := 'free';
+    access_source := 'free';
+    granted := true;
     remaining := greatest(0,floor(extract(epoch from (e.free_access_until-now())))::bigint);
-  elsif e.trial_ends_at>now() then
-    effective_status := 'trial'; granted := true; access_source := 'trial';
-    remaining := greatest(0,floor(extract(epoch from (e.trial_ends_at-now())))::bigint);
-  elsif req_status='pending' then
-    effective_status := 'pending';
+
   else
     effective_status := 'expired';
   end if;
 
   return jsonb_build_object(
-    'status',effective_status,'request_status',coalesce(req_status,'unrequested'),
-    'access_granted',granted,'owner',false,'user_id',u.id,
-    'terms_required',effective_status='terms_required','terms_version',current_terms,
-    'privacy_version',current_privacy,'accepted_privacy_version',e.privacy_version,
-    'trial_started_at',e.trial_started_at,'trial_ends_at',e.trial_ends_at,
-    'free_access_until',e.free_access_until,'ready_bonus_granted_at',e.ready_bonus_granted_at,
-    'subscription_status',coalesce(sub_status,'inactive'),'paid_from',paid_start,'paid_until',paid_end,
-    'access_source',access_source,'access_seconds_remaining',remaining,
+    'status',effective_status,
+    'request_status',coalesce(req_status,'unrequested'),
+    'access_granted',granted,
+    'owner',false,
+    'user_id',u.id,
+    'terms_required',effective_status='terms_required',
+    'terms_version',current_terms,
+    'privacy_version',current_privacy,
+    'accepted_privacy_version',e.privacy_version,
+    'trial_started_at',e.trial_started_at,
+    'trial_ends_at',e.trial_ends_at,
+    'free_access_until',e.free_access_until,
+    'ready_bonus_granted_at',e.ready_bonus_granted_at,
+    'subscription_status',coalesce(sub_status,'inactive'),
+    'paid_from',paid_start,
+    'paid_until',paid_end,
+    'access_source',access_source,
+    'access_seconds_remaining',remaining,
     'trial_seconds_remaining',case when effective_status='trial' then remaining else 0 end,
     'referral_bonus_granted_at',e.referral_bonus_granted_at,
     'feedback_submitted',has_feedback,
@@ -178,13 +305,13 @@ $$;
 create or replace function public.ne_accept_terms_v2(
   p_terms_version text,
   p_privacy_version text,
-  p_referral_code text default null::text
+  p_referral_code text default null
 )
 returns jsonb
 language plpgsql
 security definer
 set search_path=''
-as $
+as $$
 declare
   u auth.users;
   e public.norsk_eventyr_entitlements%rowtype;
@@ -193,531 +320,64 @@ declare
   current_terms constant text := '2026-10-08-v2';
   current_privacy constant text := '2026-10-08-v4';
 begin
-  select * into u from auth.users where id=auth.uid() and email_confirmed_at is not null;
+  select * into u
+  from auth.users
+  where id=auth.uid() and email_confirmed_at is not null;
   if u.id is null then raise exception 'LOGIN_REQUIRED'; end if;
-  if p_terms_version is distinct from current_terms or p_privacy_version is distinct from current_privacy then
+
+  if p_terms_version is distinct from current_terms
+     or p_privacy_version is distinct from current_privacy then
     raise exception 'TERMS_VERSION_MISMATCH';
   end if;
 
   code := nullif(upper(trim(coalesce(p_referral_code,''))),'');
-  if code is not null and code !~ '^[A-Z0-9]{12,32}
-returns jsonb
-language plpgsql
-security definer
-set search_path=''
-as $$
-declare
-  uid uuid := auth.uid();
-  e public.norsk_eventyr_entitlements%rowtype;
-  paid_end timestamptz;
-  base_at timestamptz;
-  new_until timestamptz;
-  did_bonus boolean := false;
-begin
-  if uid is null or not exists(select 1 from auth.users where id=uid and email_confirmed_at is not null) then
-    raise exception 'LOGIN_REQUIRED';
-  end if;
-  if p_price_nok is null or p_price_nok<1 or p_price_nok>100000 then raise exception 'BAD_PRICE'; end if;
+  if code is not null and code !~ '^[A-Z0-9]{12,32}$' then code := null; end if;
 
-  select * into e from public.norsk_eventyr_entitlements where user_id=uid for update;
-  if e.user_id is null then raise exception 'ENTITLEMENT_REQUIRED'; end if;
-  select current_period_end into paid_end
-  from public.norsk_eventyr_subscriptions
-  where user_id=uid and status in ('active','trialing') and current_period_end>now();
-
-  if e.ready_bonus_granted_at is null then
-    base_at := greatest(now(),e.trial_ends_at,coalesce(e.free_access_until,now()),coalesce(paid_end,now()));
-    new_until := base_at+interval '30 days';
-    update public.norsk_eventyr_entitlements
-    set purchase_interest_at=coalesce(purchase_interest_at,now()),
-        purchase_interest_last_at=now(),
-        purchase_interest_price_nok=p_price_nok,
-        ready_bonus_granted_at=now(),
-        free_access_until=new_until,
-        updated_at=now()
-    where user_id=uid;
-    insert into public.norsk_eventyr_access_grants(user_id,grant_type,days,starts_at,ends_at,note)
-    values(uid,'ready_bonus',30,base_at,new_until,'Одноразовый бонус после готовности оформить подписку');
-    perform public.ne_lifecycle_record(uid,'ready_to_pay_bonus',now(),'user',
-      jsonb_build_object('price_nok',p_price_nok,'days',30,'free_access_until',new_until),
-      'ready_to_pay_bonus:'||uid::text);
-    did_bonus := true;
-  else
-    update public.norsk_eventyr_entitlements
-    set purchase_interest_at=coalesce(purchase_interest_at,now()),
-        purchase_interest_last_at=now(),
-        purchase_interest_price_nok=p_price_nok,
-        updated_at=now()
-    where user_id=uid;
-  end if;
-
-  return jsonb_build_object('ok',true,'price_nok',p_price_nok,'bonus_granted',did_bonus,
-    'free_access_until',(select free_access_until from public.norsk_eventyr_entitlements where user_id=uid));
-end;
-$$;
-
-create or replace function public.ne_promo_redeem(p_code text)
-returns jsonb
-language plpgsql
-security definer
-set search_path=''
-as $$
-declare
-  uid uuid := auth.uid();
-  normalized text := upper(trim(coalesce(p_code,'')));
-  promo public.norsk_eventyr_promo_codes%rowtype;
-  e public.norsk_eventyr_entitlements%rowtype;
-  paid_end timestamptz;
-  base_at timestamptz;
-  new_until timestamptz;
-begin
-  if uid is null or not exists(select 1 from auth.users where id=uid and email_confirmed_at is not null) then raise exception 'LOGIN_REQUIRED'; end if;
-  if normalized !~ '^[A-Z0-9_-]{4,32}$' then raise exception 'BAD_PROMO'; end if;
-
-  select * into promo from public.norsk_eventyr_promo_codes where code=normalized for update;
-  if promo.id is null or promo.active is not true or promo.valid_from>now()
-     or (promo.valid_until is not null and promo.valid_until<=now())
-     or promo.redemption_count>=promo.max_redemptions then raise exception 'PROMO_UNAVAILABLE'; end if;
-  if exists(select 1 from public.norsk_eventyr_promo_redemptions where promo_id=promo.id and user_id=uid) then
-    raise exception 'PROMO_ALREADY_USED';
-  end if;
-
-  select * into e from public.norsk_eventyr_entitlements where user_id=uid for update;
-  if e.user_id is null then raise exception 'ENTITLEMENT_REQUIRED'; end if;
-  select current_period_end into paid_end from public.norsk_eventyr_subscriptions
-   where user_id=uid and status in ('active','trialing') and current_period_end>now();
-
-  base_at := greatest(now(),e.trial_ends_at,coalesce(e.free_access_until,now()),coalesce(paid_end,now()));
-  new_until := base_at + make_interval(days=>promo.duration_days);
-  update public.norsk_eventyr_entitlements set free_access_until=new_until,updated_at=now() where user_id=uid;
-  update public.norsk_eventyr_promo_codes set redemption_count=redemption_count+1,updated_at=now() where id=promo.id;
-  insert into public.norsk_eventyr_promo_redemptions(promo_id,user_id,granted_until) values(promo.id,uid,new_until);
-  insert into public.norsk_eventyr_access_grants(user_id,grant_type,days,starts_at,ends_at,promo_code,note)
-   values(uid,'promo',promo.duration_days,base_at,new_until,promo.code,promo.note);
-  perform public.ne_lifecycle_record(uid,'promo_redeemed',now(),'user',
-    jsonb_build_object('promo_code',promo.code,'days',promo.duration_days,'free_access_until',new_until),
-    'promo:'||promo.id::text||':'||uid::text);
-  return jsonb_build_object('ok',true,'code',promo.code,'days',promo.duration_days,'free_access_until',new_until);
-end;
-$$;
-
-create or replace function public.ne_owner_grant_free(p_user_id uuid,p_days integer,p_note text default null)
-returns jsonb
-language plpgsql
-security definer
-set search_path=''
-as $$
-declare
-  e public.norsk_eventyr_entitlements%rowtype;
-  paid_end timestamptz;
-  base_at timestamptz;
-  new_until timestamptz;
-  clean_note text := nullif(left(trim(coalesce(p_note,'')),300),'');
-begin
-  if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
-  if p_user_id is null or p_user_id=auth.uid() or p_days is null or p_days not between 1 and 3650 then raise exception 'BAD_GRANT'; end if;
-  select * into e from public.norsk_eventyr_entitlements where user_id=p_user_id for update;
-  if e.user_id is null then raise exception 'USER_NOT_FOUND'; end if;
-  select current_period_end into paid_end from public.norsk_eventyr_subscriptions
-   where user_id=p_user_id and status in ('active','trialing') and current_period_end>now();
-  base_at := greatest(now(),e.trial_ends_at,coalesce(e.free_access_until,now()),coalesce(paid_end,now()));
-  new_until := base_at+make_interval(days=>p_days);
-  update public.norsk_eventyr_entitlements set free_access_until=new_until,updated_at=now() where user_id=p_user_id;
-  insert into public.norsk_eventyr_access_grants(user_id,grant_type,days,starts_at,ends_at,note,created_by)
-   values(p_user_id,'owner_free',p_days,base_at,new_until,clean_note,auth.uid());
-  perform public.ne_lifecycle_record(p_user_id,'owner_free_grant',now(),'owner',
-    jsonb_build_object('days',p_days,'free_access_until',new_until,'note',clean_note),null);
-  return jsonb_build_object('ok',true,'free_access_until',new_until,'days',p_days);
-end;
-$$;
-
-create or replace function public.ne_owner_confirm_manual_payment(
-  p_user_id uuid,p_amount_nok numeric,p_days integer default 30,p_note text default null
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path=''
-as $$
-declare
-  e public.norsk_eventyr_entitlements%rowtype;
-  s public.norsk_eventyr_subscriptions%rowtype;
-  period_start timestamptz;
-  period_end timestamptz;
-  payment_id uuid := gen_random_uuid();
-  clean_note text := nullif(left(trim(coalesce(p_note,'')),300),'');
-begin
-  if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
-  if p_user_id is null or p_user_id=auth.uid() or p_days is null or p_days not between 1 and 3650
-     or p_amount_nok is null or p_amount_nok<0 or p_amount_nok>100000 then raise exception 'BAD_PAYMENT'; end if;
-  select * into e from public.norsk_eventyr_entitlements where user_id=p_user_id for update;
-  if e.user_id is null then raise exception 'USER_NOT_FOUND'; end if;
-  select * into s from public.norsk_eventyr_subscriptions where user_id=p_user_id for update;
-
-  period_start := greatest(now(),e.trial_ends_at,coalesce(e.free_access_until,now()),
-                    coalesce(case when s.status in ('active','trialing') then s.current_period_end end,now()));
-  period_end := period_start+make_interval(days=>p_days);
-
-  insert into public.norsk_eventyr_payments(
-    id,user_id,provider,provider_event_id,provider_payment_id,status,currency,
-    amount_nok,fee_nok,refunded_nok,period_start,period_end,paid_at,failure_message
-  ) values (
-    payment_id,p_user_id,'manual','manual:'||payment_id::text,'manual:'||payment_id::text,'paid','NOK',
-    p_amount_nok,0,0,period_start,period_end,now(),null
-  );
-
-  insert into public.norsk_eventyr_subscriptions(
-    user_id,provider,status,plan_code,amount_nok,current_period_start,current_period_end,cancel_at_period_end,canceled_at,updated_at
-  ) values (
-    p_user_id,'manual','active','manual_monthly',p_amount_nok,period_start,period_end,true,null,now()
-  )
-  on conflict(user_id) do update set
-    provider='manual',status='active',plan_code='manual_monthly',amount_nok=excluded.amount_nok,
-    current_period_start=excluded.current_period_start,current_period_end=excluded.current_period_end,
-    cancel_at_period_end=true,canceled_at=null,updated_at=now();
-
-  perform public.ne_lifecycle_record(p_user_id,'manual_payment_confirmed',now(),'owner',
-    jsonb_build_object('payment_id',payment_id,'amount_nok',p_amount_nok,'days',p_days,
-      'period_start',period_start,'period_end',period_end,'note',clean_note),null);
-  return jsonb_build_object('ok',true,'payment_id',payment_id,'period_start',period_start,'period_end',period_end);
-end;
-$$;
-
-create or replace function public.ne_owner_promo_create(
-  p_code text,p_days integer,p_max_redemptions integer default 1,p_valid_until timestamptz default null,p_note text default null
-)
-returns jsonb
-language plpgsql
-security definer
-set search_path=''
-as $$
-declare
- normalized text := upper(trim(coalesce(p_code,'')));
- new_id uuid;
-begin
- if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
- if normalized !~ '^[A-Z0-9_-]{4,32}$' or p_days not between 1 and 3650
-    or p_max_redemptions not between 1 and 100000 or (p_valid_until is not null and p_valid_until<=now()) then raise exception 'BAD_PROMO'; end if;
- insert into public.norsk_eventyr_promo_codes(code,duration_days,max_redemptions,valid_until,note,created_by)
- values(normalized,p_days,p_max_redemptions,p_valid_until,nullif(left(trim(coalesce(p_note,'')),300),''),auth.uid())
- returning id into new_id;
- return jsonb_build_object('ok',true,'id',new_id,'code',normalized);
-exception when unique_violation then raise exception 'PROMO_EXISTS';
-end;
-$$;
-
-create or replace function public.ne_owner_promo_set_active(p_promo_id uuid,p_active boolean)
-returns jsonb
-language plpgsql
-security definer
-set search_path=''
-as $$
-begin
- if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
- if p_promo_id is null or p_active is null then raise exception 'BAD_PROMO'; end if;
- update public.norsk_eventyr_promo_codes set active=p_active,updated_at=now() where id=p_promo_id;
- if not found then raise exception 'PROMO_NOT_FOUND'; end if;
- return jsonb_build_object('ok',true);
-end;
-$$;
-
-create or replace function public.ne_owner_promo_list()
-returns jsonb
-language plpgsql
-security definer
-set search_path=''
-as $$
-begin
- if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
- return coalesce((
-   select jsonb_agg(jsonb_build_object(
-     'id',p.id,'code',p.code,'duration_days',p.duration_days,'max_redemptions',p.max_redemptions,
-     'redemption_count',p.redemption_count,'valid_from',p.valid_from,'valid_until',p.valid_until,
-     'active',p.active,'note',p.note,'created_at',p.created_at
-   ) order by p.created_at desc)
-   from public.norsk_eventyr_promo_codes p
- ),'[]'::jsonb);
-end;
-$$;
-
-create or replace function public.ne_device_authorize(p_device_id text,p_device_name text default 'Устройство')
-returns jsonb
-language plpgsql
-security definer
-set search_path=''
-as $$
-declare
- uid uuid := auth.uid();
- clean_id text := trim(coalesce(p_device_id,''));
- clean_name text := left(coalesce(nullif(trim(p_device_name),''),'Устройство'),120);
- active_devices integer := 0;
- other_recent integer := 0;
- existing public.norsk_eventyr_devices%rowtype;
-begin
- if uid is null or not exists(select 1 from auth.users where id=uid and email_confirmed_at is not null) then raise exception 'LOGIN_REQUIRED'; end if;
- if public.ne_access_owner() then return jsonb_build_object('allowed',true,'owner',true,'active_devices',0,'max_devices',2); end if;
- perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext(uid::text));
- if clean_id !~ '^[A-Za-z0-9_-]{16,80}$' then return jsonb_build_object('allowed',false,'reason','DEVICE_REQUIRED','max_devices',2); end if;
-
- select * into existing from public.norsk_eventyr_devices where user_id=uid and device_id=clean_id for update;
- select count(*) into active_devices from public.norsk_eventyr_devices where user_id=uid and revoked_at is null;
-
- if existing.user_id is null or existing.revoked_at is not null then
-   if active_devices>=2 then return jsonb_build_object('allowed',false,'reason','DEVICE_LIMIT','active_devices',active_devices,'max_devices',2); end if;
-   insert into public.norsk_eventyr_devices(user_id,device_id,device_name,first_seen_at,last_seen_at,revoked_at)
-   values(uid,clean_id,clean_name,now(),now(),null)
-   on conflict(user_id,device_id) do update set device_name=excluded.device_name,last_seen_at=now(),revoked_at=null;
-   active_devices := active_devices+1;
- else
-   update public.norsk_eventyr_devices set device_name=clean_name,last_seen_at=now() where user_id=uid and device_id=clean_id;
- end if;
-
- select count(*) into other_recent
- from public.norsk_eventyr_devices
- where user_id=uid and revoked_at is null and device_id<>clean_id and last_seen_at>now()-interval '3 minutes';
- if other_recent>0 then
-   return jsonb_build_object('allowed',false,'reason','CONCURRENT_DEVICE','active_devices',active_devices,'max_devices',2,'retry_seconds',180);
- end if;
- return jsonb_build_object('allowed',true,'active_devices',active_devices,'max_devices',2);
-end;
-$$;
-
-create or replace function public.ne_owner_devices_reset(p_user_id uuid)
-returns jsonb
-language plpgsql
-security definer
-set search_path=''
-as $$
-declare changed integer;
-begin
- if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
- if p_user_id is null or p_user_id=auth.uid() then raise exception 'BAD_USER'; end if;
- update public.norsk_eventyr_devices set revoked_at=now() where user_id=p_user_id and revoked_at is null;
- get diagnostics changed=row_count;
- perform public.ne_lifecycle_record(p_user_id,'devices_reset',now(),'owner',jsonb_build_object('devices',changed),null);
- return jsonb_build_object('ok',true,'revoked_devices',changed);
-end;
-$$;
-
-create or replace function public.ne_owner_admin_overview()
-returns jsonb
-language plpgsql
-security definer
-set search_path=''
-as $
-begin
- if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
- return jsonb_build_object(
-  'users',(select count(*) from auth.users u where public.ne_is_norsk_eventyr_user(u.id)),
-  'confirmed',(select count(*) from auth.users u where u.email_confirmed_at is not null and public.ne_is_norsk_eventyr_user(u.id)),
-  'active_trials',(select count(*) from public.norsk_eventyr_entitlements e where e.trial_ends_at>now() and public.ne_is_norsk_eventyr_user(e.user_id)),
-  'active_free',(select count(*) from public.norsk_eventyr_entitlements e where e.free_access_until>now() and public.ne_is_norsk_eventyr_user(e.user_id)),
-  'expired_trials',(select count(*) from public.norsk_eventyr_entitlements e where e.trial_ends_at<=now() and coalesce(e.free_access_until,'epoch'::timestamptz)<=now() and public.ne_is_norsk_eventyr_user(e.user_id)),
-  'purchase_interest',(select count(*) from public.norsk_eventyr_entitlements e where e.purchase_interest_at is not null and public.ne_is_norsk_eventyr_user(e.user_id)),
-  'active_paid',(select count(*) from public.norsk_eventyr_subscriptions x where x.status in ('trialing','active') and x.current_period_end>now() and public.ne_is_norsk_eventyr_user(x.user_id)),
-  'past_due',(select count(*) from public.norsk_eventyr_subscriptions x where x.status in ('past_due','unpaid') and public.ne_is_norsk_eventyr_user(x.user_id)),
-  'revenue_30d',coalesce((select round(sum(greatest(p.amount_nok-p.refunded_nok,0)),2) from public.norsk_eventyr_payments p where p.status in ('paid','refunded','partially_refunded') and coalesce(p.paid_at,p.created_at)>=now()-interval '30 days'),0),
-  'fees_30d',coalesce((select round(sum(p.fee_nok),2) from public.norsk_eventyr_payments p where p.status in ('paid','refunded','partially_refunded') and coalesce(p.paid_at,p.created_at)>=now()-interval '30 days'),0),
-  'failed_payments_7d',(select count(*) from public.norsk_eventyr_payments p where p.status='failed' and p.created_at>=now()-interval '7 days'),
-  'renewals_7d',(select count(*) from public.norsk_eventyr_subscriptions x where x.status='active' and x.cancel_at_period_end=false and x.current_period_end between now() and now()+interval '7 days'),
-  'errors_24h',(select count(*) from public.norsk_eventyr_client_errors e where e.created_at>=now()-interval '24 hours')
- );
-end;
-$;
-
-create or replace function public.ne_owner_user_detail(p_user_id uuid)
-returns jsonb
-language plpgsql
-security definer
-set search_path=''
-as $$
-declare profile jsonb; timeline jsonb; payments jsonb; grants jsonb; devices jsonb;
-begin
-  if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
-  if p_user_id is null then raise exception 'BAD_USER'; end if;
-  if not public.ne_is_norsk_eventyr_user(p_user_id) then raise exception 'USER_NOT_FOUND'; end if;
-
-  select jsonb_build_object(
-    'user_id',u.id,'email',u.email,'registered_at',u.created_at,'email_confirmed_at',u.email_confirmed_at,
-    'display_name',coalesce(a.display_name,''),'access_status',coalesce(a.status,'unrequested'),
-    'requested_at',a.requested_at,'decided_at',a.decided_at,
-    'trial_started_at',e.trial_started_at,'trial_ends_at',e.trial_ends_at,
-    'free_access_until',e.free_access_until,'ready_bonus_granted_at',e.ready_bonus_granted_at,
-    'terms_version',e.terms_version,'privacy_version',e.privacy_version,
-    'terms_accepted_at',e.terms_accepted_at,'privacy_accepted_at',e.privacy_accepted_at,
-    'activity_days_count',coalesce(e.activity_days_count,0),
-    'purchase_interest_at',e.purchase_interest_at,'purchase_interest_price_nok',e.purchase_interest_price_nok,
-    'first_installed_at',i.first_installed_at,'last_seen_installed_at',i.last_seen_installed_at,
-    'install_platform',i.platform,'install_source',i.source,
-    'acquisition_source',case when e.referred_by is not null then 'referral' else coalesce(nullif(lower(left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_source','')),40)),''),'direct') end,
-    'acquisition_campaign',left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_campaign','')),80),
-    'subscription_status',coalesce(s.status,'inactive'),'plan_code',s.plan_code,
-    'subscription_amount_nok',s.amount_nok,'paid_until',s.current_period_end,
-    'current_period_start',s.current_period_start,'next_payment_at',case when s.status='active' and not s.cancel_at_period_end then s.current_period_end else null end,
-    'cancel_at_period_end',coalesce(s.cancel_at_period_end,false),'canceled_at',s.canceled_at,
-    'device_count',(select count(*) from public.norsk_eventyr_devices d where d.user_id=u.id and d.revoked_at is null)
-  ) into profile
-  from auth.users u
-  left join public.norsk_eventyr_entitlements e on e.user_id=u.id
-  left join public.norsk_eventyr_access a on a.user_id=u.id
-  left join public.norsk_eventyr_installs i on i.user_id=u.id
-  left join public.norsk_eventyr_subscriptions s on s.user_id=u.id
-  where u.id=p_user_id;
-
-  select coalesce(jsonb_agg(jsonb_build_object(
-    'id',x.id,'event_type',x.event_type,'occurred_at',x.occurred_at,'source',x.source,'metadata',x.metadata
-  ) order by x.occurred_at desc,x.id desc),'[]'::jsonb) into timeline
-  from public.norsk_eventyr_lifecycle_events x where x.user_id=p_user_id;
-
-  select coalesce(jsonb_agg(jsonb_build_object(
-    'id',p.id,'status',p.status,'amount_nok',p.amount_nok,'fee_nok',p.fee_nok,
-    'refunded_nok',p.refunded_nok,'period_start',p.period_start,'period_end',p.period_end,
-    'paid_at',p.paid_at,'created_at',p.created_at,'provider',p.provider,
-    'failure_code',p.failure_code,'failure_message',p.failure_message
-  ) order by p.created_at desc,p.id desc),'[]'::jsonb) into payments
-  from public.norsk_eventyr_payments p where p.user_id=p_user_id;
-
-  select coalesce(jsonb_agg(to_jsonb(g) order by g.created_at desc),'[]'::jsonb) into grants
-  from public.norsk_eventyr_access_grants g where g.user_id=p_user_id;
-
-  select coalesce(jsonb_agg(jsonb_build_object(
-    'device_id',d.device_id,'device_name',d.device_name,'first_seen_at',d.first_seen_at,
-    'last_seen_at',d.last_seen_at,'revoked_at',d.revoked_at
-  ) order by d.last_seen_at desc),'[]'::jsonb) into devices
-  from public.norsk_eventyr_devices d where d.user_id=p_user_id;
-
-  return jsonb_build_object('profile',profile,'timeline',timeline,'payments',payments,'grants',grants,'devices',devices);
-end;
-$$;
-
-create or replace function public.ne_access_list()
-returns jsonb
-language plpgsql
-security definer
-set search_path=''
-as $$
-begin
-  if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
-  return coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'user_id',u.id,'email',u.email,'registered_at',u.created_at,'email_confirmed_at',u.email_confirmed_at,
-      'display_name',coalesce(a.display_name,''),'status',coalesce(a.status,'unrequested'),
-      'requested_at',a.requested_at,'decided_at',a.decided_at,
-      'trial_started_at',e.trial_started_at,'trial_ends_at',e.trial_ends_at,
-      'free_access_until',e.free_access_until,'ready_bonus_granted_at',e.ready_bonus_granted_at,
-      'referral_bonus_granted_at',e.referral_bonus_granted_at,'terms_accepted_at',e.terms_accepted_at,
-      'first_installed_at',i.first_installed_at,'last_seen_installed_at',i.last_seen_installed_at,
-      'install_platform',i.platform,'install_source',i.source,'activity_days_count',coalesce(e.activity_days_count,0),
-      'purchase_interest_at',e.purchase_interest_at,'purchase_interest_price_nok',e.purchase_interest_price_nok,
-      'first_paid_at',e.first_paid_at,
-      'acquisition_source',case when e.referred_by is not null then 'referral' else coalesce(nullif(lower(left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_source','')),40)),''),'direct') end,
-      'acquisition_campaign',left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_campaign','')),80),
-      'subscription_status',coalesce(s.status,'inactive'),'plan_code',s.plan_code,
-      'subscription_amount_nok',s.amount_nok,'paid_until',s.current_period_end,
-      'next_payment_at',case when s.status='active' and not s.cancel_at_period_end then s.current_period_end else null end,
-      'cancel_at_period_end',coalesce(s.cancel_at_period_end,false),
-      'device_count',(select count(*) from public.norsk_eventyr_devices d where d.user_id=u.id and d.revoked_at is null),
-      'last_payment_status',lp.status,'last_payment_at',coalesce(lp.paid_at,lp.created_at),'last_payment_amount_nok',lp.amount_nok
-    ) order by coalesce(lp.paid_at,lp.created_at,e.purchase_interest_at,i.first_installed_at,e.trial_started_at,u.created_at) desc)
-    from auth.users u
-    left join public.norsk_eventyr_entitlements e on e.user_id=u.id
-    left join public.norsk_eventyr_access a on a.user_id=u.id
-    left join public.norsk_eventyr_installs i on i.user_id=u.id
-    left join public.norsk_eventyr_subscriptions s on s.user_id=u.id
-    left join lateral (
-      select p.status,p.paid_at,p.created_at,p.amount_nok from public.norsk_eventyr_payments p
-      where p.user_id=u.id order by p.created_at desc,p.id desc limit 1
-    ) lp on true
-    where public.ne_is_norsk_eventyr_user(u.id)
-  ),'[]'::jsonb);
-end;
-$$;
-
-create or replace function public.ne_owner_backup()
-returns jsonb
-language plpgsql
-security definer
-set search_path=''
-as $$
-begin
- if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
- return jsonb_build_object(
-  'format','norsk-eventyr-backup-v4',
-  'created_at',now(),
-  'users',coalesce((
-    select jsonb_agg(jsonb_build_object(
-      'id',u.id,'email',u.email,'created_at',u.created_at,'email_confirmed_at',u.email_confirmed_at,
-      'acquisition_source',coalesce(nullif(lower(left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_source','')),40)),''),'direct'),
-      'acquisition_campaign',left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_campaign','')),80)
-    ) order by u.created_at) from auth.users u where public.ne_is_norsk_eventyr_user(u.id)
-  ),'[]'::jsonb),
-  'entitlements',coalesce((select jsonb_agg(to_jsonb(e) order by e.created_at) from public.norsk_eventyr_entitlements e),'[]'::jsonb),
-  'access',coalesce((select jsonb_agg(to_jsonb(a) order by a.requested_at) from public.norsk_eventyr_access a),'[]'::jsonb),
-  'feedback',coalesce((select jsonb_agg(to_jsonb(f) order by f.created_at) from public.norsk_eventyr_feedback f),'[]'::jsonb),
-  'installs',coalesce((select jsonb_agg(to_jsonb(i) order by i.first_installed_at) from public.norsk_eventyr_installs i),'[]'::jsonb),
-  'growth_daily',coalesce((select jsonb_agg(to_jsonb(g) order by g.day) from public.norsk_eventyr_growth_daily g),'[]'::jsonb),
-  'subscriptions',coalesce((select jsonb_agg(to_jsonb(x) order by x.created_at) from public.norsk_eventyr_subscriptions x),'[]'::jsonb),
-  'payments',coalesce((select jsonb_agg(to_jsonb(p) order by p.created_at) from public.norsk_eventyr_payments p),'[]'::jsonb),
-  'lifecycle_events',coalesce((select jsonb_agg(to_jsonb(l) order by l.occurred_at) from public.norsk_eventyr_lifecycle_events l),'[]'::jsonb),
-  'client_errors',coalesce((select jsonb_agg(to_jsonb(x) order by x.created_at desc) from (select * from public.norsk_eventyr_client_errors order by created_at desc limit 500) x),'[]'::jsonb),
-  'access_grants',coalesce((select jsonb_agg(to_jsonb(g) order by g.created_at) from public.norsk_eventyr_access_grants g),'[]'::jsonb),
-  'promo_codes',coalesce((select jsonb_agg(to_jsonb(p) order by p.created_at) from public.norsk_eventyr_promo_codes p),'[]'::jsonb),
-  'promo_redemptions',coalesce((select jsonb_agg(to_jsonb(r) order by r.redeemed_at) from public.norsk_eventyr_promo_redemptions r),'[]'::jsonb),
-  'devices',coalesce((select jsonb_agg(to_jsonb(d) order by d.first_seen_at) from public.norsk_eventyr_devices d),'[]'::jsonb)
- );
-end;
-$$;
-
-revoke all on function public.ne_access_status_v2(),public.ne_accept_terms_v2(text,text,text),public.ne_purchase_interest_v2(integer),
- public.ne_promo_redeem(text),public.ne_owner_grant_free(uuid,integer,text),
- public.ne_owner_confirm_manual_payment(uuid,numeric,integer,text),
- public.ne_owner_promo_create(text,integer,integer,timestamptz,text),
- public.ne_owner_promo_set_active(uuid,boolean),public.ne_owner_promo_list(),
- public.ne_device_authorize(text,text),public.ne_owner_devices_reset(uuid),
- public.ne_owner_admin_overview(),public.ne_owner_user_detail(uuid),public.ne_access_list(),public.ne_owner_backup()
- from public,anon,authenticated;
-
-grant execute on function public.ne_access_status_v2(),public.ne_accept_terms_v2(text,text,text),public.ne_purchase_interest_v2(integer),
- public.ne_promo_redeem(text),public.ne_device_authorize(text,text)
- to authenticated;
-
-grant execute on function public.ne_owner_grant_free(uuid,integer,text),
- public.ne_owner_confirm_manual_payment(uuid,numeric,integer,text),
- public.ne_owner_promo_create(text,integer,integer,timestamptz,text),
- public.ne_owner_promo_set_active(uuid,boolean),public.ne_owner_promo_list(),
- public.ne_owner_devices_reset(uuid),public.ne_owner_user_detail(uuid),
- public.ne_access_list(),public.ne_owner_backup()
- to authenticated;
-
-commit;
- then code := null; end if;
-  select * into e from public.norsk_eventyr_entitlements where user_id=u.id for update;
+  select * into e
+  from public.norsk_eventyr_entitlements
+  where user_id=u.id
+  for update;
 
   if e.user_id is null then
     if code is not null then
-      select user_id into inviter from public.norsk_eventyr_entitlements
-      where referral_code=code and user_id<>u.id limit 1;
+      select user_id into inviter
+      from public.norsk_eventyr_entitlements
+      where referral_code=code and user_id<>u.id
+      limit 1;
     end if;
+
     insert into public.norsk_eventyr_entitlements(
-      user_id,referred_by,terms_version,terms_accepted_at,privacy_version,privacy_accepted_at
-    ) values (u.id,inviter,current_terms,now(),current_privacy,now())
+      user_id,referred_by,terms_version,terms_accepted_at,
+      privacy_version,privacy_accepted_at
+    ) values (
+      u.id,inviter,current_terms,now(),current_privacy,now()
+    )
     returning * into e;
+
     if inviter is not null then
       update public.norsk_eventyr_entitlements
       set trial_ends_at=greatest(trial_ends_at,now())+interval '5 days',
-          referral_bonus_granted_at=coalesce(referral_bonus_granted_at,now()),updated_at=now()
-      where user_id=inviter and referral_bonus_granted_at is null;
+          referral_bonus_granted_at=now(),
+          updated_at=now()
+      where user_id=inviter
+        and referral_bonus_granted_at is null;
     end if;
   else
     update public.norsk_eventyr_entitlements
-    set terms_version=current_terms,terms_accepted_at=now(),
-        privacy_version=current_privacy,privacy_accepted_at=now(),updated_at=now()
+    set terms_version=current_terms,
+        terms_accepted_at=now(),
+        privacy_version=current_privacy,
+        privacy_accepted_at=now(),
+        updated_at=now()
     where user_id=u.id;
   end if;
+
   return public.ne_access_status_v2();
 end;
-$;
+$$;
 
+-- Purchase interest is always recorded. The free month is issued only if the
+-- owner has already approved the account; otherwise approval will issue it later.
 create or replace function public.ne_purchase_interest_v2(p_price_nok integer default 99)
 returns jsonb
 language plpgsql
@@ -726,51 +386,89 @@ set search_path=''
 as $$
 declare
   uid uuid := auth.uid();
-  e public.norsk_eventyr_entitlements%rowtype;
-  paid_end timestamptz;
-  base_at timestamptz;
-  new_until timestamptz;
-  did_bonus boolean := false;
+  bonus_until timestamptz;
+  already_granted boolean := false;
+  approved boolean := false;
 begin
-  if uid is null or not exists(select 1 from auth.users where id=uid and email_confirmed_at is not null) then
-    raise exception 'LOGIN_REQUIRED';
-  end if;
-  if p_price_nok is null or p_price_nok<1 or p_price_nok>100000 then raise exception 'BAD_PRICE'; end if;
+  if uid is null or not exists(
+    select 1 from auth.users where id=uid and email_confirmed_at is not null
+  ) then raise exception 'LOGIN_REQUIRED'; end if;
 
-  select * into e from public.norsk_eventyr_entitlements where user_id=uid for update;
-  if e.user_id is null then raise exception 'ENTITLEMENT_REQUIRED'; end if;
-  select current_period_end into paid_end
-  from public.norsk_eventyr_subscriptions
-  where user_id=uid and status in ('active','trialing') and current_period_end>now();
-
-  if e.ready_bonus_granted_at is null then
-    base_at := greatest(now(),e.trial_ends_at,coalesce(e.free_access_until,now()),coalesce(paid_end,now()));
-    new_until := base_at+interval '30 days';
-    update public.norsk_eventyr_entitlements
-    set purchase_interest_at=coalesce(purchase_interest_at,now()),
-        purchase_interest_last_at=now(),
-        purchase_interest_price_nok=p_price_nok,
-        ready_bonus_granted_at=now(),
-        free_access_until=new_until,
-        updated_at=now()
-    where user_id=uid;
-    insert into public.norsk_eventyr_access_grants(user_id,grant_type,days,starts_at,ends_at,note)
-    values(uid,'ready_bonus',30,base_at,new_until,'Одноразовый бонус после готовности оформить подписку');
-    perform public.ne_lifecycle_record(uid,'ready_to_pay_bonus',now(),'user',
-      jsonb_build_object('price_nok',p_price_nok,'days',30,'free_access_until',new_until),
-      'ready_to_pay_bonus:'||uid::text);
-    did_bonus := true;
-  else
-    update public.norsk_eventyr_entitlements
-    set purchase_interest_at=coalesce(purchase_interest_at,now()),
-        purchase_interest_last_at=now(),
-        purchase_interest_price_nok=p_price_nok,
-        updated_at=now()
-    where user_id=uid;
+  if p_price_nok is null or p_price_nok<1 or p_price_nok>100000 then
+    raise exception 'BAD_PRICE';
   end if;
 
-  return jsonb_build_object('ok',true,'price_nok',p_price_nok,'bonus_granted',did_bonus,
-    'free_access_until',(select free_access_until from public.norsk_eventyr_entitlements where user_id=uid));
+  update public.norsk_eventyr_entitlements
+  set purchase_interest_at=coalesce(purchase_interest_at,now()),
+      purchase_interest_last_at=now(),
+      purchase_interest_price_nok=p_price_nok,
+      updated_at=now()
+  where user_id=uid;
+  if not found then raise exception 'ENTITLEMENT_REQUIRED'; end if;
+
+  select ready_bonus_granted_at is not null
+  into already_granted
+  from public.norsk_eventyr_entitlements
+  where user_id=uid;
+
+  select exists(
+    select 1 from public.norsk_eventyr_access
+    where user_id=uid and status='approved'
+  ) into approved;
+
+  if approved and not already_granted then
+    bonus_until := public.ne_ready_bonus_apply(uid);
+  end if;
+
+  return jsonb_build_object(
+    'ok',true,
+    'price_nok',p_price_nok,
+    'approved',approved,
+    'bonus_granted',bonus_until is not null,
+    'bonus_pending',not approved and not already_granted,
+    'bonus_already_used',already_granted,
+    'free_access_until',coalesce(
+      bonus_until,
+      (select free_access_until from public.norsk_eventyr_entitlements where user_id=uid)
+    )
+  );
+end;
+$$;
+
+-- Approval no longer means unlimited access. If "ready to pay" was already
+-- recorded, approval triggers the one-time free 30-day continuation.
+create or replace function public.ne_access_decide(p_user_id uuid,p_status text)
+returns jsonb
+language plpgsql
+security definer
+set search_path=''
+as $$
+declare
+  bonus_until timestamptz;
+begin
+  if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
+  if p_status not in ('approved','denied','revoked')
+     or p_status is null
+     or p_user_id is null
+     or p_user_id=auth.uid() then
+    raise exception 'BAD_DECISION';
+  end if;
+
+  update public.norsk_eventyr_access
+  set status=p_status,decided_at=now()
+  where user_id=p_user_id;
+  if not found then raise exception 'REQUEST_NOT_FOUND'; end if;
+
+  if p_status='approved' then
+    bonus_until := public.ne_ready_bonus_apply(p_user_id);
+  end if;
+
+  return jsonb_build_object(
+    'ok',true,
+    'status',p_status,
+    'bonus_granted',bonus_until is not null,
+    'free_access_until',bonus_until
+  );
 end;
 $$;
 
@@ -789,68 +487,94 @@ declare
   base_at timestamptz;
   new_until timestamptz;
 begin
-  if uid is null or not exists(select 1 from auth.users where id=uid and email_confirmed_at is not null) then raise exception 'LOGIN_REQUIRED'; end if;
+  if uid is null or not exists(
+    select 1 from auth.users where id=uid and email_confirmed_at is not null
+  ) then raise exception 'LOGIN_REQUIRED'; end if;
+
   if normalized !~ '^[A-Z0-9_-]{4,32}$' then raise exception 'BAD_PROMO'; end if;
 
-  select * into promo from public.norsk_eventyr_promo_codes where code=normalized for update;
-  if promo.id is null or promo.active is not true or promo.valid_from>now()
+  select * into promo
+  from public.norsk_eventyr_promo_codes
+  where code=normalized
+  for update;
+
+  if promo.id is null
+     or promo.active is not true
+     or promo.valid_from>now()
      or (promo.valid_until is not null and promo.valid_until<=now())
-     or promo.redemption_count>=promo.max_redemptions then raise exception 'PROMO_UNAVAILABLE'; end if;
-  if exists(select 1 from public.norsk_eventyr_promo_redemptions where promo_id=promo.id and user_id=uid) then
-    raise exception 'PROMO_ALREADY_USED';
+     or promo.redemption_count>=promo.max_redemptions then
+    raise exception 'PROMO_UNAVAILABLE';
   end if;
 
-  select * into e from public.norsk_eventyr_entitlements where user_id=uid for update;
+  if exists(
+    select 1 from public.norsk_eventyr_promo_redemptions
+    where promo_id=promo.id and user_id=uid
+  ) then raise exception 'PROMO_ALREADY_USED'; end if;
+
+  select * into e
+  from public.norsk_eventyr_entitlements
+  where user_id=uid
+  for update;
   if e.user_id is null then raise exception 'ENTITLEMENT_REQUIRED'; end if;
-  select current_period_end into paid_end from public.norsk_eventyr_subscriptions
-   where user_id=uid and status in ('active','trialing') and current_period_end>now();
 
-  base_at := greatest(now(),e.trial_ends_at,coalesce(e.free_access_until,now()),coalesce(paid_end,now()));
-  new_until := base_at + make_interval(days=>promo.duration_days);
-  update public.norsk_eventyr_entitlements set free_access_until=new_until,updated_at=now() where user_id=uid;
-  update public.norsk_eventyr_promo_codes set redemption_count=redemption_count+1,updated_at=now() where id=promo.id;
-  insert into public.norsk_eventyr_promo_redemptions(promo_id,user_id,granted_until) values(promo.id,uid,new_until);
-  insert into public.norsk_eventyr_access_grants(user_id,grant_type,days,starts_at,ends_at,promo_code,note)
-   values(uid,'promo',promo.duration_days,base_at,new_until,promo.code,promo.note);
-  perform public.ne_lifecycle_record(uid,'promo_redeemed',now(),'user',
-    jsonb_build_object('promo_code',promo.code,'days',promo.duration_days,'free_access_until',new_until),
-    'promo:'||promo.id::text||':'||uid::text);
-  return jsonb_build_object('ok',true,'code',promo.code,'days',promo.duration_days,'free_access_until',new_until);
+  select current_period_end into paid_end
+  from public.norsk_eventyr_subscriptions
+  where user_id=uid
+    and status in ('active','trialing')
+    and current_period_end>now();
+
+  base_at := greatest(
+    now(),
+    e.trial_ends_at,
+    coalesce(e.free_access_until,now()),
+    coalesce(paid_end,now())
+  );
+  new_until := base_at+make_interval(days=>promo.duration_days);
+
+  update public.norsk_eventyr_entitlements
+  set free_access_until=new_until,updated_at=now()
+  where user_id=uid;
+
+  update public.norsk_eventyr_promo_codes
+  set redemption_count=redemption_count+1,updated_at=now()
+  where id=promo.id;
+
+  insert into public.norsk_eventyr_promo_redemptions(
+    promo_id,user_id,granted_until
+  ) values (
+    promo.id,uid,new_until
+  );
+
+  insert into public.norsk_eventyr_access_grants(
+    user_id,grant_type,days,starts_at,ends_at,promo_code,note
+  ) values (
+    uid,'promo',promo.duration_days,base_at,new_until,promo.code,promo.note
+  );
+
+  perform public.ne_lifecycle_record(
+    uid,'promo_redeemed',now(),'user',
+    jsonb_build_object(
+      'promo_code',promo.code,
+      'days',promo.duration_days,
+      'free_access_until',new_until
+    ),
+    'promo:'||promo.id::text||':'||uid::text
+  );
+
+  return jsonb_build_object(
+    'ok',true,'code',promo.code,'days',promo.duration_days,
+    'free_access_until',new_until
+  );
 end;
 $$;
 
-create or replace function public.ne_owner_grant_free(p_user_id uuid,p_days integer,p_note text default null)
-returns jsonb
-language plpgsql
-security definer
-set search_path=''
-as $$
-declare
-  e public.norsk_eventyr_entitlements%rowtype;
-  paid_end timestamptz;
-  base_at timestamptz;
-  new_until timestamptz;
-  clean_note text := nullif(left(trim(coalesce(p_note,'')),300),'');
-begin
-  if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
-  if p_user_id is null or p_user_id=auth.uid() or p_days is null or p_days not between 1 and 3650 then raise exception 'BAD_GRANT'; end if;
-  select * into e from public.norsk_eventyr_entitlements where user_id=p_user_id for update;
-  if e.user_id is null then raise exception 'USER_NOT_FOUND'; end if;
-  select current_period_end into paid_end from public.norsk_eventyr_subscriptions
-   where user_id=p_user_id and status in ('active','trialing') and current_period_end>now();
-  base_at := greatest(now(),e.trial_ends_at,coalesce(e.free_access_until,now()),coalesce(paid_end,now()));
-  new_until := base_at+make_interval(days=>p_days);
-  update public.norsk_eventyr_entitlements set free_access_until=new_until,updated_at=now() where user_id=p_user_id;
-  insert into public.norsk_eventyr_access_grants(user_id,grant_type,days,starts_at,ends_at,note,created_by)
-   values(p_user_id,'owner_free',p_days,base_at,new_until,clean_note,auth.uid());
-  perform public.ne_lifecycle_record(p_user_id,'owner_free_grant',now(),'owner',
-    jsonb_build_object('days',p_days,'free_access_until',new_until,'note',clean_note),null);
-  return jsonb_build_object('ok',true,'free_access_until',new_until,'days',p_days);
-end;
-$$;
-
-create or replace function public.ne_owner_confirm_manual_payment(
-  p_user_id uuid,p_amount_nok numeric,p_days integer default 30,p_note text default null
+-- Owner free grant: repeatable without limit on number of grants.
+-- It explicitly approves the account, because granting access is itself an
+-- owner authorization action.
+create or replace function public.ne_owner_grant_free(
+  p_user_id uuid,
+  p_days integer,
+  p_note text default null
 )
 returns jsonb
 language plpgsql
@@ -859,6 +583,93 @@ set search_path=''
 as $$
 declare
   e public.norsk_eventyr_entitlements%rowtype;
+  u auth.users;
+  paid_end timestamptz;
+  base_at timestamptz;
+  new_until timestamptz;
+  clean_note text := nullif(left(trim(coalesce(p_note,'')),300),'');
+begin
+  if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
+  if p_user_id is null
+     or p_user_id=auth.uid()
+     or p_days is null
+     or p_days not between 1 and 3650 then
+    raise exception 'BAD_GRANT';
+  end if;
+
+  select * into u from auth.users where id=p_user_id;
+  if u.id is null then raise exception 'USER_NOT_FOUND'; end if;
+
+  select * into e
+  from public.norsk_eventyr_entitlements
+  where user_id=p_user_id
+  for update;
+  if e.user_id is null then raise exception 'ENTITLEMENT_REQUIRED'; end if;
+
+  insert into public.norsk_eventyr_access(
+    user_id,email,display_name,status,requested_at,decided_at
+  ) values (
+    p_user_id,u.email,coalesce(nullif(split_part(u.email,'@',1),''),'Пользователь'),
+    'approved',now(),now()
+  )
+  on conflict(user_id) do update
+  set status='approved',decided_at=now();
+
+  select current_period_end into paid_end
+  from public.norsk_eventyr_subscriptions
+  where user_id=p_user_id
+    and status in ('active','trialing')
+    and current_period_end>now();
+
+  base_at := greatest(
+    now(),
+    e.trial_ends_at,
+    coalesce(e.free_access_until,now()),
+    coalesce(paid_end,now())
+  );
+  new_until := base_at+make_interval(days=>p_days);
+
+  update public.norsk_eventyr_entitlements
+  set free_access_until=new_until,updated_at=now()
+  where user_id=p_user_id;
+
+  insert into public.norsk_eventyr_access_grants(
+    user_id,grant_type,days,starts_at,ends_at,note,created_by
+  ) values (
+    p_user_id,'owner_free',p_days,base_at,new_until,clean_note,auth.uid()
+  );
+
+  perform public.ne_lifecycle_record(
+    p_user_id,'owner_free_grant',now(),'owner',
+    jsonb_build_object(
+      'days',p_days,'free_access_until',new_until,'note',clean_note
+    ),
+    null
+  );
+
+  return jsonb_build_object(
+    'ok',true,'free_access_until',new_until,'days',p_days
+  );
+end;
+$$;
+
+-- Manual payment is intentionally separate from free access. Only the owner can
+-- create it. It creates a real paid ledger entry without pretending that an
+-- external payment provider/webhook was used.
+create or replace function public.ne_owner_confirm_manual_payment(
+  p_user_id uuid,
+  p_amount_nok numeric,
+  p_days integer default 30,
+  p_note text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path=''
+as $$
+declare
+  e public.norsk_eventyr_entitlements%rowtype;
+  u auth.users;
   s public.norsk_eventyr_subscriptions%rowtype;
   period_start timestamptz;
   period_end timestamptz;
@@ -866,43 +677,108 @@ declare
   clean_note text := nullif(left(trim(coalesce(p_note,'')),300),'');
 begin
   if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
-  if p_user_id is null or p_user_id=auth.uid() or p_days is null or p_days not between 1 and 3650
-     or p_amount_nok is null or p_amount_nok<0 or p_amount_nok>100000 then raise exception 'BAD_PAYMENT'; end if;
-  select * into e from public.norsk_eventyr_entitlements where user_id=p_user_id for update;
-  if e.user_id is null then raise exception 'USER_NOT_FOUND'; end if;
-  select * into s from public.norsk_eventyr_subscriptions where user_id=p_user_id for update;
+  if p_user_id is null
+     or p_user_id=auth.uid()
+     or p_days is null
+     or p_days not between 1 and 3650
+     or p_amount_nok is null
+     or p_amount_nok<1
+     or p_amount_nok>100000 then
+    raise exception 'BAD_PAYMENT';
+  end if;
 
-  period_start := greatest(now(),e.trial_ends_at,coalesce(e.free_access_until,now()),
-                    coalesce(case when s.status in ('active','trialing') then s.current_period_end end,now()));
+  select * into u from auth.users where id=p_user_id;
+  if u.id is null then raise exception 'USER_NOT_FOUND'; end if;
+
+  select * into e
+  from public.norsk_eventyr_entitlements
+  where user_id=p_user_id
+  for update;
+  if e.user_id is null then raise exception 'ENTITLEMENT_REQUIRED'; end if;
+
+  insert into public.norsk_eventyr_access(
+    user_id,email,display_name,status,requested_at,decided_at
+  ) values (
+    p_user_id,u.email,coalesce(nullif(split_part(u.email,'@',1),''),'Пользователь'),
+    'approved',now(),now()
+  )
+  on conflict(user_id) do update
+  set status='approved',decided_at=now();
+
+  select * into s
+  from public.norsk_eventyr_subscriptions
+  where user_id=p_user_id
+  for update;
+
+  period_start := greatest(
+    now(),
+    e.trial_ends_at,
+    coalesce(e.free_access_until,now()),
+    coalesce(
+      case when s.status in ('active','trialing') then s.current_period_end end,
+      now()
+    )
+  );
   period_end := period_start+make_interval(days=>p_days);
 
   insert into public.norsk_eventyr_payments(
-    id,user_id,provider,provider_event_id,provider_payment_id,status,currency,
-    amount_nok,fee_nok,refunded_nok,period_start,period_end,paid_at,failure_message
+    id,user_id,provider,provider_event_id,provider_payment_id,
+    status,currency,amount_nok,fee_nok,refunded_nok,
+    period_start,period_end,paid_at,failure_message
   ) values (
-    payment_id,p_user_id,'manual','manual:'||payment_id::text,'manual:'||payment_id::text,'paid','NOK',
-    p_amount_nok,0,0,period_start,period_end,now(),clean_note
+    payment_id,p_user_id,'manual',
+    'manual:'||payment_id::text,'manual:'||payment_id::text,
+    'paid','NOK',p_amount_nok,0,0,
+    period_start,period_end,now(),clean_note
   );
 
   insert into public.norsk_eventyr_subscriptions(
-    user_id,provider,status,plan_code,amount_nok,current_period_start,current_period_end,cancel_at_period_end,canceled_at,updated_at
+    user_id,provider,status,plan_code,amount_nok,
+    current_period_start,current_period_end,
+    cancel_at_period_end,canceled_at,updated_at
   ) values (
-    p_user_id,'manual','active','manual_monthly',p_amount_nok,period_start,period_end,true,null,now()
+    p_user_id,'manual','active','manual_monthly',p_amount_nok,
+    period_start,period_end,true,null,now()
   )
-  on conflict(user_id) do update set
-    provider='manual',status='active',plan_code='manual_monthly',amount_nok=excluded.amount_nok,
-    current_period_start=excluded.current_period_start,current_period_end=excluded.current_period_end,
-    cancel_at_period_end=true,canceled_at=null,updated_at=now();
+  on conflict(user_id) do update
+  set provider='manual',
+      provider_customer_id=null,
+      provider_subscription_id=null,
+      status='active',
+      plan_code='manual_monthly',
+      amount_nok=excluded.amount_nok,
+      current_period_start=excluded.current_period_start,
+      current_period_end=excluded.current_period_end,
+      cancel_at_period_end=true,
+      canceled_at=null,
+      updated_at=now();
 
-  perform public.ne_lifecycle_record(p_user_id,'manual_payment_confirmed',now(),'owner',
-    jsonb_build_object('payment_id',payment_id,'amount_nok',p_amount_nok,'days',p_days,
-      'period_start',period_start,'period_end',period_end,'note',clean_note),null);
-  return jsonb_build_object('ok',true,'payment_id',payment_id,'period_start',period_start,'period_end',period_end);
+  perform public.ne_lifecycle_record(
+    p_user_id,'manual_payment_confirmed',now(),'owner',
+    jsonb_build_object(
+      'payment_id',payment_id,
+      'amount_nok',p_amount_nok,
+      'days',p_days,
+      'period_start',period_start,
+      'period_end',period_end,
+      'note',clean_note
+    ),
+    null
+  );
+
+  return jsonb_build_object(
+    'ok',true,'payment_id',payment_id,
+    'period_start',period_start,'period_end',period_end
+  );
 end;
 $$;
 
 create or replace function public.ne_owner_promo_create(
-  p_code text,p_days integer,p_max_redemptions integer default 1,p_valid_until timestamptz default null,p_note text default null
+  p_code text,
+  p_days integer,
+  p_max_redemptions integer default 1,
+  p_valid_until timestamptz default null,
+  p_note text default null
 )
 returns jsonb
 language plpgsql
@@ -910,32 +786,54 @@ security definer
 set search_path=''
 as $$
 declare
- normalized text := upper(trim(coalesce(p_code,'')));
- new_id uuid;
+  normalized text := upper(trim(coalesce(p_code,'')));
+  new_id uuid;
 begin
- if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
- if normalized !~ '^[A-Z0-9_-]{4,32}$' or p_days not between 1 and 3650
-    or p_max_redemptions not between 1 and 100000 or (p_valid_until is not null and p_valid_until<=now()) then raise exception 'BAD_PROMO'; end if;
- insert into public.norsk_eventyr_promo_codes(code,duration_days,max_redemptions,valid_until,note,created_by)
- values(normalized,p_days,p_max_redemptions,p_valid_until,nullif(left(trim(coalesce(p_note,'')),300),''),auth.uid())
- returning id into new_id;
- return jsonb_build_object('ok',true,'id',new_id,'code',normalized);
-exception when unique_violation then raise exception 'PROMO_EXISTS';
+  if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
+
+  if normalized !~ '^[A-Z0-9_-]{4,32}$'
+     or p_days is null
+     or p_days not between 1 and 3650
+     or p_max_redemptions is null
+     or p_max_redemptions not between 1 and 100000
+     or (p_valid_until is not null and p_valid_until<=now()) then
+    raise exception 'BAD_PROMO';
+  end if;
+
+  insert into public.norsk_eventyr_promo_codes(
+    code,duration_days,max_redemptions,valid_until,note,created_by
+  ) values (
+    normalized,p_days,p_max_redemptions,p_valid_until,
+    nullif(left(trim(coalesce(p_note,'')),300),''),auth.uid()
+  )
+  returning id into new_id;
+
+  return jsonb_build_object('ok',true,'id',new_id,'code',normalized);
+
+exception
+  when unique_violation then raise exception 'PROMO_EXISTS';
 end;
 $$;
 
-create or replace function public.ne_owner_promo_set_active(p_promo_id uuid,p_active boolean)
+create or replace function public.ne_owner_promo_set_active(
+  p_promo_id uuid,
+  p_active boolean
+)
 returns jsonb
 language plpgsql
 security definer
 set search_path=''
 as $$
 begin
- if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
- if p_promo_id is null or p_active is null then raise exception 'BAD_PROMO'; end if;
- update public.norsk_eventyr_promo_codes set active=p_active,updated_at=now() where id=p_promo_id;
- if not found then raise exception 'PROMO_NOT_FOUND'; end if;
- return jsonb_build_object('ok',true);
+  if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
+  if p_promo_id is null or p_active is null then raise exception 'BAD_PROMO'; end if;
+
+  update public.norsk_eventyr_promo_codes
+  set active=p_active,updated_at=now()
+  where id=p_promo_id;
+  if not found then raise exception 'PROMO_NOT_FOUND'; end if;
+
+  return jsonb_build_object('ok',true);
 end;
 $$;
 
@@ -946,56 +844,115 @@ security definer
 set search_path=''
 as $$
 begin
- if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
- return coalesce((
-   select jsonb_agg(jsonb_build_object(
-     'id',p.id,'code',p.code,'duration_days',p.duration_days,'max_redemptions',p.max_redemptions,
-     'redemption_count',p.redemption_count,'valid_from',p.valid_from,'valid_until',p.valid_until,
-     'active',p.active,'note',p.note,'created_at',p.created_at
-   ) order by p.created_at desc)
-   from public.norsk_eventyr_promo_codes p
- ),'[]'::jsonb);
+  if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
+
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'id',p.id,
+      'code',p.code,
+      'duration_days',p.duration_days,
+      'max_redemptions',p.max_redemptions,
+      'redemption_count',p.redemption_count,
+      'valid_from',p.valid_from,
+      'valid_until',p.valid_until,
+      'active',p.active,
+      'note',p.note,
+      'created_at',p.created_at
+    ) order by p.created_at desc)
+    from public.norsk_eventyr_promo_codes p
+  ),'[]'::jsonb);
 end;
 $$;
 
-create or replace function public.ne_device_authorize(p_device_id text,p_device_name text default 'Устройство')
+-- At most 2 trusted devices. Only one may be actively using the account within
+-- a rolling 3-minute window. IMPORTANT: another active device is checked BEFORE
+-- touching last_seen_at, so two devices cannot mutually lock each other.
+create or replace function public.ne_device_authorize(
+  p_device_id text,
+  p_device_name text default 'Устройство'
+)
 returns jsonb
 language plpgsql
 security definer
 set search_path=''
 as $$
 declare
- uid uuid := auth.uid();
- clean_id text := trim(coalesce(p_device_id,''));
- clean_name text := left(coalesce(nullif(trim(p_device_name),''),'Устройство'),120);
- active_devices integer := 0;
- other_recent integer := 0;
- existing public.norsk_eventyr_devices%rowtype;
+  uid uuid := auth.uid();
+  clean_id text := trim(coalesce(p_device_id,''));
+  clean_name text := left(coalesce(nullif(trim(p_device_name),''),'Устройство'),120);
+  active_devices integer := 0;
+  other_recent integer := 0;
+  existing public.norsk_eventyr_devices%rowtype;
 begin
- if uid is null or not exists(select 1 from auth.users where id=uid and email_confirmed_at is not null) then raise exception 'LOGIN_REQUIRED'; end if;
- if public.ne_access_owner() then return jsonb_build_object('allowed',true,'owner',true,'active_devices',0,'max_devices',2); end if;
- if clean_id !~ '^[A-Za-z0-9_-]{16,80}$' then return jsonb_build_object('allowed',false,'reason','DEVICE_REQUIRED','max_devices',2); end if;
+  if uid is null or not exists(
+    select 1 from auth.users where id=uid and email_confirmed_at is not null
+  ) then raise exception 'LOGIN_REQUIRED'; end if;
 
- select * into existing from public.norsk_eventyr_devices where user_id=uid and device_id=clean_id for update;
- select count(*) into active_devices from public.norsk_eventyr_devices where user_id=uid and revoked_at is null;
+  if public.ne_access_owner() then
+    return jsonb_build_object(
+      'allowed',true,'owner',true,'active_devices',0,'max_devices',2
+    );
+  end if;
 
- if existing.user_id is null or existing.revoked_at is not null then
-   if active_devices>=2 then return jsonb_build_object('allowed',false,'reason','DEVICE_LIMIT','active_devices',active_devices,'max_devices',2); end if;
-   insert into public.norsk_eventyr_devices(user_id,device_id,device_name,first_seen_at,last_seen_at,revoked_at)
-   values(uid,clean_id,clean_name,now(),now(),null)
-   on conflict(user_id,device_id) do update set device_name=excluded.device_name,last_seen_at=now(),revoked_at=null;
-   active_devices := active_devices+1;
- else
-   update public.norsk_eventyr_devices set device_name=clean_name,last_seen_at=now() where user_id=uid and device_id=clean_id;
- end if;
+  if clean_id !~ '^[A-Za-z0-9_-]{16,80}$' then
+    return jsonb_build_object(
+      'allowed',false,'reason','DEVICE_REQUIRED','max_devices',2
+    );
+  end if;
 
- select count(*) into other_recent
- from public.norsk_eventyr_devices
- where user_id=uid and revoked_at is null and device_id<>clean_id and last_seen_at>now()-interval '3 minutes';
- if other_recent>0 then
-   return jsonb_build_object('allowed',false,'reason','CONCURRENT_DEVICE','active_devices',active_devices,'max_devices',2,'retry_seconds',180);
- end if;
- return jsonb_build_object('allowed',true,'active_devices',active_devices,'max_devices',2);
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext(uid::text));
+
+  select * into existing
+  from public.norsk_eventyr_devices
+  where user_id=uid and device_id=clean_id
+  for update;
+
+  select count(*) into active_devices
+  from public.norsk_eventyr_devices
+  where user_id=uid and revoked_at is null;
+
+  select count(*) into other_recent
+  from public.norsk_eventyr_devices
+  where user_id=uid
+    and revoked_at is null
+    and device_id<>clean_id
+    and last_seen_at>now()-interval '3 minutes';
+
+  if other_recent>0 then
+    return jsonb_build_object(
+      'allowed',false,'reason','CONCURRENT_DEVICE',
+      'active_devices',active_devices,'max_devices',2,'retry_seconds',180
+    );
+  end if;
+
+  if existing.user_id is null or existing.revoked_at is not null then
+    if active_devices>=2 then
+      return jsonb_build_object(
+        'allowed',false,'reason','DEVICE_LIMIT',
+        'active_devices',active_devices,'max_devices',2
+      );
+    end if;
+
+    insert into public.norsk_eventyr_devices(
+      user_id,device_id,device_name,first_seen_at,last_seen_at,revoked_at
+    ) values (
+      uid,clean_id,clean_name,now(),now(),null
+    )
+    on conflict(user_id,device_id) do update
+    set device_name=excluded.device_name,
+        last_seen_at=now(),
+        revoked_at=null;
+
+    active_devices := active_devices+1;
+  else
+    update public.norsk_eventyr_devices
+    set device_name=clean_name,last_seen_at=now()
+    where user_id=uid and device_id=clean_id;
+  end if;
+
+  return jsonb_build_object(
+    'allowed',true,'active_devices',active_devices,'max_devices',2
+  );
 end;
 $$;
 
@@ -1005,48 +962,90 @@ language plpgsql
 security definer
 set search_path=''
 as $$
-declare changed integer;
+declare
+  changed integer;
 begin
- if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
- if p_user_id is null or p_user_id=auth.uid() then raise exception 'BAD_USER'; end if;
- update public.norsk_eventyr_devices set revoked_at=now() where user_id=p_user_id and revoked_at is null;
- get diagnostics changed=row_count;
- perform public.ne_lifecycle_record(p_user_id,'devices_reset',now(),'owner',jsonb_build_object('devices',changed),null);
- return jsonb_build_object('ok',true,'revoked_devices',changed);
+  if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
+  if p_user_id is null or p_user_id=auth.uid() then raise exception 'BAD_USER'; end if;
+
+  update public.norsk_eventyr_devices
+  set revoked_at=now()
+  where user_id=p_user_id and revoked_at is null;
+  get diagnostics changed=row_count;
+
+  perform public.ne_lifecycle_record(
+    p_user_id,'devices_reset',now(),'owner',
+    jsonb_build_object('devices',changed),null
+  );
+
+  return jsonb_build_object('ok',true,'revoked_devices',changed);
 end;
 $$;
 
+-- Owner views are extended with free-access and device information.
 create or replace function public.ne_owner_user_detail(p_user_id uuid)
 returns jsonb
 language plpgsql
 security definer
 set search_path=''
 as $$
-declare profile jsonb; timeline jsonb; payments jsonb; grants jsonb; devices jsonb;
+declare
+  profile jsonb;
+  timeline jsonb;
+  payments jsonb;
+  grants jsonb;
+  devices jsonb;
 begin
   if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
   if p_user_id is null then raise exception 'BAD_USER'; end if;
   if not public.ne_is_norsk_eventyr_user(p_user_id) then raise exception 'USER_NOT_FOUND'; end if;
 
   select jsonb_build_object(
-    'user_id',u.id,'email',u.email,'registered_at',u.created_at,'email_confirmed_at',u.email_confirmed_at,
-    'display_name',coalesce(a.display_name,''),'access_status',coalesce(a.status,'unrequested'),
-    'requested_at',a.requested_at,'decided_at',a.decided_at,
-    'trial_started_at',e.trial_started_at,'trial_ends_at',e.trial_ends_at,
-    'free_access_until',e.free_access_until,'ready_bonus_granted_at',e.ready_bonus_granted_at,
-    'terms_version',e.terms_version,'privacy_version',e.privacy_version,
-    'terms_accepted_at',e.terms_accepted_at,'privacy_accepted_at',e.privacy_accepted_at,
+    'user_id',u.id,
+    'email',u.email,
+    'registered_at',u.created_at,
+    'email_confirmed_at',u.email_confirmed_at,
+    'display_name',coalesce(a.display_name,''),
+    'access_status',coalesce(a.status,'unrequested'),
+    'requested_at',a.requested_at,
+    'decided_at',a.decided_at,
+    'trial_started_at',e.trial_started_at,
+    'trial_ends_at',e.trial_ends_at,
+    'free_access_until',e.free_access_until,
+    'ready_bonus_granted_at',e.ready_bonus_granted_at,
+    'terms_version',e.terms_version,
+    'privacy_version',e.privacy_version,
+    'terms_accepted_at',e.terms_accepted_at,
+    'privacy_accepted_at',e.privacy_accepted_at,
     'activity_days_count',coalesce(e.activity_days_count,0),
-    'purchase_interest_at',e.purchase_interest_at,'purchase_interest_price_nok',e.purchase_interest_price_nok,
-    'first_installed_at',i.first_installed_at,'last_seen_installed_at',i.last_seen_installed_at,
-    'install_platform',i.platform,'install_source',i.source,
-    'acquisition_source',case when e.referred_by is not null then 'referral' else coalesce(nullif(lower(left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_source','')),40)),''),'direct') end,
-    'acquisition_campaign',left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_campaign','')),80),
-    'subscription_status',coalesce(s.status,'inactive'),'plan_code',s.plan_code,
-    'subscription_amount_nok',s.amount_nok,'paid_until',s.current_period_end,
-    'current_period_start',s.current_period_start,'next_payment_at',case when s.status='active' and not s.cancel_at_period_end then s.current_period_end else null end,
-    'cancel_at_period_end',coalesce(s.cancel_at_period_end,false),'canceled_at',s.canceled_at,
-    'device_count',(select count(*) from public.norsk_eventyr_devices d where d.user_id=u.id and d.revoked_at is null)
+    'purchase_interest_at',e.purchase_interest_at,
+    'purchase_interest_price_nok',e.purchase_interest_price_nok,
+    'first_installed_at',i.first_installed_at,
+    'last_seen_installed_at',i.last_seen_installed_at,
+    'install_platform',i.platform,
+    'install_source',i.source,
+    'acquisition_source',
+      case when e.referred_by is not null then 'referral'
+      else coalesce(
+        nullif(lower(left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_source','')),40)),''),
+        'direct'
+      ) end,
+    'acquisition_campaign',
+      left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_campaign','')),80),
+    'subscription_status',coalesce(s.status,'inactive'),
+    'plan_code',s.plan_code,
+    'subscription_amount_nok',s.amount_nok,
+    'paid_until',s.current_period_end,
+    'current_period_start',s.current_period_start,
+    'next_payment_at',
+      case when s.status='active' and not s.cancel_at_period_end
+           then s.current_period_end else null end,
+    'cancel_at_period_end',coalesce(s.cancel_at_period_end,false),
+    'canceled_at',s.canceled_at,
+    'device_count',(
+      select count(*) from public.norsk_eventyr_devices d
+      where d.user_id=u.id and d.revoked_at is null
+    )
   ) into profile
   from auth.users u
   left join public.norsk_eventyr_entitlements e on e.user_id=u.id
@@ -1055,29 +1054,62 @@ begin
   left join public.norsk_eventyr_subscriptions s on s.user_id=u.id
   where u.id=p_user_id;
 
-  select coalesce(jsonb_agg(jsonb_build_object(
-    'id',x.id,'event_type',x.event_type,'occurred_at',x.occurred_at,'source',x.source,'metadata',x.metadata
-  ) order by x.occurred_at desc,x.id desc),'[]'::jsonb) into timeline
-  from public.norsk_eventyr_lifecycle_events x where x.user_id=p_user_id;
+  if profile is null then raise exception 'USER_NOT_FOUND'; end if;
 
   select coalesce(jsonb_agg(jsonb_build_object(
-    'id',p.id,'status',p.status,'amount_nok',p.amount_nok,'fee_nok',p.fee_nok,
-    'refunded_nok',p.refunded_nok,'period_start',p.period_start,'period_end',p.period_end,
-    'paid_at',p.paid_at,'created_at',p.created_at,'provider',p.provider,
-    'failure_code',p.failure_code,'failure_message',p.failure_message
-  ) order by p.created_at desc,p.id desc),'[]'::jsonb) into payments
-  from public.norsk_eventyr_payments p where p.user_id=p_user_id;
-
-  select coalesce(jsonb_agg(to_jsonb(g) order by g.created_at desc),'[]'::jsonb) into grants
-  from public.norsk_eventyr_access_grants g where g.user_id=p_user_id;
+    'id',x.id,
+    'event_type',x.event_type,
+    'occurred_at',x.occurred_at,
+    'source',x.source,
+    'metadata',x.metadata
+  ) order by x.occurred_at desc,x.id desc),'[]'::jsonb)
+  into timeline
+  from public.norsk_eventyr_lifecycle_events x
+  where x.user_id=p_user_id;
 
   select coalesce(jsonb_agg(jsonb_build_object(
-    'device_id',d.device_id,'device_name',d.device_name,'first_seen_at',d.first_seen_at,
-    'last_seen_at',d.last_seen_at,'revoked_at',d.revoked_at
-  ) order by d.last_seen_at desc),'[]'::jsonb) into devices
-  from public.norsk_eventyr_devices d where d.user_id=p_user_id;
+    'id',p.id,
+    'status',p.status,
+    'amount_nok',p.amount_nok,
+    'fee_nok',p.fee_nok,
+    'refunded_nok',p.refunded_nok,
+    'period_start',p.period_start,
+    'period_end',p.period_end,
+    'paid_at',p.paid_at,
+    'created_at',p.created_at,
+    'provider',p.provider,
+    'failure_code',p.failure_code,
+    'failure_message',p.failure_message
+  ) order by p.created_at desc,p.id desc),'[]'::jsonb)
+  into payments
+  from public.norsk_eventyr_payments p
+  where p.user_id=p_user_id;
 
-  return jsonb_build_object('profile',profile,'timeline',timeline,'payments',payments,'grants',grants,'devices',devices);
+  select coalesce(
+    jsonb_agg(to_jsonb(g) order by g.created_at desc),
+    '[]'::jsonb
+  ) into grants
+  from public.norsk_eventyr_access_grants g
+  where g.user_id=p_user_id;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'device_id',d.device_id,
+    'device_name',d.device_name,
+    'first_seen_at',d.first_seen_at,
+    'last_seen_at',d.last_seen_at,
+    'revoked_at',d.revoked_at
+  ) order by d.last_seen_at desc),'[]'::jsonb)
+  into devices
+  from public.norsk_eventyr_devices d
+  where d.user_id=p_user_id;
+
+  return jsonb_build_object(
+    'profile',profile,
+    'timeline',timeline,
+    'payments',payments,
+    'grants',grants,
+    'devices',devices
+  );
 end;
 $$;
 
@@ -1089,35 +1121,70 @@ set search_path=''
 as $$
 begin
   if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
+
   return coalesce((
     select jsonb_agg(jsonb_build_object(
-      'user_id',u.id,'email',u.email,'registered_at',u.created_at,'email_confirmed_at',u.email_confirmed_at,
-      'display_name',coalesce(a.display_name,''),'status',coalesce(a.status,'unrequested'),
-      'requested_at',a.requested_at,'decided_at',a.decided_at,
-      'trial_started_at',e.trial_started_at,'trial_ends_at',e.trial_ends_at,
-      'free_access_until',e.free_access_until,'ready_bonus_granted_at',e.ready_bonus_granted_at,
-      'referral_bonus_granted_at',e.referral_bonus_granted_at,'terms_accepted_at',e.terms_accepted_at,
-      'first_installed_at',i.first_installed_at,'last_seen_installed_at',i.last_seen_installed_at,
-      'install_platform',i.platform,'install_source',i.source,'activity_days_count',coalesce(e.activity_days_count,0),
-      'purchase_interest_at',e.purchase_interest_at,'purchase_interest_price_nok',e.purchase_interest_price_nok,
+      'user_id',u.id,
+      'email',u.email,
+      'registered_at',u.created_at,
+      'email_confirmed_at',u.email_confirmed_at,
+      'display_name',coalesce(a.display_name,''),
+      'status',coalesce(a.status,'unrequested'),
+      'requested_at',a.requested_at,
+      'decided_at',a.decided_at,
+      'trial_started_at',e.trial_started_at,
+      'trial_ends_at',e.trial_ends_at,
+      'free_access_until',e.free_access_until,
+      'ready_bonus_granted_at',e.ready_bonus_granted_at,
+      'referral_bonus_granted_at',e.referral_bonus_granted_at,
+      'terms_accepted_at',e.terms_accepted_at,
+      'first_installed_at',i.first_installed_at,
+      'last_seen_installed_at',i.last_seen_installed_at,
+      'install_platform',i.platform,
+      'install_source',i.source,
+      'activity_days_count',coalesce(e.activity_days_count,0),
+      'purchase_interest_at',e.purchase_interest_at,
+      'purchase_interest_price_nok',e.purchase_interest_price_nok,
       'first_paid_at',e.first_paid_at,
-      'acquisition_source',case when e.referred_by is not null then 'referral' else coalesce(nullif(lower(left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_source','')),40)),''),'direct') end,
-      'acquisition_campaign',left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_campaign','')),80),
-      'subscription_status',coalesce(s.status,'inactive'),'plan_code',s.plan_code,
-      'subscription_amount_nok',s.amount_nok,'paid_until',s.current_period_end,
-      'next_payment_at',case when s.status='active' and not s.cancel_at_period_end then s.current_period_end else null end,
+      'acquisition_source',
+        case when e.referred_by is not null then 'referral'
+        else coalesce(
+          nullif(lower(left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_source','')),40)),''),
+          'direct'
+        ) end,
+      'acquisition_campaign',
+        left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_campaign','')),80),
+      'subscription_status',coalesce(s.status,'inactive'),
+      'plan_code',s.plan_code,
+      'subscription_amount_nok',s.amount_nok,
+      'paid_until',s.current_period_end,
+      'current_period_start',s.current_period_start,
+      'next_payment_at',
+        case when s.status='active' and not s.cancel_at_period_end
+             then s.current_period_end else null end,
       'cancel_at_period_end',coalesce(s.cancel_at_period_end,false),
-      'device_count',(select count(*) from public.norsk_eventyr_devices d where d.user_id=u.id and d.revoked_at is null),
-      'last_payment_status',lp.status,'last_payment_at',coalesce(lp.paid_at,lp.created_at),'last_payment_amount_nok',lp.amount_nok
-    ) order by coalesce(lp.paid_at,lp.created_at,e.purchase_interest_at,i.first_installed_at,e.trial_started_at,u.created_at) desc)
+      'device_count',(
+        select count(*) from public.norsk_eventyr_devices d
+        where d.user_id=u.id and d.revoked_at is null
+      ),
+      'last_payment_status',lp.status,
+      'last_payment_at',coalesce(lp.paid_at,lp.created_at),
+      'last_payment_amount_nok',lp.amount_nok
+    ) order by coalesce(
+      lp.paid_at,lp.created_at,e.purchase_interest_at,
+      i.first_installed_at,e.trial_started_at,u.created_at
+    ) desc)
     from auth.users u
     left join public.norsk_eventyr_entitlements e on e.user_id=u.id
     left join public.norsk_eventyr_access a on a.user_id=u.id
     left join public.norsk_eventyr_installs i on i.user_id=u.id
     left join public.norsk_eventyr_subscriptions s on s.user_id=u.id
     left join lateral (
-      select p.status,p.paid_at,p.created_at,p.amount_nok from public.norsk_eventyr_payments p
-      where p.user_id=u.id order by p.created_at desc,p.id desc limit 1
+      select p.status,p.paid_at,p.created_at,p.amount_nok
+      from public.norsk_eventyr_payments p
+      where p.user_id=u.id
+      order by p.created_at desc,p.id desc
+      limit 1
     ) lp on true
     where public.ne_is_norsk_eventyr_user(u.id)
   ),'[]'::jsonb);
@@ -1131,46 +1198,152 @@ security definer
 set search_path=''
 as $$
 begin
- if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
- return jsonb_build_object(
-  'format','norsk-eventyr-backup-v4',
-  'created_at',now(),
-  'users',coalesce((
-    select jsonb_agg(jsonb_build_object('id',u.id,'email',u.email,'created_at',u.created_at,'email_confirmed_at',u.email_confirmed_at)
-    order by u.created_at) from auth.users u where public.ne_is_norsk_eventyr_user(u.id)
-  ),'[]'::jsonb),
-  'entitlements',coalesce((select jsonb_agg(to_jsonb(e) order by e.created_at) from public.norsk_eventyr_entitlements e),'[]'::jsonb),
-  'access',coalesce((select jsonb_agg(to_jsonb(a) order by a.requested_at) from public.norsk_eventyr_access a),'[]'::jsonb),
-  'access_grants',coalesce((select jsonb_agg(to_jsonb(g) order by g.created_at) from public.norsk_eventyr_access_grants g),'[]'::jsonb),
-  'promo_codes',coalesce((select jsonb_agg(to_jsonb(p) order by p.created_at) from public.norsk_eventyr_promo_codes p),'[]'::jsonb),
-  'promo_redemptions',coalesce((select jsonb_agg(to_jsonb(r) order by r.redeemed_at) from public.norsk_eventyr_promo_redemptions r),'[]'::jsonb),
-  'devices',coalesce((select jsonb_agg(to_jsonb(d) order by d.first_seen_at) from public.norsk_eventyr_devices d),'[]'::jsonb),
-  'subscriptions',coalesce((select jsonb_agg(to_jsonb(s) order by s.created_at) from public.norsk_eventyr_subscriptions s),'[]'::jsonb),
-  'payments',coalesce((select jsonb_agg(to_jsonb(p) order by p.created_at) from public.norsk_eventyr_payments p),'[]'::jsonb),
-  'lifecycle_events',coalesce((select jsonb_agg(to_jsonb(e) order by e.occurred_at) from public.norsk_eventyr_lifecycle_events e),'[]'::jsonb)
- );
+  if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
+
+  return jsonb_build_object(
+    'format','norsk-eventyr-backup-v4',
+    'created_at',now(),
+    'users',coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id',u.id,
+        'email',u.email,
+        'created_at',u.created_at,
+        'email_confirmed_at',u.email_confirmed_at,
+        'acquisition_source',
+          coalesce(
+            nullif(lower(left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_source','')),40)),''),
+            'direct'
+          ),
+        'acquisition_campaign',
+          left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_campaign','')),80)
+      ) order by u.created_at)
+      from auth.users u
+      where public.ne_is_norsk_eventyr_user(u.id)
+    ),'[]'::jsonb),
+    'entitlements',coalesce((
+      select jsonb_agg(to_jsonb(e) order by e.created_at)
+      from public.norsk_eventyr_entitlements e
+    ),'[]'::jsonb),
+    'access',coalesce((
+      select jsonb_agg(to_jsonb(a) order by a.requested_at)
+      from public.norsk_eventyr_access a
+    ),'[]'::jsonb),
+    'feedback',coalesce((
+      select jsonb_agg(to_jsonb(f) order by f.created_at)
+      from public.norsk_eventyr_feedback f
+    ),'[]'::jsonb),
+    'installs',coalesce((
+      select jsonb_agg(to_jsonb(i) order by i.first_installed_at)
+      from public.norsk_eventyr_installs i
+    ),'[]'::jsonb),
+    'growth_daily',coalesce((
+      select jsonb_agg(to_jsonb(g) order by g.day)
+      from public.norsk_eventyr_growth_daily g
+    ),'[]'::jsonb),
+    'subscriptions',coalesce((
+      select jsonb_agg(to_jsonb(s) order by s.created_at)
+      from public.norsk_eventyr_subscriptions s
+    ),'[]'::jsonb),
+    'payments',coalesce((
+      select jsonb_agg(to_jsonb(p) order by p.created_at)
+      from public.norsk_eventyr_payments p
+    ),'[]'::jsonb),
+    'lifecycle_events',coalesce((
+      select jsonb_agg(to_jsonb(l) order by l.occurred_at)
+      from public.norsk_eventyr_lifecycle_events l
+    ),'[]'::jsonb),
+    'client_errors',coalesce((
+      select jsonb_agg(to_jsonb(x) order by x.created_at desc)
+      from (
+        select * from public.norsk_eventyr_client_errors
+        order by created_at desc
+        limit 500
+      ) x
+    ),'[]'::jsonb),
+    'access_grants',coalesce((
+      select jsonb_agg(to_jsonb(g) order by g.created_at)
+      from public.norsk_eventyr_access_grants g
+    ),'[]'::jsonb),
+    'promo_codes',coalesce((
+      select jsonb_agg(to_jsonb(p) order by p.created_at)
+      from public.norsk_eventyr_promo_codes p
+    ),'[]'::jsonb),
+    'promo_redemptions',coalesce((
+      select jsonb_agg(to_jsonb(r) order by r.redeemed_at)
+      from public.norsk_eventyr_promo_redemptions r
+    ),'[]'::jsonb),
+    'devices',coalesce((
+      select jsonb_agg(to_jsonb(d) order by d.first_seen_at)
+      from public.norsk_eventyr_devices d
+    ),'[]'::jsonb)
+  );
 end;
 $$;
 
-revoke all on function public.ne_access_status(),public.ne_purchase_interest(integer),
- public.ne_promo_redeem(text),public.ne_owner_grant_free(uuid,integer,text),
- public.ne_owner_confirm_manual_payment(uuid,numeric,integer,text),
- public.ne_owner_promo_create(text,integer,integer,timestamptz,text),
- public.ne_owner_promo_set_active(uuid,boolean),public.ne_owner_promo_list(),
- public.ne_device_authorize(text,text),public.ne_owner_devices_reset(uuid),
- public.ne_owner_user_detail(uuid),public.ne_access_list(),public.ne_owner_backup()
- from public,anon,authenticated;
+-- New/changed RPC permissions.
+revoke all on function public.ne_ready_bonus_apply(uuid)
+  from public,anon,authenticated;
+revoke all on function public.ne_access_status_v2()
+  from public,anon,authenticated;
+revoke all on function public.ne_accept_terms_v2(text,text,text)
+  from public,anon,authenticated;
+revoke all on function public.ne_purchase_interest_v2(integer)
+  from public,anon,authenticated;
+revoke all on function public.ne_promo_redeem(text)
+  from public,anon,authenticated;
+revoke all on function public.ne_device_authorize(text,text)
+  from public,anon,authenticated;
+revoke all on function public.ne_owner_grant_free(uuid,integer,text)
+  from public,anon,authenticated;
+revoke all on function public.ne_owner_confirm_manual_payment(uuid,numeric,integer,text)
+  from public,anon,authenticated;
+revoke all on function public.ne_owner_promo_create(text,integer,integer,timestamptz,text)
+  from public,anon,authenticated;
+revoke all on function public.ne_owner_promo_set_active(uuid,boolean)
+  from public,anon,authenticated;
+revoke all on function public.ne_owner_promo_list()
+  from public,anon,authenticated;
+revoke all on function public.ne_owner_devices_reset(uuid)
+  from public,anon,authenticated;
+revoke all on function public.ne_owner_user_detail(uuid)
+  from public,anon,authenticated;
+revoke all on function public.ne_access_list()
+  from public,anon,authenticated;
+revoke all on function public.ne_owner_backup()
+  from public,anon,authenticated;
+revoke all on function public.ne_access_decide(uuid,text)
+  from public,anon,authenticated;
 
-grant execute on function public.ne_access_status(),public.ne_purchase_interest(integer),
- public.ne_promo_redeem(text),public.ne_device_authorize(text,text)
- to authenticated;
+grant execute on function public.ne_access_status_v2()
+  to authenticated;
+grant execute on function public.ne_accept_terms_v2(text,text,text)
+  to authenticated;
+grant execute on function public.ne_purchase_interest_v2(integer)
+  to authenticated;
+grant execute on function public.ne_promo_redeem(text)
+  to authenticated;
+grant execute on function public.ne_device_authorize(text,text)
+  to authenticated;
 
-grant execute on function public.ne_owner_grant_free(uuid,integer,text),
- public.ne_owner_confirm_manual_payment(uuid,numeric,integer,text),
- public.ne_owner_promo_create(text,integer,integer,timestamptz,text),
- public.ne_owner_promo_set_active(uuid,boolean),public.ne_owner_promo_list(),
- public.ne_owner_devices_reset(uuid),public.ne_owner_user_detail(uuid),
- public.ne_access_list(),public.ne_owner_backup()
- to authenticated;
+grant execute on function public.ne_owner_grant_free(uuid,integer,text)
+  to authenticated;
+grant execute on function public.ne_owner_confirm_manual_payment(uuid,numeric,integer,text)
+  to authenticated;
+grant execute on function public.ne_owner_promo_create(text,integer,integer,timestamptz,text)
+  to authenticated;
+grant execute on function public.ne_owner_promo_set_active(uuid,boolean)
+  to authenticated;
+grant execute on function public.ne_owner_promo_list()
+  to authenticated;
+grant execute on function public.ne_owner_devices_reset(uuid)
+  to authenticated;
+grant execute on function public.ne_owner_user_detail(uuid)
+  to authenticated;
+grant execute on function public.ne_access_list()
+  to authenticated;
+grant execute on function public.ne_owner_backup()
+  to authenticated;
+grant execute on function public.ne_access_decide(uuid,text)
+  to authenticated;
 
 commit;
