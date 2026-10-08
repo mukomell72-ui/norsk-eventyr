@@ -124,7 +124,7 @@ assert(app.includes('slice(0,3)'),'adaptive lesson must retrieve multiple vocabu
 assert(evaluate.includes('retry_prompt_no')&&evaluate.includes('micro_rule_ru'),'teacher feedback schema missing');
 const chat=read('api/chat.js'),v3=read('v3.js');
 assert(chat.includes('score_valid=Number.isFinite(rawScore)'),'chat score validation marker missing');
-assert(v3.includes('mastery,errorPatterns,teacherMode:true'),'conversation does not receive adaptive learner context');
+assert(v3.includes('mastery,errorPatterns,learnerContext:noraLearningContext(),teacherMode:true'),'conversation must receive mastery, error patterns and personal learning context');
 assert(v3.includes('d.score_valid===true')&&v3.includes('source:"conversation"'),'conversation evidence is not guarded by a valid score');
 assert(!v3.includes('startTest=async function(level){\n    touchStudy();state.level=level'),'active v3 diagnostics must not switch the course level on start');
 assert(v3.includes('skillEvidence:{reading:[],listening:[],writing:[],speaking:[],grammar:[],vocabulary:[]}'),'active v3 diagnostics must collect six-skill evidence');
