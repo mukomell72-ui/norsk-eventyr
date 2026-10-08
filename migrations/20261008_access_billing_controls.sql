@@ -93,7 +93,7 @@ insert into public.norsk_eventyr_access_grants(user_id,grant_type,days,starts_at
 select user_id,'migration_grace',30,start_at,free_access_until,'8.0.1 переход с бессрочного approved-доступа'
 from changed;
 
-create or replace function public.ne_access_status()
+create or replace function public.ne_access_status_v2()
 returns jsonb
 language plpgsql
 security definer
@@ -175,7 +175,7 @@ begin
 end;
 $$;
 
-create or replace function public.ne_accept_terms(
+create or replace function public.ne_accept_terms_v2(
   p_terms_version text,
   p_privacy_version text,
   p_referral_code text default null::text
@@ -635,7 +635,7 @@ begin
 end;
 $$;
 
-revoke all on function public.ne_access_status(),public.ne_accept_terms(text,text,text),public.ne_purchase_interest(integer),
+revoke all on function public.ne_access_status_v2(),public.ne_accept_terms_v2(text,text,text),public.ne_purchase_interest_v2(integer),
  public.ne_promo_redeem(text),public.ne_owner_grant_free(uuid,integer,text),
  public.ne_owner_confirm_manual_payment(uuid,numeric,integer,text),
  public.ne_owner_promo_create(text,integer,integer,timestamptz,text),
@@ -644,7 +644,7 @@ revoke all on function public.ne_access_status(),public.ne_accept_terms(text,tex
  public.ne_owner_user_detail(uuid),public.ne_access_list(),public.ne_owner_backup()
  from public,anon,authenticated;
 
-grant execute on function public.ne_access_status(),public.ne_accept_terms(text,text,text),public.ne_purchase_interest(integer),
+grant execute on function public.ne_access_status_v2(),public.ne_accept_terms_v2(text,text,text),public.ne_purchase_interest_v2(integer),
  public.ne_promo_redeem(text),public.ne_device_authorize(text,text)
  to authenticated;
 
@@ -681,11 +681,11 @@ commit;
         privacy_version=current_privacy,privacy_accepted_at=now(),updated_at=now()
     where user_id=u.id;
   end if;
-  return public.ne_access_status();
+  return public.ne_access_status_v2();
 end;
 $;
 
-create or replace function public.ne_purchase_interest(p_price_nok integer default 99)
+create or replace function public.ne_purchase_interest_v2(p_price_nok integer default 99)
 returns jsonb
 language plpgsql
 security definer
