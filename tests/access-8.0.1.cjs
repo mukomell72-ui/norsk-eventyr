@@ -21,9 +21,9 @@ assert(migration.includes('create or replace function public.ne_owner_confirm_ma
 assert(migration.includes("'manual_monthly'"),'manual paid subscription plan missing');
 assert(migration.includes("provider='manual'"),'manual payment provider separation missing');
 assert(!/elsif req_status='approved' then\s*effective_status := 'approved'; granted := true/.test(migration),'approval alone must not grant unlimited access');
-assert(migration.includes("effective_status := 'paid'; granted := true"),'paid access status missing');
-assert(migration.includes("effective_status := 'free'; granted := true"),'free access status missing');
-assert(migration.includes("effective_status := 'trial'; granted := true"),'trial access status missing');
+assert(/effective_status\s*:=\s*'paid';[\s\S]{0,160}?granted\s*:=\s*true;/.test(migration),'paid access status missing');
+assert(/effective_status\s*:=\s*'free';[\s\S]{0,160}?granted\s*:=\s*true;/.test(migration),'free access status missing');
+assert(/effective_status\s*:=\s*'trial';[\s\S]{0,160}?granted\s*:=\s*true;/.test(migration),'trial access status missing');
 
 assert(migration.includes('create or replace function public.ne_device_authorize'),'device authorization RPC missing');
 assert(migration.includes('active_devices>=2'),'two-device limit missing');
