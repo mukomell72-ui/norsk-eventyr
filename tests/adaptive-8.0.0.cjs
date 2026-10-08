@@ -147,6 +147,7 @@ assert(app.includes('Нора слушает…')&&uiV7.includes('Нора ду�
 assert(!app.includes('noraCheckStarted'),'Nora feedback must not be artificially delayed before display');
 assert(!app.includes('continueCheckedDialogue'),'Nora dialogue feedback must auto-advance without a manual continue button');
 assert((app.match(/,3000\);return;/g)||[]).length>=2,'successful Nora feedback must remain visible for three seconds before advancing');
+assert(app.includes('lessonSession.vocabItems=null;lessonNext(ok?12:6)}},3000);'),'adaptive vocabulary feedback must remain visible for three seconds before advancing');
 assert(app.includes('const XP_REWARDS=[')&&app.includes('{xp:100,id:"cafe"')&&app.includes('{xp:1000,id:"port"'),'XP reward milestones must be defined');
 assert(app.includes('repeat===0?base:repeat===1?Math.max(4,Math.round(base*.25)):0'),'same-day lesson repeats must not allow unlimited XP farming');
 assert(app.includes('Оценка занятия Норы:')&&app.includes('xpRewardStatus'),'lesson completion must show score-based XP and next reward progress');
