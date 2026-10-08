@@ -151,6 +151,8 @@ assert(app.includes('lessonSession.vocabItems=null;lessonNext(ok?12:6)}},3000);'
 assert(app.includes('const XP_REWARDS=[')&&app.includes('{xp:100,id:"cafe"')&&app.includes('{xp:1000,id:"port"'),'XP reward milestones must be defined');
 assert(app.includes('repeat===0?base:repeat===1?Math.max(4,Math.round(base*.25)):0'),'same-day lesson repeats must not allow unlimited XP farming');
 assert(app.includes('Оценка занятия Норы:')&&app.includes('xpRewardStatus'),'lesson completion must show score-based XP and next reward progress');
+assert(app.includes("Почему '+reward.avg+'/100")&&app.includes('Что улучшить:')&&app.includes('Комментарий Норы:'),'lesson completion and accepted AI answers must explain why the score is below 100');
+assert(app.includes('neAdvance(()=>lessonNext(15),3000)'),'grammar/listening/reading correct feedback must remain visible for three seconds');
 assert(app.includes('trackLessonScore')&&!app.includes('function lessonNext(xp=0){state.xp+=xp'),'lesson XP must be awarded from session quality rather than fixed step farming');
 assert(!/state\.xp\s*\+=/.test(app)&&app.includes('state.xp=before+earned'),'all XP gains must go through the anti-farm lesson award path');
 assert(!/state\.xp\s*\+=/.test(v3)&&!v3.includes('state.xp=(state.xp||0)+')&&!elite.includes('state.xp=(state.xp||0)+'),'legacy lessons, chat, reviews, exams and activity tracking must not bypass XP anti-farm');
