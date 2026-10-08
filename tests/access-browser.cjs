@@ -112,18 +112,51 @@ const server=http.createServer(async(req,res)=>{
  assert.equal(await admin.locator('.admin-shell').isVisible(),true);
  assert.equal(await admin.locator('#app').isVisible(),false);
  await admin.unroute('**/api/session');
- await admin.evaluate(()=>dispatchEvent(new Event('focus')));await admin.waitForTimeout(350);assert.equal(await admin.locator('.admin-shell').isVisible(),true);assert.equal(await admin.locator('#app').isVisible(),false);await admin.getByRole('button',{name:'Пользователи',exact:true}).click();await admin.waitForSelector('.admin-user-row');assert.equal(await admin.locator('.admin-user-row img').count(),0);await admin.getByRole('button',{name:'Открыть',exact:true}).click();await admin.waitForSelector('.admin-user-detail-head');
+ // All five bottom-navigation tabs must be interactive on a narrow mobile viewport.
+ const adminTabs=[['overview','Главная'],['users','Пользователи'],['payments','Платежи'],['events','События'],['service','Ещё']];
+ for(const [key,label] of adminTabs){
+  await admin.locator('[data-admin-tab="'+key+'"]').click();
+  await admin.waitForFunction(({key,label})=>document.querySelector('#adminView > [data-admin-content]')?.dataset.adminContent===key&&document.querySelector('#adminView h2')?.textContent===label,{key,label});
+  assert.equal(await admin.locator('[role="tab"][aria-selected="true"]').count(),1);
+  assert.equal(await admin.locator('[data-admin-tab="'+key+'"]').getAttribute('aria-selected'),'true');
+  assert.equal(await admin.locator('[data-admin-tab="'+key+'"]').isEnabled(),true);
+ }
+ // Arrow/Home/End keys also select and open tabs.
+ await admin.locator('[data-admin-tab="overview"]').click();
+ await admin.locator('[data-admin-tab="overview"]').focus();
+ await admin.keyboard.press('ArrowRight');assert.equal(await admin.locator('[data-admin-tab="users"]').getAttribute('aria-selected'),'true');
+ await admin.keyboard.press('End');assert.equal(await admin.locator('[data-admin-tab="service"]').getAttribute('aria-selected'),'true');
+
+ // A slow request from an old tab must never overwrite a newly selected tab.
+ let allowOverview,signalOverview,delayOverview=true;
+ const overviewHold=new Promise(resolve=>{allowOverview=resolve}),overviewSeen=new Promise(resolve=>{signalOverview=resolve});
+ await admin.route('**/api/session',async route=>{
+  if(delayOverview&&route.request().postDataJSON()?.action==='owner_admin_overview'){
+   delayOverview=false;signalOverview();await overviewHold;
+  }
+  await route.continue();
+ });
+ await admin.locator('[data-admin-tab="overview"]').click();await overviewSeen;
+ await admin.locator('[data-admin-tab="events"]').click();
+ assert.equal(await admin.locator('#adminView h2').textContent(),'События');
+ const oldRequestReturned=admin.waitForResponse(r=>r.url().endsWith('/api/session')&&r.request().postDataJSON()?.action==='owner_admin_overview');
+ allowOverview();await oldRequestReturned;await admin.waitForTimeout(250);
+ assert.equal(await admin.locator('#adminView h2').textContent(),'События');
+ assert.equal(await admin.locator('[data-admin-tab="events"]').getAttribute('aria-selected'),'true');
+ await admin.unroute('**/api/session');
+ console.log('PASS all admin tabs: mobile click, active state, keyboard navigation, stale-request isolation');
+ await admin.evaluate(()=>dispatchEvent(new Event('focus')));await admin.waitForTimeout(350);assert.equal(await admin.locator('.admin-shell').isVisible(),true);assert.equal(await admin.locator('#app').isVisible(),false);await admin.getByRole('tab',{name:'Пользователи',exact:true}).click();await admin.waitForSelector('.admin-user-row');assert.equal(await admin.locator('.admin-user-row img').count(),0);await admin.getByRole('button',{name:'Открыть',exact:true}).click();await admin.waitForSelector('.admin-user-detail-head');
  await admin.getByRole('button',{name:'Одобрить аккаунт',exact:true}).click();await admin.waitForFunction(()=>document.querySelector('.admin-user-detail-head')&&document.body.textContent.includes('Одобрен'));assert(readyBonusAt);assert(future(freeUntil));
 
  await page.locator('#accessCheck').click();await page.waitForFunction(()=>window.NEAccess?.ready());assert.equal(await page.evaluate(()=>state.xp),0);assert.equal(await page.locator('.owner-notification-badge').count(),0);await page.evaluate(()=>NEAccess.install());assert.equal(await page.evaluate(()=>qaPrompts),1);
  await page.evaluate(()=>{state.xp=77;saveState();navigate('settings')});assert.equal(await page.getByRole('button',{name:/Доступ и учётная запись/}).count(),1);
  await page.getByRole('button',{name:/Оценить приложение и предложить идею/}).click();await page.waitForSelector('#feedbackForm');await page.getByRole('radio',{name:'5 из 5'}).click();await page.locator('#feedbackComment').fill('<img src=x onerror=alert(1)> Отлично');await page.locator('#feedbackSuggestion').fill('Добавить больше историй');await page.locator('#feedbackForm button[type=submit]').click();await page.waitForFunction(()=>document.querySelector('#feedbackMessage').textContent.includes('сохранена'));assert.equal(await page.locator('#feedbackComment').inputValue(),'');
 
- await admin.evaluate(()=>NEOwnerBadge.refresh());await admin.waitForFunction(()=>document.querySelector('.owner-notification-badge')?.textContent==='1');await admin.getByRole('button',{name:'Ещё',exact:true}).click();await admin.waitForSelector('#feedbackList');
+ await admin.evaluate(()=>NEOwnerBadge.refresh());await admin.waitForFunction(()=>document.querySelector('.owner-notification-badge')?.textContent==='1');await admin.getByRole('tab',{name:'Ещё',exact:true}).click();await admin.waitForSelector('#feedbackList');
  await admin.waitForFunction(()=>document.querySelector('#feedbackList').textContent.includes('Добавить больше историй'));await admin.waitForFunction(()=>!document.querySelector('.owner-notification-badge'));assert.equal(await admin.locator('#feedbackList img').count(),0);assert(await admin.locator('#feedbackList').textContent().then(t=>t.includes('<img src=x onerror=alert(1)> Отлично')));
  await admin.locator('.admin-promo-form input').nth(0).fill('TEST30');await admin.locator('.admin-promo-form input').nth(1).fill('30');await admin.locator('.admin-promo-form input').nth(2).fill('2');await admin.getByRole('button',{name:'Создать промокод',exact:true}).click();await admin.waitForFunction(()=>document.body.textContent.includes('TEST30'));assert.equal(promos.length,1);
 
- await admin.getByRole('button',{name:'Пользователи',exact:true}).click();await admin.waitForSelector('.admin-user-row');await admin.getByRole('button',{name:'Открыть',exact:true}).click();
+ await admin.getByRole('tab',{name:'Пользователи',exact:true}).click();await admin.waitForSelector('.admin-user-row');await admin.getByRole('button',{name:'Открыть',exact:true}).click();
  const beforeFree=new Date(freeUntil).getTime();await admin.getByRole('button',{name:'+7 дней бесплатно',exact:true}).click();await admin.waitForFunction(()=>document.body.textContent.includes('Бесплатный доступ до'));assert(new Date(freeUntil).getTime()>beforeFree);
 
  await admin.getByRole('button',{name:'Отозвать доступ',exact:true}).click();await admin.waitForFunction(()=>document.body.textContent.includes('Отозван'));
@@ -131,7 +164,7 @@ const server=http.createServer(async(req,res)=>{
 
  await page.locator('#accessLogout').click();await page.waitForSelector('#accessLogin');await login(page,'owner@example.com');await page.waitForFunction(()=>window.NEAccess?.ready());assert.equal(await page.evaluate(()=>state.xp),0);await page.evaluate(()=>NEAccess.panel());await page.waitForSelector('.admin-shell');await page.getByRole('button',{name:'Выйти',exact:true}).click();await page.waitForSelector('#accessLogin');await login(page,'student@example.com');await page.waitForFunction(()=>document.querySelector('#accessGate h1').textContent.includes('отозван'));
 
- await admin.getByRole('button',{name:'Пользователи',exact:true}).click();await admin.waitForSelector('.admin-user-row');await admin.getByRole('button',{name:'Открыть',exact:true}).click();await admin.getByRole('button',{name:'Одобрить аккаунт',exact:true}).click();await admin.waitForFunction(()=>document.body.textContent.includes('Одобрен'));await page.locator('#accessCheck').click();await page.waitForFunction(()=>window.NEAccess?.ready());assert.equal(await page.evaluate(()=>state.xp),77);
+ await admin.getByRole('tab',{name:'Пользователи',exact:true}).click();await admin.waitForSelector('.admin-user-row');await admin.getByRole('button',{name:'Открыть',exact:true}).click();await admin.getByRole('button',{name:'Одобрить аккаунт',exact:true}).click();await admin.waitForFunction(()=>document.body.textContent.includes('Одобрен'));await page.locator('#accessCheck').click();await page.waitForFunction(()=>window.NEAccess?.ready());assert.equal(await page.evaluate(()=>state.xp),77);
 
  for(const target of [page,admin])assert(!await target.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2));
  assert.deepEqual(errors,[]);
