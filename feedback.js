@@ -2,7 +2,7 @@
 (() => {
  const allowed=()=>Boolean(window.NEAccess?.allowed());
  async function call(action,params={}){
-  const response=await fetch('/api/session',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...params}),cache:'no-store'});
+  const response=await fetch('/api/session',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',...(window.NEAccess?.headers?.()||{})},body:JSON.stringify({action,...params}),cache:'no-store'});
   const data=await response.json().catch(()=>({}));
   if(!response.ok){
    const text=data.error==='RATE_LIMIT'?'Слишком много отправок. Попробуй позже.':
