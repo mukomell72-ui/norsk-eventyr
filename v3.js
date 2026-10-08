@@ -9,6 +9,7 @@
   state.placement=state.placement||null;
   state.completedTopics=state.completedTopics||{};
   state.chatHistory=Array.isArray(state.chatHistory)?state.chatHistory.slice(-40):[];
+  state.noraMemory=state.noraMemory&&typeof state.noraMemory==="object"&&!Array.isArray(state.noraMemory)?state.noraMemory:{introduced:false,conversationCount:0,lastTopic:"",lastPracticeDate:""};
   state.chatPrefs=state.chatPrefs||{level:state.level||"A1",mode:"free",topic:"",scenario:"butikk",autoSpeak:true};
   state.dailyPacks=state.dailyPacks||{};
   state.dailyDictionary=state.dailyDictionary||{};
@@ -714,13 +715,20 @@
   function setChatTopic(topic){state.chatPrefs.topic=topic;saveState();renderChat()}
   function toggleChatTranslation(i){const e=document.getElementById("chatTr"+i);if(e)e.style.display=e.style.display==="none"?"block":"none"}
   function clearChat(){if(!state.chatHistory.length||confirm("Очистить историю этого разговора?")){state.chatHistory=[];saveState();renderChat()}}
+  function noraLearningContext(){
+    const memory=state.noraMemory||{};
+    return {introduced:memory.introduced===true,conversationCount:Math.min(100000,Number(memory.conversationCount)||0),previousTopic:String(memory.lastTopic||"").slice(0,120),lastPracticeDate:String(memory.lastPracticeDate||"").slice(0,20)};
+  }
   async function startChat(){
-    state.chatHistory=[];state.chatMemories=state.chatMemories||{};delete state.chatMemories[state.chatThreadId||"general"];saveState();renderChat();
+    state.chatHistory=[];state.chatMemories=state.chatMemories||{};saveState();renderChat();
     const box=document.getElementById("chatMessages");if(box)box.innerHTML='<div class="chat-thinking">Нора начинает разговор…</div>';
     const p=state.chatPrefs;if(window.NEAdaptive)NEAdaptive.ensure(state);const mastery=state.learningV8?.levelSkills?.[p.level]||{},errorPatterns=window.NEAdaptive?NEAdaptive.errors(state):[];
-    const r=await apiPost("/api/chat",{start:true,message:"",level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:[],practiceWords:reinforcementWordList(15),mastery,errorPatterns,teacherMode:true});
+    const r=await apiPost("/api/chat",{start:true,message:"",level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:[],practiceWords:reinforcementWordList(15),mastery,errorPatterns,learnerContext:noraLearningContext(),teacherMode:true});
     if(!r.ok){if(box)box.innerHTML='<div class="feedback bad">Собеседник временно недоступен: '+esc(r.error)+'</div>';return}
-    const d=r.data;state.chatHistory=[{role:"assistant",text:d.reply_no,meta:d}];saveState();if(!window.neChatVisible||neChatVisible()){renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);}
+    const d=r.data;state.chatHistory=[{role:"assistant",text:d.reply_no,meta:d}];
+    state.noraMemory.conversationCount=(Number(state.noraMemory.conversationCount)||0)+1;
+    state.noraMemory.lastTopic=String(p.topic||p.conversationTitle||"").slice(0,120);
+    saveState();if(!window.neChatVisible||neChatVisible()){renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);}
   }
   async function sendChat(){
     const input=document.getElementById("chatInput"),btn=document.getElementById("chatSendBtn"),msg=input?.value.trim();if(!msg)return;
@@ -734,12 +742,15 @@
     const box=document.getElementById("chatMessages");if(box){box.insertAdjacentHTML("beforeend",'<div class="chat-thinking">Нора думает…</div>');box.scrollTop=box.scrollHeight}
     const hist=state.chatHistory.slice(0,-1).slice(-32).map(x=>({role:x.role,text:x.text}));
     if(window.NEAdaptive)NEAdaptive.ensure(state);const mastery=state.learningV8?.levelSkills?.[p.level]||{},errorPatterns=window.NEAdaptive?NEAdaptive.errors(state):[];
-    const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:hist,context:state.chatMemories[memoryKey].map(x=>(x.role==="user"?"Ученик: ":"Nora: ")+x.text).join("\n"),practiceWords:reinforcementWordList(15),mastery,errorPatterns,teacherMode:true});
+    const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:hist,context:state.chatMemories[memoryKey].map(x=>(x.role==="user"?"Ученик: ":"Nora: ")+x.text).join("\n"),practiceWords:reinforcementWordList(15),mastery,errorPatterns,learnerContext:noraLearningContext(),teacherMode:true});
     if(!r.ok){state.chatHistory.push({role:"assistant",text:"Beklager, jeg fikk et teknisk problem. Prøv igjen.",meta:{translation_ru:"Извините, произошла техническая ошибка. Попробуйте ещё раз."}});saveState();if(!window.neChatVisible||neChatVisible())return renderChat();return;}
     const d=r.data;state.chatHistory.push({role:"assistant",text:d.reply_no,meta:d});state.chatHistory=state.chatHistory.slice(-40);
+    state.noraMemory.introduced=true;
+    state.noraMemory.lastTopic=String(p.topic||p.conversationTitle||"").slice(0,120);
+    state.noraMemory.lastPracticeDate=new Date().toISOString().slice(0,10);
     updateSkill(wasVoice?"speaking":"writing",d.score_valid?d.score:50);if(d.error_tag){rememberError(d.error_tag);updateSkill("grammar",Math.max(20,(d.score_valid?d.score:50)-8))}
     if(window.NEAdaptive&&d.score_valid===true)NEAdaptive.recordAttempt(state,{level:p.level,skill:wasVoice?"speaking":"writing",score:d.score,moduleId:p.level.toLowerCase()+"-conversation",source:"conversation",errorTag:d.error_tag||"",transfer:false});
-    if(d.suggested_level&&d.suggested_level!==p.level)state.chatPrefs.level=d.suggested_level;
+    // A conversation alone is insufficient evidence for a CEFR level change; the course gate controls promotion.
     saveState();if(!window.neChatVisible||neChatVisible()){renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);}
   }
 
