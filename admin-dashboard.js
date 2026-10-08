@@ -58,7 +58,7 @@
  }
  function money(value){const n=Number(value);return Number.isFinite(n)?n.toLocaleString('ru-RU',{minimumFractionDigits:0,maximumFractionDigits:2})+' NOK':'—'}
  function setMessage(text,type=''){const m=root?.querySelector('#adminMessage');if(!m)return;m.textContent=text||'';m.className='admin-message '+type}
- function body(){return root?.querySelector('#adminView')}
+ function body(){return root?.querySelector('#adminView > [data-admin-content]')}
  function metric(label,value,detail=''){const card=el('article','admin-metric');card.append(el('strong','',value??0),el('span','',label));if(detail)card.append(el('small','',detail));return card}
  function sectionTitle(title,sub=''){const wrap=el('div','admin-section-head');const h=el('div');h.append(el('h2','',title));if(sub)h.append(el('p','',sub));wrap.append(h);return wrap}
  function button(text,cls='secondary'){const b=el('button','btn '+cls,text);b.type='button';return b}
@@ -278,7 +278,20 @@
    }catch(e){errorsBox.replaceChildren(empty('Не удалось загрузить ошибки',e.message))}
  }
  async function show(tab){
-  activeTab=tab;for(const b of root.querySelectorAll('[data-admin-tab]')){const active=b.dataset.adminTab===tab;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false')}
+  const available=['overview','users','payments','events','service'];
+  const host=root?.querySelector('#adminView');
+  if(!host||!available.includes(tab))return;
+  activeTab=tab;
+  // Each navigation owns its own content node: old in-flight responses cannot overwrite a newer tab.
+  const content=el('div','admin-tab-content');content.dataset.adminContent=tab;
+  host.replaceChildren(content);
+  host.setAttribute('aria-labelledby','admin-tab-'+tab);
+  for(const b of root.querySelectorAll('[data-admin-tab]')){
+   const active=b.dataset.adminTab===tab;
+   b.classList.toggle('active',active);
+   b.setAttribute('aria-selected',String(active));
+   b.tabIndex=active?0:-1;
+  }
   setMessage('');
   if(tab==='overview')return overview();
   if(tab==='users')return users();
@@ -293,11 +306,23 @@
   const title=el('div','admin-brand');title.append(el('span','admin-kicker','Norsk Eventyr'),el('h1','','Admin Dashboard'),el('small','','Версия 8.0.1'));
   const topActions=el('div','admin-top-actions'),back=button('К обучению','secondary'),logout=button('Выйти','ghost');
   back.onclick=()=>opts.onBack?.();logout.onclick=()=>opts.onLogout?.();topActions.append(back,logout);top.append(title,topActions);
-  const main=el('main','admin-main'),view=el('section','admin-view');view.id='adminView';main.append(view);
+  const main=el('main','admin-main'),view=el('section','admin-view');view.id='adminView';view.setAttribute('role','tabpanel');view.tabIndex=0;main.append(view);
   const message=el('p','admin-message');message.id='adminMessage';
-  const nav=el('nav','admin-nav');nav.setAttribute('aria-label','Разделы админ-панели');
+  const nav=el('nav','admin-nav');nav.setAttribute('role','tablist');nav.setAttribute('aria-label','Разделы админ-панели');
   const tabs=[['overview','Главная'],['users','Пользователи'],['payments','Платежи'],['events','События'],['service','Ещё']];
-  for(const [key,text] of tabs){const b=el('button','admin-nav-item',text);b.type='button';b.dataset.adminTab=key;b.onclick=()=>show(key);nav.append(b)}
+  for(const [key,text] of tabs){
+   const b=el('button','admin-nav-item',text);b.type='button';
+   b.id='admin-tab-'+key;b.dataset.adminTab=key;
+   b.setAttribute('role','tab');b.setAttribute('aria-controls','adminView');
+   b.onclick=()=>show(key);nav.append(b)
+  }
+  nav.addEventListener('keydown',event=>{
+   if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)||!event.target?.dataset?.adminTab)return;
+   event.preventDefault();const current=tabs.findIndex(([key])=>key===event.target.dataset.adminTab);
+   const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(current+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
+   const nextTab=nav.querySelector('[data-admin-tab="'+tabs[next][0]+'"]');
+   nextTab?.focus();nextTab?.click();
+  });
   shell.append(top,nav,main,message);root.append(shell);show(activeTab||'overview')
  }
  window.NEAdminDashboard={mount,show};
