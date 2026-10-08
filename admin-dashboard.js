@@ -132,7 +132,7 @@
     metric('Ошибки приложения 24 ч',d.errors_24h)
    );
    out.append(grid);
-   window.NEAccess?.ownerMarkPurchaseSeen?.(Number(d.purchase_interest)||0);await window.NEOwnerBadge?.refresh?.();
+   window.NEAccess?.ownerMarkPurchaseSeen?.();await window.NEOwnerBadge?.refresh?.();
    const funnelHead=sectionTitle('Воронка','Конверсия между ключевыми этапами.');out.append(funnelHead,funnelNode(g.stages||{}));
    const recent=sectionTitle('Последние события','Значимые действия пользователей.');out.append(recent);
    if(events.length){const list=el('div','admin-event-list');for(const item of events)list.append(renderEvent(item,true));out.append(list)}
@@ -202,7 +202,7 @@
    const actions=el('div','admin-action-row');
    for(const [status,text] of [['approved','Одобрить аккаунт'],['denied','Отказать'],['revoked','Отозвать доступ']]){
     if(status===p.access_status)continue;const b=button(text,status==='approved'?'':'secondary');
-    b.onclick=async()=>{if(loading)return;loading=true;b.disabled=true;try{await call('decide',{user_id:userId,status});await userDetail(userId)}catch(e){setMessage(e.message,'error')}finally{loading=false;b.disabled=false}};actions.append(b)
+    b.onclick=async()=>{if(loading)return;loading=true;b.disabled=true;try{await call('decide',{user_id:userId,status});await userDetail(userId);await window.NEOwnerBadge?.refresh?.()}catch(e){setMessage(e.message,'error')}finally{loading=false;b.disabled=false}};actions.append(b)
    }
    if(actions.children.length)out.append(actions);
    out.append(sectionTitle('Управление доступом','Бесплатные периоды и ручное подтверждение оплаты хранятся отдельно.'));
