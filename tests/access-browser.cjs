@@ -15,7 +15,7 @@ const server=http.createServer(async(req,res)=>{
   else if(b.action==='update_password'){updatedPassword=b.password;out={ok:true}}
   else if(b.action==='status'){
    const owner=user==='owner',approved=owner||status==='approved';
-   out={status:owner?'approved':status,request_status:owner?'approved':(status==='expired'?'unrequested':status),access_granted:approved,owner,user_id:owner?ownerId:studentId,email:user+'@example.com',privacy_version:'2026-10-05-v3',accepted_privacy_version:'2026-10-05-v3'};
+   out={status:owner?'approved':status,request_status:owner?'approved':(status==='expired'?'unrequested':status),access_granted:approved,owner,user_id:owner?ownerId:studentId,email:user+'@example.com',privacy_version:'2026-10-08-v4',accepted_privacy_version:'2026-10-08-v4'};
   }
   else if(b.action==='request'){status='pending';name=b.name}
   else if(b.action==='growth_activity'||b.action==='install_seen'||b.action==='lifecycle_touch')out={ok:true};
@@ -28,9 +28,13 @@ const server=http.createServer(async(req,res)=>{
   else if(b.action==='owner_growth')out={growth:{stages:{first_visits:1,registered:1,confirmed:1,trial_started:1,installed:0,active_3_days:1,trial_finished:1,purchase_interest:0,paid:0},sources:[{source:'direct',registered:1,trial_started:1,active_3_days:1,purchase_interest:0,paid:0}]}};
   else if(b.action==='owner_events')out={events:[]};
   else if(b.action==='owner_payments')out={payments:[]};
-  else if(b.action==='owner_user_detail')out={detail:{profile:{user_id:studentId,email:'student@example.com',display_name:name,access_status:status,trial_started_at:'2026-09-25T00:00:00Z',trial_ends_at:'2026-09-30T00:00:00Z',activity_days_count:3,acquisition_source:'direct',subscription_status:'inactive',cancel_at_period_end:false},timeline:[],payments:[]}};
+  else if(b.action==='owner_user_detail')out={detail:{profile:{user_id:studentId,email:'student@example.com',display_name:name,access_status:status,trial_started_at:'2026-09-25T00:00:00Z',trial_ends_at:'2026-09-30T00:00:00Z',free_access_until:null,activity_days_count:3,acquisition_source:'direct',subscription_status:'inactive',cancel_at_period_end:false,device_count:1},timeline:[],payments:[],devices:[{device_id:'d_qa_device_1234567890',device_name:'QA Browser',last_seen_at:new Date().toISOString()}]}};
   else if(b.action==='owner_errors')out={errors:[]};
-  else if(b.action==='owner_backup')out={backup:{format:'norsk-eventyr-backup-v3'}};
+  else if(b.action==='owner_promo_list')out={promos:[]};
+  else if(b.action==='owner_grant_free')out={ok:true,free_access_until:new Date(Date.now()+Number(b.days||0)*86400000).toISOString()};
+  else if(b.action==='owner_confirm_payment')out={ok:true};
+  else if(b.action==='owner_devices_reset')out={ok:true,revoked_devices:1};
+  else if(b.action==='owner_backup')out={backup:{format:'norsk-eventyr-backup-v4'}};
   return res.end(JSON.stringify(out));
  }
  if(pathname.startsWith('/api/')){res.setHeader('Content-Type','application/json');return res.end(JSON.stringify({token:'qa'}))}
