@@ -18,7 +18,7 @@
  function deviceName(){
   const ua=String(navigator.userAgent||'');
   const platform=String(navigator.userAgentData?.platform||navigator.platform||(/Android/i.test(ua)?'Android':/iPhone|iPad|iPod/i.test(ua)?'iOS':'Web')).slice(0,50);
-  const browser=/Edg//.test(ua)?'Edge':/OPR//.test(ua)?'Opera':/Chrome//.test(ua)?'Chrome':/Firefox//.test(ua)?'Firefox':/Safari//.test(ua)?'Safari':'Browser';
+  const browser=/Edg\//.test(ua)?'Edge':/OPR\//.test(ua)?'Opera':/Chrome\//.test(ua)?'Chrome':/Firefox\//.test(ua)?'Firefox':/Safari\//.test(ua)?'Safari':'Browser';
   return (platform+' · '+browser).slice(0,120);
  }
  function deviceHeaders(){return {'x-ne-device-id':deviceId(),'x-ne-device-name':deviceName()}}
