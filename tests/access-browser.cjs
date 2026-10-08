@@ -85,7 +85,8 @@ const server=http.createServer(async(req,res)=>{
 
  async function login(target,email){await target.locator('#accessEmail').fill(email);await target.locator('#accessPassword').fill('qa-password-123');await target.locator('#accessLogin button').click()}
  await login(page,'student@example.com');await page.waitForSelector('#accessRequest');
- await page.getByRole('button',{name:/Готов оформить подписку/}).click();await page.waitForSelector('#accessRequest');assert.equal(ready,true);assert.equal(readyBonusAt,null);assert.equal(await page.locator('#app').isVisible(),false);
+ const requestBeforeInterest=await page.locator('#accessRequest').elementHandle();
+ await page.getByRole('button',{name:/Готов оформить подписку/}).click();await page.waitForFunction(old=>old&&!old.isConnected,requestBeforeInterest);await page.waitForSelector('#accessRequest');assert.equal(ready,true);assert.equal(readyBonusAt,null);assert.equal(await page.locator('#app').isVisible(),false);
  await page.locator('#accessName').fill('<img src=x onerror=alert(1)>');await page.locator('#accessRequest button').click();await page.waitForFunction(()=>document.querySelector('#accessGate h1').textContent.includes('ожидает'));assert.equal(await page.evaluate(()=>typeof state),'undefined');
  await page.evaluate(async()=>{window.qaPrompts=0;const event=new Event('beforeinstallprompt',{cancelable:true});event.prompt=async()=>{window.qaPrompts++};event.userChoice=Promise.resolve({outcome:'accepted'});dispatchEvent(event);await NEAccess.install()});assert.equal(await page.evaluate(()=>qaPrompts),0);
 
