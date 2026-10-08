@@ -16,7 +16,12 @@ export async function authCall(path,body,token,method){
 }
 export async function accessRpc(token,name,params={}){
  const response=await fetch(URL+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(params),signal:AbortSignal.timeout(10000)});
- if(!response.ok)throw new Error('ACCESS_UNAVAILABLE');return response.json();
+ if(!response.ok){
+  const data=await response.json().catch(()=>({}));
+  const code=String(data?.message||data?.code||'ACCESS_UNAVAILABLE').trim().split(/\s+/)[0].slice(0,80)||'ACCESS_UNAVAILABLE';
+  const error=new Error(code);error.code=code;throw error;
+ }
+ return response.json();
 }
 export async function publicRpc(name,params={}){
  const response=await fetch(URL+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify(params),signal:AbortSignal.timeout(10000)});
