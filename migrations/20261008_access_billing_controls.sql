@@ -445,6 +445,7 @@ set search_path=''
 as $$
 declare
   bonus_until timestamptz;
+  u auth.users;
 begin
   if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
   if p_status not in ('approved','denied','revoked')
@@ -454,10 +455,22 @@ begin
     raise exception 'BAD_DECISION';
   end if;
 
-  update public.norsk_eventyr_access
-  set status=p_status,decided_at=now()
-  where user_id=p_user_id;
-  if not found then raise exception 'REQUEST_NOT_FOUND'; end if;
+  select * into u from auth.users where id=p_user_id;
+  if u.id is null then raise exception 'USER_NOT_FOUND'; end if;
+
+  insert into public.norsk_eventyr_access(
+    user_id,email,display_name,status,requested_at,decided_at
+  ) values (
+    p_user_id,
+    u.email,
+    left(coalesce(nullif(split_part(u.email,'@',1),''),'Пользователь'),80),
+    p_status,
+    now(),
+    now()
+  )
+  on conflict(user_id) do update
+  set status=excluded.status,
+      decided_at=now();
 
   if p_status='approved' then
     bonus_until := public.ne_ready_bonus_apply(p_user_id);
@@ -615,6 +628,9 @@ begin
   on conflict(user_id) do update
   set status='approved',decided_at=now();
 
+  perform public.ne_ready_bonus_apply(p_user_id);
+  select * into e from public.norsk_eventyr_entitlements where user_id=p_user_id for update;
+
   select current_period_end into paid_end
   from public.norsk_eventyr_subscriptions
   where user_id=p_user_id
@@ -704,6 +720,9 @@ begin
   )
   on conflict(user_id) do update
   set status='approved',decided_at=now();
+
+  perform public.ne_ready_bonus_apply(p_user_id);
+  select * into e from public.norsk_eventyr_entitlements where user_id=p_user_id for update;
 
   select * into s
   from public.norsk_eventyr_subscriptions
