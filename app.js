@@ -153,7 +153,7 @@ function checkAdaptiveVocab(){
  const fb=document.getElementById("fb");
  if(ok){fb.innerHTML='<div class="feedback good"><b>✓ Вспомнил сам</b></div>'}else{fb.innerHTML='<div class="feedback bad"><b>Нужно закрепить.</b> Правильно: '+esc(t[0])+'</div>'}
  lessonSession.locked=true;
- neAdvance(()=>{lessonSession.locked=false;lessonSession.vocabIndex=idx+1;if(lessonSession.vocabIndex<items.length)renderLesson();else{lessonSession.vocabIndex=0;lessonSession.vocabItems=null;lessonNext(ok?12:6)}},ok?420:850);
+ neAdvance(()=>{lessonSession.locked=false;lessonSession.vocabIndex=idx+1;if(lessonSession.vocabIndex<items.length)renderLesson();else{lessonSession.vocabIndex=0;lessonSession.vocabItems=null;lessonNext(ok?12:6)}},3000);
 }
 function grammarPrompt(l){const q=String(l?.grammarQ||"").trim();if(/^(?:velg|choose|выбери(?:те)?)\s+(?:riktig(?:e)?|korrekt(?:e)?|correct|правильн\w*)\s+(?:setning(?:en)?|alternativ(?:et)?|sentence|предложен\w*|вариант\w*)[.!?]?$/i.test(q))return "Выберите грамматически правильное предложение.";return q||l?.grammarTitle||"Выберите грамматически правильный вариант."}
 function grammarEx(l){const c=Number(l.grammarCorrect)||0;return `<article class="card"><div class="eyebrow">Грамматика · применение</div><div class="prompt">${esc(grammarPrompt(l))}</div><div class="choice-list">${l.grammarOpts.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${c},'${escJs(l.grammarRuleRu||l.grammar||"Проверь правило и попробуй снова.")}','grammar')">${esc(x)}</button>`).join("")}</div><details class="grammar-fold-v6"><summary>Короткое правило</summary><p>${esc(l.grammarRuleRu||l.grammar||"")}</p></details><div id="fb"></div></article>`}
