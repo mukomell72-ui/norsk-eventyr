@@ -1007,7 +1007,7 @@ returns jsonb
 language plpgsql
 security definer
 set search_path=''
-as $
+as $$
 begin
   if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
 
@@ -1094,7 +1094,7 @@ begin
     )
   );
 end;
-$;
+$$;
 
 -- Owner views are extended with free-access and device information.
 create or replace function public.ne_owner_user_detail(p_user_id uuid)
