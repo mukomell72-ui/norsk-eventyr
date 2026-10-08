@@ -36,8 +36,8 @@ assert(access.includes("headers:deviceHeaders"),'device headers must be exposed 
 
 assert(access.includes("TERMS_VERSION='2026-10-08-v2'"),'8.0.1 terms version missing');
 assert(access.includes("PRIVACY_VERSION='2026-10-08-v4'"),'8.0.1 privacy version missing');
-assert(migration.includes("current_terms constant text := '2026-10-08-v2'"),'database terms version mismatch');
-assert(migration.includes("current_privacy constant text := '2026-10-08-v4'"),'database privacy version mismatch');
+assert(migration.includes("create or replace function public.ne_access_status_v2()")&&migration.includes("current_terms constant text := '2026-10-08-v2'"),'database terms version mismatch');
+assert(migration.includes("create or replace function public.ne_accept_terms_v2(")&&migration.includes("current_privacy constant text := '2026-10-08-v4'"),'database privacy version mismatch');
 
 for(const action of ['promo_redeem','owner_grant_free','owner_confirm_payment','owner_promo_list','owner_promo_create','owner_promo_toggle','owner_devices_reset'])assert(handler.includes(action),action+' handler missing');
 for(const action of ['owner_grant_free','owner_confirm_payment','owner_promo_create','owner_devices_reset'])assert(admin.includes("call('"+action+"'"),action+' admin UI missing');
