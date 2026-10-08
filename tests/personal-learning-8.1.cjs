@@ -30,7 +30,7 @@ assert.equal(A.moduleMission(novice,'b2-argument').blocked,true,'B2 must remain 
 const local=new Map();
 const storage={getItem:k=>local.has(k)?local.get(k):null,setItem:(k,v)=>local.set(k,String(v)),removeItem:k=>local.delete(k)};
 const lessons=[{id:'a1-1',level:'A1',phrase:'Hei!',grammar:'Jeg heter',vocab:[['hei','привет']],read:'Hei',q:'?',opts:['a','b','c','d'],correct:0,writing:'Skriv',speaking:'Snakk'}];
-let appCode=read('app.js').replace(/\nrenderHome\(\);\s*$/,'\n');
+let appCode=read('app.js').replace(/\nrenderHome\(\);(?=\s*\/\/ Service worker registration)/,'\n');
 assert.equal(appCode.includes('renderHome();'),true); // internal navigation still exists
 function boot(){
  const ctx={localStorage:storage,COURSE:lessons,Date,JSON,Math,Intl,console,alert:()=>{},window:{},navigator:{}};
