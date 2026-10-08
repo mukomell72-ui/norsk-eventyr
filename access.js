@@ -3,7 +3,7 @@
  const TERMS_VERSION='2026-10-08-v2',PRIVACY_VERSION='2026-10-08-v4';
  const ASSET_REV='8.0.1-access-r1',scripts=['data.js','curriculum-v8.js','adaptive-teacher.js','app.js','voice-pack.js','v3.js','lexicon.js','elite.js','story-data.js','story.js','ui-v6.js','ui-v7.js','ui-v8.js','updates.js','feedback.js'];
  const app=document.getElementById('app'),gate=document.createElement('main');gate.id='accessGate';gate.className='access-gate';document.body.append(gate);
- let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false,confirmationEmail=null,installSeenSent=false,errorReportBusy=false,growthActivityDateSent='';
+ let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false,confirmationEmail=null,installSeenSent=false,errorReportBusy=false,growthActivityDateSent='',panelOpen=false;
  const safe=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  function deviceId(){
   const key='ne_device_id_v1';
@@ -122,7 +122,7 @@
   if(installSeenSent||!identity?.user_id)return;installSeenSent=true;
   try{await call('install_seen',{platform:platformName(),source:String(source||'unknown').slice(0,32)})}catch{installSeenSent=false}
  }
- function view(html){app.hidden=true;gate.hidden=false;gate.classList.remove('admin-host');gate.innerHTML='<section class="card"><div class="eyebrow">Norsk Eventyr</div>'+html+'<p id="accessMessage" role="status" aria-live="polite"></p></section><section class="card access-public-rating"><h2>Рейтинг Norsk Eventyr</h2><div id="publicRatingGate">Загрузка…</div></section>';renderPublicRatingGate()}
+ function view(html){panelOpen=false;app.hidden=true;gate.hidden=false;gate.classList.remove('admin-host');gate.innerHTML='<section class="card"><div class="eyebrow">Norsk Eventyr</div>'+html+'<p id="accessMessage" role="status" aria-live="polite"></p></section><section class="card access-public-rating"><h2>Рейтинг Norsk Eventyr</h2><div id="publicRatingGate">Загрузка…</div></section>';renderPublicRatingGate()}
  function message(text){const e=document.getElementById('accessMessage');if(e)e.textContent=text}
  function login(){
   const invited=!!pendingReferral();
@@ -242,6 +242,7 @@
   proto.removeItem=function(key){return remove.call(this,scoped.includes(String(key))?prefix+key:key)};
  }
  async function load(){
+  panelOpen=false;
   if(loadedUser&&loadedUser!==identity.user_id){location.reload();return}
   if(!loaded){if(!loadedUser){scopeStorage();loadedUser=identity.user_id}for(const name of scripts.slice(loadedCount)){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/'+name+'?v='+encodeURIComponent(ASSET_REV);s.onload=resolve;s.onerror=reject;document.body.append(s)}) ;loadedCount++}await new Promise(resolve=>setTimeout(resolve,250));loaded=true}
   gate.hidden=true;app.hidden=false;
@@ -265,15 +266,16 @@
  async function panel(){
   const userStatus=identity?.status==='trial'?'<p>Пробный доступ активен до <b>'+safe(formatTrial(identity.trial_ends_at))+'</b>.</p>':identity?.status==='free'?'<p>Бесплатный доступ активен до <b>'+safe(formatTrial(identity.free_access_until))+'</b>.</p>':identity?.status==='paid'?'<p>Платный доступ активен до <b>'+safe(formatTrial(identity.paid_until))+'</b>.</p>':identity?.owner?'<p>Учётная запись владельца.</p>':'<p>Доступ сейчас не активен.</p>';
   if(identity?.owner){
-   app.hidden=true;gate.hidden=false;gate.classList.add('admin-host');gate.innerHTML='<div id="adminDashboardRoot"></div><p id="accessMessage" role="status" aria-live="polite"></p>';
+   panelOpen=true;app.hidden=true;gate.hidden=false;gate.classList.add('admin-host');gate.innerHTML='<div id="adminDashboardRoot"></div><p id="accessMessage" role="status" aria-live="polite"></p>';
    const root=document.getElementById('adminDashboardRoot');
    if(!window.NEAdminDashboard?.mount){view('<h1>Админ-панель недоступна</h1><p>Не удалось загрузить модуль Admin Dashboard.</p><button class="btn" id="accessRetry">Повторить</button>');document.getElementById('accessRetry').onclick=()=>location.reload();return}
-   window.NEAdminDashboard.mount(root,{onBack:()=>act(status),onLogout:logout});
+   window.NEAdminDashboard.mount(root,{onBack:()=>{panelOpen=false;act(status)},onLogout:logout});
    return
   }
   view('<h1>Доступ к приложению</h1><p>'+safe(identity?.email)+'</p>'+userStatus+'<form id="panelPromo"><label>Промокод<input id="panelPromoCode" autocomplete="off" maxlength="32" placeholder="Промокод для бесплатного продления"></label><button class="btn secondary" type="submit">Активировать</button></form><div class="row"><button class="btn secondary" id="accessBack">К обучению</button><button class="btn ghost" id="accessLogout">Выйти</button></div><p>Для одного аккаунта разрешено до двух доверенных устройств.</p>');
+  panelOpen=true;
   const panelPromo=document.getElementById('panelPromo');if(panelPromo)panelPromo.onsubmit=e=>{e.preventDefault();act(async()=>{await call('promo_redeem',{code:document.getElementById('panelPromoCode').value.trim().toUpperCase()});await status()})};
-  document.getElementById('accessBack').onclick=()=>act(status);document.getElementById('accessLogout').onclick=logout;
+  document.getElementById('accessBack').onclick=()=>{panelOpen=false;act(status)};document.getElementById('accessLogout').onclick=logout;
  }
  function isInstalled(){
   return window.matchMedia?.('(display-mode: standalone)')?.matches===true||window.navigator.standalone===true;
@@ -300,8 +302,8 @@
  window.addEventListener('appinstalled',()=>{installPrompt=null;markInstalled('appinstalled')});
  window.addEventListener('error',event=>{reportClientError('WINDOW_ERROR',event.error||event.message)});
  window.addEventListener('unhandledrejection',event=>{reportClientError('UNHANDLED_REJECTION',event.reason)});
- window.addEventListener('focus',()=>{if(loaded&&!gate.querySelector('#accessList')){markGrowthActivity();status()}});
- setInterval(()=>{if(loaded&&!document.hidden&&!busy&&!checking&&!gate.querySelector('#accessList'))status()},60000);
+ window.addEventListener('focus',()=>{if(loaded&&!panelOpen&&!gate.querySelector('#accessList')){markGrowthActivity();status()}});
+ setInterval(()=>{if(loaded&&!panelOpen&&!document.hidden&&!busy&&!checking&&!gate.querySelector('#accessList'))status()},60000);
  view('<h1>Проверяем доступ…</h1>');
  (async()=>{
   const params=new URLSearchParams(location.search),hashParams=new URLSearchParams(location.hash.replace(/^#/,''));
