@@ -1,6 +1,6 @@
 # Norsk Eventyr 8.0.0 — Adaptive Mastery Teacher
 
-Date: 2026-10-06
+Date: 2026-10-08
 
 ## Release purpose
 
@@ -115,6 +115,28 @@ Extra modes remain available for optional practice instead of being presented as
 Progress screens distinguish:
 - course-route completion;
 - actual mastery evidence.
+
+## XP and motivation
+
+8.0.0 adds quality-based XP as a motivation layer that is deliberately separate from CEFR mastery.
+
+XP is awarded when a lesson is completed from the quality evidence collected during that lesson:
+- average 90–100: 40 XP;
+- average 75–89: 32 XP;
+- average 60–74: 24 XP;
+- lower completed session: 16 XP;
+- a due adaptive review completed at average 80+ receives an additional 10 XP.
+
+Anti-farm rules apply per lesson/module and day:
+- first completion that day receives the normal award;
+- second completion receives 25% of the normal award, with a minimum of 4 XP;
+- further completions of that same lesson/module that day receive 0 XP;
+- legacy chat, diagnostics, daily practice, review screens, exams and generic activity tracking do not directly mint XP;
+- cloud state merge preserves the strongest same-day anti-farm counters instead of resetting them across devices.
+
+XP unlocks bonus Nora missions at 100, 250, 500 and 1000 XP. These are optional practice rewards only.
+
+**XP never unlocks A1, A2, B1 or B2.** CEFR route access continues to use placement/mastery gates, transfer evidence and delayed retention only. Regression coverage explicitly checks that a large XP balance cannot bypass the CEFR gate.
 
 ## Versioning and PWA
 
