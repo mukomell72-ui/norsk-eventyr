@@ -71,7 +71,7 @@
     document.getElementById("app").innerHTML=
       '<div class="shell-v7">'+
         '<header class="topbar-v7">'+
-          '<button class="brand-v7" onclick="navigate(\'home\')"><span>Norsk Eventyr</span><b>7.1</b></button>'+
+          '<button class="brand-v7" onclick="navigate(\'home\')"><span>Norsk Eventyr</span><b>8.1 · тест</b></button>'+
           '<div class="status-v7"><button class="streak-v7" onclick="navigate(\'hub\')">🔥 <b>'+streak+'</b></button><button class="level-v7" onclick="navigate(\'course\')">'+level+'</button></div>'+
         '</header>'+
         '<main class="main-v7">'+content+helpMarkupV7()+'</main>'+
@@ -116,11 +116,13 @@
   Object.assign(window,{v7OpenHelp,v7AskHelp});
 
   function guidedV7(){
-    const day=todayKeyV7(),wordDue=dueCountV7(),adaptiveDue=window.NEAdaptive?NEAdaptive.dueReviews(state).length:0,teacherDone=state.learningV8?.lastSessionDate===day,mission=window.NEAdaptive?NEAdaptive.nextMission(state):null;
+    const day=todayKeyV7(),wordDue=dueCountV7(),adaptiveDue=window.NEAdaptive?NEAdaptive.dueReviews(state).length:0,
+ pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id]?state.generatedLessons[state.activeLesson.id]:null,
+ teacherDone=state.learningV8?.lastSessionDate===day&&!pending,mission=window.NEAdaptive?NEAdaptive.nextMission(state):null;
     const reviewRequired=wordDue>0||adaptiveDue>0,reviewDone=!reviewRequired;
-    const focus=mission?.module?.title||"Следующий шаг по слабому навыку";
+    const focus=pending?.title||mission?.module?.title||"Следующий шаг по слабому навыку";
     const steps=[
-      {id:"teacher",title:"Главное занятие с Норой",sub:focus,mins:Math.max(10,Math.min(25,Number(state.elite?.dailyMinutes)||20)),done:teacherDone,route:"teacher"},
+      {id:"teacher",title:pending?"Продолжить незаконченный урок":"Главное занятие с Норой",sub:focus,mins:Math.max(10,Math.min(25,Number(state.elite?.dailyMinutes)||20)),done:teacherDone,route:pending?"lesson":"teacher",data:pending?.id},
       ...(reviewRequired?[{id:"review",title:"Повторение по памяти",sub:adaptiveDue?adaptiveDue+" адаптивных проверки":wordDue+" слов по интервалу",mins:5,done:reviewDone,route:adaptiveDue?"teacher":"review"}]:[])
     ];
     const next=steps.find(x=>!x.done)||{title:"Дополнительная практика",sub:"Обязательная часть готова",mins:0,route:"hub"};
@@ -146,7 +148,14 @@
   }
   function renderHomeV7(){
     currentRouteV7="home";
-    const j=guidedV7(),story=j.story,words=dailyWordsV7(),district=story?.district||"Fjordvik";
+    const j=guidedV7(),story=j.story,words=dailyWordsV7(),district=story?.district||"Fjordvik",
+      pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id],
+      met=state.noraMemory?.introduced===true,
+      heroTitle=pending?"Продолжим?":j.mins===0?"До завтра!":met?"Идём дальше!":"Начнём вместе",
+      heroText=pending?"Мы сохранили твой урок. Продолжим с того места, где остановились.":
+        j.mins===0?"Главная цель на сегодня выполнена. Дополнительная практика доступна по желанию.":
+        met?"Новая задача и повторение слабых мест. Никакого знакомства заново.":
+        "Первый шаг к настоящему разговору по-норвежски — в твоём темпе.";
     const hour=Number(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/Oslo',hour:'numeric',hourCycle:'h23'}).format(new Date())),daypart=hour<6?'ночь':hour<12?'утро':hour<18?'день':'вечер';
     const route=j.steps.map((x,i)=>
       '<button class="route-step-v7 '+(x.done?"done":"")+'" onclick="v7Step('+i+')">'+
@@ -158,14 +167,14 @@
       '<section class="home-v7">'+
         '<section class="hero-v7">'+
           '<div class="hero-overlay-v7"></div><div class="nora-cutout-v7" aria-hidden="true"></div>'+
-          '<div class="hero-copy-v7"><small>'+h(district)+' · '+daypart+'</small><h1>Hei!</h1><p>Сегодня в Fjordvik. Нора ждёт тебя — продолжим разговор и изучим что-то полезное.</p>'+
+          '<div class="hero-copy-v7"><small>'+h(district)+' · '+daypart+'</small><h1>'+h(heroTitle)+'</h1><p>'+h(heroText)+'</p><div class="home-focus-v81"><span>Сегодня с Норой</span><strong>'+h(j.steps[0]?.sub||"Практика норвежского")+'</strong></div>'+
           '<button class="cta-v7" onclick="v7ContinueToday()">Продолжить день <b>→</b></button></div>'+
           '<div class="hero-note-v7">Små steg<br>store eventyr ♡</div>'+
         '</section>'+
         '<section class="route-card-v7"><div class="section-head-v7"><div><small>Твой маршрут на сегодня</small><h2>'+(j.mins?"Ещё примерно "+j.mins+" минут":"Маршрут завершён")+'</h2></div><span>◷ '+(j.mins||0)+' мин</span></div><div class="route-steps-v7">'+route+'</div></section>'+
         xpJourneyV7()+
         '<section class="words-card-v7"><div class="section-head-v7"><div><h2>Домашнее задание</h2><p>Изучи слова и используй их в своих ответах.</p></div><button onclick="navigate(\'daily\')">Открыть →</button></div></section>'+
-        '<section class="nora-note-v7"><span class="nora-avatar-v7"></span><div><small>Nora</small><p>«Сегодня продолжим без спешки. Говори своими словами — я помогу.»</p></div><button onclick="navigate(\'chat\')">Написать →</button></section>'+
+        '<section class="nora-note-v7"><span class="nora-avatar-v7"></span><div><small>Nora</small><p>«'+h(pending?"Продолжим с сохранённого этапа.":"Я подберу практику по твоим результатам. Говори своими словами.")+'»</p></div><button onclick="navigate(\'chat\')">Написать →</button></section>'+
       '</section>',
     "home");
   }
@@ -208,7 +217,7 @@
 
   function v7ChatMessages(){
     const hist=state.chatHistory||[];
-    if(!hist.length)return '<div class="chat-welcome-v7"><span class="nora-avatar-v7 large"></span><div><small>Nora · norsk samtalepartner</small><h2>Hei! Hvordan har du det i dag?</h2><p>Начни с короткой фразы. Я продолжу разговор.</p><button class="cta-v7 small" onclick="v7StartChat()">Начать разговор →</button></div></div>';
+    if(!hist.length)return '<div class="chat-welcome-v7"><span class="nora-avatar-v7 large"></span><div><small>Nora · norsk samtalepartner</small><h2>'+(state.noraMemory?.introduced?"Продолжим разговор?":"Hei! La oss snakke norsk!")+'</h2><p>Нора учитывает выбранную тему и твой уровень. Можно ответить голосом или текстом.</p><button class="cta-v7 small" onclick="v7StartChat()">Начать разговор →</button></div></div>';
     return hist.map((m,i)=>{
       if(m.role==="user")return '<div class="chat-row-v7 user"><div class="bubble-v7 user">'+h(m.text)+'</div></div>';
       const meta=m.meta||{};
