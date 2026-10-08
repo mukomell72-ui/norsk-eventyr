@@ -363,7 +363,7 @@ begin
     amount_nok,fee_nok,refunded_nok,period_start,period_end,paid_at,failure_message
   ) values (
     payment_id,p_user_id,'manual','manual:'||payment_id::text,'manual:'||payment_id::text,'paid','NOK',
-    p_amount_nok,0,0,period_start,period_end,now(),clean_note
+    p_amount_nok,0,0,period_start,period_end,now(),null
   );
 
   insert into public.norsk_eventyr_subscriptions(
@@ -499,6 +499,32 @@ begin
 end;
 $$;
 
+create or replace function public.ne_owner_admin_overview()
+returns jsonb
+language plpgsql
+security definer
+set search_path=''
+as $
+begin
+ if not public.ne_access_owner() then raise exception 'OWNER_REQUIRED'; end if;
+ return jsonb_build_object(
+  'users',(select count(*) from auth.users u where public.ne_is_norsk_eventyr_user(u.id)),
+  'confirmed',(select count(*) from auth.users u where u.email_confirmed_at is not null and public.ne_is_norsk_eventyr_user(u.id)),
+  'active_trials',(select count(*) from public.norsk_eventyr_entitlements e where e.trial_ends_at>now() and public.ne_is_norsk_eventyr_user(e.user_id)),
+  'active_free',(select count(*) from public.norsk_eventyr_entitlements e where e.free_access_until>now() and public.ne_is_norsk_eventyr_user(e.user_id)),
+  'expired_trials',(select count(*) from public.norsk_eventyr_entitlements e where e.trial_ends_at<=now() and coalesce(e.free_access_until,'epoch'::timestamptz)<=now() and public.ne_is_norsk_eventyr_user(e.user_id)),
+  'purchase_interest',(select count(*) from public.norsk_eventyr_entitlements e where e.purchase_interest_at is not null and public.ne_is_norsk_eventyr_user(e.user_id)),
+  'active_paid',(select count(*) from public.norsk_eventyr_subscriptions x where x.status in ('trialing','active') and x.current_period_end>now() and public.ne_is_norsk_eventyr_user(x.user_id)),
+  'past_due',(select count(*) from public.norsk_eventyr_subscriptions x where x.status in ('past_due','unpaid') and public.ne_is_norsk_eventyr_user(x.user_id)),
+  'revenue_30d',coalesce((select round(sum(greatest(p.amount_nok-p.refunded_nok,0)),2) from public.norsk_eventyr_payments p where p.status in ('paid','refunded','partially_refunded') and coalesce(p.paid_at,p.created_at)>=now()-interval '30 days'),0),
+  'fees_30d',coalesce((select round(sum(p.fee_nok),2) from public.norsk_eventyr_payments p where p.status in ('paid','refunded','partially_refunded') and coalesce(p.paid_at,p.created_at)>=now()-interval '30 days'),0),
+  'failed_payments_7d',(select count(*) from public.norsk_eventyr_payments p where p.status='failed' and p.created_at>=now()-interval '7 days'),
+  'renewals_7d',(select count(*) from public.norsk_eventyr_subscriptions x where x.status='active' and x.cancel_at_period_end=false and x.current_period_end between now() and now()+interval '7 days'),
+  'errors_24h',(select count(*) from public.norsk_eventyr_client_errors e where e.created_at>=now()-interval '24 hours')
+ );
+end;
+$;
+
 create or replace function public.ne_owner_user_detail(p_user_id uuid)
 returns jsonb
 language plpgsql
@@ -619,18 +645,25 @@ begin
   'format','norsk-eventyr-backup-v4',
   'created_at',now(),
   'users',coalesce((
-    select jsonb_agg(jsonb_build_object('id',u.id,'email',u.email,'created_at',u.created_at,'email_confirmed_at',u.email_confirmed_at)
-    order by u.created_at) from auth.users u where public.ne_is_norsk_eventyr_user(u.id)
+    select jsonb_agg(jsonb_build_object(
+      'id',u.id,'email',u.email,'created_at',u.created_at,'email_confirmed_at',u.email_confirmed_at,
+      'acquisition_source',coalesce(nullif(lower(left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_source','')),40)),''),'direct'),
+      'acquisition_campaign',left(btrim(coalesce(u.raw_user_meta_data->>'ne_utm_campaign','')),80)
+    ) order by u.created_at) from auth.users u where public.ne_is_norsk_eventyr_user(u.id)
   ),'[]'::jsonb),
   'entitlements',coalesce((select jsonb_agg(to_jsonb(e) order by e.created_at) from public.norsk_eventyr_entitlements e),'[]'::jsonb),
   'access',coalesce((select jsonb_agg(to_jsonb(a) order by a.requested_at) from public.norsk_eventyr_access a),'[]'::jsonb),
+  'feedback',coalesce((select jsonb_agg(to_jsonb(f) order by f.created_at) from public.norsk_eventyr_feedback f),'[]'::jsonb),
+  'installs',coalesce((select jsonb_agg(to_jsonb(i) order by i.first_installed_at) from public.norsk_eventyr_installs i),'[]'::jsonb),
+  'growth_daily',coalesce((select jsonb_agg(to_jsonb(g) order by g.day) from public.norsk_eventyr_growth_daily g),'[]'::jsonb),
+  'subscriptions',coalesce((select jsonb_agg(to_jsonb(x) order by x.created_at) from public.norsk_eventyr_subscriptions x),'[]'::jsonb),
+  'payments',coalesce((select jsonb_agg(to_jsonb(p) order by p.created_at) from public.norsk_eventyr_payments p),'[]'::jsonb),
+  'lifecycle_events',coalesce((select jsonb_agg(to_jsonb(l) order by l.occurred_at) from public.norsk_eventyr_lifecycle_events l),'[]'::jsonb),
+  'client_errors',coalesce((select jsonb_agg(to_jsonb(x) order by x.created_at desc) from (select * from public.norsk_eventyr_client_errors order by created_at desc limit 500) x),'[]'::jsonb),
   'access_grants',coalesce((select jsonb_agg(to_jsonb(g) order by g.created_at) from public.norsk_eventyr_access_grants g),'[]'::jsonb),
   'promo_codes',coalesce((select jsonb_agg(to_jsonb(p) order by p.created_at) from public.norsk_eventyr_promo_codes p),'[]'::jsonb),
   'promo_redemptions',coalesce((select jsonb_agg(to_jsonb(r) order by r.redeemed_at) from public.norsk_eventyr_promo_redemptions r),'[]'::jsonb),
-  'devices',coalesce((select jsonb_agg(to_jsonb(d) order by d.first_seen_at) from public.norsk_eventyr_devices d),'[]'::jsonb),
-  'subscriptions',coalesce((select jsonb_agg(to_jsonb(s) order by s.created_at) from public.norsk_eventyr_subscriptions s),'[]'::jsonb),
-  'payments',coalesce((select jsonb_agg(to_jsonb(p) order by p.created_at) from public.norsk_eventyr_payments p),'[]'::jsonb),
-  'lifecycle_events',coalesce((select jsonb_agg(to_jsonb(e) order by e.occurred_at) from public.norsk_eventyr_lifecycle_events e),'[]'::jsonb)
+  'devices',coalesce((select jsonb_agg(to_jsonb(d) order by d.first_seen_at) from public.norsk_eventyr_devices d),'[]'::jsonb)
  );
 end;
 $$;
@@ -641,7 +674,7 @@ revoke all on function public.ne_access_status_v2(),public.ne_accept_terms_v2(te
  public.ne_owner_promo_create(text,integer,integer,timestamptz,text),
  public.ne_owner_promo_set_active(uuid,boolean),public.ne_owner_promo_list(),
  public.ne_device_authorize(text,text),public.ne_owner_devices_reset(uuid),
- public.ne_owner_user_detail(uuid),public.ne_access_list(),public.ne_owner_backup()
+ public.ne_owner_admin_overview(),public.ne_owner_user_detail(uuid),public.ne_access_list(),public.ne_owner_backup()
  from public,anon,authenticated;
 
 grant execute on function public.ne_access_status_v2(),public.ne_accept_terms_v2(text,text,text),public.ne_purchase_interest_v2(integer),
