@@ -59,7 +59,14 @@
  function money(value){const n=Number(value);return Number.isFinite(n)?n.toLocaleString('ru-RU',{minimumFractionDigits:0,maximumFractionDigits:2})+' NOK':'—'}
  function setMessage(text,type=''){const m=root?.querySelector('#adminMessage');if(!m)return;m.textContent=text||'';m.className='admin-message '+type}
  function body(){return root?.querySelector('#adminView > [data-admin-content]')}
- function metric(label,value,detail=''){const card=el('article','admin-metric');card.append(el('strong','',value??0),el('span','',label));if(detail)card.append(el('small','',detail));return card}
+ function metric(label,value,key,tab,option=''){
+  const card=el('button','admin-metric');
+  card.type='button';card.dataset.overviewMetric=key;
+  card.setAttribute('aria-label',label+': '+String(value??0)+'. Открыть подробности');
+  card.append(el('strong','',value??0),el('span','',label),el('small','admin-metric-action','Подробнее →'));
+  card.onclick=()=>show(tab,option);
+  return card
+ }
  function sectionTitle(title,sub=''){const wrap=el('div','admin-section-head');const h=el('div');h.append(el('h2','',title));if(sub)h.append(el('p','',sub));wrap.append(h);return wrap}
  function button(text,cls='secondary'){const b=el('button','btn '+cls,text);b.type='button';return b}
  function empty(title,text){const box=el('div','admin-empty');box.append(el('strong','',title),el('p','',text));return box}
@@ -125,26 +132,33 @@
    out.replaceChildren();out.append(sectionTitle('Главная','Состояние приложения, денег и пользователей в одном месте.'));
    const grid=el('div','admin-metric-grid');
    grid.append(
-    metric('Пользователи',d.users),metric('Активный trial',d.active_trials),metric('Бесплатный доступ',d.active_free),
-    metric('Готовы платить',d.purchase_interest),metric('Платные',d.active_paid),
-    metric('Выручка 30 дней',money(d.revenue_30d)),metric('Комиссии 30 дней',money(d.fees_30d)),
-    metric('Ошибки оплаты 7 дней',d.failed_payments_7d),metric('Продления 7 дней',d.renewals_7d),
-    metric('Ошибки приложения 24 ч',d.errors_24h)
+    metric('Пользователи',d.users,'users','users','all'),
+    metric('Активный trial',d.active_trials,'trial','users','trial'),
+    metric('Бесплатный доступ',d.active_free,'free','users','free'),
+    metric('Готовы платить',d.purchase_interest,'interest','users','interest'),
+    metric('Платные',d.active_paid,'paid','users','paid'),
+    metric('Выручка 30 дней',money(d.revenue_30d),'revenue','payments'),
+    metric('Комиссии 30 дней',money(d.fees_30d),'fees','payments'),
+    metric('Ошибки оплаты 7 дней',d.failed_payments_7d,'payment-errors','users','problem'),
+    metric('Продления 7 дней',d.renewals_7d,'renewals','payments'),
+    metric('Ошибки приложения 24 ч',d.errors_24h,'app-errors','service','errors')
    );
    out.append(grid);
    window.NEAccess?.ownerMarkPurchaseSeen?.();await window.NEOwnerBadge?.refresh?.();
    const funnelHead=sectionTitle('Воронка','Конверсия между ключевыми этапами.');out.append(funnelHead,funnelNode(g.stages||{}));
-   const recent=sectionTitle('Последние события','Значимые действия пользователей.');out.append(recent);
+   const recent=sectionTitle('Последние события','Значимые действия пользователей.');
+   const allEvents=button('Все события →','secondary');allEvents.onclick=()=>show('events');recent.append(allEvents);out.append(recent);
    if(events.length){const list=el('div','admin-event-list');for(const item of events)list.append(renderEvent(item,true));out.append(list)}
    else out.append(empty('Событий пока нет','Они появятся после действий пользователей.'));
   }catch(e){loadingNode.textContent=e.message}
  }
- async function users(){
+ async function users(initialFilter='all'){
   const out=body();out.replaceChildren();out.append(sectionTitle('Пользователи','Поиск, статус trial, подписка и история каждого человека.'));
   const controls=el('div','admin-controls');
   const search=el('input','admin-search');search.type='search';search.placeholder='Поиск по email или имени';
   const filter=el('select','admin-filter');
   for(const [value,text] of [['all','Все'],['trial','Trial'],['free','Бесплатные'],['paid','Платные'],['interest','Хотят купить'],['pending','Ожидают'],['problem','Проблемы оплаты']]){const o=el('option','',text);o.value=value;filter.append(o)}
+  if([...filter.options].some(option=>option.value===initialFilter))filter.value=initialFilter;
   controls.append(search,filter);out.append(controls);
   const list=el('div','admin-user-list');list.append(el('p','admin-muted','Загрузка…'));out.append(list);
   try{
@@ -256,7 +270,7 @@
    search.addEventListener('input',render);render()
   }catch(e){list.replaceChildren(empty('Ошибка загрузки',e.message))}
  }
- async function service(){
+ async function service(focus=''){
   const out=body();out.replaceChildren();out.append(sectionTitle('Ещё','Отзывы, ошибки приложения и резервная копия.'));
   const backup=button('Скачать резервную копию');backup.onclick=async()=>{backup.disabled=true;try{const response=await call('owner_backup'),body=JSON.stringify(response.backup||{},null,2),blob=new Blob([body],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='norsk-eventyr-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(e){setMessage(e.message,'error')}finally{backup.disabled=false}};out.append(backup);
    out.append(sectionTitle('Промокоды','Создавай коды для бесплатного продления. Один пользователь может использовать конкретный код только один раз.'));
@@ -269,7 +283,9 @@
    out.append(sectionTitle('Отзывы и идеи','Публичные комментарии можно скрывать и возвращать.'));
    const refreshFeedback=button('Обновить отзывы','secondary'),feedbackBox=el('div');feedbackBox.id='feedbackList';feedbackBox.textContent='Загрузка…';out.append(refreshFeedback,feedbackBox);
    const loadFeedback=async()=>{if(!window.NEFeedback?.ownerList){feedbackBox.textContent='Модуль отзывов пока недоступен.';return}const total=await window.NEFeedback.ownerList();if(typeof total==='number')window.NEAccess?.ownerMarkFeedbackSeen?.(total);await window.NEOwnerBadge?.refresh?.()};refreshFeedback.onclick=loadFeedback;await loadFeedback();
-   out.append(sectionTitle('Ошибки приложения','Последние технические ошибки после входа.'));
+   const errorHeading=sectionTitle('Ошибки приложения','Последние технические ошибки после входа.');errorHeading.id='admin-errors';
+   out.append(errorHeading);
+   if(focus==='errors'&&errorHeading.isConnected)errorHeading.scrollIntoView({block:'start'});
    const errorsBox=el('div','admin-error-list');errorsBox.textContent='Загрузка…';out.append(errorsBox);
    try{
     const response=await call('owner_errors'),items=Array.isArray(response.errors)?response.errors:[];errorsBox.replaceChildren();
@@ -277,7 +293,7 @@
     else for(const item of items.slice(0,100)){const card=el('article','admin-error-card');card.append(el('strong','',item.code||'CLIENT_ERROR'),el('p','',item.email||''),el('p','',item.message||''),el('small','',dateText(item.created_at)+' · '+String(item.app_version||'')));errorsBox.append(card)}
    }catch(e){errorsBox.replaceChildren(empty('Не удалось загрузить ошибки',e.message))}
  }
- async function show(tab){
+ async function show(tab,option=''){
   const available=['overview','users','payments','events','service'];
   const host=root?.querySelector('#adminView');
   if(!host||!available.includes(tab))return;
@@ -294,10 +310,10 @@
   }
   setMessage('');
   if(tab==='overview')return overview();
-  if(tab==='users')return users();
+  if(tab==='users')return users(option);
   if(tab==='payments')return payments();
   if(tab==='events')return events();
-  return service()
+  return service(option)
  }
  function mount(container,options={}){
   root=container;opts=options;root.replaceChildren();
