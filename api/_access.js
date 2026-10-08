@@ -33,7 +33,7 @@ export async function accessIdentity(req,res){
  }
  if(!user.ok){if(user.status>=500)throw new Error('ACCESS_UNAVAILABLE');return null}
  if(!user.data.email_confirmed_at)return null;
- const access=await accessRpc(token,'ne_access_status');
+ const access=await accessRpc(token,'ne_access_status_v2');
  let device={allowed:true,owner:access?.owner===true};
  if(access?.owner!==true){
   const deviceId=String(req.headers['x-ne-device-id']||'').trim();
