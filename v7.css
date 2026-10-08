@@ -265,3 +265,29 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-vis
 .word-translation-panel-v7{box-sizing:border-box;width:min(420px,calc(100vw - 32px));max-height:80vh;overflow:auto;border:0;border-radius:20px;padding:24px;background:#fffaf3;color:#292c2a;box-shadow:0 20px 80px #0005}
 .word-translation-panel-v7::backdrop{background:#182c3555}
 .word-translation-result-v7{white-space:pre-wrap}
+
+/* 8.1 personal daily mission — refined focus and accessible controls. */
+.home-focus-v81{
+ display:flex;flex-direction:column;gap:3px;
+ width:fit-content;max-width:100%;box-sizing:border-box;
+ padding:9px 12px;margin:7px 0 13px;
+ border:1px solid rgba(125,229,232,.47);border-radius:13px;
+ background:linear-gradient(115deg,rgba(5,31,48,.9),rgba(9,52,63,.74));
+ box-shadow:0 6px 22px rgba(0,0,0,.22);backdrop-filter:blur(10px);
+}
+.home-focus-v81 span{font-size:11px;letter-spacing:.04em;text-transform:uppercase;font-weight:750;color:#9decef}
+.home-focus-v81 strong{font-size:14px;line-height:1.35;color:#fff8ec;overflow-wrap:anywhere}
+.route-step-v7:focus-visible,.cta-v7:focus-visible,.home-focus-v81:focus-visible,.chat-settings-btn-v7:focus-visible{
+ outline:3px solid #a7f6f2;outline-offset:4px;
+}
+@media(max-width:620px){
+ .hero-copy-v7{bottom:18px}
+ .hero-copy-v7 h1{font-size:clamp(33px,10.8vw,43px);line-height:1.02}
+ .hero-copy-v7 p{font-size:13px;line-height:1.4}
+ .home-focus-v81{padding:7px 9px;margin:5px 0 10px;max-width:95%}
+ .home-focus-v81 span{font-size:10px}
+ .home-focus-v81 strong{font-size:12px;line-height:1.25}
+ .composer-v7 textarea{font-size:16px;line-height:1.4}
+ .route-step-v7 small{font-size:12px;white-space:normal;line-height:1.3}
+}
+@media(prefers-reduced-motion:reduce){.home-focus-v81{backdrop-filter:none}}
