@@ -40,6 +40,7 @@ function boot(){
  return ctx;
 }
 let app=boot();
+assert.equal(vm.runInContext('validProgressState({...state,activeLesson:null})',app),true,'a cleared cloud lesson checkpoint is a valid backup');
 vm.runInContext("startLesson('a1-1');lessonNext();lessonNext()",app);
 assert.equal(JSON.parse(local.get('ne2_state')).activeLesson.step,2,'step must be checkpointed');
 app=boot();
