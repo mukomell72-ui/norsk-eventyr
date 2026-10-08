@@ -16,7 +16,8 @@
   state.dailyDayCount=Number(state.dailyDayCount)||Object.keys(state.dailyPacks).length;
   saveState();
 
-  let neSession=sessionStorage.getItem("ne_session")||"",micBusy=false,speechAudio=null,speechUrl=null,speechRequest=0;
+  let neSession=sessionStorage.getItem("ne_session")||"",micBusy=false,speechAudio=null,speechRequest=0,speechActiveButton=null;
+  const speechCache=new Map(),SPEECH_CACHE_LIMIT=12;
   let placementSession=null,reviewSession=null,examV3=null,dailyTaskSession=null,mediaRecorder=null,mediaStream=null,recordChunks=[],recordTimer=null,recordStartedAt=0,chatInputWasVoice=false;
   const MIC_CONSTRAINTS={audio:{channelCount:{ideal:1},sampleRate:{ideal:48000},echoCancellation:true,noiseSuppression:true,autoGainControl:true}};
   function micStreamAlive(){
@@ -125,33 +126,84 @@
     return r.ok?{ok:true,data:r.data}:{ok:false,error:r.error};
   };
 
-  function fallbackSpeech(text,rate=.9){
-    if(!("speechSynthesis" in window))return;
-    speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang="nb-NO";u.rate=rate;
-    const v=speechSynthesis.getVoices().find(x=>/^nb|no/i.test(x.lang));if(v)u.voice=v;speechSynthesis.speak(u);
+  function restoreSpeechButton(btn){
+    if(!btn)return;
+    if(btn.dataset.speechOriginal!==undefined)btn.innerHTML=btn.dataset.speechOriginal;
+    btn.classList.remove("speech-loading","speech-playing");
+    btn.disabled=false;
+    if(speechActiveButton===btn)speechActiveButton=null;
   }
-  speakText=async function(text,rate=.9){
-    const request=++speechRequest;
-    speechAudio?.pause();if(speechUrl)URL.revokeObjectURL(speechUrl);speechUrl=null;
+  function setSpeechButton(btn,stateName){
+    if(!btn)return;
+    if(btn.dataset.speechOriginal===undefined)btn.dataset.speechOriginal=btn.innerHTML;
+    btn.classList.remove("speech-loading","speech-playing");
+    if(stateName==="loading"){btn.classList.add("speech-loading");btn.innerHTML=btn.classList.contains("mini-audio")?"…":"⏳ Готовлю голос…";btn.disabled=true}
+    if(stateName==="playing"){btn.classList.add("speech-playing");btn.innerHTML=btn.classList.contains("mini-audio")?"🔊":"🔊 Нора говорит…";btn.disabled=true}
+    speechActiveButton=btn;
+  }
+  function stopSpeechPlayback(){
+    speechAudio?.pause();speechAudio=null;
     window.speechSynthesis?.cancel();
+    restoreSpeechButton(speechActiveButton);
+  }
+  function speechKey(text,level){return String(level||"A1")+"\n"+String(text||"").trim()}
+  function trimSpeechCache(){
+    while(speechCache.size>SPEECH_CACHE_LIMIT){
+      const [key,item]=speechCache.entries().next().value||[];
+      if(!key)break;
+      if(item?.url)URL.revokeObjectURL(item.url);
+      speechCache.delete(key);
+    }
+  }
+  async function getSpeechAudio(text,level){
+    const key=speechKey(text,level),cached=speechCache.get(key);
+    if(cached?.url)return cached;
+    if(cached?.promise)return cached.promise;
+    const promise=(async()=>{
+      const r=await apiPost("/api/speech",{text,level});
+      if(!r.ok)throw new Error(r.error||"SPEECH_FAILED");
+      const blob=await r.response.blob(),url=URL.createObjectURL(blob),item={url};
+      speechCache.set(key,item);trimSpeechCache();return item;
+    })().catch(e=>{speechCache.delete(key);throw e});
+    speechCache.set(key,{promise});return promise;
+  }
+  function primeSpeech(text,level=(lessonSession?.lesson?.level)||state.level||"A1"){
+    if(!String(text||"").trim()||window.NEHumanVoice?.has?.(text))return;
+    getSpeechAudio(text,level).catch(()=>{});
+  }
+  function fallbackSpeech(text,rate=.9,btn=null){
+    if(!("speechSynthesis" in window)){restoreSpeechButton(btn);return}
+    speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang="nb-NO";u.rate=rate;
+    const v=speechSynthesis.getVoices().find(x=>/^nb|no/i.test(x.lang));if(v)u.voice=v;
+    u.onstart=()=>setSpeechButton(btn,"playing");u.onend=()=>restoreSpeechButton(btn);u.onerror=()=>restoreSpeechButton(btn);
+    speechSynthesis.speak(u);
+  }
+  speakText=async function(text,rate=.9,btn=null){
+    btn=btn||(document.activeElement?.tagName==="BUTTON"?document.activeElement:null);
+    const request=++speechRequest;stopSpeechPlayback();setSpeechButton(btn,"loading");
     // Prefer a licensed real-human Nora recording when an exact clip exists.
     try{
       if(window.NEHumanVoice?.has?.(text)){
+        setSpeechButton(btn,"playing");
         const played=await window.NEHumanVoice.play(text,rate);
-        if(played)return {source:"human",speaker:window.NEHumanVoice.speaker};
+        if(played){setTimeout(()=>restoreSpeechButton(btn),Math.max(900,String(text).length*65));return {source:"human",speaker:window.NEHumanVoice.speaker}}
       }
     }catch{}
     const level=(lessonSession?.lesson?.level)||state.level||"A1";
-    const r=await apiPost("/api/speech",{text,level});
-    if(request!==speechRequest)return;
-    if(!r.ok){fallbackSpeech(text,rate);return {source:"browser"}}
     try{
-      const blob=await r.response.blob();if(request!==speechRequest)return;
-      const url=URL.createObjectURL(blob),a=new Audio(url);speechAudio=a;speechUrl=url;
+      const item=await getSpeechAudio(text,level);if(request!==speechRequest){restoreSpeechButton(btn);return}
+      const a=new Audio(item.url);speechAudio=a;a.preload="auto";a.volume=.96;
       a.playbackRate=Math.max(.6,Math.min(1.4,Number(rate)/.9||1));
-      a.onended=()=>{URL.revokeObjectURL(url);if(speechUrl===url)speechUrl=null};await a.play();return {source:"ai"};
-    }catch{fallbackSpeech(text,rate);return {source:"browser"}}
+      a.onplaying=()=>setSpeechButton(btn,"playing");
+      a.onended=()=>{speechAudio=null;restoreSpeechButton(btn)};
+      a.onerror=()=>{speechAudio=null;restoreSpeechButton(btn)};
+      await a.play();return {source:"ai"};
+    }catch{
+      if(request!==speechRequest){restoreSpeechButton(btn);return}
+      fallbackSpeech(text,rate,btn);return {source:"browser"};
+    }
   };
+  window.nePrimeSpeech=primeSpeech;
 
   function normSpeech(s){return String(s||"").toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}\s]/gu,"").replace(/\s+/g," ").trim()}
   function similarity(a,b){
@@ -301,7 +353,7 @@
   }
   function listenExV3(l){
     const d=shuffle(COURSE.filter(x=>x.level===l.level&&x.id!==l.id)).slice(0,3).map(x=>x.phrase),o=shuffle([l.phrase,...d]),c=o.indexOf(l.phrase);
-    return '<article class="card"><div class="eyebrow">Аудирование</div><div class="notice"><b>AI-голос:</b> аудио синтезировано, это не запись реального человека.</div><div class="prompt">Прослушай и выбери точную фразу.</div><button class="btn" onclick="speakText(\''+escJs(l.phrase)+'\',.85)">▶ Прослушать</button><div class="choice-list">'+o.map((x,i)=>'<button class="choice" onclick="lessonChoice(this,'+i+','+c+',\''+escJs(l.ru)+'\')">'+esc(x)+'</button>').join("")+'</div><hr><div class="eyebrow">Речь и разборчивость</div><p class="muted">Повтори фразу вслух. Запись будет распознана и сравнена с образцом.</p><textarea id="pronText" class="input" placeholder="После записи здесь появится распознанный текст."></textarea><button id="pronBtn" class="btn secondary" style="margin-top:10px" onclick="toggleMic(\'pronText\',\''+escJs(l.phrase)+'\')">🎤 Повторить фразу</button><div id="pronFb"></div><div id="fb"></div></article>';
+    return '<article class="card"><div class="eyebrow">Аудирование</div><div class="notice"><b>AI-голос:</b> аудио синтезировано, это не запись реального человека.</div><div class="prompt">Прослушай и выбери точную фразу.</div><button class="btn" onclick="speakText(\''+escJs(l.phrase)+'\',.85,this)">▶ Прослушать</button><div class="choice-list">'+o.map((x,i)=>'<button class="choice" onclick="lessonChoice(this,'+i+','+c+',\''+escJs(l.ru)+'\')">'+esc(x)+'</button>').join("")+'</div><hr><div class="eyebrow">Речь и разборчивость</div><p class="muted">Повтори фразу вслух. Запись будет распознана и сравнена с образцом.</p><textarea id="pronText" class="input" placeholder="После записи здесь появится распознанный текст."></textarea><button id="pronBtn" class="btn secondary" style="margin-top:10px" onclick="toggleMic(\'pronText\',\''+escJs(l.phrase)+'\')">🎤 Повторить фразу</button><div id="pronFb"></div><div id="fb"></div></article>';
   }
   renderLesson=function(){
     if(lessonSession?.lesson?._adaptive&&typeof adaptiveRenderLesson==="function")return adaptiveRenderLesson();
@@ -366,13 +418,13 @@
     '<div class="section-title"><div><div class="eyebrow">Новые слова</div><h2>Сегодняшняя пятёрка</h2></div><button class="btn ghost" onclick="navigate(\'dictionary\')">Открыть словарь</button></div>'+
     '<section class="daily-word-list">'+(pack.words||[]).map((w,i)=>dailyWordCard(w,i)).join("")+'</section>'+
     ((pack.review_words||[]).length?'<div class="section-title"><h2>Закрепляем слова прошлых дней</h2></div><section class="card"><div class="wordchips">'+pack.review_words.map(x=>'<span class="wordchip">'+esc(x)+'</span>').join("")+'</div></section>':'')+
-    ((pack.reinforcement_sentences||[]).length?'<div class="section-title"><h2>Новые + старые слова вместе</h2></div><section class="card reinforcement-list">'+pack.reinforcement_sentences.map(x=>'<div class="reinforcement-row"><button class="mini-audio" onclick="speakText(\''+escJs(x.no)+'\')">🔊</button><div><b>'+esc(x.no)+'</b><br><span class="muted">'+esc(x.ru)+'</span></div></div>').join("")+'</section>':'')+
+    ((pack.reinforcement_sentences||[]).length?'<div class="section-title"><h2>Новые + старые слова вместе</h2></div><section class="card reinforcement-list">'+pack.reinforcement_sentences.map(x=>'<div class="reinforcement-row"><button class="mini-audio" onclick="speakText(\''+escJs(x.no)+'\',.9,this)">🔊</button><div><b>'+esc(x.no)+'</b><br><span class="muted">'+esc(x.ru)+'</span></div></div>').join("")+'</section>':'')+
     '<div class="section-title"><h2>Практика</h2></div><section class="card"><p class="muted">Задания смешивают сегодняшние слова со словами предыдущих дней. Так старые слова не исчезают после одного урока.</p><div class="row"><button class="btn" onclick="navigate(\'dailypractice\',\''+date+'\')">'+(done?"Пройти задания ещё раз":"Начать задания")+'</button><button class="btn secondary" onclick="navigate(\'review\')">Интервальное повторение</button></div></section>',"home");
   }
   function dailyWordCard(w,i){
     const forms=(w.forms||[]).map(x=>'<tr><td>'+esc(x.label)+'</td><td><b>'+esc(x.form)+'</b></td></tr>').join("");
-    const examples=(w.examples||[]).map(x=>'<div class="daily-example"><span class="tag">'+esc(x.label)+'</span><button class="mini-audio" onclick="speakText(\''+escJs(x.no)+'\')">🔊</button><b>'+esc(x.no)+'</b><div class="muted">'+esc(x.ru)+'</div></div>').join("");
-    return '<article class="card daily-word-card"><div class="row"><span class="lesson-num">'+(i+1)+'</span><div><div class="eyebrow">'+esc(POS_LABEL[w.pos]||w.pos)+(w.gender?" · "+esc(w.gender):"")+'</div><h2>'+esc(w.lemma||w.word)+' <button class="mini-audio" onclick="speakText(\''+escJs(w.lemma||w.word)+'\')">🔊</button></h2><div class="daily-translation">'+esc(w.translation_ru)+'</div></div></div>'+
+    const examples=(w.examples||[]).map(x=>'<div class="daily-example"><span class="tag">'+esc(x.label)+'</span><button class="mini-audio" onclick="speakText(\''+escJs(x.no)+'\',.9,this)">🔊</button><b>'+esc(x.no)+'</b><div class="muted">'+esc(x.ru)+'</div></div>').join("");
+    return '<article class="card daily-word-card"><div class="row"><span class="lesson-num">'+(i+1)+'</span><div><div class="eyebrow">'+esc(POS_LABEL[w.pos]||w.pos)+(w.gender?" · "+esc(w.gender):"")+'</div><h2>'+esc(w.lemma||w.word)+' <button class="mini-audio" onclick="speakText(\''+escJs(w.lemma||w.word)+'\',.9,this)">🔊</button></h2><div class="daily-translation">'+esc(w.translation_ru)+'</div></div></div>'+
     (forms?'<table class="forms-table"><tbody>'+forms+'</tbody></table>':'')+
     '<div class="daily-examples">'+examples+'</div>'+
     (w.collocation?'<div class="notice"><b>Часто вместе:</b> '+esc(w.collocation)+'</div>':'')+
@@ -432,8 +484,8 @@
     if(!filtered.length)return '<section class="card" style="margin-top:14px"><div class="empty">Ничего не найдено.</div></section>';
     return '<section class="dictionary-list">'+filtered.map(x=>{
       const forms=(x.forms||[]).map(f=>'<span><small>'+esc(f.label)+'</small><b>'+esc(f.form)+'</b></span>').join("");
-      const ex=(x.examples||[]).map(e=>'<div><button class="mini-audio" onclick="speakText(\''+escJs(e.no)+'\')">🔊</button> '+esc(e.no)+' <span class="muted">— '+esc(e.ru)+'</span></div>').join("");
-      return '<details class="card dictionary-entry"><summary><div><b class="dictionary-word">'+esc(x.lemma||x.word)+'</b><span class="muted"> · '+esc(x.translation_ru)+'</span></div><div class="row"><span class="tag">'+esc(POS_LABEL[x.pos]||x.pos)+'</span><span class="tag">'+Math.round(x.strength||20)+'%</span></div></summary><div class="dictionary-body"><button class="btn ghost" onclick="event.preventDefault();speakText(\''+escJs(x.lemma||x.word)+'\')">🔊 Произношение</button><div class="forms-grid">'+forms+'</div>'+(x.collocation?'<p><b>Сочетание:</b> '+esc(x.collocation)+'</p>':'')+'<div class="dictionary-examples">'+ex+'</div><div class="row"><small>Изучено: '+esc(x.firstDate||"—")+' · встречалось: '+(x.exposures||1)+' раз</small><a class="btn ghost link-btn" target="_blank" rel="noopener" href="https://ordbokene.no/bm/'+encodeURIComponent(x.lemma||x.word)+'">Bokmålsordboka ↗</a></div></div></details>';
+      const ex=(x.examples||[]).map(e=>'<div><button class="mini-audio" onclick="speakText(\''+escJs(e.no)+'\',.9,this)">🔊</button> '+esc(e.no)+' <span class="muted">— '+esc(e.ru)+'</span></div>').join("");
+      return '<details class="card dictionary-entry"><summary><div><b class="dictionary-word">'+esc(x.lemma||x.word)+'</b><span class="muted"> · '+esc(x.translation_ru)+'</span></div><div class="row"><span class="tag">'+esc(POS_LABEL[x.pos]||x.pos)+'</span><span class="tag">'+Math.round(x.strength||20)+'%</span></div></summary><div class="dictionary-body"><button class="btn ghost" onclick="event.preventDefault();speakText(\''+escJs(x.lemma||x.word)+'\',.9,this)">🔊 Произношение</button><div class="forms-grid">'+forms+'</div>'+(x.collocation?'<p><b>Сочетание:</b> '+esc(x.collocation)+'</p>':'')+'<div class="dictionary-examples">'+ex+'</div><div class="row"><small>Изучено: '+esc(x.firstDate||"—")+' · встречалось: '+(x.exposures||1)+' раз</small><a class="btn ghost link-btn" target="_blank" rel="noopener" href="https://ordbokene.no/bm/'+encodeURIComponent(x.lemma||x.word)+'">Bokmålsordboka ↗</a></div></div></details>';
     }).join("")+'</section>';
   }
   function filterDictionary(q){dictionaryFilter.q=q;const e=document.getElementById("dictionaryList");if(e)e.innerHTML=dictionaryListHtml(dictionaryEntries().sort((a,b)=>String(b.firstDate||"").localeCompare(String(a.firstDate||""))))}
@@ -451,7 +503,7 @@
   function renderReviewCard(){
     const row=reviewSession.items[reviewSession.i];if(!row)return finishReview();
     const [key,item]=row,pool=shuffle(Object.values(state.srs).map(x=>x.translation).filter(x=>x!==item.translation)),opts=shuffle([item.translation,...pool.slice(0,3)]),correct=opts.indexOf(item.translation);
-    shell('<div class="screen-head"><button class="back" onclick="renderReview()">←</button><div><div class="eyebrow">Повторение '+(reviewSession.i+1)+'/'+reviewSession.items.length+'</div><h2 style="margin:0">'+item.level+'</h2></div></div><section class="exercise"><article class="card"><div class="prompt">'+esc(item.word)+'</div><button class="btn ghost" onclick="speakText(\''+escJs(item.word)+'\')">🔊 Слушать</button><div class="choice-list">'+opts.map((x,i)=>'<button class="choice" onclick="answerReview(\''+escJs(key)+'\','+i+','+correct+')">'+esc(x)+'</button>').join("")+'</div></article></section>',"review");
+    shell('<div class="screen-head"><button class="back" onclick="renderReview()">←</button><div><div class="eyebrow">Повторение '+(reviewSession.i+1)+'/'+reviewSession.items.length+'</div><h2 style="margin:0">'+item.level+'</h2></div></div><section class="exercise"><article class="card"><div class="prompt">'+esc(item.word)+'</div><button class="btn ghost" onclick="speakText(\''+escJs(item.word)+'\',.9,this)">🔊 Слушать</button><div class="choice-list">'+opts.map((x,i)=>'<button class="choice" onclick="answerReview(\''+escJs(key)+'\','+i+','+correct+')">'+esc(x)+'</button>').join("")+'</div></article></section>',"review");
   }
   function answerReview(key,i,c){
     const it=state.srs[key],ok=i===c,interval=[0,1,3,7,14,30,60],buttons=[...document.querySelectorAll(".choice")],fb=document.getElementById("reviewFb");
@@ -475,7 +527,7 @@
   function startPlacement(){placementSession={qs:[...PLACEMENT_BANK],i:0,byLevel:{A1:[0,0],A2:[0,0],B1:[0,0],B2:[0,0]},bySkill:{},byLevelSkill:{A1:{},A2:{},B1:{},B2:{}}};renderPlacementQ()}
   function renderPlacementQ(){
     const s=placementSession,q=s.qs[s.i];if(!q)return finishPlacement();
-    shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Диагностика</div><h2 style="margin:0">Задание '+(s.i+1)+'/20</h2></div></div><div class="progress"><i style="width:'+pct(s.i,20)+'%"></i></div><section class="exercise"><article class="card">'+(q.context?'<div class="translation">'+esc(q.context)+'</div><br>':"")+(q.audio?'<button class="btn" onclick="speakText(\''+escJs(q.audio)+'\')">▶ Прослушать</button><br><br>':"")+'<div class="prompt">'+esc(q.q)+'</div><div class="choice-list">'+q.opts.map((x,i)=>'<button class="choice" onclick="answerPlacement('+i+')">'+esc(x)+'</button>').join("")+'</div></article></section>',"home");
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Диагностика</div><h2 style="margin:0">Задание '+(s.i+1)+'/20</h2></div></div><div class="progress"><i style="width:'+pct(s.i,20)+'%"></i></div><section class="exercise"><article class="card">'+(q.context?'<div class="translation">'+esc(q.context)+'</div><br>':"")+(q.audio?'<button class="btn" onclick="speakText(\''+escJs(q.audio)+'\',.9,this)">▶ Прослушать</button><br><br>':"")+'<div class="prompt">'+esc(q.q)+'</div><div class="choice-list">'+q.opts.map((x,i)=>'<button class="choice" onclick="answerPlacement('+i+')">'+esc(x)+'</button>').join("")+'</div></article></section>',"home");
   }
   function answerPlacement(i){
     const s=placementSession,q=s.qs[s.i],ok=i===q.correct;s.byLevel[q.level][1]++;if(ok)s.byLevel[q.level][0]++;
@@ -575,7 +627,7 @@
   }
   async function playExamAudio(){
     const s=examV3,it=s?.items[s.i];if(!it)return;const limit=s.phase==="main"&&s.band==="B1-B2"?1:2;if(it.plays>=limit)return;
-    const b=document.getElementById("examAudioBtn");it.plays++;await speakText(it.audio);if(b?.isConnected&&examV3===s&&s.items[s.i]===it&&it.plays>=limit)b.disabled=true;
+    const b=document.getElementById("examAudioBtn");it.plays++;await speakText(it.audio,.9,b);if(b?.isConnected&&examV3===s&&s.items[s.i]===it&&it.plays>=limit)b.disabled=true;
   }
   function answerExamObjectiveV3(i){
     const s=examV3,it=s.items[s.i],ok=i===it.correct;s.total++;if(ok)s.correct++;if(s.phase==="pre"&&ok)s.preCorrect++;
@@ -641,7 +693,7 @@
     return h.map((m,i)=>{
       if(m.role==="user")return '<div class="chat-row user"><div class="chat-bubble user-bubble">'+esc(m.text)+'</div></div>';
       const meta=m.meta||{};
-      return '<div class="chat-row assistant"><div class="chat-avatar">N</div><div class="chat-stack"><div class="chat-bubble ai-bubble">'+esc(m.text)+'</div><div class="chat-actions"><button onclick="speakText(\''+escJs(m.text)+'\')">🔊 Слушать</button>'+(meta.translation_ru?'<button onclick="toggleChatTranslation('+i+')">RU перевод</button>':'')+'</div>'+(meta.translation_ru?'<div id="chatTr'+i+'" class="chat-translation" style="display:none">'+esc(meta.translation_ru)+'</div>':'')+(meta.corrected?'<div class="chat-correction"><b>Лучше сказать:</b> '+esc(meta.corrected)+(meta.explanation_ru?'<br><small>'+esc(meta.explanation_ru)+'</small>':'')+'</div>':'')+(meta.score!==undefined?'<small class="chat-score">Учебная оценка ответа: '+meta.score+'/100</small>':'')+'</div></div>';
+      return '<div class="chat-row assistant"><div class="chat-avatar">N</div><div class="chat-stack"><div class="chat-bubble ai-bubble">'+esc(m.text)+'</div><div class="chat-actions"><button onclick="speakText(\''+escJs(m.text)+'\',.9,this)">🔊 Слушать</button>'+(meta.translation_ru?'<button onclick="toggleChatTranslation('+i+')">RU перевод</button>':'')+'</div>'+(meta.translation_ru?'<div id="chatTr'+i+'" class="chat-translation" style="display:none">'+esc(meta.translation_ru)+'</div>':'')+(meta.corrected?'<div class="chat-correction"><b>Лучше сказать:</b> '+esc(meta.corrected)+(meta.explanation_ru?'<br><small>'+esc(meta.explanation_ru)+'</small>':'')+'</div>':'')+(meta.score!==undefined?'<small class="chat-score">Учебная оценка ответа: '+meta.score+'/100</small>':'')+'</div></div>';
     }).join("");
   }
   function setChatPref(key,value){
