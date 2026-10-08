@@ -99,3 +99,7 @@ button.speech-loading,button.speech-playing{transition:transform .12s ease,box-s
 button.speech-loading{transform:translateY(1px) scale(.985);box-shadow:0 0 0 3px rgba(93,190,255,.28)!important}
 button.speech-playing{transform:translateY(1px) scale(.985);box-shadow:0 0 0 3px rgba(94,227,173,.34)!important}
 .lesson-exercise-v6 button.speech-loading,.lesson-exercise-v6 button.speech-playing{background:#173b55!important;color:#fff!important}
+
+
+/* 8.0: learner controls when checked lesson feedback leaves the screen. */
+.lesson-next-v8{width:100%;margin-top:12px}
