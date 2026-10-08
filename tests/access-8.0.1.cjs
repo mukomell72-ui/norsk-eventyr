@@ -49,6 +49,9 @@ for(const action of ['owner_grant_free','owner_confirm_payment','owner_promo_cre
 assert(admin.includes('+30')&&admin.includes('Бесплатный доступ'),'free access controls missing');
 assert(admin.includes('Подтвердить оплату'),'manual paid confirmation UI missing');
 assert(admin.includes('Промокоды'),'promo manager UI missing');
+assert(admin.includes("metric('Бесплатный доступ',d.active_free)"),'free users must be separate in owner overview');
+assert(migration.includes("'active_free'"),'free-access owner metric missing');
+assert(access.includes('ownerMarkPurchaseSeen'),'purchase-interest notification acknowledgement missing');
 
 assert(app.includes('APP_VERSION="8.0.1"'),'app version mismatch');
 assert(health.includes('version:"8.0.1"'),'health version mismatch');
