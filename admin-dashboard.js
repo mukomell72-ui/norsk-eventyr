@@ -132,6 +132,7 @@
     metric('Ошибки приложения 24 ч',d.errors_24h)
    );
    out.append(grid);
+   window.NEAccess?.ownerMarkPurchaseSeen?.(Number(d.purchase_interest)||0);await window.NEOwnerBadge?.refresh?.();
    const funnelHead=sectionTitle('Воронка','Конверсия между ключевыми этапами.');out.append(funnelHead,funnelNode(g.stages||{}));
    const recent=sectionTitle('Последние события','Значимые действия пользователей.');out.append(recent);
    if(events.length){const list=el('div','admin-event-list');for(const item of events)list.append(renderEvent(item,true));out.append(list)}
