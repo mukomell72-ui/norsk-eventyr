@@ -1,4 +1,4 @@
-/* Norsk Eventyr 8.0.0 owner dashboard */
+/* Norsk Eventyr 8.0.1 owner dashboard */
 .admin-shell{min-height:100dvh;background:#071722;color:#eef6fa;padding-bottom:82px}
 .admin-topbar{position:sticky;top:0;z-index:8;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px max(16px,env(safe-area-inset-left));background:rgba(7,23,34,.94);backdrop-filter:blur(16px);border-bottom:1px solid #274556}
 .admin-brand{display:grid;gap:2px}.admin-brand h1{font-size:1.2rem;margin:0}.admin-brand small,.admin-kicker{font-size:11px;color:#9fb5c2}.admin-kicker{text-transform:uppercase;letter-spacing:.08em}
@@ -21,3 +21,12 @@
 @media(min-width:760px){.admin-shell{padding-bottom:30px}.admin-nav{position:sticky;top:74px;bottom:auto;transform:none;left:auto;margin:0 auto;width:min(calc(100% - 32px),1048px);border:1px solid #29495b;border-radius:14px;padding:6px;z-index:7}.admin-nav-item{font-size:13px}.admin-main{padding-top:12px}}
 @media(max-width:720px){.admin-topbar{align-items:flex-start}.admin-top-actions{max-width:145px}.admin-metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.admin-controls{grid-template-columns:1fr}.admin-user-row{align-items:flex-start;flex-direction:column}.admin-user-row>.btn{width:100%}.admin-detail-grid{grid-template-columns:1fr}.admin-section-head{align-items:flex-start}.admin-funnel-top{grid-template-columns:minmax(0,1fr) auto auto}}
 @media(max-width:420px){.admin-metric-grid{grid-template-columns:1fr 1fr}.admin-top-actions .btn{font-size:11px}.admin-brand h1{font-size:1.05rem}.admin-main{padding-left:12px;padding-right:12px}.admin-nav-item{padding-left:2px;padding-right:2px;font-size:10px}}
+
+.admin-badge.status-free{background:#173c35;border-color:#3f7868}
+.admin-access-tools{display:grid;gap:10px;padding:14px;border:1px solid #2c4b5c;border-radius:16px;background:#0a1f2c}
+.admin-device-list,.admin-promo-list{display:grid;gap:8px}
+.admin-device,.admin-promo{display:grid;gap:5px;padding:12px;border:1px solid #29495b;border-radius:14px;background:#0b2030}
+.admin-device small,.admin-promo p{margin:0;color:#9fb5c2;font-size:12px}
+.admin-promo-form{display:grid;grid-template-columns:1.2fr .65fr .65fr .9fr 1.2fr auto;gap:8px;align-items:center}
+@media(max-width:860px){.admin-promo-form{grid-template-columns:1fr 1fr}.admin-promo-form .btn{grid-column:1/-1}}
+@media(max-width:520px){.admin-promo-form{grid-template-columns:1fr}.admin-promo-form .btn{grid-column:auto}}
