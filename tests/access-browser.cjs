@@ -145,6 +145,29 @@ const server=http.createServer(async(req,res)=>{
  assert.equal(await admin.locator('[data-admin-tab="events"]').getAttribute('aria-selected'),'true');
  await admin.unroute('**/api/session');
  console.log('PASS all admin tabs: mobile click, active state, keyboard navigation, stale-request isolation');
+ // The overview KPI cards must be actual buttons with meaningful drill-downs, not static figures.
+ const drilldowns=[
+  ['users','users','all'],['trial','users','trial'],['free','users','free'],
+  ['interest','users','interest'],['paid','users','paid'],['revenue','payments',null],
+  ['fees','payments',null],['payment-errors','users','problem'],
+  ['renewals','payments',null],['app-errors','service',null]
+ ];
+ for(const [metricKey,target,filter] of drilldowns){
+  await admin.locator('[data-admin-tab="overview"]').click();
+  await admin.waitForSelector('[data-overview-metric="'+metricKey+'"]');
+  assert.equal(await admin.locator('[data-overview-metric]').count(),10);
+  const tile=admin.locator('[data-overview-metric="'+metricKey+'"]');
+  assert.equal(await tile.evaluate(node=>node.tagName),'BUTTON');
+  await tile.click();
+  await admin.waitForFunction(tab=>document.querySelector('#adminView > [data-admin-content]')?.dataset.adminContent===tab,target);
+  assert.equal(await admin.locator('[data-admin-tab="'+target+'"]').getAttribute('aria-selected'),'true');
+  if(filter!==null)assert.equal(await admin.locator('.admin-filter').inputValue(),filter);
+  if(metricKey==='app-errors')await admin.waitForSelector('#admin-errors');
+ }
+ await admin.locator('[data-admin-tab="overview"]').click();
+ await admin.getByRole('button',{name:'Все события →',exact:true}).click();
+ assert.equal(await admin.locator('[data-admin-tab="events"]').getAttribute('aria-selected'),'true');
+ console.log('PASS overview tiles: all ten KPI drilldowns, user filters, application errors and events link');
  await admin.evaluate(()=>dispatchEvent(new Event('focus')));await admin.waitForTimeout(350);assert.equal(await admin.locator('.admin-shell').isVisible(),true);assert.equal(await admin.locator('#app').isVisible(),false);await admin.getByRole('tab',{name:'Пользователи',exact:true}).click();await admin.waitForSelector('.admin-user-row');assert.equal(await admin.locator('.admin-user-row img').count(),0);await admin.getByRole('button',{name:'Открыть',exact:true}).click();await admin.waitForSelector('.admin-user-detail-head');
  await admin.getByRole('button',{name:'Одобрить аккаунт',exact:true}).click();await admin.waitForFunction(()=>document.querySelector('.admin-user-detail-head')&&document.body.textContent.includes('Одобрен'));assert(readyBonusAt);assert(future(freeUntil));
 
