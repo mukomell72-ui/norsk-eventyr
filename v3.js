@@ -345,7 +345,7 @@
     if(ok){
       lessonSession.locked=true;document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good")});
       updateSkill("grammar",100);document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно</b></div>';
-      neAdvance(()=>lessonNext(15),420);return;
+      neAdvance(()=>lessonNext(15),3000);return;
     }
     btn.classList.add("bad");btn.disabled=true;rememberError("grammar");updateSkill("grammar",25);
     document.getElementById("fb").innerHTML='<div class="feedback bad"><b>Неверно.</b> Посмотри правило и выбери другой вариант.</div>';
@@ -369,7 +369,7 @@
     if(ok){
       lessonSession.locked=true;document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good")});
       updateSkill(skill,100);document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно</b></div>';
-      neAdvance(()=>lessonNext(15),420);return;
+      neAdvance(()=>lessonNext(15),3000);return;
     }
     btn.classList.add("bad");btn.disabled=true;rememberError(skill);updateSkill(skill,20);
     document.getElementById("fb").innerHTML='<div class="feedback bad"><b>Неверно.</b> '+esc(note)+'<br><small>Попробуй другой ответ.</small></div>';
@@ -384,8 +384,8 @@
     const d=r.data,score=Number(d.score||0),ok=d.accepted!==false&&score>=55;trackLessonScore(score);
     updateSkill(mode,score);updateSkill("grammar",d.breakdown?.grammar??score);updateSkill("vocabulary",d.breakdown?.vocabulary??score);rememberError(d.error_tag);
     if(ok){
-      b.innerHTML='<div class="feedback good"><b>✓ Хороший ответ</b></div>';
-      neAdvance(()=>lessonNext(20),500);return;
+      b.innerHTML=(typeof aiLessonFeedbackHtml==="function"?aiLessonFeedbackHtml(d,"✓ Хороший ответ"):'<div class="feedback good"><b>✓ Хороший ответ · '+score+'/100</b><br>'+esc(d.explanation_ru||"Ответ принят.")+'</div>');
+      neAdvance(()=>lessonNext(20),3000);return;
     }
     s.locked=false;
     b.innerHTML='<div class="feedback bad"><b>Исправь и попробуй ещё раз</b><br>'+esc(d.explanation_ru||"")+(d.corrected?'<br><br><b>Возможный вариант:</b><br>'+esc(d.corrected):"")+'</div>';
@@ -460,7 +460,7 @@
     updateDailyStrength([...(t.review_words||[]),...(t.new_words||[])],score);updateSkill("vocabulary",score);updateSkill("grammar",r.data.breakdown?.grammar??score);rememberError(r.data.error_tag);
     if(ok){
       s.scores.push(score);b.innerHTML='<div class="feedback good"><b>✓ '+score+'/100</b></div>';
-      neAdvance(()=>{s.locked=false;nextDailyTask()},500);return;
+      neAdvance(()=>{s.locked=false;nextDailyTask()},3000);return;
     }
     s.locked=false;
     b.innerHTML='<div class="feedback bad"><b>Исправь и попробуй ещё раз</b><br>'+esc(r.data.explanation_ru||"")+(r.data.corrected?'<br><br><b>Возможный вариант:</b><br>'+esc(r.data.corrected):"")+(t.model_answer_no?'<br><br><b>Пример:</b> '+esc(t.model_answer_no):"")+'</div>';
@@ -512,7 +512,7 @@
       if(!reviewSession.missed[key])it.stage=Math.min(6,(it.stage||0)+1);
       const days=interval[it.stage]||1;it.due=Date.now()+days*86400000;updateSkill("vocabulary",100);if(state.dailyDictionary[key])updateDailyStrength([key],100);saveState();
       buttons.forEach(b=>b.disabled=true);buttons[i]?.classList.add("good");if(fb)fb.innerHTML='<div class="feedback good"><b>✓ Верно</b></div>';
-      neAdvance(()=>{reviewSession.i++;renderReviewCard()},380);return;
+      neAdvance(()=>{reviewSession.i++;renderReviewCard()},3000);return;
     }
     if(!reviewSession.missed[key]){
       reviewSession.missed[key]=true;it.seen=(it.seen||0)+1;it.stage=Math.max(0,(it.stage||0)-1);it.due=Date.now()+86400000;rememberError("vocabulary");updateSkill("vocabulary",15);if(state.dailyDictionary[key])updateDailyStrength([key],15);saveState();
@@ -582,7 +582,7 @@
     if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:s.level,skill:sk,score,moduleId:s.level+"-diagnostic",source:"level_test",transfer:true});
     document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===q.correct)b.classList.add("good");if(j===i&&!ok)b.classList.add("bad")});
     document.getElementById("testFb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'">'+(ok?"✓ Верно":"Неверно")+'</div>';
-    saveState();neAdvance(()=>{s.locked=false;testNext()},ok?380:900);
+    saveState();neAdvance(()=>{s.locked=false;testNext()},3000);
   };
   answerTestFree=async function(){
     const s=testSession,q=s?.questions[s.i],a=document.getElementById("testFree")?.value.trim();if(!q||!a||s.locked)return;s.locked=true;const b=document.getElementById("testFb");b.innerHTML='<div class="feedback">Оцениваю…</div>';
@@ -592,9 +592,9 @@
       const pts=Math.max(0,Math.min(1,(r.data.score||0)/100)),score=Math.round(pts*100);testSession.freeScores.push(pts);testSession.skillEvidence=testSession.skillEvidence||{};(testSession.skillEvidence[mode]||(testSession.skillEvidence[mode]=[])).push(score);updateSkill(mode,score);updateSkill("grammar",r.data.breakdown?.grammar??score);updateSkill("vocabulary",r.data.breakdown?.vocabulary??score);rememberError(r.data.error_tag);
       if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:testSession.level,skill:mode,score,moduleId:testSession.level+"-diagnostic",source:"level_test_free",errorTag:r.data.error_tag||"",transfer:true});
       saveState();b.innerHTML='<div class="feedback '+(pts>=.55?"good":"bad")+'"><b>'+score+'/100</b> · '+esc(r.data.explanation_ru||"Оценено.")+(r.data.corrected?'<br><b>Лучше:</b> '+esc(r.data.corrected):"")+'</div>';
-      neAdvance(()=>{s.locked=false;testNext()},pts>=.55?500:1100);
+      neAdvance(()=>{s.locked=false;testNext()},3000);
     }else{
-      testSession.freeScores.push(null);b.innerHTML='<div class="feedback bad">AI недоступен; ответ не войдёт в процент.</div>';neAdvance(()=>{s.locked=false;testNext()},900);
+      testSession.freeScores.push(null);b.innerHTML='<div class="feedback bad">AI недоступен; ответ не войдёт в процент.</div>';neAdvance(()=>{s.locked=false;testNext()},3000);
     }
   };
 
@@ -648,7 +648,7 @@
     if(!b.isConnected||examV3!==s){s.locked=false;return}
     if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">AI не ответил. Попробуй отправить ответ ещё раз.</div>';return}
     const score=Number(r.data.score||0);s.scores.push(score);updateSkill(s.part,score);updateSkill("grammar",r.data.breakdown?.grammar??score);updateSkill("vocabulary",r.data.breakdown?.vocabulary??score);rememberError(r.data.error_tag);
-    b.innerHTML='<div class="feedback '+(score>=55?"good":"bad")+'"><b>'+score+'/100</b> · '+esc(r.data.explanation_ru||"")+'</div>';neAdvance(()=>{s.locked=false;nextExamProductive()},1000);
+    b.innerHTML='<div class="feedback '+(score>=55?"good":"bad")+'"><b>'+score+'/100</b> · '+esc(r.data.explanation_ru||"")+'</div>';neAdvance(()=>{s.locked=false;nextExamProductive()},3000);
   }
   function nextExamProductive(){examV3.i++;renderExamProductive()}
   function finishExamV3(){
