@@ -50,7 +50,7 @@ for(const action of ['owner_grant_free','owner_confirm_payment','owner_promo_cre
 assert(admin.includes('+30')&&admin.includes('Бесплатный доступ'),'free access controls missing');
 assert(admin.includes('Подтвердить оплату'),'manual paid confirmation UI missing');
 assert(admin.includes('Промокоды'),'promo manager UI missing');
-assert(admin.includes("metric('Бесплатный доступ',d.active_free)"),'free users must be separate in owner overview');
+assert(admin.includes("metric('Бесплатный доступ',d.active_free,'free','users','free')"),'free users must be separate and clickable in owner overview');
 assert(migration.includes("'active_free'"),'free-access owner metric missing');
 assert(access.includes('ownerMarkPurchaseSeen'),'purchase-interest notification acknowledgement missing');
 assert(access.includes("if(loaded&&!panelOpen&&!document.hidden")&&access.includes("if(loaded&&!panelOpen&&!gate.querySelector('#accessList')"),'background access checks must not close an open panel');
