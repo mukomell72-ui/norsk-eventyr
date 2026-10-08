@@ -3,7 +3,7 @@
  const TERMS_VERSION='2026-10-08-v2',PRIVACY_VERSION='2026-10-08-v4';
  const ASSET_REV='8.0.1-access-r1',scripts=['data.js','curriculum-v8.js','adaptive-teacher.js','app.js','voice-pack.js','v3.js','lexicon.js','elite.js','story-data.js','story.js','ui-v6.js','ui-v7.js','ui-v8.js','updates.js','feedback.js'];
  const app=document.getElementById('app'),gate=document.createElement('main');gate.id='accessGate';gate.className='access-gate';document.body.append(gate);
- let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false,confirmationEmail=null,installSeenSent=false,errorReportBusy=false,growthActivityDateSent='',panelOpen=false;
+ let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false,confirmationEmail=null,installSeenSent=false,errorReportBusy=false,growthActivityDateSent='',panelOpen=false,panelEpoch=0;
  const safe=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  function deviceId(){
   const key='ne_device_id_v1';
@@ -251,19 +251,24 @@
  }
  async function status(){
   if(checking)return checking;
+  const requestPanelEpoch=panelEpoch;
   checking=(async()=>{
    try{
-    identity=await call('status');
+    const nextIdentity=await call('status');
+    // An in-flight check must not replace an admin panel opened after the request began.
+    if(panelOpen&&requestPanelEpoch!==panelEpoch)return true;
+    identity=nextIdentity;
     if(identity.status==='terms_required'||(!identity.owner&&identity.accepted_privacy_version&&identity.accepted_privacy_version!==PRIVACY_VERSION)){terms();return false}
     clearPendingReferral();
     if(identity.access_granted===true){await load();return true}
     waiting();return false;
-   }catch(e){identity=null;if(e.code==='LOGIN_REQUIRED')login();else if(['DEVICE_LIMIT','CONCURRENT_DEVICE','DEVICE_REQUIRED'].includes(e.code)){view('<h1>Доступ с этого устройства ограничен</h1><p>'+safe(e.message)+'</p><div class="row"><button class="btn" id="accessRetry">Проверить снова</button><button class="btn ghost" id="accessLogout">Выйти</button></div>');document.getElementById('accessRetry').onclick=()=>act(status);document.getElementById('accessLogout').onclick=logout}else{view('<h1>Проверка доступа недоступна</h1><p>Для проверки доступа нужно подключение к интернету.</p><button class="btn" id="accessRetry">Повторить</button>');message(e.message);document.getElementById('accessRetry').onclick=()=>act(status)}return false}
+   }catch(e){if(panelOpen&&requestPanelEpoch!==panelEpoch)return false;identity=null;if(e.code==='LOGIN_REQUIRED')login();else if(['DEVICE_LIMIT','CONCURRENT_DEVICE','DEVICE_REQUIRED'].includes(e.code)){view('<h1>Доступ с этого устройства ограничен</h1><p>'+safe(e.message)+'</p><div class="row"><button class="btn" id="accessRetry">Проверить снова</button><button class="btn ghost" id="accessLogout">Выйти</button></div>');document.getElementById('accessRetry').onclick=()=>act(status);document.getElementById('accessLogout').onclick=logout}else{view('<h1>Проверка доступа недоступна</h1><p>Для проверки доступа нужно подключение к интернету.</p><button class="btn" id="accessRetry">Повторить</button>');message(e.message);document.getElementById('accessRetry').onclick=()=>act(status)}return false}
   })();try{return await checking}finally{checking=null}
  }
  async function logout(){await act(async()=>{if(loaded&&typeof saveState==='function')saveState();await call('logout');location.reload()})}
  function formatTrial(value){if(!value)return '';try{return new Date(value).toLocaleString('ru-RU',{dateStyle:'medium',timeStyle:'short'})}catch{return String(value)}}
  async function panel(){
+  panelEpoch++;
   const userStatus=identity?.status==='trial'?'<p>Пробный доступ активен до <b>'+safe(formatTrial(identity.trial_ends_at))+'</b>.</p>':identity?.status==='free'?'<p>Бесплатный доступ активен до <b>'+safe(formatTrial(identity.free_access_until))+'</b>.</p>':identity?.status==='paid'?'<p>Платный доступ активен до <b>'+safe(formatTrial(identity.paid_until))+'</b>.</p>':identity?.owner?'<p>Учётная запись владельца.</p>':'<p>Доступ сейчас не активен.</p>';
   if(identity?.owner){
    panelOpen=true;app.hidden=true;gate.hidden=false;gate.classList.add('admin-host');gate.innerHTML='<div id="adminDashboardRoot"></div><p id="accessMessage" role="status" aria-live="polite"></p>';
