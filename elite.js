@@ -272,6 +272,12 @@
     m.learningV8.attempts=adaptiveAttempts.filter(x=>{const key=JSON.stringify([x?.date,x?.skill,x?.moduleId,x?.source,x?.score]);if(seenAdaptive.has(key))return false;seenAdaptive.add(key);return true}).sort((a,b)=>String(a?.date||"").localeCompare(String(b?.date||""))).slice(-500);
     m.story={...(remote.story||{}),...(local.story||{})};m.story.completed={...(remote.story?.completed||{}),...(local.story?.completed||{})};m.story.choices={...(remote.story?.choices||{}),...(local.story?.choices||{})};m.story.journal={...(remote.story?.journal||{}),...(local.story?.journal||{})};m.story.sideQuests={...(remote.story?.sideQuests||{}),...(local.story?.sideQuests||{})};m.story.stats={...(remote.story?.stats||{})};for(const [k,v] of Object.entries(local.story?.stats||{}))m.story.stats[k]=Math.max(m.story.stats[k]||0,v||0);
     for(const key of ["wordFavorites","chatThreads","chatMemories","generatedLessons"]){m[key]={...(remote[key]||{}),...(local[key]||{})};}
+    const rm=remote.noraMemory||{},lm=local.noraMemory||{};
+    m.noraMemory={...rm,...lm,introduced:rm.introduced===true||lm.introduced===true,
+      conversationCount:Math.max(Number(rm.conversationCount)||0,Number(lm.conversationCount)||0),
+      lastPracticeDate:[rm.lastPracticeDate,lm.lastPracticeDate].filter(Boolean).sort().at(-1)||""};
+    const ra=remote.activeLesson,la=local.activeLesson;
+    m.activeLesson=(ra&&la)?(String(ra.savedAt||"")>String(la.savedAt||"")?ra:la):(la||ra||null);
     m.elite={...(remote.elite||{}),...(local.elite||{})};
     for(const key of ["drills","grammarDrills"]){m.elite[key]={...(remote.elite?.[key]||{}),...(local.elite?.[key]||{})};}
     m.testHistory=mergeHist(remote.testHistory,local.testHistory);m.examHistory=mergeHist(remote.examHistory,local.examHistory);
