@@ -16,7 +16,7 @@ export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY"});
   if(!await guard(req,res,{limit:24}))return;
   if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED"});
-  const {kind="lesson",level="A1",topic="",goal="",weakSkills=[],reviewWords=[],moduleId="",skillFocus="",canDo=[],grammarFocus="",lexiconFocus="",mastery={},errorPatterns=[],teacherMode=false,reviewMode=false}=req.body||{};
+  const {kind="lesson",level="A1",topic="",goal="",weakSkills=[],reviewWords=[],moduleId="",skillFocus="",canDo=[],grammarFocus="",lexiconFocus="",mastery={},errorPatterns=[],teacherMode=false,reviewMode=false,scenarioVariation=""}=req.body||{};
   if(!["A1","A2","B1","B2"].includes(level))return res.status(400).json({error:"BAD_LEVEL"});
   const reinforcement=Array.isArray(reviewWords)?reviewWords.slice(0,15).map(x=>String(x).slice(0,100)).filter(Boolean):[];
   const common=[
@@ -32,6 +32,7 @@ export default async function handler(req,res){
     "Делай материал жизненным: работа, жильё, услуги, здоровье, транспорт, общение, новости и реальные общественные ситуации. Избегай детских и искусственных тем.",
     "Сложность должна быть чуть выше устойчивого текущего результата, но не превращаться в угадывание. Слабый навык получит больше нагрузки, сильный — меньше.",
     "Если reviewMode=true, не повторяй старую формулировку: проверь тот же навык в новом контексте без прямой подсказки.",
+    "Чтобы исключить однообразие и заучивание шаблона, сделай каждую повторную сцену новой, сохраняя can-do цель. Вариант условий: "+String(scenarioVariation).slice(0,220)+". Не начинай со стандартного знакомства, если тема не о знакомстве.",
     "Русский используй только для точного короткого объяснения; основная языковая работа должна происходить на норвежском.",
     "Никаких заявлений, что ученик уже достиг уровня: материал только собирает доказательства владения.",
     "Не копируй официальные задания Norskprøven. Используй современный естественный Bokmål.",
