@@ -6,7 +6,7 @@ globalThis.fetch=async(url,options)=>{
  lastFetchUrl=String(url);
  if(down)throw new Error('offline');
  if(url.endsWith('/user'))return {ok:true,status:200,json:async()=>({email:'student@example.com',email_confirmed_at:confirmed?'2026-01-01':null})};
- if(url.includes('/rpc/')){const name=url.split('/').pop();rpcCalls.push(name);return {ok:true,json:async()=>name==='ne_access_status_v2'?{status,owner,access_granted:status==='approved',user_id:'11111111-1111-4111-8111-111111111111'}:name==='ne_device_authorize'?{allowed:deviceAllowed,reason:deviceAllowed?null:'DEVICE_LIMIT',max_devices:2}:name==='ne_access_list'?[]:{ok:true}}}
+ if(url.includes('/rpc/')){const name=url.split('/').pop();rpcCalls.push(name);return {ok:true,json:async()=>name==='ne_access_status_v2'?{status,owner,access_granted:owner||['trial','free','paid'].includes(status),user_id:'11111111-1111-4111-8111-111111111111'}:name==='ne_device_authorize'?{allowed:deviceAllowed,reason:deviceAllowed?null:'DEVICE_LIMIT',max_devices:2}:name==='ne_access_list'?[]:{ok:true}}}
  if(url.includes('/token?'))return {ok:true,json:async()=>({access_token:'new-token',refresh_token:'new-refresh',expires_in:3600})};
  if(url.includes('/recover?'))return {ok:true,status:200,json:async()=>({})};
  throw Error('Unexpected '+url);
@@ -21,10 +21,10 @@ deviceAllowed=false;const deviceBlocked=await invoke({action:'status'});assert.e
 assert.equal((await invoke({action:'legal_info'})).data.controller,'QA Controller');
 for(const action of ['list','decide'])assert.equal((await invoke({action,user_id:'11111111-1111-4111-8111-111111111111',status:'approved'})).code,403);
 assert(!rpcCalls.includes('ne_access_decide'));
-for(const state of ['pending','denied','revoked','unrequested','approved']){
- status=state;const req=request();req.url='/api/evaluate';req.headers['x-ne-session']=createSession(req);const res=response();const allowed=await guard(req,res);assert.equal(allowed,state==='approved');if(!allowed)assert.equal(res.code,403);
+for(const state of ['pending','denied','revoked','unrequested','approved','trial','free','paid']){
+ status=state;const req=request();req.url='/api/evaluate';req.headers['x-ne-session']=createSession(req);const res=response();const allowed=await guard(req,res);assert.equal(allowed,['trial','free','paid'].includes(state));if(!allowed)assert.equal(res.code,403);
 }
-status='approved';
+status='free';
 assert.equal((await invoke({action:'feedback_submit',rating:6,comment:'x'})).code,400);
 const submitted=await invoke({action:'feedback_submit',rating:5,comment:'Отлично',suggestion:'Больше историй'});assert.equal(submitted.code,200);assert(rpcCalls.includes('ne_feedback_submit'));
 confirmed=false;assert.equal((await invoke({action:'status'})).code,401);confirmed=true;
