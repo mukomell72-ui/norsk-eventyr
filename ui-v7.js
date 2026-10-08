@@ -79,15 +79,8 @@
       '</div>';
   };
   window.neAdvance=function(action,delay){
-    const revision=window.neScreenRevision,requested=Math.max(0,Number(delay)||0);
-    const visible=e=>{if(!e||!e.isConnected)return false;const st=getComputedStyle(e);return st.display!=="none"&&st.visibility!=="hidden"&&e.getClientRects().length>0};
-    const feedback=[...document.querySelectorAll(".feedback")].filter(visible).at(-1);
-    const checkedChoice=[...document.querySelectorAll(".choice.good,.choice.bad")].some(visible);
-    const hold=Boolean(feedback||checkedChoice),actual=hold?Math.max(3000,requested):requested;
-    if(feedback&&actual>=3000&&!feedback.querySelector(".feedback-hold-v8")){
-      const note=document.createElement("small");note.className="feedback-hold-v8";note.textContent="Ответ Норы останется на экране 3 секунды.";feedback.append(document.createElement("br"),note);
-    }
-    return setTimeout(()=>{if(revision===window.neScreenRevision)action()},actual);
+    const revision=window.neScreenRevision;
+    return setTimeout(()=>{if(revision===window.neScreenRevision)action()},delay);
   };
 
   function helpMarkupV7(){
