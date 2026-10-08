@@ -356,8 +356,8 @@
     if(lessonSession.locked)return;const ok=i===c;trackLessonScore(ok?100:35);
     if(ok){
       lessonSession.locked=true;document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good")});
-      updateSkill("grammar",100);document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно</b></div>';
-      neAdvance(()=>lessonNext(15),3000);return;
+      updateSkill("grammar",100);document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно</b></div><button class="btn lesson-next-v8" onclick="lessonNext(15)">Дальше →</button>';
+      return;
     }
     btn.classList.add("bad");btn.disabled=true;rememberError("grammar");updateSkill("grammar",25);
     document.getElementById("fb").innerHTML='<div class="feedback bad"><b>Неверно.</b> Посмотри правило и выбери другой вариант.</div>';
@@ -380,8 +380,8 @@
     const skill=lessonSession.step===2?"vocabulary":lessonSession.step===3?"listening":"reading";
     if(ok){
       lessonSession.locked=true;document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good")});
-      updateSkill(skill,100);document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно</b></div>';
-      neAdvance(()=>lessonNext(15),3000);return;
+      updateSkill(skill,100);document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно</b></div><button class="btn lesson-next-v8" onclick="lessonNext(15)">Дальше →</button>';
+      return;
     }
     btn.classList.add("bad");btn.disabled=true;rememberError(skill);updateSkill(skill,20);
     document.getElementById("fb").innerHTML='<div class="feedback bad"><b>Неверно.</b> '+esc(note)+'<br><small>Попробуй другой ответ.</small></div>';
@@ -396,8 +396,8 @@
     const d=r.data,score=Number(d.score||0),ok=d.accepted!==false&&score>=55;trackLessonScore(score);
     updateSkill(mode,score);updateSkill("grammar",d.breakdown?.grammar??score);updateSkill("vocabulary",d.breakdown?.vocabulary??score);rememberError(d.error_tag);
     if(ok){
-      b.innerHTML=(typeof aiLessonFeedbackHtml==="function"?aiLessonFeedbackHtml(d,"✓ Хороший ответ"):'<div class="feedback good"><b>✓ Хороший ответ · '+score+'/100</b><br>'+esc(d.explanation_ru||"Ответ принят.")+'</div>');
-      neAdvance(()=>lessonNext(20),3000);return;
+      b.innerHTML=(typeof aiLessonFeedbackHtml==="function"?aiLessonFeedbackHtml(d,"✓ Хороший ответ"):'<div class="feedback good"><b>✓ Хороший ответ · '+score+'/100</b><br>'+esc(d.explanation_ru||"Ответ принят.")+'</div>')+'<button class="btn lesson-next-v8" onclick="lessonNext(20)">Дальше →</button>';
+      return;
     }
     s.locked=false;
     b.innerHTML='<div class="feedback bad"><b>Исправь и попробуй ещё раз</b><br>'+esc(d.explanation_ru||"")+(d.corrected?'<br><br><b>Возможный вариант:</b><br>'+esc(d.corrected):"")+'</div>';
