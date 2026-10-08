@@ -50,7 +50,7 @@ const server=http.createServer(async(req,res)=>{
    if(decision==='approved'&&ready&&!readyBonusAt){freeUntil=extend(freeUntil,30);readyBonusAt=new Date().toISOString()}
    out={ok:true,status:decision,bonus_granted:!!readyBonusAt,free_access_until:freeUntil};
   }
-  else if(b.action==='owner_admin_overview')out={overview:{users:1,confirmed:1,active_trials:0,expired_trials:1,purchase_interest:ready?1:0,active_paid:future(paidUntil)?1:0,past_due:0,revenue_30d:manualPayments?99:0,fees_30d:0,failed_payments_7d:0,renewals_7d:0,errors_24h:0}};
+  else if(b.action==='owner_admin_overview')out={overview:{users:1,confirmed:1,active_trials:0,expired_trials:1,active_free:future(freeUntil)&&decision==='approved'?1:0,purchase_interest:ready?1:0,active_paid:future(paidUntil)?1:0,past_due:0,revenue_30d:manualPayments?99:0,fees_30d:0,failed_payments_7d:0,renewals_7d:0,errors_24h:0}};
   else if(b.action==='owner_growth')out={growth:{stages:{first_visits:1,registered:1,confirmed:1,trial_started:1,installed:0,active_3_days:1,trial_finished:1,purchase_interest:ready?1:0,paid:manualPayments?1:0},sources:[{source:'direct',registered:1,trial_started:1,active_3_days:1,purchase_interest:ready?1:0,paid:manualPayments?1:0}]}};
   else if(b.action==='owner_events')out={events:[]};
   else if(b.action==='owner_payments')out={payments:manualPayments?[{id:'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',user_id:studentId,email:'student@example.com',provider:'manual',status:'paid',amount_nok:99,fee_nok:0,refunded_nok:0,period_start:new Date().toISOString(),period_end:paidUntil,paid_at:new Date().toISOString(),created_at:new Date().toISOString()}]:[]};
