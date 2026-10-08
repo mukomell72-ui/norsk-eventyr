@@ -106,15 +106,15 @@
   }
   async function ensureSession(force=false){
     if(neSession&&!force)return neSession;
-    const r=await fetch("/api/session",{method:"POST",headers:{"Content-Type":"application/json"}});
+    const r=await fetch("/api/session",{method:"POST",headers:{"Content-Type":"application/json",...(window.NEAccess?.headers?.()||{})}});
     if(!r.ok)throw new Error("SESSION");
     const d=await r.json();neSession=d.token;sessionStorage.setItem("ne_session",neSession);return neSession;
   }
   async function apiPost(path,payload){
     try{
       await ensureSession();
-      let r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json","x-ne-session":neSession},body:JSON.stringify(payload)});
-      if(r.status===401){await ensureSession(true);r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json","x-ne-session":neSession},body:JSON.stringify(payload)})}
+      let r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json","x-ne-session":neSession,...(window.NEAccess?.headers?.()||{})},body:JSON.stringify(payload)});
+      if(r.status===401){await ensureSession(true);r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json","x-ne-session":neSession,...(window.NEAccess?.headers?.()||{})},body:JSON.stringify(payload)})}
       if(!r.ok){const d=await r.json().catch(()=>({}));if(["APPROVAL_REQUIRED","LOGIN_REQUIRED"].includes(d.code))window.NEAccess?.status();return {ok:false,error:d.code||d.error||("HTTP "+r.status)}}
       const ct=r.headers.get("content-type")||"";
       return ct.includes("application/json")?{ok:true,data:await r.json()}:{ok:true,response:r};

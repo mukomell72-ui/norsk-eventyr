@@ -1,4 +1,4 @@
-const APP_VERSION="8.0.0";
+const APP_VERSION="8.0.1";
 const DEFAULT_STATE={level:"A1",xp:0,completed:{},testHistory:[],examHistory:[],streak:1,lastStudy:null};
 let state=loadState(),lessonSession=null,testSession=null,examSession=null,speechRec=null,timerHandle=null;
 
@@ -286,7 +286,7 @@ function renderProgress(){
 }
 function resetProgress(){if(confirm("Удалить весь прогресс?")){localStorage.setItem("ne2_state_before_reset",JSON.stringify(state));localStorage.removeItem("ne2_state");localStorage.removeItem("ne_cloud_link");location.reload()}}
 
-async function aiEvaluate(payload){try{const r=await fetch("/api/evaluate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}),d=await r.json().catch(()=>({}));return r.ok?{ok:true,data:d}:{ok:false,error:d.code||d.error||("HTTP "+r.status)}}catch{return {ok:false,error:"NETWORK"}}}
+async function aiEvaluate(payload){try{const r=await fetch("/api/evaluate",{method:"POST",headers:{"Content-Type":"application/json",...(window.NEAccess?.headers?.()||{})},body:JSON.stringify(payload)}),d=await r.json().catch(()=>({}));return r.ok?{ok:true,data:d}:{ok:false,error:d.code||d.error||("HTTP "+r.status)}}catch{return {ok:false,error:"NETWORK"}}}
 function speakText(text,rate=.85){if(!("speechSynthesis" in window))return alert("Синтез речи не поддерживается.");speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang="nb-NO";u.rate=rate;const v=speechSynthesis.getVoices().find(x=>/^nb|no/i.test(x.lang));if(v)u.voice=v;speechSynthesis.speak(u)}
 function toggleMic(target="freeAnswer"){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return alert("Распознавание речи недоступно. Используй Chrome и разреши микрофон.");if(speechRec){speechRec.stop();return}speechRec=new SR();speechRec.lang="nb-NO";speechRec.interimResults=true;const btn=document.getElementById(target==="chatInput"?"chatMicBtn":"micBtn"),f=document.getElementById(target),status=target==="chatInput"?document.getElementById("chatVoiceStatus"):null;speechRec.onstart=()=>{if(btn)btn.textContent="■ Слушаю…";if(status)status.textContent="Нора слушает…"};speechRec.onresult=e=>{let t="";for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;if(f)f.value=t};speechRec.onerror=e=>{if(status)status.textContent="Не удалось распознать речь.";alert("Ошибка микрофона: "+e.error)};speechRec.onend=()=>{speechRec=null;if(btn)btn.textContent="🎤 Говорить";if(status)status.textContent=f?.value?.trim()?"Готово — можно отправлять.":""};speechRec.start()}
 function toggle(id){const e=document.getElementById(id);e.style.display=e.style.display==="none"?"block":"none"}

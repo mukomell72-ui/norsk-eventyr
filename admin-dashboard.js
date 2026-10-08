@@ -1,4 +1,4 @@
-// Norsk Eventyr 8.0.0 owner dashboard.
+// Norsk Eventyr 8.0.1 owner dashboard.
 (() => {
  const labels={
   email_confirmed:'Подтвердил email',
@@ -26,10 +26,15 @@
   subscription_canceled:'Подписка отменена',
   subscription_paused:'Подписка приостановлена',
   subscription_inactive:'Подписка неактивна',
-  subscription_updated:'Подписка обновлена'
+  subscription_updated:'Подписка обновлена',
+  ready_to_pay_bonus:'Готов платить · +30 дней бесплатно',
+  owner_free_grant:'Бесплатный доступ выдан владельцем',
+  promo_redeemed:'Промокод активирован',
+  manual_payment_confirmed:'Оплата подтверждена владельцем',
+  devices_reset:'Список устройств сброшен'
  };
  const statusText={
-  pending:'Ожидает решения',approved:'Одобрен',denied:'Отказано',revoked:'Отозван',unrequested:'Без заявки',
+  pending:'Ожидает решения',approved:'Одобрен',denied:'Отказано',revoked:'Отозван',unrequested:'Без заявки',free:'Бесплатный',trial:'Trial',owner:'Владелец',
   active:'Платный',trialing:'Платный trial',past_due:'Просрочена оплата',unpaid:'Не оплачено',
   canceled:'Отменена',paused:'Приостановлена',inactive:'Нет подписки',
   paid:'Оплачено',failed:'Ошибка',refunded:'Возврат',partially_refunded:'Частичный возврат',
@@ -40,7 +45,7 @@
  async function call(action,params={}){
   const response=await fetch('/api/session',{
    method:'POST',credentials:'same-origin',cache:'no-store',
-   headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...params})
+   headers:{'Content-Type':'application/json',...(window.NEAccess?.headers?.()||{})},body:JSON.stringify({action,...params})
   });
   const data=await response.json().catch(()=>({}));
   if(!response.ok){const e=new Error(data.error||'Не удалось загрузить данные.');e.code=data.error;throw e}
@@ -53,8 +58,15 @@
  }
  function money(value){const n=Number(value);return Number.isFinite(n)?n.toLocaleString('ru-RU',{minimumFractionDigits:0,maximumFractionDigits:2})+' NOK':'—'}
  function setMessage(text,type=''){const m=root?.querySelector('#adminMessage');if(!m)return;m.textContent=text||'';m.className='admin-message '+type}
- function body(){return root?.querySelector('#adminView')}
- function metric(label,value,detail=''){const card=el('article','admin-metric');card.append(el('strong','',value??0),el('span','',label));if(detail)card.append(el('small','',detail));return card}
+ function body(){return root?.querySelector('#adminView > [data-admin-content]')}
+ function metric(label,value,key,tab,option=''){
+  const card=el('button','admin-metric');
+  card.type='button';card.dataset.overviewMetric=key;
+  card.setAttribute('aria-label',label+': '+String(value??0)+'. Открыть подробности');
+  card.append(el('strong','',value??0),el('span','',label),el('small','admin-metric-action','Подробнее →'));
+  card.onclick=()=>show(tab,option);
+  return card
+ }
  function sectionTitle(title,sub=''){const wrap=el('div','admin-section-head');const h=el('div');h.append(el('h2','',title));if(sub)h.append(el('p','',sub));wrap.append(h);return wrap}
  function button(text,cls='secondary'){const b=el('button','btn '+cls,text);b.type='button';return b}
  function empty(title,text){const box=el('div','admin-empty');box.append(el('strong','',title),el('p','',text));return box}
@@ -82,13 +94,13 @@
   row.classList.toggle('future',future);row.append(dot,content);return row
  }
  function statusBadge(item){
-  let key=item.subscription_status;
-  let text=statusText[key]||key;
-  if(!key||key==='inactive'){
-   const now=Date.now(),end=new Date(item.trial_ends_at||0).getTime();
-   if(end>now){key='trial';text='Trial'}
-   else{key=item.status||'unrequested';text=statusText[key]||key}
-  }
+  const now=Date.now(),decision=item.status||item.access_status||'unrequested',paidEnd=new Date(item.paid_until||0).getTime(),paidStart=new Date(item.current_period_start||0).getTime();
+  let key='',text='';
+  if(['denied','revoked'].includes(decision)){key=decision;text=statusText[key]||key}
+  else if(['active','trialing'].includes(item.subscription_status)&&paidEnd>now&&(!paidStart||paidStart<=now)){key='active';text='Платный'}
+  else if(new Date(item.free_access_until||0).getTime()>now){key='free';text='Бесплатный'}
+  else if(new Date(item.trial_ends_at||0).getTime()>now){key='trial';text='Trial'}
+  else{key=decision;text=statusText[key]||key}
   return el('span','admin-badge status-'+String(key||'unknown'),text)
  }
  function funnelNode(stages){
@@ -120,25 +132,33 @@
    out.replaceChildren();out.append(sectionTitle('Главная','Состояние приложения, денег и пользователей в одном месте.'));
    const grid=el('div','admin-metric-grid');
    grid.append(
-    metric('Пользователи',d.users),metric('Активный trial',d.active_trials),
-    metric('Готовы платить',d.purchase_interest),metric('Платные',d.active_paid),
-    metric('Выручка 30 дней',money(d.revenue_30d)),metric('Комиссии 30 дней',money(d.fees_30d)),
-    metric('Ошибки оплаты 7 дней',d.failed_payments_7d),metric('Продления 7 дней',d.renewals_7d),
-    metric('Ошибки приложения 24 ч',d.errors_24h)
+    metric('Пользователи',d.users,'users','users','all'),
+    metric('Активный trial',d.active_trials,'trial','users','trial'),
+    metric('Бесплатный доступ',d.active_free,'free','users','free'),
+    metric('Готовы платить',d.purchase_interest,'interest','users','interest'),
+    metric('Платные',d.active_paid,'paid','users','paid'),
+    metric('Выручка 30 дней',money(d.revenue_30d),'revenue','payments'),
+    metric('Комиссии 30 дней',money(d.fees_30d),'fees','payments'),
+    metric('Ошибки оплаты 7 дней',d.failed_payments_7d,'payment-errors','users','problem'),
+    metric('Продления 7 дней',d.renewals_7d,'renewals','payments'),
+    metric('Ошибки приложения 24 ч',d.errors_24h,'app-errors','service','errors')
    );
    out.append(grid);
+   window.NEAccess?.ownerMarkPurchaseSeen?.();await window.NEOwnerBadge?.refresh?.();
    const funnelHead=sectionTitle('Воронка','Конверсия между ключевыми этапами.');out.append(funnelHead,funnelNode(g.stages||{}));
-   const recent=sectionTitle('Последние события','Значимые действия пользователей.');out.append(recent);
+   const recent=sectionTitle('Последние события','Значимые действия пользователей.');
+   const allEvents=button('Все события →','secondary');allEvents.onclick=()=>show('events');recent.append(allEvents);out.append(recent);
    if(events.length){const list=el('div','admin-event-list');for(const item of events)list.append(renderEvent(item,true));out.append(list)}
    else out.append(empty('Событий пока нет','Они появятся после действий пользователей.'));
   }catch(e){loadingNode.textContent=e.message}
  }
- async function users(){
+ async function users(initialFilter='all'){
   const out=body();out.replaceChildren();out.append(sectionTitle('Пользователи','Поиск, статус trial, подписка и история каждого человека.'));
   const controls=el('div','admin-controls');
   const search=el('input','admin-search');search.type='search';search.placeholder='Поиск по email или имени';
   const filter=el('select','admin-filter');
-  for(const [value,text] of [['all','Все'],['trial','Trial'],['paid','Платные'],['interest','Хотят купить'],['pending','Ожидают'],['problem','Проблемы оплаты']]){const o=el('option','',text);o.value=value;filter.append(o)}
+  for(const [value,text] of [['all','Все'],['trial','Trial'],['free','Бесплатные'],['paid','Платные'],['interest','Хотят купить'],['pending','Ожидают'],['problem','Проблемы оплаты']]){const o=el('option','',text);o.value=value;filter.append(o)}
+  if([...filter.options].some(option=>option.value===initialFilter))filter.value=initialFilter;
   controls.append(search,filter);out.append(controls);
   const list=el('div','admin-user-list');list.append(el('p','admin-muted','Загрузка…'));out.append(list);
   try{
@@ -151,7 +171,8 @@
      if(!match)return false;
      if(f==='all')return true;
      if(f==='trial')return new Date(item.trial_ends_at||0).getTime()>now&&(!item.subscription_status||item.subscription_status==='inactive');
-     if(f==='paid')return ['active','trialing'].includes(item.subscription_status);
+     if(f==='free')return new Date(item.free_access_until||0).getTime()>now;
+     if(f==='paid')return ['active','trialing'].includes(item.subscription_status)&&new Date(item.paid_until||0).getTime()>now;
      if(f==='interest')return Boolean(item.purchase_interest_at);
      if(f==='pending')return item.status==='pending';
      if(f==='problem')return ['past_due','unpaid'].includes(item.subscription_status)||item.last_payment_status==='failed';
@@ -165,8 +186,9 @@
      if(item.display_name)main.append(el('span','admin-user-email',item.email||''));
      const facts=el('div','admin-user-facts');
      const trialEnd=item.trial_ends_at?'Trial до '+dateText(item.trial_ends_at,false):'Trial —';
+     const free=item.free_access_until?'Бесплатно до '+dateText(item.free_access_until,false):'Бесплатно —';
      const paid=item.paid_until?'Оплачено до '+dateText(item.paid_until,false):'Оплата —';
-     facts.append(el('span','',trialEnd),el('span','',paid),el('span','','Активных дней '+String(Number(item.activity_days_count)||0)),el('span','','Источник '+String(item.acquisition_source||'direct')));
+     facts.append(el('span','',trialEnd),el('span','',free),el('span','',paid),el('span','','Устройств '+String(Number(item.device_count)||0)+'/2'),el('span','','Источник '+String(item.acquisition_source||'direct')));
      main.append(facts);
      const open=button('Открыть');open.onclick=()=>userDetail(item.user_id);
      card.append(main,open);list.append(card)
@@ -178,28 +200,38 @@
  async function userDetail(userId){
   const out=body();out.replaceChildren();const back=button('← К пользователям','ghost');back.onclick=users;out.append(back,el('p','admin-muted','Загрузка карточки…'));
   try{
-   const response=await call('owner_user_detail',{user_id:userId}),d=response.detail||{},p=d.profile||{},timeline=Array.isArray(d.timeline)?d.timeline:[],payments=Array.isArray(d.payments)?d.payments:[];
+   const response=await call('owner_user_detail',{user_id:userId}),d=response.detail||{},p=d.profile||{},timeline=Array.isArray(d.timeline)?d.timeline:[],payments=Array.isArray(d.payments)?d.payments:[],devices=Array.isArray(d.devices)?d.devices:[];
    out.replaceChildren();out.append(back);
-   const head=el('div','admin-user-detail-head');const title=el('div');title.append(el('h2','',p.display_name||p.email||'Пользователь'),el('p','admin-muted',p.email||''));head.append(title,statusBadge({subscription_status:p.subscription_status,status:p.access_status,trial_ends_at:p.trial_ends_at}));out.append(head);
+   const head=el('div','admin-user-detail-head');const title=el('div');title.append(el('h2','',p.display_name||p.email||'Пользователь'),el('p','admin-muted',p.email||''));head.append(title,statusBadge({subscription_status:p.subscription_status,status:p.access_status,trial_ends_at:p.trial_ends_at,free_access_until:p.free_access_until,paid_until:p.paid_until,current_period_start:p.current_period_start}));out.append(head);
    const grid=el('div','admin-detail-grid');
    const facts=[
-    ['Подтверждение email',dateText(p.email_confirmed_at)],['Trial',dateText(p.trial_started_at)+' → '+dateText(p.trial_ends_at)],
-    ['Активных дней',p.activity_days_count||0],['Установка',p.first_installed_at?dateText(p.first_installed_at):'—'],
+    ['Аккаунт',statusText[p.access_status]||p.access_status||'Без заявки'],['Подтверждение email',dateText(p.email_confirmed_at)],['Trial',dateText(p.trial_started_at)+' → '+dateText(p.trial_ends_at)],
+    ['Бесплатный доступ до',dateText(p.free_access_until)],['Бонус «готов платить»',p.ready_bonus_granted_at?dateText(p.ready_bonus_granted_at):'Не использован'],
+    ['Устройств',String(p.device_count||0)+' / 2'],['Установка',p.first_installed_at?dateText(p.first_installed_at):'—'],
     ['Источник',p.acquisition_source||'direct'],['Готов платить',p.purchase_interest_at?dateText(p.purchase_interest_at)+' · '+money(p.purchase_interest_price_nok):'—'],
     ['Подписка',statusText[p.subscription_status]||p.subscription_status||'Нет'],['Оплачено до',dateText(p.paid_until)],
     ['Следующая оплата',dateText(p.next_payment_at)],['Автопродление',['active','trialing'].includes(p.subscription_status)?(p.cancel_at_period_end?'Будет отключено':'Включено'):'—']
    ];
    for(const [name,value] of facts){const f=el('article','admin-detail-fact');f.append(el('span','',name),el('strong','',value));grid.append(f)}out.append(grid);
    const actions=el('div','admin-action-row');
-   for(const [status,text] of [['approved','Одобрить'],['denied','Отказать'],['revoked','Отозвать доступ']]){
+   for(const [status,text] of [['approved','Одобрить аккаунт'],['denied','Отказать'],['revoked','Отозвать доступ']]){
     if(status===p.access_status)continue;const b=button(text,status==='approved'?'':'secondary');
-    b.onclick=async()=>{if(loading)return;loading=true;b.disabled=true;try{await call('decide',{user_id:userId,status});await userDetail(userId)}catch(e){setMessage(e.message,'error')}finally{loading=false;b.disabled=false}};actions.append(b)
+    b.onclick=async()=>{if(loading)return;loading=true;b.disabled=true;try{await call('decide',{user_id:userId,status});await userDetail(userId);await window.NEOwnerBadge?.refresh?.()}catch(e){setMessage(e.message,'error')}finally{loading=false;b.disabled=false}};actions.append(b)
    }
    if(actions.children.length)out.append(actions);
+   out.append(sectionTitle('Управление доступом','Бесплатные периоды и ручное подтверждение оплаты хранятся отдельно.'));
+   const accessTools=el('div','admin-access-tools');
+   const freeRow=el('div','admin-action-row');
+   for(const days of [7,30,90]){const b=button('+'+days+' дней бесплатно');b.onclick=async()=>{if(loading)return;loading=true;b.disabled=true;try{await call('owner_grant_free',{user_id:userId,days,note:'Выдано владельцем'});await userDetail(userId)}catch(e){setMessage(e.message,'error')}finally{loading=false;b.disabled=false}};freeRow.append(b)}
+   const custom=button('Свой срок','ghost');custom.onclick=async()=>{const raw=prompt('Сколько дней бесплатного доступа добавить?','30'),days=Number(raw);if(!Number.isInteger(days)||days<1||days>3650)return;const note=prompt('Комментарий (необязательно)','')||'';try{await call('owner_grant_free',{user_id:userId,days,note});await userDetail(userId)}catch(e){setMessage(e.message,'error')}};freeRow.append(custom);accessTools.append(freeRow);
+   const paid=button('Подтвердить оплату','');paid.onclick=async()=>{const amount=Number(prompt('Полученная сумма, NOK','99'));if(!Number.isFinite(amount)||amount<1)return;const days=Number(prompt('На сколько дней открыть платный период?','30'));if(!Number.isInteger(days)||days<1||days>3650)return;const note=prompt('Комментарий к оплате (необязательно)','')||'';try{await call('owner_confirm_payment',{user_id:userId,amount_nok:amount,days,note});await userDetail(userId)}catch(e){setMessage(e.message,'error')}};accessTools.append(paid);
+   const reset=button('Сбросить доверенные устройства','ghost');reset.onclick=async()=>{if(!confirm('Сбросить все доверенные устройства этого пользователя? Ему потребуется войти снова на нужных устройствах.'))return;try{await call('owner_devices_reset',{user_id:userId});await userDetail(userId)}catch(e){setMessage(e.message,'error')}};accessTools.append(reset);
+   if(devices.length){const dl=el('div','admin-device-list');for(const dvc of devices){const row=el('article','admin-device');row.append(el('strong','',dvc.device_name||'Устройство'),el('small','',(dvc.revoked_at?'Отозвано · ':'Последний вход · ')+dateText(dvc.revoked_at||dvc.last_seen_at)));dl.append(row)}accessTools.append(dl)}
+   out.append(accessTools);
    out.append(sectionTitle('История','Полная хронология значимых событий, включая будущую дату окончания периода.'));
    if(timeline.length){const tl=el('div','admin-timeline');for(const item of timeline)tl.append(renderEvent(item,false));out.append(tl)}
    else out.append(empty('История пока пустая','События появятся после действий пользователя.'));
-   out.append(sectionTitle('Платежи пользователя','Сумма, комиссия и оплаченный период.'));
+   out.append(sectionTitle('Платежи пользователя','Подтверждённые владельцем или платёжным провайдером периоды.'));
    if(payments.length){const pl=el('div','admin-payment-list');for(const item of payments)pl.append(paymentCard(item));out.append(pl)}
    else out.append(empty('Платежей пока нет','После подключения Stripe здесь появятся подтверждённые платежи.'));
   }catch(e){out.replaceChildren(back,empty('Не удалось открыть пользователя',e.message))}
@@ -212,18 +244,19 @@
    ...(item.email?['Пользователь: '+String(item.email)]:[]),
    'Дата: '+dateText(item.paid_at||item.created_at),
    'Период: '+dateText(item.period_start,false)+' → '+dateText(item.period_end,false),
+   'Источник: '+(item.provider==='manual'?'подтверждено владельцем':String(item.provider||'провайдер')),
    'Комиссия: '+money(item.fee_nok)+(Number(item.refunded_nok)>0?' · Возврат: '+money(item.refunded_nok):'')
   ];
   if(item.failure_message)lines.push('Причина: '+String(item.failure_message));
   for(const line of lines)card.append(el('p','',line));return card
  }
  async function payments(){
-  const out=body();out.replaceChildren();out.append(sectionTitle('Платежи','Подтверждённые платежи и оплаченные периоды. Пользователь не может записать их сам.'));
+  const out=body();out.replaceChildren();out.append(sectionTitle('Платежи','Платные периоды подтверждаются только владельцем или доверенным платёжным провайдером. Пользователь не может назначить себе оплату.'));
   const list=el('div','admin-payment-list');list.append(el('p','admin-muted','Загрузка…'));out.append(list);
   try{
    const response=await call('owner_payments',{limit:300}),items=Array.isArray(response.payments)?response.payments:[];
    list.replaceChildren();
-   if(!items.length){list.append(empty('Платежей пока нет','Раздел подготовлен для Stripe. После подключения webhook здесь появятся реальные операции.'));return}
+   if(!items.length){list.append(empty('Платежей пока нет','После ручного подтверждения оплаты или подключения платёжного провайдера операции появятся здесь.'));return}
    for(const item of items)list.append(paymentCard(item))
   }catch(e){list.replaceChildren(empty('Ошибка загрузки',e.message))}
  }
@@ -237,13 +270,22 @@
    search.addEventListener('input',render);render()
   }catch(e){list.replaceChildren(empty('Ошибка загрузки',e.message))}
  }
- async function service(){
+ async function service(focus=''){
   const out=body();out.replaceChildren();out.append(sectionTitle('Ещё','Отзывы, ошибки приложения и резервная копия.'));
   const backup=button('Скачать резервную копию');backup.onclick=async()=>{backup.disabled=true;try{const response=await call('owner_backup'),body=JSON.stringify(response.backup||{},null,2),blob=new Blob([body],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='norsk-eventyr-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(e){setMessage(e.message,'error')}finally{backup.disabled=false}};out.append(backup);
+   out.append(sectionTitle('Промокоды','Создавай коды для бесплатного продления. Один пользователь может использовать конкретный код только один раз.'));
+   const promoForm=el('form','admin-promo-form'),promoCode=el('input','admin-search'),promoDays=el('input','admin-search'),promoMax=el('input','admin-search'),promoUntil=el('input','admin-search'),promoNote=el('input','admin-search'),promoSubmit=button('Создать промокод','');
+   promoCode.placeholder='Код, например FRIEND30';promoCode.maxLength=32;promoDays.type='number';promoDays.min='1';promoDays.max='3650';promoDays.value='30';promoDays.placeholder='Дней';promoMax.type='number';promoMax.min='1';promoMax.max='100000';promoMax.value='1';promoMax.placeholder='Активаций';promoUntil.type='date';promoNote.placeholder='Комментарий';promoSubmit.type='submit';
+   promoForm.append(promoCode,promoDays,promoMax,promoUntil,promoNote,promoSubmit);out.append(promoForm);
+   const promoList=el('div','admin-promo-list');promoList.textContent='Загрузка…';out.append(promoList);
+   const loadPromos=async()=>{const response=await call('owner_promo_list'),items=Array.isArray(response.promos)?response.promos:[];promoList.replaceChildren();if(!items.length){promoList.append(empty('Промокодов нет','Создай первый код выше.'));return}for(const p of items){const card=el('article','admin-promo');const top=el('div','admin-payment-top');top.append(el('strong','',p.code),el('span','admin-badge',p.active?'Активен':'Выключен'));card.append(top,el('p','',p.duration_days+' дней · '+p.redemption_count+'/'+p.max_redemptions+' активаций'),el('p','',p.valid_until?'Действует до '+dateText(p.valid_until,false):'Без даты окончания'));if(p.note)card.append(el('p','',p.note));const toggle=button(p.active?'Отключить':'Включить','ghost');toggle.onclick=async()=>{await call('owner_promo_toggle',{promo_id:p.id,active:!p.active});await loadPromos()};card.append(toggle);promoList.append(card)}};
+   promoForm.onsubmit=async e=>{e.preventDefault();const code=promoCode.value.trim().toUpperCase(),days=Number(promoDays.value),max=Number(promoMax.value),valid_until=promoUntil.value?new Date(promoUntil.value+'T23:59:59').toISOString():null;try{await call('owner_promo_create',{code,days,max_redemptions:max,valid_until,note:promoNote.value.trim()});promoCode.value='';promoNote.value='';await loadPromos()}catch(e){setMessage(e.message,'error')}};try{await loadPromos()}catch(e){promoList.replaceChildren(empty('Не удалось загрузить промокоды',e.message))}
    out.append(sectionTitle('Отзывы и идеи','Публичные комментарии можно скрывать и возвращать.'));
    const refreshFeedback=button('Обновить отзывы','secondary'),feedbackBox=el('div');feedbackBox.id='feedbackList';feedbackBox.textContent='Загрузка…';out.append(refreshFeedback,feedbackBox);
    const loadFeedback=async()=>{if(!window.NEFeedback?.ownerList){feedbackBox.textContent='Модуль отзывов пока недоступен.';return}const total=await window.NEFeedback.ownerList();if(typeof total==='number')window.NEAccess?.ownerMarkFeedbackSeen?.(total);await window.NEOwnerBadge?.refresh?.()};refreshFeedback.onclick=loadFeedback;await loadFeedback();
-   out.append(sectionTitle('Ошибки приложения','Последние технические ошибки после входа.'));
+   const errorHeading=sectionTitle('Ошибки приложения','Последние технические ошибки после входа.');errorHeading.id='admin-errors';
+   out.append(errorHeading);
+   if(focus==='errors'&&errorHeading.isConnected)errorHeading.scrollIntoView({block:'start'});
    const errorsBox=el('div','admin-error-list');errorsBox.textContent='Загрузка…';out.append(errorsBox);
    try{
     const response=await call('owner_errors'),items=Array.isArray(response.errors)?response.errors:[];errorsBox.replaceChildren();
@@ -251,27 +293,52 @@
     else for(const item of items.slice(0,100)){const card=el('article','admin-error-card');card.append(el('strong','',item.code||'CLIENT_ERROR'),el('p','',item.email||''),el('p','',item.message||''),el('small','',dateText(item.created_at)+' · '+String(item.app_version||'')));errorsBox.append(card)}
    }catch(e){errorsBox.replaceChildren(empty('Не удалось загрузить ошибки',e.message))}
  }
- async function show(tab){
-  activeTab=tab;for(const b of root.querySelectorAll('[data-admin-tab]')){const active=b.dataset.adminTab===tab;b.classList.toggle('active',active);b.setAttribute('aria-current',active?'page':'false')}
+ async function show(tab,option=''){
+  const available=['overview','users','payments','events','service'];
+  const host=root?.querySelector('#adminView');
+  if(!host||!available.includes(tab))return;
+  activeTab=tab;
+  // Each navigation owns its own content node: old in-flight responses cannot overwrite a newer tab.
+  const content=el('div','admin-tab-content');content.dataset.adminContent=tab;
+  host.replaceChildren(content);
+  host.setAttribute('aria-labelledby','admin-tab-'+tab);
+  for(const b of root.querySelectorAll('[data-admin-tab]')){
+   const active=b.dataset.adminTab===tab;
+   b.classList.toggle('active',active);
+   b.setAttribute('aria-selected',String(active));
+   b.tabIndex=active?0:-1;
+  }
   setMessage('');
   if(tab==='overview')return overview();
-  if(tab==='users')return users();
+  if(tab==='users')return users(option);
   if(tab==='payments')return payments();
   if(tab==='events')return events();
-  return service()
+  return service(option)
  }
  function mount(container,options={}){
   root=container;opts=options;root.replaceChildren();
   const shell=el('div','admin-shell');
   const top=el('header','admin-topbar');
-  const title=el('div','admin-brand');title.append(el('span','admin-kicker','Norsk Eventyr'),el('h1','','Admin Dashboard'),el('small','','Версия 8.0.0'));
+  const title=el('div','admin-brand');title.append(el('span','admin-kicker','Norsk Eventyr'),el('h1','','Admin Dashboard'),el('small','','Версия 8.0.1'));
   const topActions=el('div','admin-top-actions'),back=button('К обучению','secondary'),logout=button('Выйти','ghost');
   back.onclick=()=>opts.onBack?.();logout.onclick=()=>opts.onLogout?.();topActions.append(back,logout);top.append(title,topActions);
-  const main=el('main','admin-main'),view=el('section','admin-view');view.id='adminView';main.append(view);
+  const main=el('main','admin-main'),view=el('section','admin-view');view.id='adminView';view.setAttribute('role','tabpanel');view.tabIndex=0;main.append(view);
   const message=el('p','admin-message');message.id='adminMessage';
-  const nav=el('nav','admin-nav');nav.setAttribute('aria-label','Разделы админ-панели');
+  const nav=el('nav','admin-nav');nav.setAttribute('role','tablist');nav.setAttribute('aria-label','Разделы админ-панели');
   const tabs=[['overview','Главная'],['users','Пользователи'],['payments','Платежи'],['events','События'],['service','Ещё']];
-  for(const [key,text] of tabs){const b=el('button','admin-nav-item',text);b.type='button';b.dataset.adminTab=key;b.onclick=()=>show(key);nav.append(b)}
+  for(const [key,text] of tabs){
+   const b=el('button','admin-nav-item',text);b.type='button';
+   b.id='admin-tab-'+key;b.dataset.adminTab=key;
+   b.setAttribute('role','tab');b.setAttribute('aria-controls','adminView');
+   b.onclick=()=>show(key);nav.append(b)
+  }
+  nav.addEventListener('keydown',event=>{
+   if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)||!event.target?.dataset?.adminTab)return;
+   event.preventDefault();const current=tabs.findIndex(([key])=>key===event.target.dataset.adminTab);
+   const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(current+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
+   const nextTab=nav.querySelector('[data-admin-tab="'+tabs[next][0]+'"]');
+   nextTab?.focus();nextTab?.click();
+  });
   shell.append(top,nav,main,message);root.append(shell);show(activeTab||'overview')
  }
  window.NEAdminDashboard={mount,show};
