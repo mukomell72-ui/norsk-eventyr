@@ -92,7 +92,7 @@ A.recordAttempt(reviewState,{level:'A2',skill:'listening',score:95,moduleId:revi
 assert(!A.dueReviews(reviewState).some(x=>x.key===reviewMission.reviewKey),'completed cross-module review remained permanently overdue');
 
 const health=read('api/health.js');
-assert(health.includes('version:"8.0.0"'),'health endpoint version must match 8.0.0');
+assert(health.includes('version:"8.0.1"'),'health endpoint version must match 8.0.0');
 assert(!health.includes('version:"7.3.0"'),'health endpoint must not expose stale 7.3.0 version');
 
 const app=read('app.js'),adaptive=read('adaptive-teacher.js'),access=read('access.js'),sw=read('sw.js'),generate=read('api/generate.js'),evaluate=read('api/evaluate.js'),uiV7=read('ui-v7.js'),elite=read('elite.js'),v8css=read('v8.css');
@@ -106,7 +106,7 @@ assert(app.includes('previousLevel:state.level')&&!app.includes('function startT
 assert(app.includes('level:testSession.level,skill'),'diagnostic evidence must be written to the tested CEFR level');
 assert(app.includes('reviewKey:l?._adaptive?.reviewKey||""'),'adaptive attempts must preserve the originating spaced-review key');
 assert(access.includes("'curriculum-v8.js'")&&access.includes("'adaptive-teacher.js'"),'adaptive scripts not loaded');
-assert(sw.includes('/curriculum-v8.js?v=8.0.0-feedback-r3')&&sw.includes('/adaptive-teacher.js?v=8.0.0-feedback-r3'),'adaptive assets not cached at current revision');
+assert(sw.includes('/curriculum-v8.js?v=8.0.1-access-r1')&&sw.includes('/adaptive-teacher.js?v=8.0.1-access-r1'),'adaptive assets not cached at current revision');
 assert(generate.includes('teacherMode')&&generate.includes('Can-do цели'),'objective-driven generator prompt missing');
 assert(generate.includes('listeningAudio')&&generate.includes('listeningQ')&&generate.includes('listeningOpts'),'adaptive lesson generator must create comprehension listening');
 assert(generate.includes('смысловыми перефразами')&&generate.includes('не копиями фразы из текста'),'reading/listening distractors must test meaning rather than surface matching');
@@ -165,7 +165,7 @@ assert(speech.includes('const speed=1;'),'Nora TTS generation must stay at natur
 assert(v3.includes('high.type="highpass"')&&v3.includes('high.frequency.value=90')&&v3.includes('low.type="lowpass"')&&v3.includes('low.frequency.value=9500'),'Nora playback must filter low hum and high hiss');
 assert(v8css.includes('button.speech-loading')&&v8css.includes('button.speech-playing'),'Nora speech button state styling missing');
 assert(!uiV7.includes('Math.max(3000,requested)'),'manual lesson continuation must not slow unrelated automatic transitions');
-assert(access.includes("ASSET_REV='8.0.0-feedback-r3'")&&sw.includes('norsk-eventyr-v8-0-0-feedback-r3'),'manual continuation fix must bypass stale PWA assets');
+assert(access.includes("ASSET_REV='8.0.1-access-r1'")&&sw.includes('norsk-eventyr-v8-0-1-access-r1'),'manual continuation fix must bypass stale PWA assets');
 assert(app.includes('trackLessonScore')&&!app.includes('function lessonNext(xp=0){state.xp+=xp'),'lesson XP must be awarded from session quality rather than fixed step farming');
 assert(!/state\.xp\s*\+=/.test(app)&&app.includes('state.xp=before+earned'),'all XP gains must go through the anti-farm lesson award path');
 assert(!/state\.xp\s*\+=/.test(v3)&&!v3.includes('state.xp=(state.xp||0)+')&&!elite.includes('state.xp=(state.xp||0)+'),'legacy lessons, chat, reviews, exams and activity tracking must not bypass XP anti-farm');
