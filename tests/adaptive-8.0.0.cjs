@@ -162,6 +162,8 @@ assert(v3.includes('Готовлю голос')&&v3.includes('Нора гово�
 assert(app.includes('window.nePrimeSpeech?.(speechText,l.level)'),'lesson speech must be primed before the learner taps play');
 assert(speech.includes('response_format:"wav"')&&speech.includes('background noise')&&speech.includes('Start immediately with speech'),'Nora TTS must request clean low-latency studio audio');
 assert(speech.includes('voice)?voice:"marin"'),'Nora TTS must default to the recommended Marin voice');
+assert(speech.includes('const speed=1;'),'Nora TTS generation must stay at natural speed so learner pacing is applied only once');
+assert(v3.includes('high.type="highpass"')&&v3.includes('high.frequency.value=90')&&v3.includes('low.type="lowpass"')&&v3.includes('low.frequency.value=9500'),'Nora playback must filter low hum and high hiss');
 assert(v8css.includes('button.speech-loading')&&v8css.includes('button.speech-playing'),'Nora speech button state styling missing');
 assert(app.includes('trackLessonScore')&&!app.includes('function lessonNext(xp=0){state.xp+=xp'),'lesson XP must be awarded from session quality rather than fixed step farming');
 assert(!/state\.xp\s*\+=/.test(app)&&app.includes('state.xp=before+earned'),'all XP gains must go through the anti-farm lesson award path');
