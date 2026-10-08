@@ -6,24 +6,38 @@ async function ask(input,max=2600,effort="low"){
   return (data.output||[]).flatMap(x=>x.content||[]).find(x=>x.type==="output_text")?.text||"";
 }
 function validChoice(opts,correct){return Array.isArray(opts)&&opts.length===4&&opts.every(o=>typeof o==="string"&&o.trim())&&correct!==null&&correct!==""&&typeof correct!=="boolean"&&Number.isInteger(Number(correct))&&Number(correct)>=0&&Number(correct)<opts.length}
+function validGrammarQuestion(q){const s=String(q||"").trim();if(!s)return false;return !/^(?:velg|choose|выбери(?:те)?)\s+(?:riktig(?:e)?|korrekt(?:e)?|correct|правильн\w*)\s+(?:setning(?:en)?|alternativ(?:et)?|sentence|предложен\w*|вариант\w*)[.!?]?$/i.test(s)}
 function validateShape(kind,x){
   if(!x||typeof x!=="object")return false;
   if(kind==="test")return Array.isArray(x.questions)&&x.questions.length>=8&&x.questions.every(q=>q&&typeof q.q==="string"&&q.q.trim()&&validChoice(q.opts,q.correct));
-  return Array.isArray(x.vocab)&&x.vocab.length>=6&&x.vocab.every(v=>Array.isArray(v)&&v.length===2&&v.every(w=>typeof w==="string"&&w.trim()))&&validChoice(x.opts,x.correct)&&validChoice(x.grammarOpts,x.grammarCorrect)&&typeof x.phrase==="string"&&typeof x.read==="string"&&typeof x.writing==="string"&&typeof x.speaking==="string";
+  return Array.isArray(x.vocab)&&x.vocab.length>=6&&x.vocab.every(v=>Array.isArray(v)&&v.length===2&&v.every(w=>typeof w==="string"&&w.trim()))&&validChoice(x.opts,x.correct)&&validChoice(x.grammarOpts,x.grammarCorrect)&&validGrammarQuestion(x.grammarQ)&&validChoice(x.listeningOpts,x.listeningCorrect)&&typeof x.phrase==="string"&&x.phrase.trim()&&typeof x.listeningAudio==="string"&&x.listeningAudio.trim()&&typeof x.listeningQ==="string"&&x.listeningQ.trim()&&typeof x.read==="string"&&x.read.trim()&&typeof x.writing==="string"&&x.writing.trim()&&typeof x.speaking==="string"&&x.speaking.trim();
 }
 export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY"});
   if(!await guard(req,res,{limit:24}))return;
   if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED"});
-  const {kind="lesson",level="A1",topic="",goal="",weakSkills=[],reviewWords=[]}=req.body||{};
+  const {kind="lesson",level="A1",topic="",goal="",weakSkills=[],reviewWords=[],moduleId="",skillFocus="",canDo=[],grammarFocus="",lexiconFocus="",mastery={},errorPatterns=[],teacherMode=false,reviewMode=false}=req.body||{};
   if(!["A1","A2","B1","B2"].includes(level))return res.status(400).json({error:"BAD_LEVEL"});
   const reinforcement=Array.isArray(reviewWords)?reviewWords.slice(0,15).map(x=>String(x).slice(0,100)).filter(Boolean):[];
   const common=[
     "Ты создаёшь оригинальные задания по норвежскому Bokmål для взрослого русскоязычного ученика.",
-    "Уровень CEFR: "+level+". Тема: "+String(topic).slice(0,160)+". Цель: "+String(goal).slice(0,260)+".",
+    "Уровень CEFR: "+level+". Модуль: "+String(moduleId).slice(0,90)+". Тема: "+String(topic).slice(0,220)+". Цель: "+String(goal).slice(0,500)+".",
+    "Can-do цели: "+(Array.isArray(canDo)?canDo.slice(0,6).map(x=>String(x).slice(0,180)).join("; "):"")+".",
+    "Главный навык занятия: "+String(skillFocus).slice(0,40)+". Грамматика: "+String(grammarFocus).slice(0,220)+". Лексическое поле: "+String(lexiconFocus).slice(0,220)+".",
+    "Текущий профиль мастерства 0–100: "+JSON.stringify(mastery||{}).slice(0,500)+". Повторяющиеся ошибки: "+(Array.isArray(errorPatterns)?errorPatterns.slice(0,8).join(", "):"")+".",
     "Слова прошлых дней для естественного закрепления: "+(reinforcement.join(", ")||"нет")+".",
     "Если список закрепления не пуст, используй эти слова в тексте, примерах, письме или речи настолько часто, насколько это естественно.",
+    "Если teacherMode=true, работай как требовательный преподаватель: одна ясная цель, короткое объяснение, затем активное извлечение из памяти, применение и перенос в новую ситуацию.",
+    "Не подсказывай ответ формулировкой вопроса. Сначала требуй самостоятельное производство языка, а не узнавание по вариантам, кроме этапов чтения/аудирования/грамматики.",
+    "Делай материал жизненным: работа, жильё, услуги, здоровье, транспорт, общение, новости и реальные общественные ситуации. Избегай детских и искусственных тем.",
+    "Сложность должна быть чуть выше устойчивого текущего результата, но не превращаться в угадывание. Слабый навык получит больше нагрузки, сильный — меньше.",
+    "Если reviewMode=true, не повторяй старую формулировку: проверь тот же навык в новом контексте без прямой подсказки.",
+    "Русский используй только для точного короткого объяснения; основная языковая работа должна происходить на норвежском.",
+    "Никаких заявлений, что ученик уже достиг уровня: материал только собирает доказательства владения.",
     "Не копируй официальные задания Norskprøven. Используй современный естественный Bokmål.",
+    "Для чтения и аудирования варианты должны быть смысловыми перефразами, а не копиями фразы из текста. Неверные варианты правдоподобны, но опровергаются материалом.",
+    "A1: проверяй явную базовую информацию. A2: главную мысль и конкретную деталь. B1: причину, связь, намерение или простой вывод. B2: позицию, аргументацию, контраст, степень уверенности, ограничение источника или обоснованный вывод.",
+    "На B1-B2 избегай вопросов, которые решаются поиском одного совпадающего слова. Ученик должен понять кусок сообщения целиком.",
     "У каждого тестового вопроса должен быть ровно один однозначный правильный ответ.",
     "Верни только JSON без markdown."
   ];
@@ -31,13 +45,16 @@ export default async function handler(req,res){
   if(kind==="test"){
     prompt=[...common,"Слабые навыки: "+(Array.isArray(weakSkills)?weakSkills.join(", "):"")+".","Создай разнообразный тест, который нельзя пройти по памяти.","JSON: {\"questions\":[8 объектов],\"writing\":\"...\",\"speaking\":\"...\"}.","Каждый questions: {\"type\":\"reading|grammar|vocabulary|listening\",\"context\":\"...\",\"audio\":\"...\",\"q\":\"вопрос по-русски\",\"opts\":[4 варианта],\"correct\":0}. Сделай по 2 задания каждого типа."].join("\n");
   }else{
-    prompt=[...common,"Создай полноценный тематический микроурок.","JSON: {\"title\":\"...\",\"grammarTitle\":\"...\",\"grammarRuleRu\":\"...\",\"grammarExamples\":[3 строки],\"grammarQ\":\"...\",\"grammarOpts\":[4 строки],\"grammarCorrect\":0,\"phrase\":\"...\",\"ru\":\"...\",\"vocab\":[[\"no\",\"ru\"],... 8 элементов],\"read\":\"...\",\"q\":\"...\",\"opts\":[4 строки],\"correct\":0,\"writing\":\"...\",\"speaking\":\"...\"}.","На A1 текст короткий; на A2 длиннее; на B1-B2 — связный и содержательный. Письмо и речь требуют самостоятельного ответа."].join("\n");
+    prompt=[...common,"Создай полноценный тематический микроурок.","JSON: {\"title\":\"...\",\"grammarTitle\":\"...\",\"grammarRuleRu\":\"...\",\"grammarExamples\":[3 строки],\"grammarQ\":\"...\",\"grammarOpts\":[4 строки],\"grammarCorrect\":0,\"phrase\":\"...\",\"ru\":\"...\",\"vocab\":[[\"no\",\"ru\"],... 8 элементов],\"listeningAudio\":\"отдельный естественный аудиофрагмент на норвежском\",\"listeningQ\":\"вопрос на смысл или важную деталь\",\"listeningOpts\":[4 строки],\"listeningCorrect\":0,\"read\":\"...\",\"q\":\"...\",\"opts\":[4 строки],\"correct\":0,\"writing\":\"...\",\"speaking\":\"...\"}.","grammarQ обязан содержать понятную учебную задачу: либо короткую ситуацию/контекст, либо точную русскую фразу, которую нужно выразить по-норвежски, либо явно назвать проверяемое правило. Нельзя писать только «Velg riktig setning», «Velg korrekt setning», «Выберите правильное предложение» или аналог без контекста.","Если в вариантах есть имя человека, место или предмет, grammarQ должен объяснять, откуда они взялись и что именно нужно выразить. Ученик не должен гадать о контексте.","Аудирование НЕ должно просить выбрать точную услышанную строку. Оно проверяет смысл, намерение говорящего, важную деталь или вывод. На A1 аудиофрагмент 1–2 коротких предложения; A2 — 2–4; B1–B2 — более естественный связный фрагмент обычной сложности уровня.","На A1 текст короткий; на A2 длиннее; на B1-B2 — связный и содержательный. Письмо и речь требуют самостоятельного ответа."].join("\n");
   }
   try{
     const firstText=await ask(prompt),first=parseJson(firstText);
     const reviewPrompt=[
-      "Ты старший методист норвежского как второго языка. Проверь JSON учебного материала уровня "+level+".",
+      "Ты старший преподаватель и методист норвежского как второго языка. Проверь JSON учебного материала уровня "+level+" на реальную учебную ценность.",
+      "Проверь соответствие can-do цели, естественность Bokmål, возрастающую когнитивную нагрузку, отсутствие подсказки в самом вопросе и возможность переноса навыка в новую ситуацию.",
+      "Для B1-B2 отдельно проверь чтение и аудирование: правильный ответ должен требовать понимания смысла/позиции/причины/вывода, а не простого совпадения слов; дистракторы должны быть правдоподобными.",
       "Исправь только реальные проблемы: неестественный Bokmål, неверную грамматику, неоднозначные варианты, несоответствие уровню, плохие переводы, слишком искусственные фразы.",
+      "Отдельно проверь grammarQ: он не может быть абстрактным «выбери правильное предложение». Должен быть понятный контекст, целевая фраза или явно названное правило, чтобы имена и ситуации в вариантах не появлялись из ниоткуда.",
       "Сохрани ту же JSON-схему и количество заданий. Ничего не объясняй, верни только исправленный JSON.",
       JSON.stringify(first)
     ].join("\n");

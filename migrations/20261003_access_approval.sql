@@ -9,7 +9,7 @@ create table public.norsk_eventyr_access (
 alter table public.norsk_eventyr_access enable row level security;
 revoke all on public.norsk_eventyr_access from public, anon, authenticated;
 create function public.ne_access_owner() returns boolean language sql stable security definer set search_path='' as $$
- select exists(select 1 from auth.users where id=auth.uid() and lower(email)='mukomell72@gmail.com' and email_confirmed_at is not null);
+ select exists(select 1 from auth.users where id=auth.uid() and email_confirmed_at is not null and coalesce(raw_app_meta_data,'{}'::jsonb)->>'ne_owner'='true');
 $$;
 create function public.ne_access_status() returns jsonb language plpgsql security definer set search_path='' as $$
 declare u auth.users; s text;

@@ -8,8 +8,9 @@ export function setTokens(res,data){
   'ne_refresh='+String(data?.refresh_token||'')+opts+'; Max-Age='+(data?2592000:0)
  ]);
 }
-export async function authCall(path,body,token){
- const response=await fetch(URL+'/auth/v1/'+path,{method:body?'POST':'GET',headers:{apikey:KEY,'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(10000)});
+export async function authCall(path,body,token,method){
+ const verb=method||(body?'POST':'GET');
+ const response=await fetch(URL+'/auth/v1/'+path,{method:verb,headers:{apikey:KEY,'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(10000)});
  const data=await response.json().catch(()=>({}));
  return {ok:response.ok,status:response.status,data};
 }

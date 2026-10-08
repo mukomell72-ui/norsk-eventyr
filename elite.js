@@ -50,27 +50,23 @@
   function activity(){return state.elite.activity[today()]||(state.elite.activity[today()]={})}
   function markActivity(k){
     const a=activity();if(!a[k]){a[k]=true;state.elite.counts[k]=(state.elite.counts[k]||0)+1}
-    touchStudy();state.xp=(state.xp||0)+3;refreshAchievements(false);baseSaveState();scheduleCloud();
+    touchStudy();refreshAchievements(false);baseSaveState();scheduleCloud();
   }
   function mission(){
-    const a=activity(),hasWords=!!state.dailyProgress?.[today()]?.completed,hasSrs=Object.keys(state.srs||{}).length>0,due=window.neDueWords?neDueWords().length:0;
+    const due=window.neDueWords?neDueWords().length:0,teacherDone=state.learningV8?.lastSessionDate===today();
     return [
-      ["words","5 новых слов",hasWords,"navigate('daily')"],
-      ["review","Повторить старые слова",hasSrs&&due===0,"navigate('review')"],
-      ["dictation","Диктант",!!a.dictation,"navigate('dictation')"],
-      ["conversation","5 минут Samtale",!!a.conversation,"navigate('chat')"],
-      ["pronunciation","Произношение",!!a.pronunciation,"navigate('pronunciation')"],
-      ["story","Fjordvik",!!state.story?.sideQuests?.[today()],"navigate('storyside')"]
+      ["teacher","Главное занятие с Норой",teacherDone,"navigate('teacher')"],
+      ["review",due?"Повторить то, что пора забыть":"Повторение по расписанию готово",due===0,"navigate('review')"]
     ];
   }
   function elitePanel(){
     refreshAchievements(false);const m=mission(),done=m.filter(x=>x[2]).length,pct=Math.round(done/m.length*100),goal=GOALS[state.elite.goal]||GOALS.norskprove;
-    return '<section class="elite-dashboard card"><div class="elite-dash-head"><div><div class="eyebrow">Сегодня · '+goal[0]+' · '+state.elite.dailyMinutes+' мин</div><h2>Дневной план '+done+'/'+m.length+'</h2></div><div class="mini-ring" style="--pct:'+pct+'%"><b>'+pct+'%</b></div></div><div class="mission-grid">'+m.map(x=>'<button class="mission '+(x[2]?"done":"")+'" onclick="'+x[3]+'"><span>'+(x[2]?"✓":"○")+'</span><b>'+x[1]+'</b></button>').join("")+'</div><div class="row" style="margin-top:12px"><button class="btn secondary" onclick="navigate(\'listeninglab\')">Настоящее аудирование</button><button class="btn ghost" onclick="navigate(\'plan\')">План и достижения</button></div></section>';
+    return '<section class="elite-dashboard card"><div class="elite-dash-head"><div><div class="eyebrow">Сегодня · '+goal[0]+' · '+state.elite.dailyMinutes+' мин</div><h2>Дневной план '+done+'/'+m.length+'</h2></div><div class="mini-ring" style="--pct:'+pct+'%"><b>'+pct+'%</b></div></div><div class="mission-grid">'+m.map(x=>'<button class="mission '+(x[2]?"done":"")+'" onclick="'+x[3]+'"><span>'+(x[2]?"✓":"○")+'</span><b>'+x[1]+'</b></button>').join("")+'</div><div class="row" style="margin-top:12px"><button class="btn secondary" onclick="navigate(\'plan\')">Дополнительная практика</button><button class="btn ghost" onclick="navigate(\'progress\')">Что реально освоено</button></div></section>';
   }
 
   shell=window.shell=function(content,active="home"){
     const isMainHome=active==="home"&&content.includes('<section class="hero">');
-    document.getElementById("app").innerHTML='<div class="shell"><header class="topbar"><div class="brand"><span class="brand-mark">N</span>Norsk Eventyr <small class="v4">5.0</small></div><div class="row top-actions"><span class="pill">'+esc(state.level)+'</span><span class="pill">'+(state.xp||0)+' XP</span><button class="icon-btn" onclick="navigate(\'cloud\')" title="Облачная синхронизация">'+(cloudLink()?'☁✓':'☁')+'</button><button class="icon-btn" onclick="navigate(\'settings\')" title="Настройки">⚙</button></div></header>'+(isMainHome?elitePanel():"")+content+nav(active)+'</div>';
+    document.getElementById("app").innerHTML='<div class="shell"><header class="topbar"><div class="brand"><span class="brand-mark">N</span>Norsk Eventyr <small class="v4">8.0 beta</small></div><div class="row top-actions"><span class="pill">'+esc(state.level)+'</span><span class="pill">'+(state.xp||0)+' XP</span><button class="icon-btn" onclick="navigate(\'cloud\')" title="Облачная синхронизация">'+(cloudLink()?'☁✓':'☁')+'</button><button class="icon-btn" onclick="navigate(\'settings\')" title="Настройки">⚙</button></div></header>'+(isMainHome?elitePanel():"")+content+nav(active)+'</div>';
   };
 
   navigate=window.navigate=function(view,data){
@@ -121,6 +117,7 @@
   function checkDictation(){
     const s=dictSession;if(!s||s.locked)return;const it=s.items[s.i],a=document.getElementById("dictAnswer").value,score=sim(a,it.audio_no);if(!a.trim())return;
     if(window.neUpdateSkill){neUpdateSkill("listening",score);neUpdateSkill("vocabulary",score)}
+    if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:state.level,skill:"listening",score,moduleId:state.level.toLowerCase()+"-supplemental",source:"dictation"});NEAdaptive.recordAttempt(state,{level:state.level,skill:"vocabulary",score,moduleId:state.level.toLowerCase()+"-supplemental",source:"dictation"});baseSaveState()}
     const ok=score>=75;if(ok){s.scores.push(score);s.locked=true}
     document.getElementById("dictFb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'"><b>'+(ok?'✓ Верно':'Исправь и попробуй ещё раз')+'</b><br><b>Правильно:</b> '+esc(it.audio_no||"")+'<br><span class="muted">'+esc(it.translation_ru||"")+'</span></div>';
     if(ok)neAdvance(()=>nextDictation(),650);else document.getElementById("dictAnswer").focus();
@@ -143,7 +140,7 @@
   }
   function answerGrammarLab(i){
     const s=grammarSession;if(!s||s.locked)return;
-    const it=s.items[s.i],c=Number(it.correct)||0,ok=i===c;if(ok){s.correct++;s.locked=true}if(window.neUpdateSkill)neUpdateSkill("grammar",ok?100:20);
+    const it=s.items[s.i],c=Number(it.correct)||0,ok=i===c;if(ok){s.correct++;s.locked=true}if(window.neUpdateSkill)neUpdateSkill("grammar",ok?100:20);if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:state.level,skill:"grammar",score:ok?100:20,moduleId:state.level.toLowerCase()+"-supplemental",source:"grammar_lab"});baseSaveState()}
     document.querySelectorAll(".choice").forEach((button,j)=>{if(ok){button.disabled=true;if(j===c)button.classList.add("good")}else if(j===i){button.disabled=true;button.classList.add("bad")}});
     document.getElementById("grammarLabFb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'">'+(ok?"✓ Верно":"Исправь и попробуй ещё раз")+'<br>'+esc(it.explanation_ru||"")+'</div>';
     if(ok)neAdvance(()=>nextGrammarLab(),650);
@@ -218,7 +215,7 @@
     box.innerHTML='<div class="auth-audio"><audio controls src="'+s.url+'"></audio></div><div class="prompt">'+esc(q.q)+'</div><div class="choice-list">'+q.opts.map((x,i)=>'<button class="choice" onclick="answerListeningLab('+i+')">'+esc(x)+'</button>').join("")+'</div><div id="listenQfb"></div>';
   }
   function answerListeningLab(i){
-    const s=listeningSession;if(!s||s.locked)return;const q=s.data.questions[s.i],ok=i===Number(q.correct);if(ok){s.correct++;s.locked=true}if(window.neUpdateSkill)neUpdateSkill("listening",ok?100:20);
+    const s=listeningSession;if(!s||s.locked)return;const q=s.data.questions[s.i],ok=i===Number(q.correct);if(ok){s.correct++;s.locked=true}if(window.neUpdateSkill)neUpdateSkill("listening",ok?100:20);if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:state.level,skill:"listening",score:ok?100:20,moduleId:state.level.toLowerCase()+"-supplemental",source:"listening_lab"});baseSaveState()}
     document.querySelectorAll("#listenLabBox .choice").forEach((button,j)=>{if(ok){button.disabled=true;if(j===Number(q.correct))button.classList.add("good")}else if(j===i){button.disabled=true;button.classList.add("bad")}});
     document.getElementById("listenQfb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'">'+(ok?"✓ Верно":"Послушай ещё раз и попробуй другой ответ")+(q.evidence_no?'<br><small>'+esc(q.evidence_no)+'</small>':'')+'</div>';
     if(ok)neAdvance(()=>nextListeningLab(),650);
@@ -236,9 +233,28 @@
   function b64url(bytes){let s="";bytes.forEach(b=>s+=String.fromCharCode(b));return btoa(s).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"")}
   async function rpc(name,body){const r=await neApiPost("/api/cloud",{name,params:body});if(!r.ok)throw new Error(r.error||"CLOUD");return r.data}
   function mergeHist(a=[],b=[]){const m=new Map();[...a,...b].forEach(x=>m.set(JSON.stringify([x.date,x.level,x.band,x.part,x.score]),x));return [...m.values()].sort((x,y)=>String(x.date||"").localeCompare(String(y.date||""))).slice(-100)}
+  function newestPlacement(a,b){
+    const valid=x=>x&&typeof x==="object"&&["A1","A2","B1","B2"].includes(x.recommendedStart||x.level);
+    if(!valid(a))return valid(b)?b:null;if(!valid(b))return a;
+    return String(a.date||"")>=String(b.date||"")?a:b;
+  }
+  function resolveStartLevel(local,remote,placement){
+    const levels=["A1","A2","B1","B2"],explicit=placement?.recommendedStart||placement?.level;
+    if(levels.includes(explicit))return explicit;
+    const vals=[local?.learningV8?.startLevel,remote?.learningV8?.startLevel].filter(x=>levels.includes(x));
+    if(!vals.length)return levels.includes(local?.level)?local.level:"A1";
+    return vals.sort((a,b)=>levels.indexOf(a)-levels.indexOf(b))[0];
+  }
   function mergeState(local,remote){
     const m={...remote,...local};m.xp=Math.max(local.xp||0,remote.xp||0);m.streak=Math.max(local.streak||0,remote.streak||0);
+    m.placement=newestPlacement(local.placement,remote.placement)||local.placement||remote.placement||null;
     m.completed={...(remote.completed||{}),...(local.completed||{})};m.completedTopics={...(remote.completedTopics||{}),...(local.completedTopics||{})};
+    m.gamification={...(remote.gamification||{}),...(local.gamification||{})};m.gamification.lessonAwards={};
+    const awardDays=new Set([...Object.keys(remote.gamification?.lessonAwards||{}),...Object.keys(local.gamification?.lessonAwards||{})]);
+    for(const day of awardDays){const rr=remote.gamification?.lessonAwards?.[day]||{},ll=local.gamification?.lessonAwards?.[day]||{},merged={...rr};for(const [k,v] of Object.entries(ll))merged[k]=Math.max(Number(merged[k]||0),Number(v||0));m.gamification.lessonAwards[day]=merged}
+    Object.keys(m.gamification.lessonAwards).sort().slice(0,-14).forEach(day=>delete m.gamification.lessonAwards[day]);
+    m.gamification.startedRewards={...(remote.gamification?.startedRewards||{})};for(const [k,v] of Object.entries(local.gamification?.startedRewards||{}))m.gamification.startedRewards[k]=Math.max(Number(m.gamification.startedRewards[k]||0),Number(v||0));
+    const lastAwards=[remote.gamification?.lastAward,local.gamification?.lastAward].filter(Boolean).sort((a,b)=>String(a.date||"").localeCompare(String(b.date||"")));m.gamification.lastAward=lastAwards.at(-1)||null;
     m.errors={...(remote.errors||{})};for(const [k,v] of Object.entries(local.errors||{}))m.errors[k]=Math.max(m.errors[k]||0,v||0);
     m.skills={...(remote.skills||{})};for(const [k,v] of Object.entries(local.skills||{}))m.skills[k]=Math.max(m.skills[k]||0,v||0);
     m.srs={...(remote.srs||{}),...(local.srs||{})};m.dailyPacks={...(remote.dailyPacks||{}),...(local.dailyPacks||{})};m.dailyProgress={...(remote.dailyProgress||{}),...(local.dailyProgress||{})};
@@ -246,6 +262,14 @@
     m.lexicalCandidates={...(remote.lexicalCandidates||{})};for(const [k,v] of Object.entries(local.lexicalCandidates||{})){const r=m.lexicalCandidates[k];m.lexicalCandidates[k]=!r?v:{...r,...v,occurrences:Math.max(r.occurrences||0,v.occurrences||0),confidence:Math.max(r.confidence||0,v.confidence||0),firstSeen:[r.firstSeen,v.firstSeen].filter(Boolean).sort()[0],lastSeen:[r.lastSeen,v.lastSeen].filter(Boolean).sort().at(-1)}}
     m.lexicalCapture={...(remote.lexicalCapture||{}),...(local.lexicalCapture||{})};
     m.guidedJourney={...(remote.guidedJourney||{}),...(local.guidedJourney||{})};m.guidedJourney.lessonDates={...(remote.guidedJourney?.lessonDates||{}),...(local.guidedJourney?.lessonDates||{})};m.guidedJourney.reviewDates={...(remote.guidedJourney?.reviewDates||{}),...(local.guidedJourney?.reviewDates||{})};
+    m.learningV8={...(remote.learningV8||{}),...(local.learningV8||{})};m.learningV8.startLevel=resolveStartLevel(local,remote,m.placement);
+    m.learningV8.skills={...(remote.learningV8?.skills||{})};for(const [k,v] of Object.entries(local.learningV8?.skills||{}))m.learningV8.skills[k]=Math.max(m.learningV8.skills[k]||0,v||0);
+    m.learningV8.levelSkills={};for(const level of ["A1","A2","B1","B2"]){m.learningV8.levelSkills[level]={...(remote.learningV8?.levelSkills?.[level]||{})};for(const [k,v] of Object.entries(local.learningV8?.levelSkills?.[level]||{}))m.learningV8.levelSkills[level][k]=Math.max(m.learningV8.levelSkills[level][k]||0,v||0)}
+    m.learningV8.modules={...(remote.learningV8?.modules||{}),...(local.learningV8?.modules||{})};
+    m.learningV8.reviews={...(remote.learningV8?.reviews||{}),...(local.learningV8?.reviews||{})};
+    m.learningV8.errorPatterns={...(remote.learningV8?.errorPatterns||{})};for(const [k,v] of Object.entries(local.learningV8?.errorPatterns||{}))m.learningV8.errorPatterns[k]=Math.max(m.learningV8.errorPatterns[k]||0,v||0);
+    const adaptiveAttempts=[...(remote.learningV8?.attempts||[]),...(local.learningV8?.attempts||[])],seenAdaptive=new Set();
+    m.learningV8.attempts=adaptiveAttempts.filter(x=>{const key=JSON.stringify([x?.date,x?.skill,x?.moduleId,x?.source,x?.score]);if(seenAdaptive.has(key))return false;seenAdaptive.add(key);return true}).sort((a,b)=>String(a?.date||"").localeCompare(String(b?.date||""))).slice(-500);
     m.story={...(remote.story||{}),...(local.story||{})};m.story.completed={...(remote.story?.completed||{}),...(local.story?.completed||{})};m.story.choices={...(remote.story?.choices||{}),...(local.story?.choices||{})};m.story.journal={...(remote.story?.journal||{}),...(local.story?.journal||{})};m.story.sideQuests={...(remote.story?.sideQuests||{}),...(local.story?.sideQuests||{})};m.story.stats={...(remote.story?.stats||{})};for(const [k,v] of Object.entries(local.story?.stats||{}))m.story.stats[k]=Math.max(m.story.stats[k]||0,v||0);
     for(const key of ["wordFavorites","chatThreads","chatMemories","generatedLessons"]){m[key]={...(remote[key]||{}),...(local[key]||{})};}
     m.elite={...(remote.elite||{}),...(local.elite||{})};
@@ -287,7 +311,7 @@
 
   function renderSettings(){
     const canInstall=!!installPrompt;
-    shell('<div class="screen-head"><button class="back" onclick="navigate(\'hub\')">←</button><div><div class="eyebrow">Настройки</div><h2 style="margin:0">Norsk Eventyr 7.1</h2></div></div><section class="grid"><article class="card"><h3>Учебная цель</h3><div class="goal-options">'+Object.entries(GOALS).map(([k,v])=>'<button class="goal-option '+(state.elite.goal===k?"active":"")+'" onclick="setEliteGoal(\''+k+'\')"><b>'+esc(v[0])+'</b><small>'+esc(v[1])+'</small></button>').join("")+'</div></article><article class="card"><h3>Время в день</h3><div class="row">'+[10,20,30,45].map(n=>'<button class="btn '+(state.elite.dailyMinutes===n?"":"ghost")+'" onclick="setDailyMinutes('+n+')">'+n+' мин</button>').join("")+'</div><hr><h3>Приложение</h3><button class="btn secondary" '+(canInstall?"":"disabled")+' onclick="installApp()">'+(canInstall?"Установить на телефон":"Установка уже недоступна/выполнена")+'</button></article></section><div class="section-title"><h2>Системная проверка</h2></div><section class="card health-list"><div class="metric"><span>LocalStorage</span><strong>✓</strong></div><div class="metric"><span>Service Worker</span><strong>'+("serviceWorker" in navigator?"✓":"—")+'</strong></div><div class="metric"><span>Микрофон API</span><strong>'+(navigator.mediaDevices?.getUserMedia?"✓":"—")+'</strong></div><div class="metric"><span>Облако</span><strong>'+(cloudLink()?"✓":"не подключено")+'</strong></div><div id="healthRemote" class="metric"><span>Сервер AI</span><strong>—</strong></div><div class="row"><button class="btn ghost" onclick="runHealthCheck()">Проверить сервер</button><button class="btn ghost" onclick="navigate(\'cloud\')">Настроить облако</button></div></section>',"home");
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'hub\')">←</button><div><div class="eyebrow">Настройки</div><h2 style="margin:0">Norsk Eventyr 8.0 beta</h2></div></div><section class="grid"><article class="card"><h3>Учебная цель</h3><div class="goal-options">'+Object.entries(GOALS).map(([k,v])=>'<button class="goal-option '+(state.elite.goal===k?"active":"")+'" onclick="setEliteGoal(\''+k+'\')"><b>'+esc(v[0])+'</b><small>'+esc(v[1])+'</small></button>').join("")+'</div></article><article class="card"><h3>Время в день</h3><div class="row">'+[10,20,30,45].map(n=>'<button class="btn '+(state.elite.dailyMinutes===n?"":"ghost")+'" onclick="setDailyMinutes('+n+')">'+n+' мин</button>').join("")+'</div><hr><h3>Приложение</h3><button class="btn secondary" '+(canInstall?"":"disabled")+' onclick="installApp()">'+(canInstall?"Установить на телефон":"Установка уже недоступна/выполнена")+'</button></article></section><div class="section-title"><h2>Системная проверка</h2></div><section class="card health-list"><div class="metric"><span>LocalStorage</span><strong>✓</strong></div><div class="metric"><span>Service Worker</span><strong>'+("serviceWorker" in navigator?"✓":"—")+'</strong></div><div class="metric"><span>Микрофон API</span><strong>'+(navigator.mediaDevices?.getUserMedia?"✓":"—")+'</strong></div><div class="metric"><span>Облако</span><strong>'+(cloudLink()?"✓":"не подключено")+'</strong></div><div id="healthRemote" class="metric"><span>Сервер AI</span><strong>—</strong></div><div class="row"><button class="btn ghost" onclick="runHealthCheck()">Проверить сервер</button><button class="btn ghost" onclick="navigate(\'cloud\')">Настроить облако</button></div></section>',"home");
   }
   async function runHealthCheck(){
     const box=document.getElementById("healthRemote");if(box)box.querySelector("strong").textContent="…";
@@ -299,7 +323,7 @@
 
   function errorCard(title,msg){shell('<section class="card"><h2>'+esc(title)+'</h2><p class="muted">'+esc(msg||"Неизвестная ошибка")+'</p><button class="btn" onclick="navigate(\'home\')">На главную</button></section>',"home")}
 
-  Object.assign(window,{renderPlan,startDictation,checkDictation,nextDictation,startGrammarLab,answerGrammarLab,nextGrammarLab,renderPronunciationLab,selectSoundGroup,selectPronPhrase,practicePronounce,renderListeningLab,analyzeListeningFile,answerListeningLab,nextListeningLab,renderCloud,createCloud,cloudSync,connectCloud,copyRecovery,disconnectCloud,renderSettings,runHealthCheck,setEliteGoal,setDailyMinutes,installApp});
+  Object.assign(window,{renderPlan,startDictation,checkDictation,nextDictation,startGrammarLab,answerGrammarLab,nextGrammarLab,renderPronunciationLab,selectSoundGroup,selectPronPhrase,practicePronounce,renderListeningLab,analyzeListeningFile,answerListeningLab,nextListeningLab,renderCloud,createCloud,cloudSync,connectCloud,copyRecovery,disconnectCloud,renderSettings,runHealthCheck,setEliteGoal,setDailyMinutes,installApp,neMergeState:mergeState,neResolveStartLevel:resolveStartLevel});
 
   window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e});
   window.addEventListener("appinstalled",()=>{installPrompt=null});

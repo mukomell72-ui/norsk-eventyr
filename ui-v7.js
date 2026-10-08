@@ -8,7 +8,7 @@
   const LEVELS_V7=Array.isArray(window.LEVELS)?window.LEVELS:["A1","A2","B1","B2"];
   const PLACE_NAMES=["Вокзал","Кафе","Магазин","Автобус","Работа","Kommune"];
   const PLACE_ICONS=["🚉","☕","🛍","🚌","💼","🏛"];
-  const STEP_ICONS={words:"📖",review:"↻",lesson:"🎓",story:"🎬",talk:"💬"};
+  const STEP_ICONS={teacher:"N",review:"↻",words:"📖",lesson:"🎓",story:"🎬",talk:"💬"};
   const CHAT_TOPICS=[["💼","jobb","работа"],["⌂","hjem","дом"],["☁","vær","погода"],["◉","fritid","досуг"]];
 
   function h(v){
@@ -29,10 +29,11 @@
     try{
       const seasons=Array.isArray(window.STORY_SEASONS)?window.STORY_SEASONS:STORY_SEASONS;
       const eps=Array.isArray(window.STORY_EPISODES)?window.STORY_EPISODES:STORY_EPISODES;
-      const season=seasons.find(s=>s.level===state.level)||seasons[0];
+      const practiceLevel=LEVELS_V7.includes(state.story?.selectedLevel)?state.story.selectedLevel:state.level;
+      const season=seasons.find(s=>s.level===practiceLevel)||seasons[0];
       const list=eps.filter(e=>e.season===season?.id);
-      return {season,list,current:list.find(e=>!state.story?.completed?.[e.id])||list[0]||null};
-    }catch{return {season:null,list:[],current:null}}
+      return {season,list,current:list.find(e=>!state.story?.completed?.[e.id])||list[0]||null,practiceLevel};
+    }catch{return {season:null,list:[],current:null,practiceLevel:state.level}}
   }
   function nextLessonV7(){
     const core=coreLessonsV7(state.level);
@@ -44,7 +45,7 @@
     let g=active||currentRouteV7;
     if(["lesson","topic"].includes(g))g="course";
     if(["storyepisode","storyjournal"].includes(g))g="story";
-    if(["daily","dailypractice","review","storyside","plan"].includes(g))g="home";
+    if(["daily","dailypractice","review","storyside","plan","teacher"].includes(g))g="home";
     if(["tests","test","exam","examrun","exampart","progress","dictionary","dictation","grammarlab","pronunciation","listeninglab","settings","cloud","placement"].includes(g))g="hub";
     return g;
   }
@@ -115,25 +116,15 @@
   Object.assign(window,{v7OpenHelp,v7AskHelp});
 
   function guidedV7(){
-    state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};
-    state.guidedJourney.lessonDates=state.guidedJourney.lessonDates||{};
-    state.guidedJourney.reviewDates=state.guidedJourney.reviewDates||{};
-    const day=todayKeyV7(),due=dueCountV7(),activity=dayActivityV7(),story=storyForLevelV7().current,lesson=nextLessonV7();
-    const dailyDone=Boolean(state.dailyProgress?.[day]?.completed);
-    const lessonDone=Boolean(state.guidedJourney.lessonDates[day]);
-    const storyDone=Boolean(state.story?.sideQuests?.[day]);
-    const talkDone=Boolean(activity.conversation);
-    const reviewRequired=due>0||Boolean(state.guidedJourney.reviewDates[day]);
-    const reviewDone=reviewRequired?Boolean(state.guidedJourney.reviewDates[day])&&due===0:true;
+    const day=todayKeyV7(),wordDue=dueCountV7(),adaptiveDue=window.NEAdaptive?NEAdaptive.dueReviews(state).length:0,teacherDone=state.learningV8?.lastSessionDate===day,mission=window.NEAdaptive?NEAdaptive.nextMission(state):null;
+    const reviewRequired=wordDue>0||adaptiveDue>0,reviewDone=!reviewRequired;
+    const focus=mission?.module?.title||"Следующий шаг по слабому навыку";
     const steps=[
-      {id:"words",title:"Домашнее задание",sub:"Слова и практика",mins:5,done:dailyDone,route:"daily"},
-      ...(reviewRequired?[{id:"review",title:"Повторение",sub:due?due+" слов ждут":"Закрепляем",mins:3,done:reviewDone,route:"review"}]:[]),
-      {id:"lesson",title:"Урок",sub:lesson?.title||"В контексте",mins:7,done:lessonDone,route:lesson?"lesson":"course",data:lesson?.id||state.level},
-      {id:"story",title:"Сцена",sub:"В Fjordvik",mins:4,done:storyDone,route:"storyside"},
-      {id:"talk",title:"Разговор",sub:"С Nora",mins:3,done:talkDone,route:"chat"}
+      {id:"teacher",title:"Главное занятие с Норой",sub:focus,mins:Math.max(10,Math.min(25,Number(state.elite?.dailyMinutes)||20)),done:teacherDone,route:"teacher"},
+      ...(reviewRequired?[{id:"review",title:"Повторение по памяти",sub:adaptiveDue?adaptiveDue+" адаптивных проверки":wordDue+" слов по интервалу",mins:5,done:reviewDone,route:adaptiveDue?"teacher":"review"}]:[])
     ];
-    const next=steps.find(x=>!x.done)||{title:"Исследовать Fjordvik",sub:"Сегодня всё готово",mins:0,route:"story"};
-    return {day,due,story,lesson,steps,next,done:steps.filter(x=>x.done).length,total:steps.length,mins:steps.filter(x=>!x.done).reduce((a,x)=>a+x.mins,0)};
+    const next=steps.find(x=>!x.done)||{title:"Дополнительная практика",sub:"Обязательная часть готова",mins:0,route:"hub"};
+    return {day,due:wordDue+adaptiveDue,story:storyForLevelV7().current,lesson:nextLessonV7(),steps,next,done:steps.filter(x=>x.done).length,total:steps.length,mins:steps.filter(x=>!x.done).reduce((a,x)=>a+x.mins,0)};
   }
   function v7ContinueToday(){const x=guidedV7().next;navigate(x.route,x.data)}
   function v7Step(i){const x=guidedV7().steps[i];if(x)navigate(x.route,x.data)}
@@ -147,6 +138,12 @@
     return [...list,...fallback].slice(0,5);
   }
 
+  function xpJourneyV7(){
+    const status=window.xpRewardStatus?xpRewardStatus():{xp:state.xp||0,unlocked:[],next:null,progress:0,toNext:0},rewards=window.xpRewardCatalog?xpRewardCatalog():[];
+    const rewardButtons=rewards.map(r=>{const open=status.xp>=r.xp;return '<button class="xp-reward-v8 '+(open?'open':'locked')+'" '+(open?'onclick="v7XpMission(\''+js(r.id)+'\')"':'disabled')+'><span>'+r.xp+' XP</span><b>'+h(r.title)+'</b><small>'+(open?'Открыто · начать':'Ещё '+Math.max(0,r.xp-status.xp)+' XP')+'</small></button>'}).join("");
+    const next=status.next?'<div class="xp-progress-v8"><div><span>Следующая награда</span><b>'+h(status.next.title)+'</b><em>ещё '+status.toNext+' XP</em></div><i><strong style="width:'+status.progress+'%"></strong></i></div>':'<div class="xp-progress-v8 complete"><b>Все текущие миссии Норы открыты</b></div>';
+    return '<section class="xp-journey-v8"><div class="section-head-v7"><div><small>XP · награды Норы</small><h2>'+status.xp+' XP</h2><p>XP открывают бонусные задания. Языковые уровни по-прежнему открываются только знаниями.</p></div></div>'+next+'<div class="xp-rewards-v8">'+rewardButtons+'</div></section>';
+  }
   function renderHomeV7(){
     currentRouteV7="home";
     const j=guidedV7(),story=j.story,words=dailyWordsV7(),district=story?.district||"Fjordvik";
@@ -166,6 +163,7 @@
           '<div class="hero-note-v7">Små steg<br>store eventyr ♡</div>'+
         '</section>'+
         '<section class="route-card-v7"><div class="section-head-v7"><div><small>Твой маршрут на сегодня</small><h2>'+(j.mins?"Ещё примерно "+j.mins+" минут":"Маршрут завершён")+'</h2></div><span>◷ '+(j.mins||0)+' мин</span></div><div class="route-steps-v7">'+route+'</div></section>'+
+        xpJourneyV7()+
         '<section class="words-card-v7"><div class="section-head-v7"><div><h2>Домашнее задание</h2><p>Изучи слова и используй их в своих ответах.</p></div><button onclick="navigate(\'daily\')">Открыть →</button></div></section>'+
         '<section class="nora-note-v7"><span class="nora-avatar-v7"></span><div><small>Nora</small><p>«Сегодня продолжим без спешки. Говори своими словами — я помогу.»</p></div><button onclick="navigate(\'chat\')">Написать →</button></section>'+
       '</section>',
@@ -174,27 +172,35 @@
 
   function renderCourseV7(level=state.level){
     currentRouteV7="course";
-    if(level&&LEVELS_V7.includes(level))state.level=level;
-    saveState();
-    const core=coreLessonsV7(state.level),progress=levelProgressV7(state.level),done=completedCountV7(state.level),next=core.find(x=>!state.completed?.[x.id])||core[0];
-    const mapLessons=core.slice(0,6);
-    const nodePos=[[28,84],[66,72],[29,60],[67,48],[29,36],[67,24]];
-    const nodes=mapLessons.map((x,i)=>{
-      const isDone=Boolean(state.completed?.[x.id]),isNext=next?.id===x.id,p=nodePos[i]||[50,50];
-      return '<button class="map-node-v7 '+(isDone?"done ":"")+(isNext?"current":"")+'" style="left:'+p[0]+'%;top:'+p[1]+'%" onclick="navigate(\'lesson\',\''+js(x.id)+'\')"><span>'+PLACE_ICONS[i]+'</span><div><b>'+(i+1)+'. '+h(x.title)+'</b><small>'+h(state.completed?.[x.id]?'Пройдено':'Урок '+state.level)+'</small></div><em>'+h(state.level)+'</em></button>';
+    const courseLevel=level&&LEVELS_V7.includes(level)?level:state.level;
+    if(window.NEAdaptive)NEAdaptive.ensure(state);
+    const modules=window.NECurriculum?.modules(courseLevel)||[],gate=window.NEAdaptive?NEAdaptive.levelGate(state,courseLevel):null;
+    if(!modules.length)return baseNavigateV7("course",courseLevel);
+    const masteryOf=m=>window.NEAdaptive?NEAdaptive.moduleMastery(state,m.id):0,done=modules.filter(m=>masteryOf(m)>=78).length,next=modules.find(m=>masteryOf(m)<78)||modules.at(-1),routeProgress=Math.round(done/modules.length*100),profile=gate?.avg||0;
+    const nodePos=[[27,86],[66,77],[30,67],[68,57],[30,47],[67,37],[31,27],[65,17]];
+    const nodes=modules.map((m,i)=>{
+      const mastery=masteryOf(m),isDone=mastery>=78,isNext=next?.id===m.id,p=nodePos[i]||[50,50],locked=!isDone&&!isNext;
+      return '<button class="map-node-v7 '+(isDone?"done ":"")+(isNext?"current ":"")+(locked?"locked":"")+'" style="left:'+p[0]+'%;top:'+p[1]+'%" onclick="teacherStartModule(\''+js(m.id)+'\')"><span>'+(isDone?"✓":i+1)+'</span><div><b>'+h(m.title)+'</b><small>'+h(isDone?"Освоено":isNext?"Текущий модуль":"После предыдущего")+'</small></div><em>'+mastery+'%</em></button>';
     }).join("");
-    const near=core.map((x,i)=>'<button class="near-lesson-v7 '+(state.completed?.[x.id]?"done":"")+'" onclick="navigate(\'lesson\',\''+js(x.id)+'\')"><span>'+(state.completed?.[x.id]?"✓":i+1)+'</span><div><b>'+h(x.title)+'</b><small>'+h(x.grammar||"Практика в ситуации")+'</small></div><em>'+h(state.level)+'</em></button>').join("");
-    const topics=(typeof TOPIC_CATALOG!=="undefined"?TOPIC_CATALOG:[]).filter(x=>x.level===state.level).slice(0,8);
+    const list=modules.map((m,i)=>{
+      const mastery=masteryOf(m),isDone=mastery>=78,isNext=next?.id===m.id,locked=!isDone&&!isNext;
+      return '<button class="near-lesson-v7 '+(isDone?"done ":"")+(locked?"locked":"")+'" onclick="teacherStartModule(\''+js(m.id)+'\')"><span>'+(isDone?"✓":i+1)+'</span><div><b>'+h(m.title)+'</b><small>'+h(m.canDo?.[0]||"Практическая цель")+'</small></div><em>'+mastery+'%</em></button>';
+    }).join("");
+    const legacy=coreLessonsV7(courseLevel),topics=(typeof TOPIC_CATALOG!=="undefined"?TOPIC_CATALOG:[]).filter(x=>x.level===courseLevel).slice(0,8);
     shell(
       '<section class="course-v7">'+
-        '<section class="course-hero-v7"><div class="course-copy-v7"><small>Твой путь по Bokmål A1–B2</small><h1>Курс</h1><p>Учись через места и реальные ситуации в жизни Fjordvik.</p></div><div class="level-tabs-v7">'+LEVELS_V7.map(l=>'<button class="'+(l===state.level?"active":"")+'" onclick="renderCourse(\''+l+'\')">'+l+'</button>').join("")+'</div>'+
-        '<div class="progress-card-v7"><div><b>'+h(state.level)+'</b><small>'+done+' из '+core.length+' уроков</small></div><i><em style="width:'+progress+'%"></em></i><strong>'+progress+'%</strong></div></section>'+
-        '<section class="course-map-v7"><div class="map-shade-v7"></div><div class="map-title-v7"><small>Маршрут '+h(state.level)+'</small><b>Каждый урок — новое место</b></div>'+nodes+
-          (next?'<button class="map-continue-v7" onclick="navigate(\'lesson\',\''+js(next.id)+'\')">Продолжить маршрут →</button>':'')+
+        '<section class="course-hero-v7"><div class="course-copy-v7"><small>Адаптивный путь Bokmål · A1–B2</small><h1>Курс '+h(courseLevel)+'</h1><p>Каждый модуль закрывается только после доказательств по навыкам, а не после просмотра урока.</p></div><div class="level-tabs-v7">'+LEVELS_V7.map(l=>'<button class="'+(l===courseLevel?"active":"")+'" onclick="renderCourse(\''+l+'\')">'+l+'</button>').join("")+'</div>'+
+        '<div class="progress-card-v7"><div><b>'+h(courseLevel)+'</b><small>'+done+' из '+modules.length+' модулей освоено</small></div><i><em style="width:'+routeProgress+'%"></em></i><strong>'+routeProgress+'%</strong></div>'+
+        '<div class="notice" style="margin-top:12px"><b>Профиль навыков: '+profile+'%</b> · '+(gate?.pass?"уровень подтверждён внутренними критериями":"уровень ещё не подтверждён")+'. Маршрут и профиль — разные показатели.</div></section>'+
+        '<section class="course-map-v7"><div class="map-shade-v7"></div><div class="map-title-v7"><small>32-модульный маршрут</small><b>'+h(courseLevel)+' · '+h(next?.title||"Повторение")+'</b></div>'+nodes+
+          (next?'<button class="map-continue-v7" onclick="teacherStartModule(\''+js(next.id)+'\')">Продолжить с Норой →</button>':'')+
         '</section>'+
-        '<section class="course-side-v7"><div class="nora-guide-v7"><span class="nora-avatar-v7"></span><div><small>Nora сегодня</small><b>'+(next?"Следующий шаг: "+h(next.title):"Маршрут завершён")+'</b><p>Учимся говорить так, как это понадобится в обычной жизни.</p></div></div>'+
-        '<div class="section-head-v7"><div><small>Все уроки уровня</small><h2>Продолжай обучение</h2></div></div><div class="near-list-v7">'+near+'</div>'+
-        (topics.length?'<details class="ai-topics-v7"><summary>Дополнительные AI-темы</summary><div>'+topics.map(t=>'<button onclick="navigate(\'topic\',\''+js(t.id)+'\')"><b>'+h(t.title)+'</b><small>'+h(t.goal||"")+'</small></button>').join("")+'</div></details>':'')+
+        '<section class="course-side-v7"><div class="nora-guide-v7"><span class="nora-avatar-v7"></span><div><small>Nora · преподаватель</small><b>'+(next?"Следующая цель: "+h(next.canDo?.[0]||next.title):"Повторение уровня")+'</b><p>Я меняю нагрузку по твоим ответам и возвращаю слабые места через интервалы.</p></div></div>'+
+        '<div class="section-head-v7"><div><small>Основной маршрут</small><h2>8 модулей '+h(courseLevel)+'</h2></div></div><div class="near-list-v7">'+list+'</div>'+
+        '<details class="ai-topics-v7"><summary>Дополнительная практика — не влияет сама по себе на прохождение уровня</summary><div>'+
+          legacy.map(x=>'<button onclick="navigate(\'lesson\',\''+js(x.id)+'\')"><b>'+h(x.title)+'</b><small>'+h(x.grammar||"Закрепление")+'</small></button>').join("")+
+          topics.map(t=>'<button onclick="navigate(\'topic\',\''+js(t.id)+'\')"><b>'+h(t.title)+'</b><small>'+h(t.goal||"")+'</small></button>').join("")+
+        '</div></details>'+
         '</section>'+
       '</section>',
     "course");
@@ -215,7 +221,7 @@
   }
   function v7Toggle(id){const e=document.getElementById(id);if(e)e.hidden=!e.hidden}
   function v7ChatSettings(){document.getElementById("chatSettingsV7")?.classList.toggle("open")}
-  function v7ChatPref(k,v){state.chatPrefs=state.chatPrefs||{};state.chatPrefs[k]=v;if(k==="level")state.level=v;saveState();renderChatV7()}
+  function v7ChatPref(k,v){state.chatPrefs=state.chatPrefs||{};state.chatPrefs[k]=v;saveState();renderChatV7()}
   const PLACES_V7=[
     {id:'cafe',title:'Кафе',icon:'☕',description:'Заказ · меню · разговор за кофе',scene:'Кафе в Fjordvik. Nora работает за стойкой. Помоги заказать напиток и еду, уточнить размер, цену, оплату и место за столом. Затем естественно продолжай разговор о вкусах и планах ученика.'},
     {id:'home',title:'Дом Nora',icon:'⌂',description:'В гостях · дом · повседневная жизнь',scene:'Ученик в гостях у Nora дома. Nora — хозяйка и знакомая. Обсуждайте комнаты, семью, еду, привычки и планы; реагируй на детали ответа и развивай дружескую беседу.'},
@@ -224,16 +230,24 @@
     {id:'work',title:'Работа',icon:'💼',description:'Коллеги · задачи · рабочий день',scene:'Первый рабочий день в Fjordvik. Nora — коллега. Обсуждайте конкретные рабочие задачи, график, инструменты, перерыв и помощь. Давай по одной естественной реплике и уточняй понимание ученика.'},
     {id:'port',title:'Порт',icon:'⚓',description:'Путешествия · паром · планы',scene:'Порт Fjordvik. Nora — сотрудница у паромного причала. Обсуждайте направление поездки, отправление парома, билеты, багаж, погоду и планы путешествия.'}
   ];
-  function selectConversationV7(id,title,topic,scene=''){
+  function selectConversationV7(id,title,topic,scene='',practiceLevel=''){
     if(chatBusyV7)return;
     state.chatThreads=state.chatThreads||{};
     state.chatThreads[state.chatThreadId||'general']=state.chatHistory||[];
     state.chatThreadId=id;state.chatHistory=state.chatThreads[id]||[];
-    state.chatPrefs={...state.chatPrefs,level:state.level,topic,mode:scene?'roleplay':'free',sceneContext:scene,conversationTitle:title};
+    const level=LEVELS_V7.includes(practiceLevel)?practiceLevel:(LEVELS_V7.includes(state.chatPrefs?.level)?state.chatPrefs.level:state.level);
+    state.chatPrefs={...state.chatPrefs,level,topic,mode:scene?'roleplay':'free',sceneContext:scene,conversationTitle:title};
     saveState();navigate('chat');if(!state.chatHistory.length)v7StartChat();
   }
-  function v7OpenPlace(id){const place=PLACES_V7.find(x=>x.id===id);if(place)selectConversationV7('place:'+id,place.title,place.description,place.scene)}
-  function v7UseTopic(word){const topic=CHAT_TOPICS.find(x=>x[1]===word);selectConversationV7('topic:'+word,topic?.[2]||word,topic?.[2]||word)}
+  function v7OpenPlace(id){const place=PLACES_V7.find(x=>x.id===id);if(place)selectConversationV7('place:'+id,place.title,place.description,place.scene,state.story?.selectedLevel||state.level)}
+  function v7XpMission(id){
+    const reward=(window.xpRewardCatalog?xpRewardCatalog():[]).find(x=>x.id===id);if(!reward||(state.xp||0)<reward.xp)return;
+    const place=PLACES_V7.find(x=>x.id===id);if(!place)return;
+    const scene='XP-миссия Норы. Не давай готовые реплики без просьбы. Ученик должен сам решить ситуацию по-норвежски. '+place.scene+' Цель миссии: '+reward.description;
+    state.gamification=state.gamification&&typeof state.gamification==="object"?state.gamification:{};state.gamification.startedRewards=state.gamification.startedRewards||{};state.gamification.startedRewards[id]=(state.gamification.startedRewards[id]||0)+1;saveState();
+    selectConversationV7('xp:'+id,'XP-миссия · '+reward.title,reward.description,scene,state.level);
+  }
+  function v7UseTopic(word){const topic=CHAT_TOPICS.find(x=>x[1]===word);selectConversationV7('topic:'+word,topic?.[2]||word,topic?.[2]||word,'',state.chatPrefs?.level||state.level)}
 
   function v7ChatKey(e){
     if(e?.key==="Enter"&&!e.shiftKey){
@@ -262,7 +276,7 @@
         '<section id="chatSettingsV7" class="chat-settings-v7"><select onchange="v7ChatPref(\'level\',this.value)">'+LEVELS_V7.map(l=>'<option '+(p.level===l?"selected":"")+'>'+l+'</option>').join("")+'</select><select onchange="v7ChatPref(\'mode\',this.value)"><option value="free" '+(p.mode==="free"?"selected":"")+'>Свободно</option><option value="corrections" '+(p.mode==="corrections"?"selected":"")+'>Исправлять</option><option value="exam" '+(p.mode==="exam"?"selected":"")+'>Устная практика</option><option value="roleplay" '+(p.mode==="roleplay"?"selected":"")+'>Ролевая сцена</option></select><button onclick="v7ClearChat()">Очистить</button></section>'+
         '<section class="chat-body-v7"><div id="chatMessages" class="chat-messages-v7">'+v7ChatMessages()+'</div>'+
           '<div class="topic-strip-v7">'+CHAT_TOPICS.map(x=>'<button onclick="v7UseTopic(\''+x[1]+'\')"><span>'+x[0]+'</span><b>'+x[1]+'</b><small>'+x[2]+'</small></button>').join("")+'</div>'+
-          '<div class="composer-v7"><button id="chatMicBtn" class="mic-v7" onclick="toggleMic(\'chatInput\')" aria-label="Говорить">🎤</button><textarea id="chatInput" rows="1" placeholder="Ответь Норе по-норвежски…" onkeydown="v7ChatKey(event)"></textarea><button class="send-v7" onclick="v7SendChat()" aria-label="Отправить">➤</button></div>'+
+          '<div class="composer-v7"><button id="chatMicBtn" class="mic-v7" onclick="toggleMic(\'chatInput\')" aria-label="Говорить">🎤</button><textarea id="chatInput" rows="1" placeholder="Ответь Норе по-норвежски…" onkeydown="v7ChatKey(event)"></textarea><button class="send-v7" onclick="v7SendChat()" aria-label="Отправить">➤</button></div><div id="chatVoiceStatus" class="chat-live-status-v8" role="status" aria-live="polite"></div>'+
         '</section>'+
       '</section>',
     "chat");
@@ -271,25 +285,25 @@
       document.querySelectorAll(".send-v7,.mic-v7,.chat-settings-v7 button,.chat-settings-v7 select").forEach(e=>e.disabled=true);
       document.getElementById("chatInput")?.setAttribute("disabled","");
       const b=document.getElementById("chatMessages");
-      if(b&&!b.querySelector(".chat-thinking"))b.insertAdjacentHTML("beforeend",'<div class="chat-thinking" role="status">Нора готовит ответ…</div>');
+      if(b&&!b.querySelector(".chat-thinking"))b.insertAdjacentHTML("beforeend",'<div class="chat-thinking" role="status">Нора думает…</div>');
     }
   }
 
   function renderStoryV7(seasonId=""){
-    currentRouteV7="story";
+    currentRouteV7="story";state.story=state.story||{};
     try{
       if(seasonId){
         const seasons=Array.isArray(window.STORY_SEASONS)?window.STORY_SEASONS:STORY_SEASONS;
         const picked=seasons.find(x=>x.id===seasonId);
-        if(picked?.level&&picked.level!==state.level){state.level=picked.level;saveState()}
-      }
+        if(picked?.level){state.story.selectedLevel=picked.level;saveState()}
+      }else if(!LEVELS_V7.includes(state.story.selectedLevel)){state.story.selectedLevel=state.level;saveState()}
     }catch{}
-    const {season,list,current}=storyForLevelV7(),nodes=PLACES_V7,pos=[[27,80],[64,26],[65,67],[29,54],[64,41],[28,93]];
+    const {season,list,current,practiceLevel}=storyForLevelV7(),nodes=PLACES_V7,pos=[[27,80],[64,26],[65,67],[29,54],[64,41],[28,93]];
     const labels=PLACES_V7.map(x=>x.title);
     const icons=PLACES_V7.map(x=>x.icon);
     shell(
       '<section class="fjord-v7">'+
-        '<section class="fjord-map-v7"><div class="fjord-shade-v7"></div><div class="fjord-title-v7"><small>'+h(season?.title||state.level)+'</small><h1>Fjordvik</h1><p>Живой норвежский город. Выбирай место и говори в реальной ситуации.</p></div>'+
+        '<section class="fjord-map-v7"><div class="fjord-shade-v7"></div><div class="fjord-title-v7"><small>'+h(season?.title||practiceLevel)+'</small><h1>Fjordvik</h1><p>Живой норвежский город. Выбирай место и говори в реальной ситуации.</p></div>'+
         nodes.map((e,i)=>'<button class="fjord-pin-v7 '+(state.story?.completed?.[e.id]?"done":"")+'" style="left:'+pos[i][0]+'%;top:'+pos[i][1]+'%" onclick="v7OpenPlace(\''+js(e.id)+'\')"><span>'+iconV7(e.id)+'</span><b>'+labels[i]+'</b></button>').join("")+
         '</section>'+
         '<section class="scene-day-v7"><div><small>🎬 Сцена дня · ~14 минут</small><h2>'+h(current?.title||"Встреча в Fjordvik")+'</h2><p>'+h(current?.hook||"Небольшая история, новые слова и живой разговор.")+'</p><button class="cta-v7 small" onclick="'+(current?("navigate(\'storyepisode\',\'"+js(current.id)+"\')"):"navigate(\'storyside\')")+'">Войти в сцену →</button></div><span class="nora-scene-v7"></span></section>'+
@@ -304,13 +318,14 @@
   }
   function renderHubV7(){
     currentRouteV7="hub";
-    const progress=levelProgressV7(state.level),dict=Object.keys(state.dailyDictionary||{}).length,due=dueCountV7();
+    const routeProgress=levelProgressV7(state.level),gate=window.NEAdaptive?NEAdaptive.levelGate(state,state.level):null,mastery=gate?gate.avg:routeProgress,dict=Object.keys(state.dailyDictionary||{}).length,due=dueCountV7();
     shell(
       '<section class="hub-v7">'+
         '<section class="hub-hero-v7"><div class="hub-shade-v7"></div><div><small>Твой путь · твои результаты</small><h1>Прогресс<br>и экзамен</h1><p>Всё важное без лишних экранов.</p></div></section>'+
-        '<section class="stats-v7"><article><small>Текущий уровень</small><b>'+h(state.level)+'</b><i><em style="width:'+progress+'%"></em></i><span>'+progress+'%</span></article><article><small>Серия</small><b>🔥 '+Number(state.streak||0)+' дней</b></article><article><small>Слова</small><b>'+dict+'</b></article><article><small>XP</small><b>'+Number(state.xp||0)+'</b></article></section>'+
+        '<section class="stats-v7"><article><small>Профиль '+h(state.level)+'</small><b>'+(gate?.pass?'Подтверждён':'В работе')+'</b><i><em style="width:'+mastery+'%"></em></i><span>'+mastery+'%</span></article><article><small>Серия занятий</small><b>'+Number(state.streak||0)+' дней</b></article><article><small>Слова в словаре</small><b>'+dict+'</b></article><article><small>Маршрут курса</small><b>'+routeProgress+'%</b></article></section>'+
         '<section class="exam-v7"><div class="exam-bg-v7"></div><div class="exam-copy-v7"><small>Подготовка к Norskprøven</small><h2>Пробный экзамен</h2><p>Четыре навыка в одном маршруте.</p><div class="exam-parts-v7"><span>▤ Чтение</span><span>◉ Аудирование</span><span>✎ Письмо</span><span>◌ Говорение</span></div><button class="cta-v7 small" onclick="navigate(\'exam\')">Начать экзамен →</button></div></section>'+
         '<section class="tools-grid-v7">'+
+          hubTileV7("N","Нора","Адаптивный преподаватель","teacher")+
           hubTileV7("↻","Повторение","Интервалы и закрепление","review",due?String(due):"✓")+
           hubTileV7("▤","Выученные слова","Поиск · повтор · задания","learnedwords")+
           hubTileV7("✎","Домашнее задание","Изучение и практика","daily")+
@@ -357,7 +372,7 @@
   window.renderChat=renderChatV7;
   window.renderHub=renderHubV7;
   window.renderStoryWorld=renderStoryV7;
-  Object.assign(window,{v7ContinueToday,v7Step,v7Toggle,v7ChatSettings,v7ChatPref,v7UseTopic,v7ChatKey,v7SendChat,v7StartChat,v7ClearChat,v7OpenPlace,renderStoryV7});
+  Object.assign(window,{v7ContinueToday,v7Step,v7Toggle,v7ChatSettings,v7ChatPref,v7UseTopic,v7ChatKey,v7SendChat,v7StartChat,v7ClearChat,v7OpenPlace,v7XpMission,renderStoryV7});
   // Translate the selected word in its sentence without replacing the learner's answer.
   const wordTranslationsV7=new Map();
   function decorateWordsV7(){

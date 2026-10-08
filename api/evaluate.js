@@ -87,13 +87,18 @@ export default async function handler(req,res){
     "Для устной речи оценивай текст распознанной речи; не делай выводов о произношении, которого ты не слышишь.",
     "Для экзамена это только тренировочная оценка, не официальный результат Norskprøven.","",
     "Верни только один JSON-объект:",
-    '{"accepted":true,"score":0,"cefr_estimate":"'+target+'","breakdown":{"meaning":0,"grammar":0,"vocabulary":0,"coherence":0},"corrected":"","explanation_ru":"","strengths_ru":[""],"improvements_ru":[""],"error_tag":""}',"",
+    '{"accepted":true,"score":0,"cefr_estimate":"'+target+'","breakdown":{"meaning":0,"grammar":0,"vocabulary":0,"coherence":0},"corrected":"","explanation_ru":"","strengths_ru":[""],"improvements_ru":[""],"error_tag":"","micro_rule_ru":"","retry_prompt_no":"","next_action_ru":""}',"",
     "score и breakdown: целые 0–100.",
     "accepted=true, если ответ выполняет задачу и в целом понятен на целевом уровне; мелкие ошибки не должны автоматически давать отказ.",
     "corrected: естественный улучшенный вариант на норвежском.",
     "explanation_ru: 1–3 коротких конкретных предложения.",
     "strengths_ru и improvements_ru: максимум по 2 пункта.",
     "error_tag: word_order, verb_form, article, vocabulary, task, coherence или пустая строка.",
+    "micro_rule_ru: одно короткое правило только по главной ошибке, без лекции.",
+    "retry_prompt_no: новый короткий вопрос или ситуация на норвежском, где ученик должен сам применить исправленный навык. Не повторяй исходное предложение.",
+    "next_action_ru: одно конкретное действие преподавателя: повторить, усложнить, сменить навык или перейти дальше.",
+    "Не хвали общими словами. Назови конкретно, что получилось. Исправляй минимально: сохраняй смысл и стиль ученика, не переписывай ответ за него.",
+    "Один ответ не доказывает уровень CEFR целиком. cefr_estimate здесь означает только соответствие этого ответа сложности задания.",
     exam?"В экзаменационном режиме будь строже к полноте, связности и уровню языка.":"",
     speaking?"Не оценивай фонетику: доступен только текст распознавания.":""
   ].filter(Boolean).join("\n");
@@ -106,7 +111,7 @@ export default async function handler(req,res){
     parsed.corrected=String(parsed.corrected||"").slice(0,1800);parsed.explanation_ru=String(parsed.explanation_ru||"").slice(0,1600);
     parsed.strengths_ru=Array.isArray(parsed.strengths_ru)?parsed.strengths_ru.slice(0,2):[];
     parsed.improvements_ru=Array.isArray(parsed.improvements_ru)?parsed.improvements_ru.slice(0,2):[];
-    parsed.error_tag=String(parsed.error_tag||"").slice(0,50);
+    parsed.error_tag=String(parsed.error_tag||"").slice(0,50);parsed.micro_rule_ru=String(parsed.micro_rule_ru||"").slice(0,500);parsed.retry_prompt_no=String(parsed.retry_prompt_no||"").slice(0,500);parsed.next_action_ru=String(parsed.next_action_ru||"").slice(0,500);
     return res.status(200).json(parsed);
   }catch(e){
     return res.status(502).json({error:"AI_EVALUATE_FAILED",code:e?.code||"AI_EVALUATE_FAILED"});

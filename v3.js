@@ -16,7 +16,8 @@
   state.dailyDayCount=Number(state.dailyDayCount)||Object.keys(state.dailyPacks).length;
   saveState();
 
-  let neSession=sessionStorage.getItem("ne_session")||"",micBusy=false,speechAudio=null,speechUrl=null,speechRequest=0;
+  let neSession=sessionStorage.getItem("ne_session")||"",micBusy=false,speechAudio=null,speechRequest=0,speechActiveButton=null,speechAudioContext=null;
+  const speechCache=new Map(),SPEECH_CACHE_LIMIT=12;
   let placementSession=null,reviewSession=null,examV3=null,dailyTaskSession=null,mediaRecorder=null,mediaStream=null,recordChunks=[],recordTimer=null,recordStartedAt=0,chatInputWasVoice=false;
   const MIC_CONSTRAINTS={audio:{channelCount:{ideal:1},sampleRate:{ideal:48000},echoCancellation:true,noiseSuppression:true,autoGainControl:true}};
   function micStreamAlive(){
@@ -125,33 +126,96 @@
     return r.ok?{ok:true,data:r.data}:{ok:false,error:r.error};
   };
 
-  function fallbackSpeech(text,rate=.9){
-    if(!("speechSynthesis" in window))return;
-    speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang="nb-NO";u.rate=rate;
-    const v=speechSynthesis.getVoices().find(x=>/^nb|no/i.test(x.lang));if(v)u.voice=v;speechSynthesis.speak(u);
+  function restoreSpeechButton(btn){
+    if(!btn)return;
+    if(btn.dataset.speechOriginal!==undefined)btn.innerHTML=btn.dataset.speechOriginal;
+    btn.classList.remove("speech-loading","speech-playing");
+    btn.disabled=false;
+    if(speechActiveButton===btn)speechActiveButton=null;
   }
-  speakText=async function(text,rate=.9){
-    const request=++speechRequest;
-    speechAudio?.pause();if(speechUrl)URL.revokeObjectURL(speechUrl);speechUrl=null;
+  function setSpeechButton(btn,stateName){
+    if(!btn)return;
+    if(btn.dataset.speechOriginal===undefined)btn.dataset.speechOriginal=btn.innerHTML;
+    btn.classList.remove("speech-loading","speech-playing");
+    if(stateName==="loading"){btn.classList.add("speech-loading");btn.innerHTML=btn.classList.contains("mini-audio")?"…":"⏳ Готовлю голос…";btn.disabled=true}
+    if(stateName==="playing"){btn.classList.add("speech-playing");btn.innerHTML=btn.classList.contains("mini-audio")?"🔊":"🔊 Нора говорит…";btn.disabled=true}
+    speechActiveButton=btn;
+  }
+  function stopSpeechPlayback(){
+    speechAudio?.pause();speechAudio=null;
     window.speechSynthesis?.cancel();
+    restoreSpeechButton(speechActiveButton);
+  }
+  function speechKey(text,level){return String(level||"A1")+"\n"+String(text||"").trim()}
+  function trimSpeechCache(){
+    while(speechCache.size>SPEECH_CACHE_LIMIT){
+      const [key,item]=speechCache.entries().next().value||[];
+      if(!key)break;
+      if(item?.url)URL.revokeObjectURL(item.url);
+      speechCache.delete(key);
+    }
+  }
+  async function getSpeechAudio(text,level){
+    const key=speechKey(text,level),cached=speechCache.get(key);
+    if(cached?.url)return cached;
+    if(cached?.promise)return cached.promise;
+    const promise=(async()=>{
+      const r=await apiPost("/api/speech",{text,level});
+      if(!r.ok)throw new Error(r.error||"SPEECH_FAILED");
+      const blob=await r.response.blob(),url=URL.createObjectURL(blob),item={url};
+      speechCache.set(key,item);trimSpeechCache();return item;
+    })().catch(e=>{speechCache.delete(key);throw e});
+    speechCache.set(key,{promise});return promise;
+  }
+  function primeSpeech(text,level=(lessonSession?.lesson?.level)||state.level||"A1"){
+    if(!String(text||"").trim()||window.NEHumanVoice?.has?.(text))return;
+    getSpeechAudio(text,level).catch(()=>{});
+  }
+  function fallbackSpeech(text,rate=.9,btn=null){
+    if(!("speechSynthesis" in window)){restoreSpeechButton(btn);return}
+    speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang="nb-NO";u.rate=rate;
+    const v=speechSynthesis.getVoices().find(x=>/^nb|no/i.test(x.lang));if(v)u.voice=v;
+    u.onstart=()=>setSpeechButton(btn,"playing");u.onend=()=>restoreSpeechButton(btn);u.onerror=()=>restoreSpeechButton(btn);
+    speechSynthesis.speak(u);
+  }
+  speakText=async function(text,rate=.9,btn=null){
+    btn=btn||(document.activeElement?.tagName==="BUTTON"?document.activeElement:null);
+    const request=++speechRequest;stopSpeechPlayback();setSpeechButton(btn,"loading");
     // Prefer a licensed real-human Nora recording when an exact clip exists.
     try{
       if(window.NEHumanVoice?.has?.(text)){
+        setSpeechButton(btn,"playing");
         const played=await window.NEHumanVoice.play(text,rate);
-        if(played)return {source:"human",speaker:window.NEHumanVoice.speaker};
+        if(played){setTimeout(()=>restoreSpeechButton(btn),Math.max(900,String(text).length*65));return {source:"human",speaker:window.NEHumanVoice.speaker}}
       }
     }catch{}
     const level=(lessonSession?.lesson?.level)||state.level||"A1";
-    const r=await apiPost("/api/speech",{text,level});
-    if(request!==speechRequest)return;
-    if(!r.ok){fallbackSpeech(text,rate);return {source:"browser"}}
     try{
-      const blob=await r.response.blob();if(request!==speechRequest)return;
-      const url=URL.createObjectURL(blob),a=new Audio(url);speechAudio=a;speechUrl=url;
-      a.playbackRate=Math.max(.6,Math.min(1.4,Number(rate)/.9||1));
-      a.onended=()=>{URL.revokeObjectURL(url);if(speechUrl===url)speechUrl=null};await a.play();return {source:"ai"};
-    }catch{fallbackSpeech(text,rate);return {source:"browser"}}
+      const item=await getSpeechAudio(text,level);if(request!==speechRequest){restoreSpeechButton(btn);return}
+      const a=new Audio(item.url);speechAudio=a;a.preload="auto";a.volume=1;
+      a.playbackRate=Math.max(.75,Math.min(1.25,Number(rate)/.9||1));
+      try{
+        const AC=window.AudioContext||window.webkitAudioContext;
+        if(AC){
+          speechAudioContext=speechAudioContext||new AC();
+          if(speechAudioContext.state==="suspended")await speechAudioContext.resume();
+          const src=speechAudioContext.createMediaElementSource(a);
+          const high=speechAudioContext.createBiquadFilter();high.type="highpass";high.frequency.value=90;high.Q.value=.7;
+          const low=speechAudioContext.createBiquadFilter();low.type="lowpass";low.frequency.value=9500;low.Q.value=.7;
+          const comp=speechAudioContext.createDynamicsCompressor();comp.threshold.value=-24;comp.knee.value=18;comp.ratio.value=2.2;comp.attack.value=.004;comp.release.value=.16;
+          src.connect(high).connect(low).connect(comp).connect(speechAudioContext.destination);
+        }
+      }catch{}
+      a.onplaying=()=>setSpeechButton(btn,"playing");
+      a.onended=()=>{speechAudio=null;restoreSpeechButton(btn)};
+      a.onerror=()=>{speechAudio=null;restoreSpeechButton(btn)};
+      await a.play();return {source:"ai"};
+    }catch{
+      if(request!==speechRequest){restoreSpeechButton(btn);return}
+      fallbackSpeech(text,rate,btn);return {source:"browser"};
+    }
   };
+  window.nePrimeSpeech=primeSpeech;
 
   function normSpeech(s){return String(s||"").toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}\s]/gu,"").replace(/\s+/g," ").trim()}
   function similarity(a,b){
@@ -226,6 +290,7 @@
     }
   };
 
+  const adaptiveRenderLesson=window.renderLesson,adaptiveLessonNext=window.lessonNext,adaptiveLessonChoice=window.lessonChoice,adaptiveCheckFree=window.checkFree,adaptiveFinishLesson=window.finishLesson;
   const oldNavigate=navigate;
   navigate=function(view,data){
     stopTimer();
@@ -276,7 +341,7 @@
     }
     if(revision!==window.neScreenRevision)return;
     if(!lesson){alert("Не удалось создать урок. Попробуй ещё раз.");return renderCourse(topic.level)}
-    state.level=lesson.level;lessonSession={lesson,step:0,locked:false};touchStudy();renderLesson();
+    state.level=lesson.level;lessonSession={lesson,step:0,locked:false,xpScores:[]};touchStudy();renderLesson();
   }
 
   function grammarDataFor(l){
@@ -288,11 +353,11 @@
     return '<article class="card"><div class="eyebrow">Грамматика</div><h2>'+esc(g.title)+'</h2><div class="notice">'+esc(g.rule)+'</div><div class="example-list">'+(g.examples||[]).map(x=>'<div class="example">'+esc(x)+'</div>').join("")+'</div><div class="prompt">'+esc(g.q)+'</div><div class="choice-list">'+(g.opts||[]).map((x,i)=>'<button class="choice" onclick="checkGrammar(this,'+i+','+g.correct+')">'+esc(x)+'</button>').join("")+'</div><div id="fb"></div></article>';
   }
   function checkGrammar(btn,i,c){
-    if(lessonSession.locked)return;const ok=i===c;
+    if(lessonSession.locked)return;const ok=i===c;trackLessonScore(ok?100:35);
     if(ok){
       lessonSession.locked=true;document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good")});
-      updateSkill("grammar",100);document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно</b></div>';
-      neAdvance(()=>lessonNext(15),420);return;
+      updateSkill("grammar",100);document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно</b></div><button class="btn lesson-next-v8" onclick="lessonNext(15)">Дальше →</button>';
+      return;
     }
     btn.classList.add("bad");btn.disabled=true;rememberError("grammar");updateSkill("grammar",25);
     document.getElementById("fb").innerHTML='<div class="feedback bad"><b>Неверно.</b> Посмотри правило и выбери другой вариант.</div>';
@@ -300,48 +365,53 @@
   }
   function listenExV3(l){
     const d=shuffle(COURSE.filter(x=>x.level===l.level&&x.id!==l.id)).slice(0,3).map(x=>x.phrase),o=shuffle([l.phrase,...d]),c=o.indexOf(l.phrase);
-    return '<article class="card"><div class="eyebrow">Аудирование</div><div class="notice"><b>AI-голос:</b> аудио синтезировано, это не запись реального человека.</div><div class="prompt">Прослушай и выбери точную фразу.</div><button class="btn" onclick="speakText(\''+escJs(l.phrase)+'\',.85)">▶ Прослушать</button><div class="choice-list">'+o.map((x,i)=>'<button class="choice" onclick="lessonChoice(this,'+i+','+c+',\''+escJs(l.ru)+'\')">'+esc(x)+'</button>').join("")+'</div><hr><div class="eyebrow">Речь и разборчивость</div><p class="muted">Повтори фразу вслух. Запись будет распознана и сравнена с образцом.</p><textarea id="pronText" class="input" placeholder="После записи здесь появится распознанный текст."></textarea><button id="pronBtn" class="btn secondary" style="margin-top:10px" onclick="toggleMic(\'pronText\',\''+escJs(l.phrase)+'\')">🎤 Повторить фразу</button><div id="pronFb"></div><div id="fb"></div></article>';
+    return '<article class="card"><div class="eyebrow">Аудирование</div><div class="notice"><b>AI-голос:</b> аудио синтезировано, это не запись реального человека.</div><div class="prompt">Прослушай и выбери точную фразу.</div><button class="btn" onclick="speakText(\''+escJs(l.phrase)+'\',.85,this)">▶ Прослушать</button><div class="choice-list">'+o.map((x,i)=>'<button class="choice" onclick="lessonChoice(this,'+i+','+c+',\''+escJs(l.ru)+'\')">'+esc(x)+'</button>').join("")+'</div><hr><div class="eyebrow">Речь и разборчивость</div><p class="muted">Повтори фразу вслух. Запись будет распознана и сравнена с образцом.</p><textarea id="pronText" class="input" placeholder="После записи здесь появится распознанный текст."></textarea><button id="pronBtn" class="btn secondary" style="margin-top:10px" onclick="toggleMic(\'pronText\',\''+escJs(l.phrase)+'\')">🎤 Повторить фразу</button><div id="pronFb"></div><div id="fb"></div></article>';
   }
   renderLesson=function(){
+    if(lessonSession?.lesson?._adaptive&&typeof adaptiveRenderLesson==="function")return adaptiveRenderLesson();
     const s=lessonSession,l=s.lesson,n=["Диалог","Грамматика","Словарь","Аудирование","Чтение","Письмо","Речь"];let b="";
     if(s.step===0)b=lessonIntro(l);if(s.step===1)b=grammarEx(l);if(s.step===2)b=vocabEx(l);if(s.step===3)b=listenExV3(l);if(s.step===4)b=readEx(l);if(s.step===5)b=freeEx(l,"writing");if(s.step===6)b=freeEx(l,"speaking");
     shell('<div class="screen-head"><button class="back" onclick="navigate(\'course\',\''+l.level+'\')">←</button><div><div class="eyebrow">'+l.level+' · '+esc(l.title)+'</div><h2 style="margin:0">'+n[s.step]+' · '+(s.step+1)+'/7</h2></div></div><div class="progress"><i style="width:'+pct(s.step,7)+'%"></i></div><section class="exercise">'+b+'</section>',"course");
   };
-  lessonNext=function(xp=0){state.xp+=xp;saveState();lessonSession.step++;lessonSession.locked=false;if(lessonSession.step>6)return finishLesson();renderLesson()};
-  lessonChoice=function(btn,i,c,note){
-    if(lessonSession.locked)return;const ok=i===c;
+  lessonNext=function(xp=0){if(lessonSession?.lesson?._adaptive&&typeof adaptiveLessonNext==="function")return adaptiveLessonNext(xp);saveState();lessonSession.step++;lessonSession.locked=false;if(lessonSession.step>6)return finishLesson();renderLesson()};
+  lessonChoice=function(btn,i,c,note,skillHint=""){
+    if(lessonSession?.lesson?._adaptive&&typeof adaptiveLessonChoice==="function")return adaptiveLessonChoice(btn,i,c,note,skillHint);
+    if(lessonSession.locked)return;const ok=i===c;trackLessonScore(ok?100:35);
     const skill=lessonSession.step===2?"vocabulary":lessonSession.step===3?"listening":"reading";
     if(ok){
       lessonSession.locked=true;document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good")});
-      updateSkill(skill,100);document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно</b></div>';
-      neAdvance(()=>lessonNext(15),420);return;
+      updateSkill(skill,100);document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно</b></div><button class="btn lesson-next-v8" onclick="lessonNext(15)">Дальше →</button>';
+      return;
     }
     btn.classList.add("bad");btn.disabled=true;rememberError(skill);updateSkill(skill,20);
     document.getElementById("fb").innerHTML='<div class="feedback bad"><b>Неверно.</b> '+esc(note)+'<br><small>Попробуй другой ответ.</small></div>';
     lessonSession.locked=false;
   };
   checkFree=async function(mode){
+    if(lessonSession?.lesson?._adaptive&&typeof adaptiveCheckFree==="function")return adaptiveCheckFree(mode);
     const s=lessonSession,a=document.getElementById("freeAnswer")?.value.trim();if(!a||!s||s.locked)return;s.locked=true;const b=document.getElementById("freeFb"),l=s.lesson,p=mode==="speaking"?l.speaking:l.writing;
     b.innerHTML='<div class="feedback">Проверяю…</div>';const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode});
     if(!b.isConnected||lessonSession!==s){s.locked=false;return}
     if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
-    const d=r.data,score=Number(d.score||0),ok=d.accepted!==false&&score>=55;
+    const d=r.data,score=Number(d.score||0),ok=d.accepted!==false&&score>=55;trackLessonScore(score);
     updateSkill(mode,score);updateSkill("grammar",d.breakdown?.grammar??score);updateSkill("vocabulary",d.breakdown?.vocabulary??score);rememberError(d.error_tag);
     if(ok){
-      b.innerHTML='<div class="feedback good"><b>✓ Хороший ответ</b></div>';
-      neAdvance(()=>lessonNext(20),500);return;
+      b.innerHTML=(typeof aiLessonFeedbackHtml==="function"?aiLessonFeedbackHtml(d,"✓ Хороший ответ"):'<div class="feedback good"><b>✓ Хороший ответ · '+score+'/100</b><br>'+esc(d.explanation_ru||"Ответ принят.")+'</div>')+'<button class="btn lesson-next-v8" onclick="lessonNext(20)">Дальше →</button>';
+      return;
     }
     s.locked=false;
     b.innerHTML='<div class="feedback bad"><b>Исправь и попробуй ещё раз</b><br>'+esc(d.explanation_ru||"")+(d.corrected?'<br><br><b>Возможный вариант:</b><br>'+esc(d.corrected):"")+'</div>';
     document.getElementById("freeAnswer")?.focus();
   };
   finishLesson=function(){
-    const l=lessonSession.lesson,first=l.topicId?!state.completedTopics[l.topicId]:!state.completed[l.id];
+    if(lessonSession?.lesson?._adaptive&&typeof adaptiveFinishLesson==="function")return adaptiveFinishLesson();
+    const l=lessonSession.lesson;
     if(l.topicId)state.completedTopics[l.topicId]=true;else state.completed[l.id]=true;
-    seedSrs(l);if(first)state.xp+=40;
+    seedSrs(l);const reward=awardLessonXp(l),xp=xpRewardStatus();
     const today=localDateKey();state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.lessonDates=state.guidedJourney.lessonDates||{};state.guidedJourney.lessonDates[today]=l.id;
     saveState();
-    shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">'+l.level+' · готово на сегодня</div><h1>'+esc(l.title)+'</h1><p class="muted">Урок засчитан в сегодняшний маршрут.</p><button class="btn" onclick="navigate(\'home\')">Продолжить день →</button><button class="btn ghost" onclick="navigate(\'course\',\''+l.level+'\')">К курсу</button></section>',"home");
+    const unlocked=reward.newlyUnlocked.length?'<div class="xp-unlock-v8"><b>Открыто:</b> '+reward.newlyUnlocked.map(x=>esc(x.title)).join(", ")+'</div>':"",repeat=reward.repeat===1?'<small class="muted">Повтор этого урока сегодня: начислено 25% обычных XP.</small>':reward.repeat>1?'<small class="muted">За этот урок сегодня XP уже получены.</small>':"",next=xp.next?'<div class="xp-next-v8"><span>До награды «'+esc(xp.next.title)+'»</span><b>'+xp.toNext+' XP</b><i><em style="width:'+xp.progress+'%"></em></i></div>':'<div class="xp-next-v8"><b>Все текущие XP-миссии открыты</b></div>';
+    shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">'+l.level+' · готово на сегодня</div><h1>'+esc(l.title)+'</h1><p class="muted">Урок засчитан в сегодняшний маршрут.</p><div class="xp-award-v8"><strong>+'+reward.earned+' XP</strong><span>Оценка занятия Норы: '+reward.avg+'/100</span></div>'+repeat+unlocked+next+'<button class="btn" onclick="navigate(\'home\')">Продолжить день →</button><button class="btn ghost" onclick="navigate(\'course\',\''+l.level+'\')">К курсу</button></section>',"home");
   };
 
 
@@ -360,13 +430,13 @@
     '<div class="section-title"><div><div class="eyebrow">Новые слова</div><h2>Сегодняшняя пятёрка</h2></div><button class="btn ghost" onclick="navigate(\'dictionary\')">Открыть словарь</button></div>'+
     '<section class="daily-word-list">'+(pack.words||[]).map((w,i)=>dailyWordCard(w,i)).join("")+'</section>'+
     ((pack.review_words||[]).length?'<div class="section-title"><h2>Закрепляем слова прошлых дней</h2></div><section class="card"><div class="wordchips">'+pack.review_words.map(x=>'<span class="wordchip">'+esc(x)+'</span>').join("")+'</div></section>':'')+
-    ((pack.reinforcement_sentences||[]).length?'<div class="section-title"><h2>Новые + старые слова вместе</h2></div><section class="card reinforcement-list">'+pack.reinforcement_sentences.map(x=>'<div class="reinforcement-row"><button class="mini-audio" onclick="speakText(\''+escJs(x.no)+'\')">🔊</button><div><b>'+esc(x.no)+'</b><br><span class="muted">'+esc(x.ru)+'</span></div></div>').join("")+'</section>':'')+
+    ((pack.reinforcement_sentences||[]).length?'<div class="section-title"><h2>Новые + старые слова вместе</h2></div><section class="card reinforcement-list">'+pack.reinforcement_sentences.map(x=>'<div class="reinforcement-row"><button class="mini-audio" onclick="speakText(\''+escJs(x.no)+'\',.9,this)">🔊</button><div><b>'+esc(x.no)+'</b><br><span class="muted">'+esc(x.ru)+'</span></div></div>').join("")+'</section>':'')+
     '<div class="section-title"><h2>Практика</h2></div><section class="card"><p class="muted">Задания смешивают сегодняшние слова со словами предыдущих дней. Так старые слова не исчезают после одного урока.</p><div class="row"><button class="btn" onclick="navigate(\'dailypractice\',\''+date+'\')">'+(done?"Пройти задания ещё раз":"Начать задания")+'</button><button class="btn secondary" onclick="navigate(\'review\')">Интервальное повторение</button></div></section>',"home");
   }
   function dailyWordCard(w,i){
     const forms=(w.forms||[]).map(x=>'<tr><td>'+esc(x.label)+'</td><td><b>'+esc(x.form)+'</b></td></tr>').join("");
-    const examples=(w.examples||[]).map(x=>'<div class="daily-example"><span class="tag">'+esc(x.label)+'</span><button class="mini-audio" onclick="speakText(\''+escJs(x.no)+'\')">🔊</button><b>'+esc(x.no)+'</b><div class="muted">'+esc(x.ru)+'</div></div>').join("");
-    return '<article class="card daily-word-card"><div class="row"><span class="lesson-num">'+(i+1)+'</span><div><div class="eyebrow">'+esc(POS_LABEL[w.pos]||w.pos)+(w.gender?" · "+esc(w.gender):"")+'</div><h2>'+esc(w.lemma||w.word)+' <button class="mini-audio" onclick="speakText(\''+escJs(w.lemma||w.word)+'\')">🔊</button></h2><div class="daily-translation">'+esc(w.translation_ru)+'</div></div></div>'+
+    const examples=(w.examples||[]).map(x=>'<div class="daily-example"><span class="tag">'+esc(x.label)+'</span><button class="mini-audio" onclick="speakText(\''+escJs(x.no)+'\',.9,this)">🔊</button><b>'+esc(x.no)+'</b><div class="muted">'+esc(x.ru)+'</div></div>').join("");
+    return '<article class="card daily-word-card"><div class="row"><span class="lesson-num">'+(i+1)+'</span><div><div class="eyebrow">'+esc(POS_LABEL[w.pos]||w.pos)+(w.gender?" · "+esc(w.gender):"")+'</div><h2>'+esc(w.lemma||w.word)+' <button class="mini-audio" onclick="speakText(\''+escJs(w.lemma||w.word)+'\',.9,this)">🔊</button></h2><div class="daily-translation">'+esc(w.translation_ru)+'</div></div></div>'+
     (forms?'<table class="forms-table"><tbody>'+forms+'</tbody></table>':'')+
     '<div class="daily-examples">'+examples+'</div>'+
     (w.collocation?'<div class="notice"><b>Часто вместе:</b> '+esc(w.collocation)+'</div>':'')+
@@ -411,7 +481,7 @@
   function nextDailyTask(){dailyTaskSession.i++;renderDailyPractice()}
   function finishDailyPractice(){
     const s=dailyTaskSession,avg=s.scores.length?Math.round(s.scores.reduce((a,b)=>a+b,0)/s.scores.length):0;
-    state.dailyProgress[s.date]={completed:true,scores:s.scores,average:avg,completedAt:new Date().toISOString()};state.xp+=15;saveState();
+    state.dailyProgress[s.date]={completed:true,scores:s.scores,average:avg,completedAt:new Date().toISOString()};saveState();
     shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">Домашнее задание выполнено</div><h1>'+avg+'%</h1><p class="muted">Новые слова останутся активными в следующих заданиях и разговоре.</p><button class="btn" onclick="navigate(\'home\')">Продолжить день →</button><button class="btn ghost" onclick="navigate(\'learnedwords\')">Выученные слова</button></section>',"home");dailyTaskSession=null;
   }
 
@@ -426,8 +496,8 @@
     if(!filtered.length)return '<section class="card" style="margin-top:14px"><div class="empty">Ничего не найдено.</div></section>';
     return '<section class="dictionary-list">'+filtered.map(x=>{
       const forms=(x.forms||[]).map(f=>'<span><small>'+esc(f.label)+'</small><b>'+esc(f.form)+'</b></span>').join("");
-      const ex=(x.examples||[]).map(e=>'<div><button class="mini-audio" onclick="speakText(\''+escJs(e.no)+'\')">🔊</button> '+esc(e.no)+' <span class="muted">— '+esc(e.ru)+'</span></div>').join("");
-      return '<details class="card dictionary-entry"><summary><div><b class="dictionary-word">'+esc(x.lemma||x.word)+'</b><span class="muted"> · '+esc(x.translation_ru)+'</span></div><div class="row"><span class="tag">'+esc(POS_LABEL[x.pos]||x.pos)+'</span><span class="tag">'+Math.round(x.strength||20)+'%</span></div></summary><div class="dictionary-body"><button class="btn ghost" onclick="event.preventDefault();speakText(\''+escJs(x.lemma||x.word)+'\')">🔊 Произношение</button><div class="forms-grid">'+forms+'</div>'+(x.collocation?'<p><b>Сочетание:</b> '+esc(x.collocation)+'</p>':'')+'<div class="dictionary-examples">'+ex+'</div><div class="row"><small>Изучено: '+esc(x.firstDate||"—")+' · встречалось: '+(x.exposures||1)+' раз</small><a class="btn ghost link-btn" target="_blank" rel="noopener" href="https://ordbokene.no/bm/'+encodeURIComponent(x.lemma||x.word)+'">Bokmålsordboka ↗</a></div></div></details>';
+      const ex=(x.examples||[]).map(e=>'<div><button class="mini-audio" onclick="speakText(\''+escJs(e.no)+'\',.9,this)">🔊</button> '+esc(e.no)+' <span class="muted">— '+esc(e.ru)+'</span></div>').join("");
+      return '<details class="card dictionary-entry"><summary><div><b class="dictionary-word">'+esc(x.lemma||x.word)+'</b><span class="muted"> · '+esc(x.translation_ru)+'</span></div><div class="row"><span class="tag">'+esc(POS_LABEL[x.pos]||x.pos)+'</span><span class="tag">'+Math.round(x.strength||20)+'%</span></div></summary><div class="dictionary-body"><button class="btn ghost" onclick="event.preventDefault();speakText(\''+escJs(x.lemma||x.word)+'\',.9,this)">🔊 Произношение</button><div class="forms-grid">'+forms+'</div>'+(x.collocation?'<p><b>Сочетание:</b> '+esc(x.collocation)+'</p>':'')+'<div class="dictionary-examples">'+ex+'</div><div class="row"><small>Изучено: '+esc(x.firstDate||"—")+' · встречалось: '+(x.exposures||1)+' раз</small><a class="btn ghost link-btn" target="_blank" rel="noopener" href="https://ordbokene.no/bm/'+encodeURIComponent(x.lemma||x.word)+'">Bokmålsordboka ↗</a></div></div></details>';
     }).join("")+'</section>';
   }
   function filterDictionary(q){dictionaryFilter.q=q;const e=document.getElementById("dictionaryList");if(e)e.innerHTML=dictionaryListHtml(dictionaryEntries().sort((a,b)=>String(b.firstDate||"").localeCompare(String(a.firstDate||""))))}
@@ -445,7 +515,7 @@
   function renderReviewCard(){
     const row=reviewSession.items[reviewSession.i];if(!row)return finishReview();
     const [key,item]=row,pool=shuffle(Object.values(state.srs).map(x=>x.translation).filter(x=>x!==item.translation)),opts=shuffle([item.translation,...pool.slice(0,3)]),correct=opts.indexOf(item.translation);
-    shell('<div class="screen-head"><button class="back" onclick="renderReview()">←</button><div><div class="eyebrow">Повторение '+(reviewSession.i+1)+'/'+reviewSession.items.length+'</div><h2 style="margin:0">'+item.level+'</h2></div></div><section class="exercise"><article class="card"><div class="prompt">'+esc(item.word)+'</div><button class="btn ghost" onclick="speakText(\''+escJs(item.word)+'\')">🔊 Слушать</button><div class="choice-list">'+opts.map((x,i)=>'<button class="choice" onclick="answerReview(\''+escJs(key)+'\','+i+','+correct+')">'+esc(x)+'</button>').join("")+'</div></article></section>',"review");
+    shell('<div class="screen-head"><button class="back" onclick="renderReview()">←</button><div><div class="eyebrow">Повторение '+(reviewSession.i+1)+'/'+reviewSession.items.length+'</div><h2 style="margin:0">'+item.level+'</h2></div></div><section class="exercise"><article class="card"><div class="prompt">'+esc(item.word)+'</div><button class="btn ghost" onclick="speakText(\''+escJs(item.word)+'\',.9,this)">🔊 Слушать</button><div class="choice-list">'+opts.map((x,i)=>'<button class="choice" onclick="answerReview(\''+escJs(key)+'\','+i+','+correct+')">'+esc(x)+'</button>').join("")+'</div></article></section>',"review");
   }
   function answerReview(key,i,c){
     const it=state.srs[key],ok=i===c,interval=[0,1,3,7,14,30,60],buttons=[...document.querySelectorAll(".choice")],fb=document.getElementById("reviewFb");
@@ -461,59 +531,80 @@
     }
     buttons[i]?.classList.add("bad");buttons[i].disabled=true;if(fb)fb.innerHTML='<div class="feedback bad"><b>Неверно.</b> Попробуй другой перевод.</div>';
   }
-  function finishReview(){state.xp+=10;const today=localDateKey();state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.reviewDates=state.guidedJourney.reviewDates||{};state.guidedJourney.reviewDates[today]=true;saveState();shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">Повторение завершено</div><h1>Готово</h1><p class="muted">Следующие даты пересчитаны. Возвращаемся к сегодняшнему маршруту.</p><button class="btn" onclick="navigate(\'home\')">Продолжить день →</button></section>',"home")}
+  function finishReview(){const today=localDateKey();state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.reviewDates=state.guidedJourney.reviewDates||{};state.guidedJourney.reviewDates[today]=true;saveState();shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">Повторение завершено</div><h1>Готово</h1><p class="muted">Следующие даты пересчитаны. Возвращаемся к сегодняшнему маршруту.</p><button class="btn" onclick="navigate(\'home\')">Продолжить день →</button></section>',"home")}
 
   function renderPlacement(){
-    shell('<section class="card" style="max-width:760px;margin:30px auto"><div class="eyebrow">Входная диагностика</div><h1>Определим стартовый уровень</h1><p class="muted">20 заданий A1–B2: грамматика, словарь, чтение и аудирование. Результат нужен только для учебного маршрута.</p><div class="notice">Это не официальный Norskprøven и не подтверждение уровня CEFR.</div><br><button class="btn" onclick="startPlacement()">Начать</button></section>',"home");
+    shell('<section class="card" style="max-width:760px;margin:30px auto"><div class="eyebrow">Входной скрининг</div><h1>С какого материала лучше начать?</h1><p class="muted">20 коротких заданий A1–B2 проверяют грамматику, словарь, чтение и аудирование. Это быстрый выбор точки старта, а не определение полного уровня.</p><div class="notice"><b>Письмо и речь здесь не измеряются.</b> Их Нора проверит в реальных ответах первых занятий. Скрининг не подтверждает CEFR и не заменяет Norskprøven.</div><br><button class="btn" onclick="startPlacement()">Начать скрининг</button></section>',"home");
   }
-  function startPlacement(){placementSession={qs:[...PLACEMENT_BANK],i:0,byLevel:{A1:[0,0],A2:[0,0],B1:[0,0],B2:[0,0]},bySkill:{}};renderPlacementQ()}
+  function startPlacement(){placementSession={qs:[...PLACEMENT_BANK],i:0,byLevel:{A1:[0,0],A2:[0,0],B1:[0,0],B2:[0,0]},bySkill:{},byLevelSkill:{A1:{},A2:{},B1:{},B2:{}}};renderPlacementQ()}
   function renderPlacementQ(){
     const s=placementSession,q=s.qs[s.i];if(!q)return finishPlacement();
-    shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Диагностика</div><h2 style="margin:0">Задание '+(s.i+1)+'/20</h2></div></div><div class="progress"><i style="width:'+pct(s.i,20)+'%"></i></div><section class="exercise"><article class="card">'+(q.context?'<div class="translation">'+esc(q.context)+'</div><br>':"")+(q.audio?'<button class="btn" onclick="speakText(\''+escJs(q.audio)+'\')">▶ Прослушать</button><br><br>':"")+'<div class="prompt">'+esc(q.q)+'</div><div class="choice-list">'+q.opts.map((x,i)=>'<button class="choice" onclick="answerPlacement('+i+')">'+esc(x)+'</button>').join("")+'</div></article></section>',"home");
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Диагностика</div><h2 style="margin:0">Задание '+(s.i+1)+'/20</h2></div></div><div class="progress"><i style="width:'+pct(s.i,20)+'%"></i></div><section class="exercise"><article class="card">'+(q.context?'<div class="translation">'+esc(q.context)+'</div><br>':"")+(q.audio?'<button class="btn" onclick="speakText(\''+escJs(q.audio)+'\',.9,this)">▶ Прослушать</button><br><br>':"")+'<div class="prompt">'+esc(q.q)+'</div><div class="choice-list">'+q.opts.map((x,i)=>'<button class="choice" onclick="answerPlacement('+i+')">'+esc(x)+'</button>').join("")+'</div></article></section>',"home");
   }
   function answerPlacement(i){
     const s=placementSession,q=s.qs[s.i],ok=i===q.correct;s.byLevel[q.level][1]++;if(ok)s.byLevel[q.level][0]++;
-    s.bySkill[q.skill]=s.bySkill[q.skill]||[0,0];s.bySkill[q.skill][1]++;if(ok)s.bySkill[q.skill][0]++;s.i++;renderPlacementQ();
+    s.bySkill[q.skill]=s.bySkill[q.skill]||[0,0];s.bySkill[q.skill][1]++;if(ok)s.bySkill[q.skill][0]++;
+    const cell=s.byLevelSkill[q.level][q.skill]||(s.byLevelSkill[q.level][q.skill]=[0,0]);cell[1]++;if(ok)cell[0]++;
+    s.i++;renderPlacementQ();
   }
   function finishPlacement(){
-    const s=placementSession,rat=Object.fromEntries(LEVELS.map(l=>[l,s.byLevel[l][0]/s.byLevel[l][1]]));let rec="A1";
-    if(rat.A1>=.6&&rat.A2>=.6)rec="A2";if(rat.A2>=.6&&rat.B1>=.6)rec="B1";if(rat.B1>=.6&&rat.B2>=.6)rec="B2";
-    for(const [k,[c,t]] of Object.entries(s.bySkill))updateSkill(k,Math.round(c/t*100));
-    state.level=rec;state.placement={level:rec,byLevel:rat,date:new Date().toISOString()};saveState();
-    shell('<section class="card" style="max-width:720px;margin:35px auto;text-align:center"><div class="eyebrow">Результат диагностики</div><h1>Рекомендуемый старт: '+rec+'</h1><p class="muted">A1 '+Math.round(rat.A1*100)+'% · A2 '+Math.round(rat.A2*100)+'% · B1 '+Math.round(rat.B1*100)+'% · B2 '+Math.round(rat.B2*100)+'%</p><div class="notice">Это внутренняя диагностика приложения, не официальный уровень.</div><br><button class="btn" onclick="navigate(\'course\',\''+rec+'\')">Начать с '+rec+'</button></section>',"home");
+    const s=placementSession,rat=Object.fromEntries(LEVELS.map(l=>[l,s.byLevel[l][1]?s.byLevel[l][0]/s.byLevel[l][1]:0]));let rec="A1";
+    if(rat.A1>=.8&&rat.A2>=.6)rec="A2";
+    if(rec==="A2"&&rat.B1>=.6)rec="B1";
+    if(rec==="B1"&&rat.B2>=.6)rec="B2";
+    for(const [k,[correct,total]] of Object.entries(s.bySkill))if(total)updateSkill(k,Math.round(correct/total*100));
+    if(window.NEAdaptive){
+      const p=NEAdaptive.ensure(state),fresh=(p.attempts||[]).length===0;
+      for(const level of LEVELS){
+        const profile=p.levelSkills[level]||(p.levelSkills[level]={});
+        for(const skill of ["reading","listening","grammar","vocabulary"]){
+          const cell=s.byLevelSkill[level]?.[skill];
+          if(cell?.[1]){const ratio=cell[0]/cell[1],screenScore=Math.round(30+ratio*40);profile[skill]=fresh?screenScore:Math.round((profile[skill]||35)*.75+screenScore*.25)}
+        }
+        if(fresh){profile.writing=35;profile.speaking=35}
+      }
+    }
+    state.level=rec;if(state.chatPrefs)state.chatPrefs.level=rec;if(window.NEAdaptive){const p=NEAdaptive.ensure(state);p.startLevel=rec}
+    state.placement={level:rec,recommendedStart:rec,scope:"receptive_screening",byLevel:rat,byLevelSkill:s.byLevelSkill,date:new Date().toISOString()};saveState();
+    shell('<section class="card" style="max-width:720px;margin:35px auto;text-align:center"><div class="eyebrow">Результат входного скрининга</div><h1>Начать материалы с '+rec+'</h1><p class="muted">A1 '+Math.round(rat.A1*100)+'% · A2 '+Math.round(rat.A2*100)+'% · B1 '+Math.round(rat.B1*100)+'% · B2 '+Math.round(rat.B2*100)+'%</p><div class="notice"><b>Это не означает, что уровень '+rec+' подтверждён.</b> Скрининг не проверял письмо и речь. Нора начнёт с '+rec+' и уточнит профиль по реальным ответам; при пробелах автоматически вернёт нужный материал.</div><br><button class="btn" onclick="navigate(\'teacher\')">Начать с Норой</button></section>',"home");
   }
 
   renderTests=function(){
     shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Контроль знаний</div><h2 style="margin:0">Адаптивные тесты</h2></div></div><div class="notice">Каждый запуск создаёт новый набор заданий и усиливает твои слабые навыки. Есть чтение, грамматика, словарь, аудирование, письмо и речь.</div><section class="grid" style="margin-top:14px">'+LEVELS.map(l=>{const t=lastTest(l);return '<article class="card"><div style="font-size:34px;font-weight:950">'+l+'</div><p class="muted">'+levelDesc(l)+'</p><div class="metric"><span>Последний результат</span><strong>'+(t?t.score+"%":"—")+'</strong></div><button class="btn" onclick="navigate(\'test\',\''+l+'\')">'+(t?"Новый вариант":"Начать тест")+'</button></article>'}).join("")+'</section>',"tests");
   };
   startTest=async function(level){
-    touchStudy();state.level=level;saveState();shell('<section class="card loading-card"><div class="spinner"></div><h2>Создаю новый тест '+level+'</h2><p class="muted">Учитываю слабые навыки: '+weakSkills().map(skillLabel).join(", ")+'</p></section>',"tests");
+    touchStudy();if(window.NEAdaptive)NEAdaptive.ensure(state);
+    const previousLevel=state.level,profile=state.learningV8?.levelSkills?.[level]||{},adaptiveWeak=Object.keys(profile).sort((a,b)=>(profile[a]||0)-(profile[b]||0)).slice(0,3);
+    shell('<section class="card loading-card"><div class="spinner"></div><h2>Создаю диагностику '+level+'</h2><p class="muted">Проверяю навыки отдельно. Текущий учебный маршрут не изменится только из-за запуска теста.</p></section>',"tests");
     const revision=window.neScreenRevision;
-    const topic="Разные бытовые и общественные темы уровня "+level,r=await apiPost("/api/generate",{kind:"test",level,topic,goal:"проверка общего уровня",weakSkills:weakSkills(),reviewWords:reinforcementWordList(15)});
+    const topic="Разные бытовые и общественные темы уровня "+level,r=await apiPost("/api/generate",{kind:"test",level,topic,goal:"диагностика чтения, аудирования, письма, речи, грамматики и словаря",weakSkills:adaptiveWeak,mastery:profile,reviewWords:reinforcementWordList(15),teacherMode:true});
     if(revision!==window.neScreenRevision)return;
     let qs=[];
     if(r.ok&&Array.isArray(r.data.questions)){
-      qs=r.data.questions.map(q=>({type:q.type==="listening"?"listen":"mc",subskill:q.type,text:q.q,context:q.context||"",audio:q.audio||"",opts:q.opts,correct:Number(q.correct)||0}));
+      qs=r.data.questions.map(q=>({type:q.type==="listening"?"listen":q.type||"mc",subskill:q.type,text:q.q,context:q.context||"",audio:q.audio||"",opts:q.opts,correct:Number(q.correct)||0}));
       qs.push({type:"free",mode:"writing",subskill:"writing",text:r.data.writing||"Напиши связный текст по знакомой теме."});
       qs.push({type:"free",mode:"speaking",subskill:"speaking",text:r.data.speaking||"Выскажись по знакомой теме."});
-    }else qs=buildTest(level).map(q=>({...q,subskill:q.type==="listen"?"listening":q.type==="free"?(q.mode||"writing"):"grammar"}));
-    testSession={level,questions:qs,i:0,correct:0,freeScores:[]};renderTest();
+    }else qs=buildTest(level).map(q=>({...q,subskill:q.type==="listen"?"listening":q.type==="free"?(q.mode||"writing"):q.type==="reading"?"reading":q.type==="vocabulary"?"vocabulary":"grammar"}));
+    testSession={level,previousLevel,questions:qs,i:0,correct:0,freeScores:[],skillEvidence:{reading:[],listening:[],writing:[],speaking:[],grammar:[],vocabulary:[]}};saveState();renderTest();
   };
   answerTest=function(i){
     const s=testSession,q=s?.questions[s.i];if(!q||s.locked||!Number.isInteger(i)||i<0||i>=q.opts.length)return;s.locked=true;const ok=i===q.correct;if(ok)s.correct++;
-    const sk=SKILLS.includes(q.subskill)?q.subskill:(q.type==="listen"?"listening":"grammar");updateSkill(sk,ok?100:20);if(!ok)rememberError(sk);
+    const sk=SKILLS.includes(q.subskill)?q.subskill:(q.type==="listen"?"listening":q.type==="reading"?"reading":q.type==="vocabulary"?"vocabulary":"grammar"),score=ok?100:30;
+    s.skillEvidence=s.skillEvidence||{};(s.skillEvidence[sk]||(s.skillEvidence[sk]=[])).push(score);updateSkill(sk,score);if(!ok)rememberError(sk);
+    if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:s.level,skill:sk,score,moduleId:s.level+"-diagnostic",source:"level_test",transfer:true});
     document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===q.correct)b.classList.add("good");if(j===i&&!ok)b.classList.add("bad")});
     document.getElementById("testFb").innerHTML='<div class="feedback '+(ok?"good":"bad")+'">'+(ok?"✓ Верно":"Неверно")+'</div>';
-    neAdvance(()=>{s.locked=false;testNext()},ok?380:900);
+    saveState();neAdvance(()=>{s.locked=false;testNext()},900);
   };
   answerTestFree=async function(){
     const s=testSession,q=s?.questions[s.i],a=document.getElementById("testFree")?.value.trim();if(!q||!a||s.locked)return;s.locked=true;const b=document.getElementById("testFb");b.innerHTML='<div class="feedback">Оцениваю…</div>';
     const mode=q.mode||"writing",r=await aiEvaluate({answer:a,question:q.text,goal:q.text,level:testSession.level,mode:"test_"+mode});
     if(!b.isConnected||testSession!==s){s.locked=false;return}
     if(r.ok){
-      const pts=Math.max(0,Math.min(1,(r.data.score||0)/100));testSession.freeScores.push(pts);updateSkill(mode,pts*100);updateSkill("grammar",r.data.breakdown?.grammar??pts*100);updateSkill("vocabulary",r.data.breakdown?.vocabulary??pts*100);rememberError(r.data.error_tag);
-      b.innerHTML='<div class="feedback '+(pts>=.55?"good":"bad")+'"><b>'+Math.round(pts*100)+'/100</b> · '+esc(r.data.explanation_ru||"Оценено.")+(r.data.corrected?'<br><b>Лучше:</b> '+esc(r.data.corrected):"")+'</div>';
-      neAdvance(()=>{s.locked=false;testNext()},pts>=.55?500:1100);
+      const pts=Math.max(0,Math.min(1,(r.data.score||0)/100)),score=Math.round(pts*100);testSession.freeScores.push(pts);testSession.skillEvidence=testSession.skillEvidence||{};(testSession.skillEvidence[mode]||(testSession.skillEvidence[mode]=[])).push(score);updateSkill(mode,score);updateSkill("grammar",r.data.breakdown?.grammar??score);updateSkill("vocabulary",r.data.breakdown?.vocabulary??score);rememberError(r.data.error_tag);
+      if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:testSession.level,skill:mode,score,moduleId:testSession.level+"-diagnostic",source:"level_test_free",errorTag:r.data.error_tag||"",transfer:true});
+      saveState();b.innerHTML='<div class="feedback '+(pts>=.55?"good":"bad")+'"><b>'+score+'/100</b> · '+esc(r.data.explanation_ru||"Оценено.")+(r.data.corrected?'<br><b>Лучше:</b> '+esc(r.data.corrected):"")+'</div>';
+      neAdvance(()=>{s.locked=false;testNext()},900);
     }else{
       testSession.freeScores.push(null);b.innerHTML='<div class="feedback bad">AI недоступен; ответ не войдёт в процент.</div>';neAdvance(()=>{s.locked=false;testNext()},900);
     }
@@ -548,7 +639,7 @@
   }
   async function playExamAudio(){
     const s=examV3,it=s?.items[s.i];if(!it)return;const limit=s.phase==="main"&&s.band==="B1-B2"?1:2;if(it.plays>=limit)return;
-    const b=document.getElementById("examAudioBtn");it.plays++;await speakText(it.audio);if(b?.isConnected&&examV3===s&&s.items[s.i]===it&&it.plays>=limit)b.disabled=true;
+    const b=document.getElementById("examAudioBtn");it.plays++;await speakText(it.audio,.9,b);if(b?.isConnected&&examV3===s&&s.items[s.i]===it&&it.plays>=limit)b.disabled=true;
   }
   function answerExamObjectiveV3(i){
     const s=examV3,it=s.items[s.i],ok=i===it.correct;s.total++;if(ok)s.correct++;if(s.phase==="pre"&&ok)s.preCorrect++;
@@ -576,7 +667,7 @@
     stopTimer();const s=examV3;let score=0,detail="";
     if(s.part==="reading"||s.part==="listening"){score=pct(s.correct,s.total);detail="Адаптивная ветка: "+(s.band||"—")+" · "+s.correct+"/"+s.total+" правильных."}
     else{score=s.scores.length?Math.round(s.scores.reduce((a,b)=>a+b,0)/s.scores.length):0;detail=(s.part==="speaking"?"AI оценивал содержание распознанной речи, грамматику и словарь; не фонетику.":"AI оценивал выполнение задания, структуру, грамматику и словарь.")}
-    state.examHistory.push({part:s.part,band:s.band||"adaptive",score,date:new Date().toISOString()});state.xp+=Math.round(score/4);saveState();
+    state.examHistory.push({part:s.part,band:s.band||"adaptive",score,date:new Date().toISOString()});saveState();
     shell('<section class="card" style="max-width:720px;margin:35px auto;text-align:center"><div class="score-ring" style="--pct:'+score+'%"><b>'+score+'%</b></div><br><div class="eyebrow">Результат тренировки</div><h1>'+({reading:"Чтение",listening:"Аудирование",writing:"Письмо",speaking:"Устная речь"}[s.part])+'</h1><p class="muted">'+esc(detail)+'</p><div class="notice">Это внутренняя учебная метрика, не официальный балл Norskprøven.</div><br><button class="btn" onclick="navigate(\'exam\')">К экзамену</button></section>',"exam");examV3=null;
   }
   function exitExamV3(){if(confirm("Завершить эту тренировку без результата?")){examV3=null;navigate("exam")}}
@@ -614,19 +705,20 @@
     return h.map((m,i)=>{
       if(m.role==="user")return '<div class="chat-row user"><div class="chat-bubble user-bubble">'+esc(m.text)+'</div></div>';
       const meta=m.meta||{};
-      return '<div class="chat-row assistant"><div class="chat-avatar">N</div><div class="chat-stack"><div class="chat-bubble ai-bubble">'+esc(m.text)+'</div><div class="chat-actions"><button onclick="speakText(\''+escJs(m.text)+'\')">🔊 Слушать</button>'+(meta.translation_ru?'<button onclick="toggleChatTranslation('+i+')">RU перевод</button>':'')+'</div>'+(meta.translation_ru?'<div id="chatTr'+i+'" class="chat-translation" style="display:none">'+esc(meta.translation_ru)+'</div>':'')+(meta.corrected?'<div class="chat-correction"><b>Лучше сказать:</b> '+esc(meta.corrected)+(meta.explanation_ru?'<br><small>'+esc(meta.explanation_ru)+'</small>':'')+'</div>':'')+(meta.score!==undefined?'<small class="chat-score">Учебная оценка ответа: '+meta.score+'/100</small>':'')+'</div></div>';
+      return '<div class="chat-row assistant"><div class="chat-avatar">N</div><div class="chat-stack"><div class="chat-bubble ai-bubble">'+esc(m.text)+'</div><div class="chat-actions"><button onclick="speakText(\''+escJs(m.text)+'\',.9,this)">🔊 Слушать</button>'+(meta.translation_ru?'<button onclick="toggleChatTranslation('+i+')">RU перевод</button>':'')+'</div>'+(meta.translation_ru?'<div id="chatTr'+i+'" class="chat-translation" style="display:none">'+esc(meta.translation_ru)+'</div>':'')+(meta.corrected?'<div class="chat-correction"><b>Лучше сказать:</b> '+esc(meta.corrected)+(meta.explanation_ru?'<br><small>'+esc(meta.explanation_ru)+'</small>':'')+'</div>':'')+(meta.score!==undefined?'<small class="chat-score">Учебная оценка ответа: '+meta.score+'/100</small>':'')+'</div></div>';
     }).join("");
   }
   function setChatPref(key,value){
-    state.chatPrefs[key]=value;if(key==="level")state.level=value;saveState();renderChat();
+    state.chatPrefs[key]=value;saveState();renderChat();
   }
   function setChatTopic(topic){state.chatPrefs.topic=topic;saveState();renderChat()}
   function toggleChatTranslation(i){const e=document.getElementById("chatTr"+i);if(e)e.style.display=e.style.display==="none"?"block":"none"}
   function clearChat(){if(!state.chatHistory.length||confirm("Очистить историю этого разговора?")){state.chatHistory=[];saveState();renderChat()}}
   async function startChat(){
     state.chatHistory=[];state.chatMemories=state.chatMemories||{};delete state.chatMemories[state.chatThreadId||"general"];saveState();renderChat();
-    const box=document.getElementById("chatMessages");if(box)box.innerHTML='<div class="chat-thinking">Собеседник начинает разговор…</div>';
-    const p=state.chatPrefs,r=await apiPost("/api/chat",{start:true,message:"",level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:[],practiceWords:reinforcementWordList(15)});
+    const box=document.getElementById("chatMessages");if(box)box.innerHTML='<div class="chat-thinking">Нора начинает разговор…</div>';
+    const p=state.chatPrefs;if(window.NEAdaptive)NEAdaptive.ensure(state);const mastery=state.learningV8?.levelSkills?.[p.level]||{},errorPatterns=window.NEAdaptive?NEAdaptive.errors(state):[];
+    const r=await apiPost("/api/chat",{start:true,message:"",level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:[],practiceWords:reinforcementWordList(15),mastery,errorPatterns,teacherMode:true});
     if(!r.ok){if(box)box.innerHTML='<div class="feedback bad">Собеседник временно недоступен: '+esc(r.error)+'</div>';return}
     const d=r.data;state.chatHistory=[{role:"assistant",text:d.reply_no,meta:d}];saveState();if(!window.neChatVisible||neChatVisible()){renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);}
   }
@@ -639,25 +731,33 @@
       state.chatMemories[memoryKey]=[...state.chatHistory.map(x=>({role:x.role,text:x.text})),{role:'user',text:msg}].slice(0,8);
     }
     state.chatHistory.push({role:"user",text:msg,voice:wasVoice});state.chatHistory=state.chatHistory.slice(-40);saveState();renderChat();
-    const box=document.getElementById("chatMessages");if(box){box.insertAdjacentHTML("beforeend",'<div class="chat-thinking">Norsk samtalepartner skriver…</div>');box.scrollTop=box.scrollHeight}
+    const box=document.getElementById("chatMessages");if(box){box.insertAdjacentHTML("beforeend",'<div class="chat-thinking">Нора думает…</div>');box.scrollTop=box.scrollHeight}
     const hist=state.chatHistory.slice(0,-1).slice(-32).map(x=>({role:x.role,text:x.text}));
-    const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:hist,context:state.chatMemories[memoryKey].map(x=>(x.role==="user"?"Ученик: ":"Nora: ")+x.text).join("\n"),practiceWords:reinforcementWordList(15)});
+    if(window.NEAdaptive)NEAdaptive.ensure(state);const mastery=state.learningV8?.levelSkills?.[p.level]||{},errorPatterns=window.NEAdaptive?NEAdaptive.errors(state):[];
+    const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:hist,context:state.chatMemories[memoryKey].map(x=>(x.role==="user"?"Ученик: ":"Nora: ")+x.text).join("\n"),practiceWords:reinforcementWordList(15),mastery,errorPatterns,teacherMode:true});
     if(!r.ok){state.chatHistory.push({role:"assistant",text:"Beklager, jeg fikk et teknisk problem. Prøv igjen.",meta:{translation_ru:"Извините, произошла техническая ошибка. Попробуйте ещё раз."}});saveState();if(!window.neChatVisible||neChatVisible())return renderChat();return;}
     const d=r.data;state.chatHistory.push({role:"assistant",text:d.reply_no,meta:d});state.chatHistory=state.chatHistory.slice(-40);
-    updateSkill(wasVoice?"speaking":"writing",d.score||50);if(d.error_tag){rememberError(d.error_tag);updateSkill("grammar",Math.max(20,(d.score||50)-8))}
+    updateSkill(wasVoice?"speaking":"writing",d.score_valid?d.score:50);if(d.error_tag){rememberError(d.error_tag);updateSkill("grammar",Math.max(20,(d.score_valid?d.score:50)-8))}
+    if(window.NEAdaptive&&d.score_valid===true)NEAdaptive.recordAttempt(state,{level:p.level,skill:wasVoice?"speaking":"writing",score:d.score,moduleId:p.level.toLowerCase()+"-conversation",source:"conversation",errorTag:d.error_tag||"",transfer:false});
     if(d.suggested_level&&d.suggested_level!==p.level)state.chatPrefs.level=d.suggested_level;
-    state.xp+=2;saveState();if(!window.neChatVisible||neChatVisible()){renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);}
+    saveState();if(!window.neChatVisible||neChatVisible()){renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);}
   }
 
   renderProgress=function(){
-    const t=state.testHistory.slice(-8).reverse(),e=state.examHistory.slice(-8).reverse(),errs=Object.entries(state.errors).sort((a,b)=>b[1]-a[1]).slice(0,8);
-    shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Аналитика</div><h2 style="margin:0">Твой прогресс</h2></div></div>'+
-    '<section class="grid3">'+SKILLS.map(k=>'<div class="kpi"><small>'+skillLabel(k)+'</small><strong>'+state.skills[k]+'%</strong><div class="progress"><i style="width:'+state.skills[k]+'%"></i></div></div>').join("")+'</section>'+
-    '<div class="section-title"><h2>Ошибки для повторения</h2></div><section class="card">'+(errs.length?errs.map(([k,v])=>'<div class="metric"><span>'+esc(k)+'</span><strong>'+v+'</strong></div>').join(""):'<div class="empty">Пока недостаточно данных.</div>')+'</section>'+
-    '<div class="section-title"><h2>Словарь</h2></div><section class="grid3"><div class="kpi"><small>Всего слов</small><strong>'+Object.keys(state.srs).length+'</strong></div><div class="kpi"><small>К повторению</small><strong>'+dueWords().length+'</strong></div><div class="kpi"><small>Расширенные темы</small><strong>'+Object.keys(state.completedTopics).length+'</strong></div></section>'+
-    '<div class="section-title"><h2>История тестов</h2></div><section class="card">'+(t.length?'<table class="table"><tr><th>Уровень</th><th>Результат</th><th>Дата</th></tr>'+t.map(x=>'<tr><td>'+x.level+'</td><td>'+x.score+'%</td><td>'+new Date(x.date).toLocaleDateString("ru-RU")+'</td></tr>').join("")+'</table>':'<div class="empty">Тестов пока нет.</div>')+'</section>'+
-    '<div class="section-title"><h2>История экзаменационных частей</h2></div><section class="card">'+(e.length?'<table class="table"><tr><th>Часть</th><th>Диапазон</th><th>Результат</th></tr>'+e.map(x=>'<tr><td>'+esc(x.part||"полный")+'</td><td>'+esc(x.band||"—")+'</td><td>'+x.score+'%</td></tr>').join("")+'</table>':'<div class="empty">Результатов пока нет.</div>')+'</section>'+
-    '<div class="section-title"><h2>Резервная копия</h2></div><section class="card"><p class="muted">Прогресс по-прежнему хранится на устройстве, но теперь его можно перенести на другой телефон через файл.</p><div class="row"><button class="btn secondary" onclick="exportProgress()">Скачать прогресс</button><label class="btn ghost file-btn">Восстановить<input type="file" accept="application/json" onchange="importProgressFile(this.files[0])"></label></div></section>',"progress");
+    const t=state.testHistory.slice(-8).reverse(),e=state.examHistory.slice(-8).reverse(),errs=Object.entries(state.errors||{}).sort((a,b)=>b[1]-a[1]).slice(0,8),adaptive=window.NEAdaptive&&state.learningV8;
+    const levelCards=LEVELS.map(level=>{
+      if(!adaptive)return '<article class="card"><div class="row"><span class="level-badge">'+level+'</span><strong>'+levelProgress(level)+'%</strong></div><div class="progress"><i style="width:'+levelProgress(level)+'%"></i></div></article>';
+      const gate=NEAdaptive.levelGate(state,level),p=state.learningV8.levelSkills?.[level]||{},labels={listening:"Слух",reading:"Чтение",writing:"Письмо",speaking:"Речь"};
+      return '<article class="card"><div class="row"><span class="level-badge">'+level+'</span><strong>'+(gate.pass?'Подтверждён':'В работе')+'</strong></div><div class="metric"><span>Профиль уровня</span><strong>'+gate.avg+'%</strong></div><div class="progress"><i style="width:'+gate.avg+'%"></i></div>'+["listening","reading","writing","speaking"].map(s=>'<div class="metric"><span>'+labels[s]+'</span><strong>'+Math.round(p[s]||0)+'%</strong></div>').join("")+'<small class="muted">Модули '+gate.mastered+'/'+gate.total+' · перенос '+gate.transferScore+'% · отложенные проверки '+gate.delayed+'/4</small></article>';
+    }).join("");
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Освоение, а не активность</div><h2 style="margin:0">Что уже держится без подсказки</h2></div></div>'+
+    '<div class="notice"><b>Уровень не выдаётся за просмотр уроков.</b> Здесь учитываются отдельные навыки, новые контексты и повторные проверки после паузы. Это внутренняя учебная оценка, не официальный результат Norskprøven.</div>'+
+    '<section class="grid3" style="margin-top:14px"><div class="kpi"><small>Доказательств навыка</small><strong>'+(state.learningV8?.attempts?.length||0)+'</strong></div><div class="kpi"><small>Повторить сейчас</small><strong>'+(adaptive?NEAdaptive.dueReviews(state).length:dueWords().length)+'</strong></div><div class="kpi"><small>Серия</small><strong>'+state.streak+' дн.</strong></div></section>'+
+    '<div class="section-title"><h2>A1–B2 по отдельным навыкам</h2></div><section class="grid">'+levelCards+'</section>'+
+    '<div class="section-title"><h2>Повторяющиеся ошибки</h2></div><section class="card">'+(errs.length?errs.map(([k,v])=>'<div class="metric"><span>'+esc(k)+'</span><strong>'+v+'</strong></div>').join(""):'<div class="empty">Пока недостаточно данных.</div>')+'</section>'+
+    '<div class="section-title"><h2>История контрольных</h2></div><section class="card">'+(t.length?'<table class="table"><tr><th>Уровень</th><th>Результат</th><th>Дата</th></tr>'+t.map(x=>'<tr><td>'+x.level+'</td><td>'+x.score+'%</td><td>'+new Date(x.date).toLocaleDateString("ru-RU")+'</td></tr>').join("")+'</table>':'<div class="empty">Контрольных пока нет.</div>')+'</section>'+
+    '<div class="section-title"><h2>Тренировочные экзамены</h2></div><section class="card">'+(e.length?'<table class="table"><tr><th>Часть</th><th>Диапазон</th><th>Результат</th></tr>'+e.map(x=>'<tr><td>'+esc(x.part||"полный")+'</td><td>'+esc(x.band||"—")+'</td><td>'+x.score+'%</td></tr>').join("")+'</table>':'<div class="empty">Результатов пока нет.</div>')+'</section>'+
+    '<div class="section-title"><h2>Резервная копия</h2></div><section class="card"><p class="muted">Прогресс можно сохранить и перенести без превращения XP в доказательство уровня.</p><div class="row"><button class="btn secondary" onclick="exportProgress()">Скачать прогресс</button><label class="btn ghost file-btn">Восстановить<input type="file" accept="application/json" onchange="importProgressFile(this.files[0])"></label></div></section>',"progress");
   };
   function exportProgress(){
     const blob=new Blob([JSON.stringify({version:3,exportedAt:new Date().toISOString(),state},null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="norsk-eventyr-progress.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);

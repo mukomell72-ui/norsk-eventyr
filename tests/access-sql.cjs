@@ -2,10 +2,13 @@ const assert=require('assert/strict'),fs=require('fs');
 const {PGlite}=require(process.env.NE_PGLITE_PATH||'@electric-sql/pglite');
 (async()=>{
  const db=new PGlite();await db.exec(`create role anon;create role authenticated;create schema auth;
- create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz);
+ create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz,raw_app_meta_data jsonb not null default '{}'::jsonb);
  create function auth.uid() returns uuid language sql as $$select nullif(current_setting('request.jwt.sub',true),'')::uuid$$;
  grant usage on schema auth to authenticated;grant execute on function auth.uid() to authenticated;
- insert into auth.users values('11111111-1111-4111-8111-111111111111','mukomell72@gmail.com',now()),('22222222-2222-4222-8222-222222222222','student@example.com',now()),('33333333-3333-4333-8333-333333333333','unconfirmed@example.com',null);
+ insert into auth.users values
+ ('11111111-1111-4111-8111-111111111111','owner@example.test',now(),'{"ne_owner":true}'::jsonb),
+ ('22222222-2222-4222-8222-222222222222','student@example.com',now(),'{}'::jsonb),
+ ('33333333-3333-4333-8333-333333333333','unconfirmed@example.com',null,'{}'::jsonb);
  `);await db.exec(fs.readFileSync(require('path').join(__dirname,'../migrations/20261003_access_approval.sql'),'utf8'));
  await db.exec(fs.readFileSync(require('path').join(__dirname,'../migrations/20261004_user_feedback.sql'),'utf8'));
  const owner='11111111-1111-4111-8111-111111111111',student='22222222-2222-4222-8222-222222222222';
@@ -19,12 +22,12 @@ const {PGlite}=require(process.env.NE_PGLITE_PATH||'@electric-sql/pglite');
  for(const state of ['approved','revoked','denied']){await as(owner,`select public.ne_access_decide('${student}','${state}')`);assert.equal(val(await as(student,'select public.ne_access_status()')).status,state);assert.equal(val(await as(student,"select public.ne_access_request('Anna again')")).status,state)}
  assert.equal(val(await as(owner,'select public.ne_access_list()')).length,1);
  await as(owner,`select public.ne_access_decide('${student}','approved')`);
- const submitted=val(await as(student,`select public.ne_feedback_submit(5,'Хорошее приложение','Добавить больше историй')`));assert.equal(submitted.ok,true);
+ const submitted=val(await as(student,`select public.ne_feedback_submit(5::smallint,'Хорошее приложение','Добавить больше историй')`));assert.equal(submitted.ok,true);
  await assert.rejects(as(student,'select public.ne_feedback_list()'));
  const feedback=val(await as(owner,'select public.ne_feedback_list()'));assert.equal(feedback.count,1);assert.equal(feedback.average,5);assert.equal(feedback.items[0].email,'student@example.com');assert.equal(feedback.items[0].suggestion,'Добавить больше историй');
- await assert.rejects(as('33333333-3333-4333-8333-333333333333',`select public.ne_feedback_submit(4,'','')`));
- await assert.rejects(as(student,`select public.ne_feedback_submit(6,'','')`));
- await assert.rejects(as(student,`select public.ne_feedback_submit(4,repeat('x',1201),'')`));
+ await assert.rejects(as('33333333-3333-4333-8333-333333333333',`select public.ne_feedback_submit(4::smallint,'','')`));
+ await assert.rejects(as(student,`select public.ne_feedback_submit(6::smallint,'','')`));
+ await assert.rejects(as(student,`select public.ne_feedback_submit(4::smallint,repeat('x',1201),'')`));
  await assert.rejects(as(student,'select * from public.norsk_eventyr_feedback'));
  await assert.rejects(as('33333333-3333-4333-8333-333333333333','select public.ne_access_status()'));
  await db.exec('reset role;set role anon');await assert.rejects(db.query('select public.ne_access_status()'));await assert.rejects(db.query('select public.ne_feedback_list()'));await assert.rejects(db.query('select * from public.norsk_eventyr_feedback'));await db.close();console.log('PASS SQL migrations: access approval plus feedback; owner-only list, approved-user submission, bounds, and no direct or anonymous table/RPC access');
