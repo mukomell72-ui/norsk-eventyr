@@ -136,6 +136,7 @@ function persistLessonCheckpoint(){
 function startLesson(id){
  const l=COURSE.find(x=>x.id===id)||state.generatedLessons?.[id];
  if(!l)return navigate("course");
+ if(l.id==="a1-1"&&!Number.isInteger(state.introVariant))state.introVariant=Math.floor(Math.random()*3);
  state.level=l.level;touchStudy();
  const saved=state.activeLesson?.id===l.id?state.activeLesson:null;
  const max=lessonSteps(l).length;
@@ -151,6 +152,11 @@ function renderLesson(){const s=lessonSession,l=s.lesson,n=lessonSteps(l),g=hasA
  const speechText=s.step===0?currentDialogueTurn(l).phrase:s.step===(g?3:2)?(l.listeningAudio||l.phrase):"";
  if(speechText)window.nePrimeSpeech?.(speechText,l.level);
 }
+const INTRODUCTION_OPENERS=[
+ "Hei! Jeg heter Nora. Hva heter du?",
+ "Hei! Jeg er Nora. Hva heter du?",
+ "God dag! Jeg heter Nora. Hva heter du?"
+];
 const INTRODUCTION_DIALOGUE=[
  {phrase:"Hei! Jeg heter Nora. Hva heter du?",ru:"Привет! Меня зовут Нора. Как тебя зовут?",goal:"Поздоровайся и назови своё имя."},
  {phrase:"Hyggelig å møte deg! Hvor kommer du fra?",ru:"Приятно познакомиться! Откуда ты?",goal:"Скажи, из какой страны или города ты родом."},
@@ -161,12 +167,17 @@ const INTRODUCTION_DIALOGUE=[
 function currentDialogueTurn(l){
  if(l.id!=="a1-1")return {phrase:l.phrase,ru:l.ru,goal:"Естественно ответить собеседнику своими словами по-норвежски."};
  const i=lessonSession.dialogueIndex||0;
- return {...INTRODUCTION_DIALOGUE[i],dialogueLabel:"Знакомство с Норой · "+(i+1)+"/"+INTRODUCTION_DIALOGUE.length};
+ return {...INTRODUCTION_DIALOGUE[i],...(i===0?{phrase:INTRODUCTION_OPENERS[(state.introVariant||0)%INTRODUCTION_OPENERS.length]}:{}),dialogueLabel:"Знакомство с Норой · "+(i+1)+"/"+INTRODUCTION_DIALOGUE.length};
 }
 function lessonIntro(l){const turn=currentDialogueTurn(l);const shown={...l,...turn};l=shown;return `<article class="card lesson-intro-v6"><div class="phrase-v6"><small>${l.dialogueLabel||"Фраза"}</small><div class="prompt">${esc(l.phrase)}</div><div class="phrase-actions-v6"><button onclick="speakText('${escJs(l.phrase)}',.82,this)">🔊 Фраза</button><button onclick="toggle('tr')">RU Перевод</button></div><div id="tr" class="translation compact-translation-v6" style="display:none">${esc(l.ru)}</div></div><div class="lesson-words-v6">${l.vocab.map(v=>`<span><b>${esc(v[0])}</b><small>${esc(v[1])}</small></span>`).join("")}</div><div class="answer-label-v6"><b>Твой ответ</b><span>текстом или голосом</span></div><textarea id="dialogAnswer" class="input lesson-answer-v6" rows="2" placeholder="Напиши по-норвежски…"></textarea><div class="lesson-actions-v6"><button id="micBtn" class="btn secondary" onclick="toggleMic('dialogAnswer','','${escJs(l.phrase)}')">🎤 Сказать</button><button class="btn" onclick="checkDialogue()">✓ Проверить</button></div><div id="dialogFb"></div><details class="grammar-fold-v6"><summary>Грамматика</summary><p>${esc(l.grammar)}</p></details></article>`}
 function continueCheckedDialogue(){
  const s=lessonSession,l=s?.lesson;if(!s||!l)return;
  if(l.id==="a1-1"&&(s.dialogueIndex||0)<INTRODUCTION_DIALOGUE.length-1){
+  if((s.dialogueIndex||0)===0){
+   state.noraMemory=state.noraMemory||{};
+   state.noraMemory.introduced=true;
+   state.noraMemory.lastPracticeDate=new Date().toISOString().slice(0,10);
+  }
   s.dialogueIndex=(s.dialogueIndex||0)+1;s.locked=false;persistLessonCheckpoint();renderLesson();
  }else lessonNext(10);
 }
