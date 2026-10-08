@@ -124,7 +124,7 @@
    out.replaceChildren();out.append(sectionTitle('Главная','Состояние приложения, денег и пользователей в одном месте.'));
    const grid=el('div','admin-metric-grid');
    grid.append(
-    metric('Пользователи',d.users),metric('Активный trial',d.active_trials),
+    metric('Пользователи',d.users),metric('Активный trial',d.active_trials),metric('Бесплатный доступ',d.active_free),
     metric('Готовы платить',d.purchase_interest),metric('Платные',d.active_paid),
     metric('Выручка 30 дней',money(d.revenue_30d)),metric('Комиссии 30 дней',money(d.fees_30d)),
     metric('Ошибки оплаты 7 дней',d.failed_payments_7d),metric('Продления 7 дней',d.renewals_7d),
@@ -198,7 +198,7 @@
    ];
    for(const [name,value] of facts){const f=el('article','admin-detail-fact');f.append(el('span','',name),el('strong','',value));grid.append(f)}out.append(grid);
    const actions=el('div','admin-action-row');
-   for(const [status,text] of [['approved','Одобрить'],['denied','Отказать'],['revoked','Отозвать доступ']]){
+   for(const [status,text] of [['approved','Одобрить аккаунт'],['denied','Отказать'],['revoked','Отозвать доступ']]){
     if(status===p.access_status)continue;const b=button(text,status==='approved'?'':'secondary');
     b.onclick=async()=>{if(loading)return;loading=true;b.disabled=true;try{await call('decide',{user_id:userId,status});await userDetail(userId)}catch(e){setMessage(e.message,'error')}finally{loading=false;b.disabled=false}};actions.append(b)
    }
