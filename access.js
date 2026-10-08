@@ -67,9 +67,9 @@
   const total=Number(count);if(identity?.owner!==true||!Number.isFinite(total)||total<0)return false;
   try{localStorage.setItem(feedbackSeenKey(),String(Math.floor(total)));return true}catch{return false}
  }
- function markPurchaseSeen(count){
-  const total=Number(count);if(identity?.owner!==true||!Number.isFinite(total)||total<0)return false;
-  try{localStorage.setItem(purchaseSeenKey(),String(Math.floor(total)));return true}catch{return false}
+ function markPurchaseSeen(){
+  if(identity?.owner!==true)return false;
+  try{localStorage.setItem(purchaseSeenKey(),String(Date.now()));return true}catch{return false}
  }
  async function notificationCount(){
   if(identity?.owner!==true)return 0;
@@ -79,9 +79,10 @@
   const feedback=feedbackOut.feedback||{},items=Array.isArray(feedback.items)?feedback.items:[];
   const rawCount=Number(feedback.count),total=Number.isFinite(rawCount)?Math.max(0,Math.floor(rawCount)):items.length;
   let seen=0;try{const stored=Number(localStorage.getItem(feedbackSeenKey())||0);seen=Number.isFinite(stored)?Math.max(0,Math.floor(stored)):0}catch{}
-  const purchaseTotal=requests.filter(item=>Boolean(item.purchase_interest_at)).length;
-  let purchaseSeen=0;try{const stored=Number(localStorage.getItem(purchaseSeenKey())||0);purchaseSeen=Number.isFinite(stored)?Math.max(0,Math.floor(stored)):0}catch{}
-  return pending+Math.max(0,total-seen)+Math.max(0,purchaseTotal-purchaseSeen);
+  let purchaseSeenAt=0;try{const stored=Number(localStorage.getItem(purchaseSeenKey())||0);purchaseSeenAt=Number.isFinite(stored)?Math.max(0,stored):0}catch{}
+  const attention=new Set(requests.filter(item=>item.status==='pending').map(item=>String(item.user_id||item.email||'')));
+  for(const item of requests){const at=new Date(item.purchase_interest_at||0).getTime();if(at>purchaseSeenAt)attention.add(String(item.user_id||item.email||''))}
+  return attention.size+Math.max(0,total-seen);
  }
  async function call(action,params={}){
   const response=await fetch('/api/session',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',...deviceHeaders()},body:JSON.stringify({action,...params}),cache:'no-store'});
