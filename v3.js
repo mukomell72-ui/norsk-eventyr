@@ -10,6 +10,11 @@
   state.completedTopics=state.completedTopics||{};
   state.chatHistory=Array.isArray(state.chatHistory)?state.chatHistory.slice(-40):[];
   state.noraMemory=state.noraMemory&&typeof state.noraMemory==="object"&&!Array.isArray(state.noraMemory)?state.noraMemory:{introduced:false,conversationCount:0,lastTopic:"",lastPracticeDate:""};
+  if(!state.noraMemory.introduced&&(state.completed?.["a1-1"]===true||
+      state.chatHistory.some(x=>x.role==="user")||
+      Object.values(state.chatThreads||{}).some(t=>Array.isArray(t)&&t.some(x=>x?.role==="user")))){
+    state.noraMemory.introduced=true;
+  }
   state.chatPrefs=state.chatPrefs||{level:state.level||"A1",mode:"free",topic:"",scenario:"butikk",autoSpeak:true};
   state.dailyPacks=state.dailyPacks||{};
   state.dailyDictionary=state.dailyDictionary||{};
