@@ -87,12 +87,13 @@
   row.classList.toggle('future',future);row.append(dot,content);return row
  }
  function statusBadge(item){
-  const now=Date.now(),paidEnd=new Date(item.paid_until||0).getTime(),paidStart=new Date(item.current_period_start||0).getTime();
+  const now=Date.now(),decision=item.status||item.access_status||'unrequested',paidEnd=new Date(item.paid_until||0).getTime(),paidStart=new Date(item.current_period_start||0).getTime();
   let key='',text='';
-  if(['active','trialing'].includes(item.subscription_status)&&paidEnd>now&&(!paidStart||paidStart<=now)){key='active';text='Платный'}
+  if(['denied','revoked'].includes(decision)){key=decision;text=statusText[key]||key}
+  else if(['active','trialing'].includes(item.subscription_status)&&paidEnd>now&&(!paidStart||paidStart<=now)){key='active';text='Платный'}
   else if(new Date(item.free_access_until||0).getTime()>now){key='free';text='Бесплатный'}
   else if(new Date(item.trial_ends_at||0).getTime()>now){key='trial';text='Trial'}
-  else{key=item.status||item.access_status||'unrequested';text=statusText[key]||key}
+  else{key=decision;text=statusText[key]||key}
   return el('span','admin-badge status-'+String(key||'unknown'),text)
  }
  function funnelNode(stages){
@@ -189,7 +190,7 @@
    const head=el('div','admin-user-detail-head');const title=el('div');title.append(el('h2','',p.display_name||p.email||'Пользователь'),el('p','admin-muted',p.email||''));head.append(title,statusBadge({subscription_status:p.subscription_status,status:p.access_status,trial_ends_at:p.trial_ends_at,free_access_until:p.free_access_until,paid_until:p.paid_until,current_period_start:p.current_period_start}));out.append(head);
    const grid=el('div','admin-detail-grid');
    const facts=[
-    ['Подтверждение email',dateText(p.email_confirmed_at)],['Trial',dateText(p.trial_started_at)+' → '+dateText(p.trial_ends_at)],
+    ['Аккаунт',statusText[p.access_status]||p.access_status||'Без заявки'],['Подтверждение email',dateText(p.email_confirmed_at)],['Trial',dateText(p.trial_started_at)+' → '+dateText(p.trial_ends_at)],
     ['Бесплатный доступ до',dateText(p.free_access_until)],['Бонус «готов платить»',p.ready_bonus_granted_at?dateText(p.ready_bonus_granted_at):'Не использован'],
     ['Устройств',String(p.device_count||0)+' / 2'],['Установка',p.first_installed_at?dateText(p.first_installed_at):'—'],
     ['Источник',p.acquisition_source||'direct'],['Готов платить',p.purchase_interest_at?dateText(p.purchase_interest_at)+' · '+money(p.purchase_interest_price_nok):'—'],
