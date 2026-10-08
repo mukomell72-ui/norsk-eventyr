@@ -208,14 +208,14 @@
    const freeRow=el('div','admin-action-row');
    for(const days of [7,30,90]){const b=button('+'+days+' дней бесплатно');b.onclick=async()=>{if(loading)return;loading=true;b.disabled=true;try{await call('owner_grant_free',{user_id:userId,days,note:'Выдано владельцем'});await userDetail(userId)}catch(e){setMessage(e.message,'error')}finally{loading=false;b.disabled=false}};freeRow.append(b)}
    const custom=button('Свой срок','ghost');custom.onclick=async()=>{const raw=prompt('Сколько дней бесплатного доступа добавить?','30'),days=Number(raw);if(!Number.isInteger(days)||days<1||days>3650)return;const note=prompt('Комментарий (необязательно)','')||'';try{await call('owner_grant_free',{user_id:userId,days,note});await userDetail(userId)}catch(e){setMessage(e.message,'error')}};freeRow.append(custom);accessTools.append(freeRow);
-   const paid=button('Подтвердить оплату','');paid.onclick=async()=>{const amount=Number(prompt('Полученная сумма, NOK','99'));if(!Number.isFinite(amount)||amount<0)return;const days=Number(prompt('На сколько дней открыть платный период?','30'));if(!Number.isInteger(days)||days<1||days>3650)return;const note=prompt('Комментарий к оплате (необязательно)','')||'';try{await call('owner_confirm_payment',{user_id:userId,amount_nok:amount,days,note});await userDetail(userId)}catch(e){setMessage(e.message,'error')}};accessTools.append(paid);
+   const paid=button('Подтвердить оплату','');paid.onclick=async()=>{const amount=Number(prompt('Полученная сумма, NOK','99'));if(!Number.isFinite(amount)||amount<1)return;const days=Number(prompt('На сколько дней открыть платный период?','30'));if(!Number.isInteger(days)||days<1||days>3650)return;const note=prompt('Комментарий к оплате (необязательно)','')||'';try{await call('owner_confirm_payment',{user_id:userId,amount_nok:amount,days,note});await userDetail(userId)}catch(e){setMessage(e.message,'error')}};accessTools.append(paid);
    const reset=button('Сбросить доверенные устройства','ghost');reset.onclick=async()=>{if(!confirm('Сбросить все доверенные устройства этого пользователя? Ему потребуется войти снова на нужных устройствах.'))return;try{await call('owner_devices_reset',{user_id:userId});await userDetail(userId)}catch(e){setMessage(e.message,'error')}};accessTools.append(reset);
    if(devices.length){const dl=el('div','admin-device-list');for(const dvc of devices){const row=el('article','admin-device');row.append(el('strong','',dvc.device_name||'Устройство'),el('small','',(dvc.revoked_at?'Отозвано · ':'Последний вход · ')+dateText(dvc.revoked_at||dvc.last_seen_at)));dl.append(row)}accessTools.append(dl)}
    out.append(accessTools);
    out.append(sectionTitle('История','Полная хронология значимых событий, включая будущую дату окончания периода.'));
    if(timeline.length){const tl=el('div','admin-timeline');for(const item of timeline)tl.append(renderEvent(item,false));out.append(tl)}
    else out.append(empty('История пока пустая','События появятся после действий пользователя.'));
-   out.append(sectionTitle('Платежи пользователя','Сумма, комиссия и оплаченный период.'));
+   out.append(sectionTitle('Платежи пользователя','Подтверждённые владельцем или платёжным провайдером периоды.'));
    if(payments.length){const pl=el('div','admin-payment-list');for(const item of payments)pl.append(paymentCard(item));out.append(pl)}
    else out.append(empty('Платежей пока нет','После подключения Stripe здесь появятся подтверждённые платежи.'));
   }catch(e){out.replaceChildren(back,empty('Не удалось открыть пользователя',e.message))}
@@ -228,18 +228,19 @@
    ...(item.email?['Пользователь: '+String(item.email)]:[]),
    'Дата: '+dateText(item.paid_at||item.created_at),
    'Период: '+dateText(item.period_start,false)+' → '+dateText(item.period_end,false),
+   'Источник: '+(item.provider==='manual'?'подтверждено владельцем':String(item.provider||'провайдер')),
    'Комиссия: '+money(item.fee_nok)+(Number(item.refunded_nok)>0?' · Возврат: '+money(item.refunded_nok):'')
   ];
   if(item.failure_message)lines.push('Причина: '+String(item.failure_message));
   for(const line of lines)card.append(el('p','',line));return card
  }
  async function payments(){
-  const out=body();out.replaceChildren();out.append(sectionTitle('Платежи','Подтверждённые платежи и оплаченные периоды. Пользователь не может записать их сам.'));
+  const out=body();out.replaceChildren();out.append(sectionTitle('Платежи','Платные периоды подтверждаются только владельцем или доверенным платёжным провайдером. Пользователь не может назначить себе оплату.'));
   const list=el('div','admin-payment-list');list.append(el('p','admin-muted','Загрузка…'));out.append(list);
   try{
    const response=await call('owner_payments',{limit:300}),items=Array.isArray(response.payments)?response.payments:[];
    list.replaceChildren();
-   if(!items.length){list.append(empty('Платежей пока нет','Раздел подготовлен для Stripe. После подключения webhook здесь появятся реальные операции.'));return}
+   if(!items.length){list.append(empty('Платежей пока нет','После ручного подтверждения оплаты или подключения платёжного провайдера операции появятся здесь.'));return}
    for(const item of items)list.append(paymentCard(item))
   }catch(e){list.replaceChildren(empty('Ошибка загрузки',e.message))}
  }
