@@ -42,6 +42,7 @@ assert(!migration.includes('create or replace function public.ne_access_status()
 assert(!migration.includes('create or replace function public.ne_purchase_interest('),'staged migration must not replace the 8.0.0 purchase-interest RPC');
 assert(migration.includes("req_status is distinct from 'approved'"),'post-trial free/paid access must require owner approval');
 assert(migration.includes("bonus_until := public.ne_ready_bonus_apply(p_user_id)"),'owner approval must grant pending ready-to-pay bonus');
+assert((migration.match(/perform public\.ne_ready_bonus_apply\(p_user_id\)/g)||[]).length>=2,'owner free/payment paths must also honor a pending ready bonus');
 assert(migration.includes("create or replace function public.ne_accept_terms_v2(")&&migration.includes("current_privacy constant text := '2026-10-08-v4'"),'database privacy version mismatch');
 
 for(const action of ['promo_redeem','owner_grant_free','owner_confirm_payment','owner_promo_list','owner_promo_create','owner_promo_toggle','owner_devices_reset'])assert(handler.includes(action),action+' handler missing');
