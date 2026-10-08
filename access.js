@@ -62,9 +62,14 @@
   try{await call('growth_activity')}catch{growthActivityDateSent=''}
  }
  function feedbackSeenKey(){return 'ne_owner_feedback_seen:'+identity.user_id}
+ function purchaseSeenKey(){return 'ne_owner_purchase_seen:'+identity.user_id}
  function markFeedbackSeen(count){
   const total=Number(count);if(identity?.owner!==true||!Number.isFinite(total)||total<0)return false;
   try{localStorage.setItem(feedbackSeenKey(),String(Math.floor(total)));return true}catch{return false}
+ }
+ function markPurchaseSeen(count){
+  const total=Number(count);if(identity?.owner!==true||!Number.isFinite(total)||total<0)return false;
+  try{localStorage.setItem(purchaseSeenKey(),String(Math.floor(total)));return true}catch{return false}
  }
  async function notificationCount(){
   if(identity?.owner!==true)return 0;
@@ -74,7 +79,9 @@
   const feedback=feedbackOut.feedback||{},items=Array.isArray(feedback.items)?feedback.items:[];
   const rawCount=Number(feedback.count),total=Number.isFinite(rawCount)?Math.max(0,Math.floor(rawCount)):items.length;
   let seen=0;try{const stored=Number(localStorage.getItem(feedbackSeenKey())||0);seen=Number.isFinite(stored)?Math.max(0,Math.floor(stored)):0}catch{}
-  return pending+Math.max(0,total-seen);
+  const purchaseTotal=requests.filter(item=>Boolean(item.purchase_interest_at)).length;
+  let purchaseSeen=0;try{const stored=Number(localStorage.getItem(purchaseSeenKey())||0);purchaseSeen=Number.isFinite(stored)?Math.max(0,Math.floor(stored)):0}catch{}
+  return pending+Math.max(0,total-seen)+Math.max(0,purchaseTotal-purchaseSeen);
  }
  async function call(action,params={}){
   const response=await fetch('/api/session',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',...deviceHeaders()},body:JSON.stringify({action,...params}),cache:'no-store'});
@@ -287,7 +294,7 @@
   alert('Открой меню браузера ⋮ и выбери «Установить приложение» или «Добавить на главный экран».');
  }
  async function shareInfo(){return call('share_info')}
- window.NEAccess={status,panel,logout,install,isInstalled,shareInfo,headers:deviceHeaders,deviceId,ready:()=>loaded,allowed:()=>identity?.access_granted===true,isOwner:()=>identity?.owner===true,notificationCount,ownerMarkFeedbackSeen:markFeedbackSeen,info:()=>identity?{...identity}:null};
+ window.NEAccess={status,panel,logout,install,isInstalled,shareInfo,headers:deviceHeaders,deviceId,ready:()=>loaded,allowed:()=>identity?.access_granted===true,isOwner:()=>identity?.owner===true,notificationCount,ownerMarkFeedbackSeen:markFeedbackSeen,ownerMarkPurchaseSeen:markPurchaseSeen,info:()=>identity?{...identity}:null};
  window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();installPrompt=e});
  window.addEventListener('appinstalled',()=>{installPrompt=null;markInstalled('appinstalled')});
  window.addEventListener('error',event=>{reportClientError('WINDOW_ERROR',event.error||event.message)});
