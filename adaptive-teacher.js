@@ -85,19 +85,19 @@ function levelGate(state,level){
  const pass=avg>=80&&Math.min(...scores)>=70&&clamp(profile.grammar)>=70&&clamp(profile.vocabulary)>=70&&mastered>=Math.max(1,mods.length-2)&&transferScore>=80&&delayed===CORE.length;
  return{pass,avg:clamp(avg),minCore:Math.min(...scores),mastered,total:mods.length,transferScore,delayed};
 }
-function weakestSkill(state){const p=ensure(state),profile=levelProfile(p,state.level);return ALL.slice().sort((a,b)=>profile[a]-profile[b])[0]}
+function weakestSkill(state,level=state.level){const p=ensure(state),profile=levelProfile(p,level);return ALL.slice().sort((a,b)=>profile[a]-profile[b])[0]}
 function nextModule(state,level){
  const mods=levelModules(level);if(!mods.length)return null;
  return mods.find(m=>moduleMastery(state,m.id)<78)||mods.at(-1);
 }
 function nextMission(state){
- const p=ensure(state),level=['A1','A2','B1','B2'].includes(state.level)?state.level:'A1',due=dueReviews(state);
+ const p=ensure(state),current=LEVEL_ORDER.includes(state.level)?state.level:'A1',unlocked=highestUnlockedLevel(state),level=LEVEL_ORDER.indexOf(unlocked)>LEVEL_ORDER.indexOf(current)?unlocked:current,due=dueReviews(state);
  if(due.length){
   const d=due[0],known=window.NECurriculum?.moduleById(d.moduleId),reviewLevel=['A1','A2','B1','B2'].includes(d.level)?d.level:(known?.level||level),m=known||nextModule(state,reviewLevel);
   return{kind:'review',level:reviewLevel,module:m,skill:d.skill,reason:'Пора проверить, сохранился ли материал после паузы.',reviewKey:d.key};
  }
- const skill=weakestSkill(state),module=nextModule(state,level);
- return{kind:'learn',level,module,skill,reason:'Сейчас это самое слабое звено в твоём профиле навыков.'};
+ const skill=weakestSkill(state,level),module=nextModule(state,level);
+ return{kind:'learn',level,module,skill,reason:level!==current?'Предыдущий уровень подтверждён. Начинаем следующий этап.':'Тренируем навык, которому нужна практика в новой ситуации.'};
 }
 function assessment(state,level,score,skillScores={}){
  const p=ensure(state),s=clamp(score);
@@ -113,12 +113,20 @@ function reviewWords(state){if(typeof window.neReinforcementWords==='function')r
 function bars(state){
  const p=ensure(state),profile=levelProfile(p,state.level);return ALL.map(s=>'<div class="metric"><span>'+LABEL[s]+'</span><strong>'+clamp(profile[s])+'%</strong></div><div class="progress"><i style="width:'+clamp(profile[s])+'%"></i></div>').join('');
 }
+function learningBlocker(gate){
+ if(!gate.total)return 'Пока нет модулей для этого уровня.';
+ if(gate.avg<80||gate.minCore<70)return 'Нужно укрепить аудирование, чтение, письмо или речь.';
+ if(gate.mastered<Math.max(1,gate.total-2))return 'Нужно освоить остальные модули уровня.';
+ if(gate.transferScore<80)return 'Проверь материал в новой практической ситуации.';
+ if(gate.delayed<4)return 'Не хватает отложенных проверок четырёх навыков.';
+ return gate.pass?'Следующий уровень открыт.':'Закрепи грамматику и словарь.';
+}
 function startAdaptiveTeacher(){
  ensure(state);const mission=nextMission(state),gate=levelGate(state,state.level),p=state.learningV8,attempts=p.attempts.length;
- const m=mission.module,reason=mission.reason+(m?' Цель: '+m.canDo[0]+'.':'');
+ const m=mission.module,pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id],reason=(pending?'Есть незавершённое занятие. Продолжим с места остановки. ':mission.reason)+(m?' Цель: '+m.canDo[0]+'.':'');
  shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Адаптивный преподаватель · '+esc(state.level)+'</div><h2 style="margin:0">Нора ведёт занятие</h2></div></div>'+
- '<section class="grid"><article class="card"><div class="eyebrow">Следующий шаг</div><h2>'+esc(m?.title||'Диагностика')+'</h2><p>'+esc(reason)+'</p><div class="row"><span class="tag">'+esc(LABEL[mission.skill]||mission.skill)+'</span><span class="tag">'+(mission.kind==='review'?'Повторение':'Новый материал')+'</span></div><br><button class="btn" onclick="teacherStartMission()">Начать занятие</button></article>'+
- '<article class="card"><div class="eyebrow">Допуск к '+esc(state.level)+'</div><h2>'+gate.avg+'% профиль</h2><p class="muted">Уровень не засчитывается по одному тесту. Нужны четыре навыка, перенос в новой ситуации и отложенная проверка.</p><div class="metric"><span>Освоено модулей</span><strong>'+gate.mastered+'/'+gate.total+'</strong></div><div class="metric"><span>Отложенных подтверждений</span><strong>'+gate.delayed+'/4</strong></div><div class="metric"><span>Статус</span><strong>'+(gate.pass?'Пройден':'Есть работа')+'</strong></div></article></section>'+
+ '<section class="grid"><article class="card"><div class="eyebrow">Следующий шаг</div><h2>'+esc(pending?.title||m?.title||'Диагностика')+'</h2><p>'+esc(reason)+'</p><div class="row"><span class="tag">'+esc(LABEL[mission.skill]||mission.skill)+'</span><span class="tag">'+(pending?'Продолжение':mission.kind==='review'?'Повторение':'Новый материал')+'</span></div><br><button class="btn" onclick="teacherStartMission()">'+(pending?'Продолжить с места остановки':'Начать занятие')+'</button></article>'+
+ '<article class="card"><div class="eyebrow">Допуск к '+esc(state.level)+'</div><h2>'+gate.avg+'% профиль</h2><p class="muted">'+esc(learningBlocker(gate))+' Для перехода нужны четыре навыка и отложенная проверка.</p><div class="metric"><span>Освоено модулей</span><strong>'+gate.mastered+'/'+gate.total+'</strong></div><div class="metric"><span>Отложенных подтверждений</span><strong>'+gate.delayed+'/4</strong></div><div class="metric"><span>Статус</span><strong>'+(gate.pass?'Пройден':'Есть работа')+'</strong></div></article></section>'+
  '<div class="section-title"><h2>Профиль навыков</h2></div><section class="card">'+bars(state)+'</section>'+
  (attempts<8?'<section class="notice" style="margin-top:14px"><b>Пока мало данных.</b> Пройди контроль уровня: после нескольких ответов преподаватель будет выбирать задания точнее. <button class="btn secondary" style="margin-top:10px" onclick="navigate(\'test\',\''+escJs(state.level)+'\')">Диагностика '+esc(state.level)+'</button></section>':'')+
  '<section class="card" style="margin-top:14px"><h3>Как работает преподаватель</h3><p class="muted">Не переводит дальше только за факт прохождения. Он собирает доказательства по аудированию, чтению, письму, речи, грамматике и словарю; возвращает ошибки через интервалы; усложняет контекст; требует самостоятельного ответа и переноса навыка.</p></section>','home');
@@ -147,17 +155,28 @@ function moduleMission(state,moduleId){
 async function runTeacherMission(mission){
  const m=mission?.module;if(!m)return;
  shell('<section class="card loading-card"><div class="spinner"></div><h2>Нора готовит занятие</h2><p class="muted">Цель — '+esc(m.canDo[0])+'. Задания будут подстроены под слабые места, а не случайно сгенерированы.</p></section>','home');
- const p=ensure(state),targetProfile=levelProfile(p,mission.level),payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...targetProfile},errorPatterns:errors(state),weakSkills:ALL.filter(s=>targetProfile[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review'};
+ const p=ensure(state),targetProfile=levelProfile(p,mission.level),
+ variations=['Другой собеседник, новый повод разговора.','Другая обстановка и непредвиденное уточнение.','Новая причина просьбы и ограничение по времени.','Та же цель, но другая последовательность действий.'],
+ revision=(p.modules[m.id]?.completions||0)+(p.modules[m.id]?.attempts||0),
+ payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...targetProfile},errorPatterns:errors(state),weakSkills:ALL.filter(s=>targetProfile[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review',scenarioVariation:variations[revision%variations.length]};
  try{
   const r=typeof neApiPost==='function'?await neApiPost('/api/generate',payload):await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(async x=>({ok:x.ok,data:await x.json()}));
   if(!r.ok||!r.data)throw new Error(r.error||'GENERATION');
   const lesson={...r.data,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,title:r.data.title||m.title,grammar:r.data.grammarRuleRu||m.grammar,_adaptive:{moduleId:m.id,skill:mission.skill,kind:mission.kind,reviewKey:mission.reviewKey||'',canDo:m.canDo,transfer:mission.kind==='review'||/transfer|capstone/.test(m.id)}};
-  state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;saveState();lessonSession={lesson,step:0,locked:false,xpScores:[]};renderLesson();
+  state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;lessonSession={lesson,step:0,locked:false,xpScores:[]};persistLessonCheckpoint();renderLesson();
  }catch(e){shell('<section class="card"><h2>Занятие не создано</h2><p class="muted">Не засчитываю ничего без полноценного задания. Проверь соединение и повтори.</p><button class="btn" onclick="startAdaptiveTeacher()">Назад</button></section>','home')}
 }
-async function teacherStartMission(){return runTeacherMission(nextMission(state))}
+async function teacherStartMission(){
+ const pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id];
+ if(pending)return startLesson(pending.id);
+ const mission=nextMission(state);
+ if(mission&&LEVEL_ORDER.indexOf(mission.level)>LEVEL_ORDER.indexOf(state.level)){state.level=mission.level;saveState();}
+ return runTeacherMission(mission);
+}
 async function teacherStartModule(moduleId){
  const mission=moduleMission(state,moduleId);if(!mission)return;
+ const pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id];
+ if(pending?._adaptive?.moduleId===moduleId)return startLesson(pending.id);
  if(mission.blocked){
   const next=mission.firstOpen,byLevel=!!mission.blockedByLevel,title=byLevel?'Сначала подтверди '+mission.unlockedLevel:'Сначала закрепи предыдущий модуль',text=byLevel?'Следующий уровень откроется только после устойчивого результата по '+mission.unlockedLevel+'. Можно посмотреть программу выше, но нельзя засчитать её вместо незакрытого уровня.':'Следующий обязательный шаг — '+(next?.title||'текущий модуль')+'. Будущий материал виден заранее, но не заменяет незакрытые навыки.';
   return shell('<section class="card" style="max-width:680px;margin:35px auto"><div class="eyebrow">Маршрут '+esc(mission.unlockedLevel||mission.level)+'</div><h2>'+esc(title)+'</h2><p class="muted">'+esc(text)+'</p><div class="row"><button class="btn" onclick="teacherStartModule(\''+escJs(next?.id||'')+'\')">Продолжить маршрут</button><button class="btn ghost" onclick="navigate(\'course\',\''+escJs(mission.unlockedLevel||mission.level)+'\')">К карте курса</button></div></section>','course');
