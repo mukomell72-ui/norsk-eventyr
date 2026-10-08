@@ -153,6 +153,9 @@ assert(app.includes('repeat===0?base:repeat===1?Math.max(4,Math.round(base*.25))
 assert(app.includes('Оценка занятия Норы:')&&app.includes('xpRewardStatus'),'lesson completion must show score-based XP and next reward progress');
 assert(app.includes("Почему '+reward.avg+'/100")&&app.includes('Что улучшить:')&&app.includes('Комментарий Норы:'),'lesson completion and accepted AI answers must explain why the score is below 100');
 assert(app.includes('neAdvance(()=>lessonNext(15),3000)'),'grammar/listening/reading correct feedback must remain visible for three seconds');
+assert((v3.match(/neAdvance\(\(\)=>lessonNext\((?:15|20)\),3000\)/g)||[]).length>=3,'legacy lesson grammar, choices and productive answers must also hold feedback for three seconds');
+assert(v3.includes('aiLessonFeedbackHtml(d,"✓ Хороший ответ")'),'legacy productive lesson feedback must show Nora score details before advancing');
+assert(app.includes('aiLessonFeedbackHtml(d,"✓ Задача выполнена")')&&app.includes('aiLessonFeedbackHtml(d,"✓ "+(rem?'),'accepted adaptive dialogue and productive answers must show detailed Nora feedback');
 const speech=read('api/speech.js');
 assert(v3.includes('speechCache=new Map()')&&v3.includes('window.nePrimeSpeech=primeSpeech'),'Nora speech must preload and cache generated audio');
 assert(v3.includes('Готовлю голос')&&v3.includes('Нора говорит'),'Nora speech buttons must expose loading and playing states');
