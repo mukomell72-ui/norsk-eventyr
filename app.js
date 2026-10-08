@@ -147,7 +147,13 @@ function currentDialogueTurn(l){
  return {...INTRODUCTION_DIALOGUE[i],dialogueLabel:"Знакомство с Норой · "+(i+1)+"/"+INTRODUCTION_DIALOGUE.length};
 }
 function lessonIntro(l){const turn=currentDialogueTurn(l);const shown={...l,...turn};l=shown;return `<article class="card lesson-intro-v6"><div class="phrase-v6"><small>${l.dialogueLabel||"Фраза"}</small><div class="prompt">${esc(l.phrase)}</div><div class="phrase-actions-v6"><button onclick="speakText('${escJs(l.phrase)}',.82,this)">🔊 Фраза</button><button onclick="toggle('tr')">RU Перевод</button></div><div id="tr" class="translation compact-translation-v6" style="display:none">${esc(l.ru)}</div></div><div class="lesson-words-v6">${l.vocab.map(v=>`<span><b>${esc(v[0])}</b><small>${esc(v[1])}</small></span>`).join("")}</div><div class="answer-label-v6"><b>Твой ответ</b><span>текстом или голосом</span></div><textarea id="dialogAnswer" class="input lesson-answer-v6" rows="2" placeholder="Напиши по-норвежски…"></textarea><div class="lesson-actions-v6"><button id="micBtn" class="btn secondary" onclick="toggleMic('dialogAnswer','','${escJs(l.phrase)}')">🎤 Сказать</button><button class="btn" onclick="checkDialogue()">✓ Проверить</button></div><div id="dialogFb"></div><details class="grammar-fold-v6"><summary>Грамматика</summary><p>${esc(l.grammar)}</p></details></article>`}
-async function checkDialogue(){
+async function continueCheckedDialogue(){
+ const s=lessonSession,l=s?.lesson;if(!s||!l)return;
+ if(l.id==="a1-1"&&(s.dialogueIndex||0)<INTRODUCTION_DIALOGUE.length-1){
+  s.dialogueIndex=(s.dialogueIndex||0)+1;saveState();s.locked=false;renderLesson();
+ }else lessonNext(10);
+}
+function checkDialogue(){
  const s=lessonSession,input=document.getElementById("dialogAnswer"),a=input?.value.trim();if(!a||s.locked)return;
  const l=s.lesson,turn=currentDialogueTurn(l),b=document.getElementById("dialogFb");s.locked=true;
  b.innerHTML='<div class="feedback">Проверяю…</div>';
@@ -157,12 +163,8 @@ async function checkDialogue(){
  const d=r.data,ok=d.accepted!==false&&(d.score??70)>=55;trackLessonScore(d.score??(ok?70:40),{label:"Диалог",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||""});
  if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:l.level,skill:"speaking",score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l.id,source:"dialogue",errorTag:d.error_tag||"",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});saveState();
  if(ok){
-  b.innerHTML=aiLessonFeedbackHtml(d,"✓ Задача выполнена");
-  neAdvance(()=>{
-   if(l.id==="a1-1"&&(s.dialogueIndex||0)<INTRODUCTION_DIALOGUE.length-1){
-    s.dialogueIndex=(s.dialogueIndex||0)+1;saveState();s.locked=false;renderLesson();
-   }else lessonNext(10);
-  },3000);return;
+  b.innerHTML=aiLessonFeedbackHtml(d,"✓ Задача выполнена")+'<button class="btn lesson-next-v8" onclick="continueCheckedDialogue()">Дальше →</button>';
+  return;
  }
  s.locked=false;b.innerHTML='<div class="feedback bad"><b>Исправь одну главную вещь и ответь снова</b><br>'+esc(d.explanation_ru||"Исправь ответ и проверь снова.")+(d.micro_rule_ru?'<br><b>Правило:</b> '+esc(d.micro_rule_ru):"")+(d.corrected?'<br><b>Естественнее:</b> '+esc(d.corrected):"")+(d.retry_prompt_no?'<br><small>После исправления попробуй также: '+esc(d.retry_prompt_no)+'</small>':"")+'</div>';input.focus();
 }
@@ -188,7 +190,14 @@ function checkAdaptiveVocab(){
  const fb=document.getElementById("fb");
  if(ok){fb.innerHTML='<div class="feedback good"><b>✓ Вспомнил сам</b></div>'}else{fb.innerHTML='<div class="feedback bad"><b>Нужно закрепить.</b> Правильно: '+esc(t[0])+'</div>'}
  lessonSession.locked=true;
- neAdvance(()=>{lessonSession.locked=false;lessonSession.vocabIndex=idx+1;if(lessonSession.vocabIndex<items.length)renderLesson();else{lessonSession.vocabIndex=0;lessonSession.vocabItems=null;lessonNext(ok?12:6)}},3000);
+ fb.insertAdjacentHTML("beforeend",'<button class="btn lesson-next-v8" onclick="continueAdaptiveVocab('+(ok?"true":"false")+')">Дальше →</button>');
+}
+function continueAdaptiveVocab(ok){
+ const l=lessonSession?.lesson;if(!l)return;
+ const items=adaptiveVocabItems(l),idx=lessonSession.vocabIndex||0;
+ lessonSession.locked=false;lessonSession.vocabIndex=idx+1;
+ if(lessonSession.vocabIndex<items.length)renderLesson();
+ else{lessonSession.vocabIndex=0;lessonSession.vocabItems=null;lessonNext(ok?12:6)}
 }
 function grammarPrompt(l){const q=String(l?.grammarQ||"").trim();if(/^(?:velg|choose|выбери(?:те)?)\s+(?:riktig(?:e)?|korrekt(?:e)?|correct|правильн\w*)\s+(?:setning(?:en)?|alternativ(?:et)?|sentence|предложен\w*|вариант\w*)[.!?]?$/i.test(q))return "Выберите грамматически правильное предложение.";return q||l?.grammarTitle||"Выберите грамматически правильный вариант."}
 function grammarEx(l){const c=Number(l.grammarCorrect)||0;return `<article class="card"><div class="eyebrow">Грамматика · применение</div><div class="prompt">${esc(grammarPrompt(l))}</div><div class="choice-list">${l.grammarOpts.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${c},'${escJs(l.grammarRuleRu||l.grammar||"Проверь правило и попробуй снова.")}','grammar')">${esc(x)}</button>`).join("")}</div><details class="grammar-fold-v6"><summary>Короткое правило</summary><p>${esc(l.grammarRuleRu||l.grammar||"")}</p></details><div id="fb"></div></article>`}
@@ -200,7 +209,7 @@ function listenEx(l){
  const d=shuffle(COURSE.filter(x=>x.level===l.level&&x.id!==l.id)).slice(0,3).map(x=>x.phrase),o=shuffle([l.phrase,...d]),c=o.indexOf(l.phrase);return `<article class="card"><div class="eyebrow">Аудирование</div><div class="prompt">Прослушай и выбери точную фразу.</div><button class="btn" onclick="speakText('${escJs(l.phrase)}',.78,this)">▶ Прослушать</button><div class="choice-list">${o.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${c},'${escJs(l.ru)}','listening')">${esc(x)}</button>`).join("")}</div><div id="fb"></div></article>`;
 }
 function readEx(l){return `<article class="card"><div class="eyebrow">Чтение</div><div class="translation">${esc(l.read)}</div><div class="prompt">${esc(l.q)}</div><div class="choice-list">${l.opts.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${l.correct},'Ответ находится в тексте.','reading')">${esc(x)}</button>`).join("")}</div><div id="fb"></div></article>`}
-function lessonChoice(btn,i,c,note,skillHint=""){if(lessonSession.locked)return;const ok=i===c,labels={grammar:"Грамматика",listening:"Аудирование",reading:"Чтение",vocabulary:"Словарь"},label=labels[skillHint]||"Задание";trackLessonScore(ok?100:35,{label,explanation:ok?note:"Первый ответ был неверным. "+note});if(window.NEAdaptive){const l=lessonSession.lesson,skill=skillHint||NEAdaptive.skillForStep(lessonSession.step);NEAdaptive.recordAttempt(state,{level:l.level,skill,score:ok?100:35,moduleId:l?._adaptive?.moduleId||l?.id,source:"lesson_choice",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}const buttons=[...document.querySelectorAll(".choice")];if(ok){lessonSession.locked=true;buttons.forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good")});document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно · 100/100</b><br><small>'+esc(note)+'</small></div>';neAdvance(()=>lessonNext(15),3000);return}btn.classList.add("bad");btn.disabled=true;document.getElementById("fb").innerHTML='<div class="feedback bad"><b>Неверно · 35/100.</b> '+esc(note)+'<br><small>Выбери другой вариант.</small></div>';lessonSession.locked=false}
+function lessonChoice(btn,i,c,note,skillHint=""){if(lessonSession.locked)return;const ok=i===c,labels={grammar:"Грамматика",listening:"Аудирование",reading:"Чтение",vocabulary:"Словарь"},label=labels[skillHint]||"Задание";trackLessonScore(ok?100:35,{label,explanation:ok?note:"Первый ответ был неверным. "+note});if(window.NEAdaptive){const l=lessonSession.lesson,skill=skillHint||NEAdaptive.skillForStep(lessonSession.step);NEAdaptive.recordAttempt(state,{level:l.level,skill,score:ok?100:35,moduleId:l?._adaptive?.moduleId||l?.id,source:"lesson_choice",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}const buttons=[...document.querySelectorAll(".choice")];if(ok){lessonSession.locked=true;buttons.forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good")});document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно · 100/100</b><br><small>'+esc(note)+'</small></div><button class="btn lesson-next-v8" onclick="lessonNext(15)">Дальше →</button>';return}btn.classList.add("bad");btn.disabled=true;document.getElementById("fb").innerHTML='<div class="feedback bad"><b>Неверно · 35/100.</b> '+esc(note)+'<br><small>Выбери другой вариант.</small></div>';lessonSession.locked=false}
 function freeEx(l,mode){
  const sp=mode==="speaking",rem=l?._adaptive&&lessonSession.remediation?.mode===mode?lessonSession.remediation:null,p=rem?.prompt||(sp?l.speaking:l.writing);
  return `<article class="card"><div class="eyebrow">${sp?"Устная речь":"Письмо"} · ${rem?"перенос исправления":"AI"}</div>${rem?'<div class="notice"><b>Новая ситуация.</b> Примени исправление сам, без копирования готового ответа.'+(rem.rule?'<br><small>'+esc(rem.rule)+'</small>':'')+'</div><br>':""}<div class="prompt">${esc(p)}</div>${sp?'<div class="notice">Нажми микрофон и говори по-норвежски. Можно также ввести ответ.</div>':""}<textarea id="freeAnswer" class="input" placeholder="Ответ по-норвежски…"></textarea><div class="row" style="margin-top:10px">${sp?'<button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>':""}<button class="btn" onclick="checkFree('${mode}')">🧠 Проверить AI</button></div><div id="freeFb"></div></article>`
@@ -220,8 +229,8 @@ async function checkFree(mode){
  if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill,score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l?.id,source:rem?"lesson_free_transfer":"lesson_free",errorTag:d.error_tag||"",transfer:isTransfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}
  if(ok){
   s.remediation=null;s.locked=false;
-  b.innerHTML=aiLessonFeedbackHtml(d,"✓ "+(rem?"Исправление перенесено в новую ситуацию":"Коммуникативная задача выполнена"));
-  neAdvance(()=>lessonNext(rem?25:20),3000);return;
+  b.innerHTML=aiLessonFeedbackHtml(d,"✓ "+(rem?"Исправление перенесено в новую ситуацию":"Коммуникативная задача выполнена"))+'<button class="btn lesson-next-v8" onclick="lessonNext('+(rem?25:20)+')">Дальше →</button>';
+  return;
  }
  const explanation=esc(d.explanation_ru||"Исправь ответ и проверь снова."),rule=d.micro_rule_ru?'<br><b>Правило:</b> '+esc(d.micro_rule_ru):"",corrected=d.corrected?'<br><b>Естественнее:</b> '+esc(d.corrected):"";
  if(l?._adaptive&&d.retry_prompt_no){
@@ -285,6 +294,6 @@ function startTimer(){stopTimer();timerHandle=setInterval(()=>{if(!examSession)r
 function updateTimer(){const e=document.getElementById("timer");if(!e||!examSession)return;const m=Math.floor(examSession.remaining/60),s=examSession.remaining%60;e.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")}
 function stopTimer(){if(timerHandle){clearInterval(timerHandle);timerHandle=null}}
 
-Object.assign(window,{navigate,renderCourse,lessonNext,lessonChoice,checkDialogue,checkFree,speakText,toggle,toggleMic,answerTest,answerTestFree,testNext,answerExamObj,answerExamFree,examNext,exitExam,resetProgress,xpRewardStatus,xpRewardCatalog});
+Object.assign(window,{navigate,renderCourse,lessonNext,lessonChoice,checkDialogue,continueCheckedDialogue,continueAdaptiveVocab,checkFree,speakText,toggle,toggleMic,answerTest,answerTestFree,testNext,answerExamObj,answerExamFree,examNext,exitExam,resetProgress,xpRewardStatus,xpRewardCatalog});
 renderHome();
 // Service worker registration and update notices are handled by updates.js.
