@@ -16,7 +16,7 @@
   state.dailyDayCount=Number(state.dailyDayCount)||Object.keys(state.dailyPacks).length;
   saveState();
 
-  let neSession=sessionStorage.getItem("ne_session")||"",micBusy=false,speechAudio=null,speechRequest=0,speechActiveButton=null;
+  let neSession=sessionStorage.getItem("ne_session")||"",micBusy=false,speechAudio=null,speechRequest=0,speechActiveButton=null,speechAudioContext=null;
   const speechCache=new Map(),SPEECH_CACHE_LIMIT=12;
   let placementSession=null,reviewSession=null,examV3=null,dailyTaskSession=null,mediaRecorder=null,mediaStream=null,recordChunks=[],recordTimer=null,recordStartedAt=0,chatInputWasVoice=false;
   const MIC_CONSTRAINTS={audio:{channelCount:{ideal:1},sampleRate:{ideal:48000},echoCancellation:true,noiseSuppression:true,autoGainControl:true}};
@@ -192,8 +192,20 @@
     const level=(lessonSession?.lesson?.level)||state.level||"A1";
     try{
       const item=await getSpeechAudio(text,level);if(request!==speechRequest){restoreSpeechButton(btn);return}
-      const a=new Audio(item.url);speechAudio=a;a.preload="auto";a.volume=.96;
-      a.playbackRate=Math.max(.6,Math.min(1.4,Number(rate)/.9||1));
+      const a=new Audio(item.url);speechAudio=a;a.preload="auto";a.volume=1;
+      a.playbackRate=Math.max(.75,Math.min(1.25,Number(rate)/.9||1));
+      try{
+        const AC=window.AudioContext||window.webkitAudioContext;
+        if(AC){
+          speechAudioContext=speechAudioContext||new AC();
+          if(speechAudioContext.state==="suspended")await speechAudioContext.resume();
+          const src=speechAudioContext.createMediaElementSource(a);
+          const high=speechAudioContext.createBiquadFilter();high.type="highpass";high.frequency.value=90;high.Q.value=.7;
+          const low=speechAudioContext.createBiquadFilter();low.type="lowpass";low.frequency.value=9500;low.Q.value=.7;
+          const comp=speechAudioContext.createDynamicsCompressor();comp.threshold.value=-24;comp.knee.value=18;comp.ratio.value=2.2;comp.attack.value=.004;comp.release.value=.16;
+          src.connect(high).connect(low).connect(comp).connect(speechAudioContext.destination);
+        }
+      }catch{}
       a.onplaying=()=>setSpeechButton(btn,"playing");
       a.onended=()=>{speechAudio=null;restoreSpeechButton(btn)};
       a.onerror=()=>{speechAudio=null;restoreSpeechButton(btn)};
