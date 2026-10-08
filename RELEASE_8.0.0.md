@@ -257,6 +257,20 @@ Leaked-password protection should be enabled when supported/appropriate for the 
 
 If any gate fails, stop before the next irreversible/public step and report the blocker. Do not bypass a failed Preview or migration verification.
 
+## Final release candidate preparation
+
+The authenticated real-device Preview smoke-test has passed on 2026-10-08:
+- application/access opens correctly;
+- Nora lesson starts and runs;
+- checked feedback remains visible until the learner presses **Дальше →**;
+- dialogue, vocabulary and productive feedback flow were confirmed on the current Preview;
+- the prior black-screen regression was traced to a syntax error in `app.js`, fixed, and covered by the full QA suite.
+
+Final candidate source before the preparation commit:
+`46303478cba8b6cb594bdf1cc1c6c8e26b223f16`
+
+The publication merge should use **squash** so the complete 8.0 branch is delivered to `main` as one release commit. Do not merge until the final preparation commit itself has exact-SHA QA SUCCESS and Preview READY.
+
 ## Current production baseline before release
 
 Production must remain on the verified 7.3.8 baseline until the release gates above pass.
