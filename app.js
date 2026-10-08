@@ -157,8 +157,7 @@ async function checkDialogue(){
  const d=r.data,ok=d.accepted!==false&&(d.score??70)>=55;trackLessonScore(d.score??(ok?70:40),{label:"Диалог",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||""});
  if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:l.level,skill:"speaking",score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l.id,source:"dialogue",errorTag:d.error_tag||"",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});saveState();
  if(ok){
-  const specific=Array.isArray(d.strengths_ru)&&d.strengths_ru[0]?'<br><small>'+esc(d.strengths_ru[0])+'</small>':"";
-  b.innerHTML='<div class="feedback good"><b>✓ Задача выполнена</b>'+specific+'</div>';
+  b.innerHTML=aiLessonFeedbackHtml(d,"✓ Задача выполнена");
   neAdvance(()=>{
    if(l.id==="a1-1"&&(s.dialogueIndex||0)<INTRODUCTION_DIALOGUE.length-1){
     s.dialogueIndex=(s.dialogueIndex||0)+1;saveState();s.locked=false;renderLesson();
@@ -220,8 +219,8 @@ async function checkFree(mode){
  const d=r.data,ok=d.accepted!==false&&(d.score??70)>=55,skill=mode==="speaking"?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer;trackLessonScore(d.score??(ok?70:40),{label:mode==="speaking"?"Речь":"Письмо",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||""});
  if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill,score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l?.id,source:rem?"lesson_free_transfer":"lesson_free",errorTag:d.error_tag||"",transfer:isTransfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}
  if(ok){
-  s.remediation=null;s.locked=false;const specific=Array.isArray(d.strengths_ru)&&d.strengths_ru[0]?'<br><small>'+esc(d.strengths_ru[0])+'</small>':"";
-  b.innerHTML='<div class="feedback good"><b>✓ '+(rem?"Исправление перенесено в новую ситуацию":"Коммуникативная задача выполнена")+'</b>'+specific+'</div>';
+  s.remediation=null;s.locked=false;
+  b.innerHTML=aiLessonFeedbackHtml(d,"✓ "+(rem?"Исправление перенесено в новую ситуацию":"Коммуникативная задача выполнена"));
   neAdvance(()=>lessonNext(rem?25:20),3000);return;
  }
  const explanation=esc(d.explanation_ru||"Исправь ответ и проверь снова."),rule=d.micro_rule_ru?'<br><b>Правило:</b> '+esc(d.micro_rule_ru):"",corrected=d.corrected?'<br><b>Естественнее:</b> '+esc(d.corrected):"";
