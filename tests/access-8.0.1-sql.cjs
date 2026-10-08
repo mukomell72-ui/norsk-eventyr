@@ -159,7 +159,8 @@ const migration=fs.readFileSync(path.join(__dirname,'../migrations/20261008_acce
    ('11111111-1111-4111-8111-111111111111','owner@example.test',now(),'{"ne_owner":true}'::jsonb,'{"ne_app":"norsk_eventyr"}'::jsonb),
    ('22222222-2222-4222-8222-222222222222','student@example.test',now(),'{}'::jsonb,'{"ne_app":"norsk_eventyr"}'::jsonb),
    ('33333333-3333-4333-8333-333333333333','legacy@example.test',now(),'{}'::jsonb,'{"ne_app":"norsk_eventyr"}'::jsonb),
-   ('44444444-4444-4444-8444-444444444444','other@example.test',now(),'{}'::jsonb,'{"ne_app":"norsk_eventyr"}'::jsonb);
+   ('44444444-4444-4444-8444-444444444444','other@example.test',now(),'{}'::jsonb,'{"ne_app":"norsk_eventyr"}'::jsonb),
+   ('55555555-5555-4555-8555-555555555555','directpay@example.test',now(),'{}'::jsonb,'{"ne_app":"norsk_eventyr"}'::jsonb);
 
   insert into public.norsk_eventyr_access(user_id,email,display_name,status) values
    ('22222222-2222-4222-8222-222222222222','student@example.test','Student','pending'),
@@ -171,7 +172,8 @@ const migration=fs.readFileSync(path.join(__dirname,'../migrations/20261008_acce
   ) values
    ('22222222-2222-4222-8222-222222222222',now()-interval '10 days',now()-interval '5 days','2026-10-05-v1',now()-interval '10 days','2026-10-05-v3',now()-interval '10 days'),
    ('33333333-3333-4333-8333-333333333333',now()-interval '20 days',now()-interval '15 days','2026-10-05-v1',now()-interval '20 days','2026-10-05-v3',now()-interval '20 days'),
-   ('44444444-4444-4444-8444-444444444444',now()-interval '20 days',now()-interval '15 days','2026-10-08-v2',now()-interval '20 days','2026-10-08-v4',now()-interval '20 days');
+   ('44444444-4444-4444-8444-444444444444',now()-interval '20 days',now()-interval '15 days','2026-10-08-v2',now()-interval '20 days','2026-10-08-v4',now()-interval '20 days'),
+   ('55555555-5555-4555-8555-555555555555',now()-interval '20 days',now()-interval '15 days','2026-10-08-v2',now()-interval '20 days','2026-10-08-v4',now()-interval '20 days');
 
   grant usage on schema auth to authenticated;
   grant execute on function auth.uid() to authenticated;
@@ -179,7 +181,7 @@ const migration=fs.readFileSync(path.join(__dirname,'../migrations/20261008_acce
 
  await db.exec(migration);
 
- const owner='11111111-1111-4111-8111-111111111111',student='22222222-2222-4222-8222-222222222222',other='44444444-4444-4444-8444-444444444444';
+ const owner='11111111-1111-4111-8111-111111111111',student='22222222-2222-4222-8222-222222222222',other='44444444-4444-4444-8444-444444444444',directPay='55555555-5555-4555-8555-555555555555';
  async function as(id,sql,params=[]){
   await db.exec('reset role');
   await db.query("select set_config('request.jwt.sub',$1,false)",[id]);
@@ -243,6 +245,19 @@ const migration=fs.readFileSync(path.join(__dirname,'../migrations/20261008_acce
  await assert.rejects(as(student,"select public.ne_promo_redeem('TEST30')"));
  await as(other,"select public.ne_accept_terms_v2('2026-10-08-v2','2026-10-08-v4',null)");
  await assert.rejects(as(other,"select public.ne_promo_redeem('TEST30')"));
+
+ // A direct manual payment on an unrequested but ready-to-pay account is itself an owner approval.
+ // The promised free month is inserted first; the paid period starts after it.
+ let directInterest=one(await as(directPay,'select public.ne_purchase_interest_v2(99)'));
+ assert.equal(directInterest.bonus_pending,true);
+ let directPayment=one(await as(owner,"select public.ne_owner_confirm_manual_payment('55555555-5555-4555-8555-555555555555',99,30,'Direct manual')"));
+ await db.exec('reset role');
+ const directEnt=(await db.query("select free_access_until,ready_bonus_granted_at from public.norsk_eventyr_entitlements where user_id=$1",[directPay])).rows[0];
+ const directAccess=(await db.query("select status from public.norsk_eventyr_access where user_id=$1",[directPay])).rows[0];
+ assert.equal(directAccess.status,'approved');assert(directEnt.ready_bonus_granted_at);
+ assert(new Date(directPayment.period_start).getTime()>=new Date(directEnt.free_access_until).getTime()-1000);
+ let directStatus=one(await as(directPay,'select public.ne_access_status_v2()'));
+ assert.equal(directStatus.status,'free');
 
  // Manual payment remains a separate paid ledger and starts after existing access.
  let payment=one(await as(owner,"select public.ne_owner_confirm_manual_payment('22222222-2222-4222-8222-222222222222',99,30,'QA manual')"));
