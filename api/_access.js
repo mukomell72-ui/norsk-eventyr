@@ -40,7 +40,7 @@ export async function accessIdentity(req,res){
  if(!user.data.email_confirmed_at)return null;
  const access=await accessRpc(token,'ne_access_status_v2');
  let device={allowed:true,owner:access?.owner===true};
- if(access?.owner!==true){
+ if(access?.owner!==true&&access?.status!=='terms_required'){
   const deviceId=String(req.headers['x-ne-device-id']||'').trim();
   const deviceName=String(req.headers['x-ne-device-name']||'Устройство').trim().slice(0,120)||'Устройство';
   device=deviceId
