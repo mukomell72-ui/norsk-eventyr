@@ -53,6 +53,7 @@ assert(admin.includes('Промокоды'),'promo manager UI missing');
 assert(admin.includes("metric('Бесплатный доступ',d.active_free)"),'free users must be separate in owner overview');
 assert(migration.includes("'active_free'"),'free-access owner metric missing');
 assert(access.includes('ownerMarkPurchaseSeen'),'purchase-interest notification acknowledgement missing');
+assert(access.includes("if(loaded&&!panelOpen&&!document.hidden")&&access.includes("if(loaded&&!panelOpen&&!gate.querySelector('#accessList')"),'background access checks must not close an open panel');
 
 assert(app.includes('APP_VERSION="8.0.1"'),'app version mismatch');
 assert(health.includes('version:"8.0.1"'),'health version mismatch');
