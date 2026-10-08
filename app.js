@@ -126,7 +126,23 @@ function renderCourse(level=state.level){
  <div class="section-title"><h2>Уроки</h2><span class="tag">6 заданий каждый</span></div><section class="lesson-list">${ls.map((x,i)=>`<article class="card lesson-card ${state.completed[x.id]?"done":""}"><div class="lesson-num">${state.completed[x.id]?"✓":i+1}</div><div><h3>${x.icon} ${esc(x.title)}</h3><div class="meta">${esc(x.grammar)} · словарь · аудирование · чтение · письмо · речь</div></div><button class="btn ${state.completed[x.id]?"secondary":""}" onclick="navigate('lesson','${x.id}')">${state.completed[x.id]?"Повторить":"Начать"}</button></article>`).join("")}</section>`,"course")
 }
 
-function startLesson(id){const l=COURSE.find(x=>x.id===id);if(!l)return navigate("course");state.level=l.level;saveState();touchStudy();lessonSession={lesson:l,step:0,locked:false,xpScores:[]};renderLesson()}
+function persistLessonCheckpoint(){
+ const session=lessonSession;
+ if(!session?.lesson)return;
+ state.activeLesson={id:session.lesson.id,step:session.step,dialogueIndex:session.dialogueIndex||0,vocabIndex:session.vocabIndex||0,remediation:session.remediation||null,savedAt:new Date().toISOString()};
+ saveState();
+}
+function startLesson(id){
+ const l=COURSE.find(x=>x.id===id)||state.generatedLessons?.[id];
+ if(!l)return navigate("course");
+ state.level=l.level;touchStudy();
+ const saved=state.activeLesson?.id===l.id?state.activeLesson:null;
+ const max=lessonSteps(l).length;
+ lessonSession={lesson:l,step:saved&&Number.isInteger(saved.step)&&saved.step>=0&&saved.step<max?saved.step:0,
+  dialogueIndex:saved?.dialogueIndex||0,vocabIndex:saved?.vocabIndex||0,remediation:saved?.remediation||null,
+  locked:false,xpScores:[]};
+ persistLessonCheckpoint();renderLesson();
+}
 function hasAdaptiveGrammar(l){return !!(l?._adaptive&&Array.isArray(l.grammarOpts)&&l.grammarOpts.length===4&&Number.isInteger(Number(l.grammarCorrect)))}
 function lessonSteps(l){return hasAdaptiveGrammar(l)?["Фраза","Словарь","Грамматика","Аудирование","Чтение","Письмо","Речь"]:["Фраза","Словарь","Аудирование","Чтение","Письмо","Речь"]}
 function renderLesson(){const s=lessonSession,l=s.lesson,n=lessonSteps(l),g=hasAdaptiveGrammar(l);let b="";if(s.step===0)b=lessonIntro(l);if(s.step===1)b=vocabEx(l);if(g&&s.step===2)b=grammarEx(l);if(s.step===(g?3:2))b=listenEx(l);if(s.step===(g?4:3))b=readEx(l);if(s.step===(g?5:4))b=freeEx(l,"writing");if(s.step===(g?6:5))b=freeEx(l,"speaking");
@@ -150,7 +166,7 @@ function lessonIntro(l){const turn=currentDialogueTurn(l);const shown={...l,...t
 function continueCheckedDialogue(){
  const s=lessonSession,l=s?.lesson;if(!s||!l)return;
  if(l.id==="a1-1"&&(s.dialogueIndex||0)<INTRODUCTION_DIALOGUE.length-1){
-  s.dialogueIndex=(s.dialogueIndex||0)+1;saveState();s.locked=false;renderLesson();
+  s.dialogueIndex=(s.dialogueIndex||0)+1;s.locked=false;persistLessonCheckpoint();renderLesson();
  }else lessonNext(10);
 }
 async function checkDialogue(){
@@ -196,6 +212,7 @@ function continueAdaptiveVocab(ok){
  const l=lessonSession?.lesson;if(!l)return;
  const items=adaptiveVocabItems(l),idx=lessonSession.vocabIndex||0;
  lessonSession.locked=false;lessonSession.vocabIndex=idx+1;
+ persistLessonCheckpoint();
  if(lessonSession.vocabIndex<items.length)renderLesson();
  else{lessonSession.vocabIndex=0;lessonSession.vocabItems=null;lessonNext(ok?12:6)}
 }
@@ -248,8 +265,8 @@ async function checkFree(mode){
  }
  s.locked=false;b.innerHTML='<div class="feedback bad"><b>Исправь главную ошибку и попробуй снова</b><br>'+explanation+rule+corrected+'</div>';input?.focus()
 }
-function lessonNext(xp=0){saveState();lessonSession.step++;lessonSession.locked=false;if(lessonSession.step>=lessonSteps(lessonSession.lesson).length)return finishLesson();renderLesson()}
-function finishLesson(){const l=lessonSession.lesson,reward=awardLessonXp(l),feedback=lessonFeedbackSummary(reward);state.completed[l.id]=true;if(window.NEAdaptive)NEAdaptive.completeLesson(state,l);const today=new Date().toLocaleDateString("sv-SE");state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.lessonDates=state.guidedJourney.lessonDates||{};state.guidedJourney.lessonDates[today]=l.id;const xp=xpRewardStatus();saveState();const unlocked=reward.newlyUnlocked.length?'<div class="xp-unlock-v8"><b>Открыто:</b> '+reward.newlyUnlocked.map(x=>esc(x.title)).join(", ")+'</div>':"",repeat=reward.repeat===1?'<small class="muted">Повтор этого модуля сегодня: начислено 25% обычных XP.</small>':reward.repeat>1?'<small class="muted">За этот модуль сегодня XP уже получены.</small>':"",next=xp.next?'<div class="xp-next-v8"><span>До награды «'+esc(xp.next.title)+'»</span><b>'+xp.toNext+' XP</b><i><em style="width:'+xp.progress+'%"></em></i></div>':'<div class="xp-next-v8"><b>Все текущие XP-миссии открыты</b></div>';shell(`<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">${l.level} · готово на сегодня</div><h1>${esc(l.title)}</h1><p class="muted">Урок засчитан в сегодняшний маршрут.</p><div class="xp-award-v8"><strong>+${reward.earned} XP</strong><span>Оценка занятия Норы: ${reward.avg}/100${reward.reviewBonus?" · +10 за отложенное повторение":""}</span></div>${feedback}${repeat}${unlocked}${next}<button class="btn" onclick="navigate('home')">Продолжить день →</button><button class="btn ghost" onclick="navigate('course','${l.level}')">К курсу</button></section>`,"home")}
+function lessonNext(xp=0){lessonSession.step++;lessonSession.locked=false;if(lessonSession.step>=lessonSteps(lessonSession.lesson).length)return finishLesson();persistLessonCheckpoint();renderLesson()}
+function finishLesson(){const l=lessonSession.lesson,reward=awardLessonXp(l),feedback=lessonFeedbackSummary(reward);if(state.activeLesson?.id===l.id)delete state.activeLesson;state.completed[l.id]=true;if(window.NEAdaptive)NEAdaptive.completeLesson(state,l);const today=new Date().toLocaleDateString("sv-SE");state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.lessonDates=state.guidedJourney.lessonDates||{};state.guidedJourney.lessonDates[today]=l.id;const xp=xpRewardStatus();saveState();const unlocked=reward.newlyUnlocked.length?'<div class="xp-unlock-v8"><b>Открыто:</b> '+reward.newlyUnlocked.map(x=>esc(x.title)).join(", ")+'</div>':"",repeat=reward.repeat===1?'<small class="muted">Повтор этого модуля сегодня: начислено 25% обычных XP.</small>':reward.repeat>1?'<small class="muted">За этот модуль сегодня XP уже получены.</small>':"",next=xp.next?'<div class="xp-next-v8"><span>До награды «'+esc(xp.next.title)+'»</span><b>'+xp.toNext+' XP</b><i><em style="width:'+xp.progress+'%"></em></i></div>':'<div class="xp-next-v8"><b>Все текущие XP-миссии открыты</b></div>';shell(`<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">${l.level} · готово на сегодня</div><h1>${esc(l.title)}</h1><p class="muted">Урок засчитан в сегодняшний маршрут.</p><div class="xp-award-v8"><strong>+${reward.earned} XP</strong><span>Оценка занятия Норы: ${reward.avg}/100${reward.reviewBonus?" · +10 за отложенное повторение":""}</span></div>${feedback}${repeat}${unlocked}${next}<button class="btn" onclick="navigate('home')">Продолжить день →</button><button class="btn ghost" onclick="navigate('course','${l.level}')">К курсу</button></section>`,"home")}
 
 function renderTests(){shell(`<div class="screen-head"><button class="back" onclick="navigate('hub')">←</button><div><div class="eyebrow">Контроль знаний</div><h2 style="margin:0">Тесты по уровням</h2></div></div><div class="notice">Лексика, грамматика, чтение и аудирование, плюс отдельные свободные задания на письмо и устную речь с AI-проверкой.</div><section class="grid" style="margin-top:14px">${LEVELS.map(l=>{const t=lastTest(l);return `<article class="card"><div style="font-size:34px;font-weight:950">${l}</div><p class="muted">${levelDesc(l)}</p><div class="metric"><span>Последний результат</span><strong>${t?t.score+"%":"—"}</strong></div><button class="btn" onclick="navigate('test','${l}')">${t?"Пройти снова":"Начать тест"}</button></article>`}).join("")}</section>`,"tests")}
 function buildTest(level){const all=lessons(level),q=[],ls=shuffle(all).slice(0,Math.min(2,all.length));ls.forEach(l=>q.push({type:"reading",text:l.q,context:l.read,opts:l.opts,correct:l.correct}));shuffle(GRAMMAR[level]||[]).slice(0,2).forEach(g=>q.push({type:"grammar",text:g[0],opts:g.slice(1,5),correct:g[5],note:g[6]}));const vocab=shuffle(all.flatMap(l=>l.vocab||[]));vocab.slice(0,2).forEach(t=>{const distract=shuffle(vocab.filter(v=>v[0]!==t[0]).map(v=>v[1])).slice(0,3),opts=shuffle([t[1],...distract]);if(opts.length===4)q.push({type:"vocabulary",text:"Что значит «"+t[0]+"»?",opts,correct:opts.indexOf(t[1])})});shuffle(all).slice(0,Math.min(2,all.length)).forEach(l=>{const pool=shuffle(all.filter(x=>x.id!==l.id).map(x=>x.phrase)).slice(0,3),opts=shuffle([l.phrase,...pool]);if(opts.length===4)q.push({type:"listen",text:"Прослушай и выбери точную фразу.",audio:l.phrase,opts,correct:opts.indexOf(l.phrase)})});const l=all[Math.floor(Math.random()*all.length)];q.push({type:"free",mode:"writing",text:l.writing});q.push({type:"free",mode:"speaking",text:l.speaking});return q}
