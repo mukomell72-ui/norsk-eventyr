@@ -7,7 +7,7 @@ export default async function handler(req,res){
   const {text="",voice="",level="A1"}=req.body||{};
   if(typeof text!=="string"||!text.trim()||text.length>900)return res.status(400).json({error:"BAD_TEXT"});
   const chosen=voices.includes(voice)?voice:"marin";
-  const speed=level==="A1"?.82:level==="A2"?.9:level==="B1"?1:1.05;
+  const speed=1; // Keep generation natural; learner pacing is applied once in the player.
   try{
     const r=await fetch("https://api.openai.com/v1/audio/speech",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.OPENAI_API_KEY},body:JSON.stringify({model:"gpt-4o-mini-tts",voice:chosen,input:text,instructions:"Start immediately with speech. Speak natural Norwegian Bokmål with a neutral Norwegian accent. Use a single close-mic dry studio voice. Absolutely no background noise, hiss, hum, room tone, echo, reverb, music, ambience, sound effects, breaths between phrases, or theatrical effects. Keep the signal clean, centered, steady, and clear with natural intonation.",response_format:"wav",speed})});
     if(!r.ok)return res.status(502).json({error:"TTS_FAILED",code:"OPENAI_"+r.status});
