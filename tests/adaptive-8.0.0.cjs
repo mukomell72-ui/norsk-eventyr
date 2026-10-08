@@ -153,6 +153,12 @@ assert(app.includes('repeat===0?base:repeat===1?Math.max(4,Math.round(base*.25))
 assert(app.includes('Оценка занятия Норы:')&&app.includes('xpRewardStatus'),'lesson completion must show score-based XP and next reward progress');
 assert(app.includes("Почему '+reward.avg+'/100")&&app.includes('Что улучшить:')&&app.includes('Комментарий Норы:'),'lesson completion and accepted AI answers must explain why the score is below 100');
 assert(app.includes('neAdvance(()=>lessonNext(15),3000)'),'grammar/listening/reading correct feedback must remain visible for three seconds');
+const speech=read('api/speech.js');
+assert(v3.includes('speechCache=new Map()')&&v3.includes('window.nePrimeSpeech=primeSpeech'),'Nora speech must preload and cache generated audio');
+assert(v3.includes('Готовлю голос')&&v3.includes('Нора говорит'),'Nora speech buttons must expose loading and playing states');
+assert(app.includes('window.nePrimeSpeech?.(speechText,l.level)'),'lesson speech must be primed before the learner taps play');
+assert(speech.includes('response_format:"wav"')&&speech.includes('no background sound')&&speech.includes('Start speaking immediately'),'Nora TTS must request clean low-latency studio audio');
+assert(v8css.includes('button.speech-loading')&&v8css.includes('button.speech-playing'),'Nora speech button state styling missing');
 assert(app.includes('trackLessonScore')&&!app.includes('function lessonNext(xp=0){state.xp+=xp'),'lesson XP must be awarded from session quality rather than fixed step farming');
 assert(!/state\.xp\s*\+=/.test(app)&&app.includes('state.xp=before+earned'),'all XP gains must go through the anti-farm lesson award path');
 assert(!/state\.xp\s*\+=/.test(v3)&&!v3.includes('state.xp=(state.xp||0)+')&&!elite.includes('state.xp=(state.xp||0)+'),'legacy lessons, chat, reviews, exams and activity tracking must not bypass XP anti-farm');
