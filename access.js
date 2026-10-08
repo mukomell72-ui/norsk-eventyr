@@ -1,7 +1,7 @@
 // Access is established by the server before any learning screen is loaded.
 (() => {
  const TERMS_VERSION='2026-10-05-v1',PRIVACY_VERSION='2026-10-05-v3';
- const scripts=['data.js','curriculum-v8.js','adaptive-teacher.js','app.js','voice-pack.js','v3.js','lexicon.js','elite.js','story-data.js','story.js','ui-v6.js','ui-v7.js','ui-v8.js','updates.js','feedback.js'];
+ const ASSET_REV='8.0.0-feedback-r2',scripts=['data.js','curriculum-v8.js','adaptive-teacher.js','app.js','voice-pack.js','v3.js','lexicon.js','elite.js','story-data.js','story.js','ui-v6.js','ui-v7.js','ui-v8.js','updates.js','feedback.js'];
  const app=document.getElementById('app'),gate=document.createElement('main');gate.id='accessGate';gate.className='access-gate';document.body.append(gate);
  let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false,confirmationEmail=null,installSeenSent=false,errorReportBusy=false,growthActivityDateSent='';
  const safe=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -215,7 +215,7 @@
  }
  async function load(){
   if(loadedUser&&loadedUser!==identity.user_id){location.reload();return}
-  if(!loaded){if(!loadedUser){scopeStorage();loadedUser=identity.user_id}for(const name of scripts.slice(loadedCount)){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/'+name+'?v=8.0.0';s.onload=resolve;s.onerror=reject;document.body.append(s)}) ;loadedCount++}await new Promise(resolve=>setTimeout(resolve,250));loaded=true}
+  if(!loaded){if(!loadedUser){scopeStorage();loadedUser=identity.user_id}for(const name of scripts.slice(loadedCount)){await new Promise((resolve,reject)=>{const s=document.createElement('script');s.src='/'+name+'?v='+encodeURIComponent(ASSET_REV);s.onload=resolve;s.onerror=reject;document.body.append(s)}) ;loadedCount++}await new Promise(resolve=>setTimeout(resolve,250));loaded=true}
   gate.hidden=true;app.hidden=false;
   if(isInstalled())markInstalled('standalone');
   markGrowthActivity();
