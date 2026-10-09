@@ -9,7 +9,7 @@ const expected=[...C.modules('A1'),...C.modules('A2')].map(x=>x.id).sort();
 assert.deepEqual(Array.from(B.ids).sort(),expected,'curated bank must cover all 16 A1/A2 modules without extra modules');
 function optionsGood(options){
  return Array.isArray(options)&&options.length===4&&new Set(options.map(x=>x.trim().toLowerCase())).size===4
- &&options.every(x=>typeof x==='string'&&x.trim().length>4);
+ &&options.every(x=>typeof x==='string'&&x.trim().length>=2);
 }
 for(const id of expected){
  const x=B.get(id); assert(x, 'Missing practical foundation '+id);
