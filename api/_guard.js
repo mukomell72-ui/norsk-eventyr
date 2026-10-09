@@ -27,7 +27,12 @@ function sameOrigin(req){
 function signingKey(){
   // A separate NE_SESSION_SECRET is preferred. Keep the old signing key
   // as a compatibility fallback for existing 8.0 sessions during migration.
-  const value=process.env.NE_SESSION_SECRET||process.env.OPENAI_API_KEY;
+  // Public production must use an independent, strong session-signing key.
+  // Never reuse an AI provider API key to sign authentication session tokens.
+  const dedicated=process.env.NE_SESSION_SECRET;
+  if(process.env.VERCEL_ENV==="production")
+    return typeof dedicated==="string"&&dedicated.length>=32?dedicated:null;
+  const value=dedicated||process.env.OPENAI_API_KEY; // legacy preview/session compatibility
   return typeof value==="string"&&value.length>=16?value:null;
 }
 function sign(payload){
