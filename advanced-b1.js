@@ -12,7 +12,7 @@
      {audio:lesson.listeningAudio,q:lesson.listeningQ,opts:lesson.listeningOpts,correct:0},
      {audio:follow.audio,q:follow.q,opts:follow.opts,correct:0}
    ];
-   lesson.grammarCorrect=0;lesson.correct=0;
+   lesson.grammarCorrect=0;lesson.listeningCorrect=0;lesson.correct=0;
    lesson.grammarTitle='Грамматика в контексте';
    lesson.grammarExamples=[lesson.phrase];
    delete lesson.listeningFollowUp;
