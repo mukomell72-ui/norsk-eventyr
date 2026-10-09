@@ -55,6 +55,8 @@ const server=http.createServer(async(req,res)=>{
  assert.deepEqual(calibrationResult.recentSources,['placement2_written','placement2_voice','placement2_voice']);
  assert(!await calibrationPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),'calibration summary overflows');
  const calibrationShots=path.join(__dirname,'artifacts');fs.mkdirSync(calibrationShots,{recursive:true});
+ await calibrationPage.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
+ await calibrationPage.waitForTimeout(120);
  await calibrationPage.screenshot({path:path.join(calibrationShots,'norsk-eventyr-8.2-calibration-summary-360.png'),fullPage:true});
  assert.deepEqual(calibrationErrors,[]);
  await calibrationPage.close();
