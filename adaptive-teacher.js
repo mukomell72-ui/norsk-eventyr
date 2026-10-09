@@ -159,12 +159,26 @@ async function runTeacherMission(mission){
  variations=['Другой собеседник, новый повод разговора.','Другая обстановка и непредвиденное уточнение.','Новая причина просьбы и ограничение по времени.','Та же цель, но другая последовательность действий.'],
  revision=(p.modules[m.id]?.completions||0)+(p.modules[m.id]?.attempts||0),
  payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...targetProfile},errorPatterns:errors(state),weakSkills:ALL.filter(s=>targetProfile[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review',scenarioVariation:variations[revision%variations.length]};
+ const foundation=window.NECurated?.get(m.id);
+ const isFirstAttempt=revision===0&&mission.kind==='learn';
  try{
-  const r=typeof neApiPost==='function'?await neApiPost('/api/generate',payload):await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(async x=>({ok:x.ok,data:await x.json()}));
-  if(!r.ok||!r.data)throw new Error(r.error||'GENERATION');
-  const lesson={...r.data,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,title:r.data.title||m.title,grammar:r.data.grammarRuleRu||m.grammar,_adaptive:{moduleId:m.id,skill:mission.skill,kind:mission.kind,reviewKey:mission.reviewKey||'',canDo:m.canDo,transfer:mission.kind==='review'||/transfer|capstone/.test(m.id)}};
+  let data,source='AI';
+  if(isFirstAttempt&&foundation){
+   data=foundation;source='Проверенная базовая практика';
+  }else{
+   const r=typeof neApiPost==='function'?await neApiPost('/api/generate',payload):await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(async x=>({ok:x.ok,data:await x.json()}));
+   if(!r.ok||!r.data)throw new Error(r.error||'GENERATION');
+   data=r.data;
+  }
+  const lesson={...data,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,title:data.title||m.title,grammar:data.grammarRuleRu||m.grammar,_adaptive:{moduleId:m.id,skill:mission.skill,kind:mission.kind,reviewKey:mission.reviewKey||'',canDo:m.canDo,transfer:mission.kind==='review'||/transfer|capstone/.test(m.id),origin:source}};
   state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;lessonSession={lesson,step:0,locked:false,xpScores:[]};persistLessonCheckpoint();renderLesson();
- }catch(e){shell('<section class="card"><h2>Занятие не создано</h2><p class="muted">Не засчитываю ничего без полноценного задания. Проверь соединение и повтори.</p><button class="btn" onclick="startAdaptiveTeacher()">Назад</button></section>','home')}
+ }catch(e){
+  if(foundation&&mission.kind!=='review'){
+   const lesson={...foundation,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,grammar:foundation.grammarRuleRu,_adaptive:{moduleId:m.id,skill:mission.skill,kind:'learn',reviewKey:'',canDo:m.canDo,transfer:false,origin:'Резервная базовая практика'}};
+   state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;lessonSession={lesson,step:0,locked:false,xpScores:[]};persistLessonCheckpoint();renderLesson();return;
+  }
+  shell('<section class="card"><h2>Занятие не создано</h2><p class="muted">Не засчитываю ничего без полноценного задания. Проверь соединение и повтори.</p><button class="btn" onclick="startAdaptiveTeacher()">Назад</button></section>','home');
+ }
 }
 async function teacherStartMission(){
  const pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id];
