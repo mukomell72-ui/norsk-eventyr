@@ -117,7 +117,7 @@ assert(generate.includes('validGrammarQuestion'),'generic context-free grammar q
 assert(app.includes('function grammarPrompt')&&app.includes('Выберите грамматически правильное предложение.'),'stored generic grammar prompts must get a clear runtime fallback');
 assert(app.includes('Аудирование · понимание смысла')&&app.includes('l.listeningAudio'),'adaptive lesson UI must test listening comprehension');
 assert(app.includes('Словарь · активное вспоминание')&&app.includes('source:"vocab_recall"'),'adaptive vocabulary must use productive recall evidence');
-assert(app.includes('source:rem?"lesson_free_transfer":"lesson_free"'),'adaptive free response must record transfer evidence separately');
+assert(app.includes('source:mode==="speaking"&&!spoken?"lesson_free_text":rem?"lesson_free_transfer":"lesson_free"'),'adaptive free response must distinguish typed speech from real oral evidence and retained transfer evidence');
 assert(app.includes('openFreeTransfer')&&app.includes('Применить в новой ситуации'),'adaptive error feedback must require a new-context retry');
 assert(app.includes('Эту ошибку Нора вернёт позже'),'repeated transfer failure must defer to spaced review instead of looping forever');
 assert(app.includes('slice(0,3)'),'adaptive lesson must retrieve multiple vocabulary items, not only one');
