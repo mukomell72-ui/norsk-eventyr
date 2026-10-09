@@ -35,7 +35,7 @@ console.log('PASS pedagogy integrity: A1/A2 answer key safety, voice-only oral e
 
 
 // Pronunciation similarity is only exercise feedback, never CEFR speaking evidence.
-const voiceLayer=load('v3.js'),uiLayer=load('ui-v8.js');
+const voiceLayer=read('v3.js'),uiLayer=read('ui-v8.js');
 assert(!voiceLayer.includes('updateSkill("speaking",sc);'),'ASR or pronunciation imitation may not boost speaking proficiency');
 assert(voiceLayer.includes('Совпадение распознанного текста с образцом'),'ASR-only fallback must be labeled accurately');
 assert(!uiLayer.includes('Слушай настоящий норвежский'),'Synthetic audio must not be advertised as natural speaker recordings');
