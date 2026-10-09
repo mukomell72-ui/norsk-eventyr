@@ -142,3 +142,14 @@ button.speech-playing{transform:translateY(1px) scale(.985);box-shadow:0 0 0 3px
 .daily-word-v81 span{font-size:13px;opacity:.82;line-height:1.35;overflow-wrap:anywhere}
 @media(max-width:620px){.daily-words-v81{gap:7px;margin-top:10px}.daily-word-v81{padding:9px 8px}.daily-word-v81 b{font-size:14px}.daily-word-v81 span{font-size:12px}}
 @media(max-width:340px){.daily-words-v81{grid-template-columns:1fr}.daily-word-v81{padding:9px 12px}}
+
+
+/* 8.2 private calibration entry: concise, distinct from ordinary lesson cards. */
+#placementEntryCard{position:relative;overflow:hidden;margin:16px 0;padding:20px 22px;border-radius:20px;border:1px solid rgba(88,197,212,.3);background:linear-gradient(125deg,rgba(7,38,58,.98),rgba(17,69,87,.94));box-shadow:0 12px 30px rgba(0,14,30,.16);color:#f0fbff}
+#placementEntryCard::after{content:"";pointer-events:none;position:absolute;right:-48px;top:-72px;width:205px;height:205px;border-radius:50%;background:radial-gradient(circle,rgba(66,182,197,.16),transparent 70%)}
+#placementEntryCard h3{font-size:21px;line-height:1.22;color:#f8fdff;margin:0 0 8px}
+#placementEntryCard p{font-size:14px;line-height:1.55;max-width:640px;color:#d1e3ec;margin:0 0 12px}
+#placementEntryCard .row{position:relative;display:flex;flex-wrap:wrap;gap:10px;margin:0 0 10px}
+#placementEntryCard .btn{min-height:44px}
+#placementEntryCard small{color:#aac8d5}
+@media(max-width:620px){#placementEntryCard{padding:17px 16px;margin:12px 0}#placementEntryCard h3{font-size:19px}#placementEntryCard .row .btn{flex:1 1 150px}}
