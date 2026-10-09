@@ -41,7 +41,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Norsk-Eventyr-8.1-visual-QA
+          name: Norsk-Eventyr-8.2-visual-QA
           path: tests/artifacts/*.png
           retention-days: 7
           if-no-files-found: ignore
