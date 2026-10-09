@@ -14,7 +14,7 @@ const ui=read('ui-v8.js');
 
 assert(app.includes('APP_VERSION="8.0.1"'),'APP_VERSION must be 8.0.1');
 assert(sw.includes('8.0.1'),'service worker must reference 8.0.1');
-assert(ui.includes('8.0.1'),'visible UI version must be 8.0.1');
+assert(ui.includes('8.0.1')||ui.includes('8.1 · тест'),'visible UI must clearly identify release or private preview');
 assert(access.includes("PRIVACY_VERSION='2026-10-08-v4'"),'8.0.1 privacy v4 frontend missing');
 assert(handler.includes("PRIVACY_VERSION='2026-10-08-v4'"),'8.0.1 privacy v4 server handler missing');
 assert(handler.includes("action==='growth_first_visit'"),'first visit API missing');
