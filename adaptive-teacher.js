@@ -91,7 +91,10 @@ function nextModule(state,level){
  return mods.find(m=>moduleMastery(state,m.id)<78)||mods.at(-1);
 }
 function nextMission(state){
- const p=ensure(state),current=LEVEL_ORDER.includes(state.level)?state.level:'A1',unlocked=highestUnlockedLevel(state),level=LEVEL_ORDER.indexOf(unlocked)>LEVEL_ORDER.indexOf(current)?unlocked:current,due=dueReviews(state);
+ const p=ensure(state),current=LEVEL_ORDER.includes(state.level)?state.level:'A1',
+ currentIndex=LEVEL_ORDER.indexOf(current),
+ level=levelGate(state,current).pass&&currentIndex<LEVEL_ORDER.length-1?LEVEL_ORDER[currentIndex+1]:current,
+ due=dueReviews(state).filter(r=>LEVEL_ORDER.indexOf(r.level||window.NECurriculum?.moduleById(r.moduleId)?.level||current)<=LEVEL_ORDER.indexOf(level));
  if(due.length){
   const d=due[0],known=window.NECurriculum?.moduleById(d.moduleId),reviewLevel=['A1','A2','B1','B2'].includes(d.level)?d.level:(known?.level||level),m=known||nextModule(state,reviewLevel);
   return{kind:'review',level:reviewLevel,module:m,skill:d.skill,reason:'Пора проверить, сохранился ли материал после паузы.',reviewKey:d.key};
