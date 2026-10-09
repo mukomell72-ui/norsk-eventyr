@@ -325,10 +325,22 @@
   }
   function renderCloud(){
     const link=cloudLink(),last=link?.lastSync?new Date(link.lastSync).toLocaleString("ru-RU"):"—",code=link?link.sync_id+"."+link.secret:"";
-    shell('<div class="screen-head"><button class="back" onclick="navigate(\'hub\')">←</button><div><div class="eyebrow">Облако</div><h2 style="margin:0">Синхронизация между устройствами</h2></div></div><section class="card"><p class="muted">Прогресс можно переносить между телефонами без аккаунта. Секретная часть кода хранится только на твоих устройствах; в облаке хранится её хэш.</p>'+(link?'<div class="metric"><span>Последняя синхронизация</span><strong>'+esc(last)+'</strong></div><label class="field-label">Код восстановления</label><textarea id="cloudRecovery" class="input" readonly>'+esc(code)+'</textarea><div class="notice"><b>Не публикуй этот код.</b> Он даёт доступ к твоему учебному прогрессу.</div><div class="row" style="margin-top:12px"><button class="btn" onclick="cloudSync()">Синхронизировать сейчас</button><button class="btn secondary" onclick="copyRecovery()">Копировать код</button><button class="btn ghost" onclick="disconnectCloud()">Отключить это устройство</button></div>':'<button class="btn" onclick="createCloud()">Создать облачную синхронизацию</button><hr><label class="field-label">Или код с другого устройства</label><textarea id="cloudCode" class="input" placeholder="UUID.секретный-код"></textarea><button class="btn secondary" style="margin-top:10px" onclick="connectCloud()">Подключить</button>')+'<div id="cloudFb"></div></section>',"home");
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'hub\')">←</button><div><div class="eyebrow">Облако</div><h2 style="margin:0">Синхронизация между устройствами</h2></div></div><section class="card"><p class="muted">Секретный код нужен для восстановления учебного прогресса. В старом режиме облака он даёт доступ к данным; новая защита дополнительно проверяет аккаунт. Не передавай код другим людям и сохрани резервную копию перед сменой устройства.</p>'+(link?'<div class="metric"><span>Последняя синхронизация</span><strong>'+esc(last)+'</strong></div><label class="field-label">Код восстановления</label><textarea id="cloudRecovery" class="input" readonly>'+esc(code)+'</textarea><div class="notice"><b>Не публикуй этот код.</b> Он даёт доступ к твоему учебному прогрессу.</div><div class="row" style="margin-top:12px"><button class="btn" onclick="cloudSync()">Синхронизировать сейчас</button><button class="btn secondary" onclick="copyRecovery()">Копировать код</button><button class="btn ghost" onclick="disconnectCloud()">Отключить это устройство</button><button class="btn ghost" onclick="deleteCloudData()">Удалить облачную копию</button></div>':'<button class="btn" onclick="createCloud()">Создать облачную синхронизацию</button><hr><label class="field-label">Или код с другого устройства</label><textarea id="cloudCode" class="input" placeholder="UUID.секретный-код"></textarea><button class="btn secondary" style="margin-top:10px" onclick="connectCloud()">Подключить</button>')+'<div id="cloudFb"></div></section>',"home");
   }
   async function copyRecovery(){const t=document.getElementById("cloudRecovery")?.value;if(t){await navigator.clipboard.writeText(t);alert("Код скопирован.")}}
   function disconnectCloud(){if(confirm("Отключить облако только на этом устройстве? Данные в облаке останутся.")){setCloudLink(null);renderCloud()}}
+  async function deleteCloudData(){
+    const link=cloudLink();if(!link||cloudBusy)return;
+    if(!confirm("Удалить облачную копию навсегда? Код восстановления перестанет работать на ВСЕХ устройствах. Локальный прогресс сохранится."))return;
+    cloudBusy=true;
+    try{
+      const data=await rpc("norsk_eventyr_sync_delete",{p_sync_id:link.sync_id,p_secret:link.secret});
+      if(data?.ok!==true)throw new Error("Удаление не подтверждено сервером.");
+      if(cloudLink()?.sync_id===link.sync_id){setCloudLink(null);renderCloud();alert("Облачная копия удалена. Прогресс на устройстве сохранён.");}
+    }catch{alert("Не удалось удалить облачную копию. Она могла остаться в облаке; повтори попытку.");}
+    finally{cloudBusy=false}
+  }
+
 
   function renderSettings(){
     const canInstall=!!installPrompt;
@@ -344,7 +356,7 @@
 
   function errorCard(title,msg){shell('<section class="card"><h2>'+esc(title)+'</h2><p class="muted">'+esc(msg||"Неизвестная ошибка")+'</p><button class="btn" onclick="navigate(\'home\')">На главную</button></section>',"home")}
 
-  Object.assign(window,{renderPlan,startDictation,checkDictation,nextDictation,startGrammarLab,answerGrammarLab,nextGrammarLab,renderPronunciationLab,selectSoundGroup,selectPronPhrase,practicePronounce,renderListeningLab,analyzeListeningFile,answerListeningLab,nextListeningLab,renderCloud,createCloud,cloudSync,connectCloud,copyRecovery,disconnectCloud,renderSettings,runHealthCheck,setEliteGoal,setDailyMinutes,installApp,neMergeState:mergeState,neResolveStartLevel:resolveStartLevel});
+  Object.assign(window,{renderPlan,startDictation,checkDictation,nextDictation,startGrammarLab,answerGrammarLab,nextGrammarLab,renderPronunciationLab,selectSoundGroup,selectPronPhrase,practicePronounce,renderListeningLab,analyzeListeningFile,answerListeningLab,nextListeningLab,renderCloud,createCloud,cloudSync,connectCloud,copyRecovery,disconnectCloud,deleteCloudData,renderSettings,runHealthCheck,setEliteGoal,setDailyMinutes,installApp,neMergeState:mergeState,neResolveStartLevel:resolveStartLevel});
 
   window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e});
   window.addEventListener("appinstalled",()=>{installPrompt=null});
