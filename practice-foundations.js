@@ -15,5 +15,22 @@
   const data=lessons[String(id||'')];
   return data?JSON.parse(JSON.stringify(data)):null;
  }
- window.NECurated={get,ids:Object.freeze(Object.keys(lessons)),version:'8.1-practice-1'};
+ // Keep answer positions different across topics and practice sessions, without
+ // mutating the original checked exercise or losing the answer key.
+ function variant(id,attempt=0){
+  const lesson=get(id);if(!lesson)return null;
+  const token=String(id)+":"+String(Math.max(0,Number(attempt)||0));
+  let hash=2166136261;
+  for(const char of token)hash=Math.imul(hash^char.charCodeAt(0),16777619)>>>0;
+  for(const [index,pair] of [['opts','correct'],['listeningOpts','listeningCorrect'],['grammarOpts','grammarCorrect']].entries()){
+   const [options,answer]=pair,shift=(hash+index*3) % 4;
+   const old=lesson[options],correct=lesson[answer];
+   if(Array.isArray(old)&&old.length===4&&Number.isInteger(correct)){
+    lesson[options]=old.slice(shift).concat(old.slice(0,shift));
+    lesson[answer]=(correct-shift+4)%4;
+   }
+  }
+  return lesson;
+ }
+ window.NECurated={get,variant,ids:Object.freeze(Object.keys(lessons)),version:'8.1-practice-2'};
 })();
