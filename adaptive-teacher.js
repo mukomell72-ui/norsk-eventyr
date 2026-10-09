@@ -164,7 +164,7 @@ async function runTeacherMission(mission){
  try{
   let data,source='AI';
   if(isFirstAttempt&&foundation){
-   data=foundation;source='Проверенная базовая практика';
+   data=foundation;source='Подготовленный учебный материал';
   }else{
    const r=typeof neApiPost==='function'?await neApiPost('/api/generate',payload):await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(async x=>({ok:x.ok,data:await x.json()}));
    if(!r.ok||!r.data)throw new Error(r.error||'GENERATION');
