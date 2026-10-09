@@ -17,6 +17,18 @@ const server=http.createServer(async(req,res)=>{
   for(const target of vocabTargets){const beforeIndex=await page.evaluate(()=>lessonSession.vocabIndex||0);await page.locator('#adaptiveVocabAnswer').fill(target);await page.evaluate(()=>checkAdaptiveVocab());await page.waitForTimeout(260);assert.equal(await page.evaluate(()=>lessonSession.vocabIndex||0),beforeIndex);assert.equal(await page.locator('.lesson-next-v8').innerText(),'Дальше →');await page.locator('.lesson-next-v8').click();await page.waitForTimeout(100)}
   const vocabAfter=await page.evaluate(()=>({count:state.learningV8?.attempts?.filter(x=>x.source==='vocab_recall').length||0,step:lessonSession.step}));
   assert.equal(vocabAfter.count,vocabBefore+3);assert.equal(vocabAfter.step,2);console.log('PASS adaptive vocabulary uses three-item active recall');
+  const beforeChoice=await page.evaluate(()=>state.learningV8.attempts.length);
+  await page.evaluate(()=>{const lesson=lessonSession.lesson,c=Number(lesson.grammarCorrect),bad=(c+1)%4;lessonChoice(document.querySelectorAll('.choice')[bad],bad,c,'Правило','grammar')});
+  assert.equal(await page.evaluate(()=>state.learningV8.attempts.length),beforeChoice+1,'first wrong attempt should create one learning event');
+  assert.equal(await page.evaluate(()=>state.activeLesson?.choiceMiss),true,'first wrong answer must be persisted');
+  await page.evaluate(()=>{const id=lessonSession.lesson.id;navigate('home');startLesson(id)});
+  assert.equal(await page.evaluate(()=>lessonSession.choiceMiss),true,'returning to a lesson may not clear the wrong first attempt');
+  await page.evaluate(()=>{const c=Number(lessonSession.lesson.grammarCorrect);lessonChoice(document.querySelectorAll('.choice')[c],c,c,'Правило','grammar')});
+  assert.equal(await page.evaluate(()=>state.learningV8.attempts.length),beforeChoice+1,'correct retry must not create a second, perfect learning event');
+  assert((await page.locator('#fb').innerText()).includes('первая попытка 35/100'));
+  await page.locator('#fb .lesson-next-v8').click();
+  assert.equal(await page.evaluate(()=>lessonSession.choiceMiss),false,'new lesson step should start new first-attempt evidence');
+  console.log('PASS wrong choice stays scored after resume and cannot earn a second perfect grade');
   const transferBefore=await page.evaluate(()=>state.learningV8?.attempts?.filter(x=>x.source==='lesson_free_transfer').length||0);
   await page.evaluate(()=>{lessonSession.step=5;lessonSession.remediation=null;lessonSession.locked=false;renderLesson()});await page.locator('#freeAnswer').fill('Jeg feil.');await page.evaluate(()=>checkFree('writing'));await page.waitForTimeout(220);
   const remediation=await page.evaluate(()=>({prompt:lessonSession?.remediation?.prompt||'',text:document.querySelector('#app main')?.innerText||''}));assert.equal(remediation.prompt,'Hva skal du gjøre i morgen?');assert(remediation.text.includes('Применить в новой ситуации'));
