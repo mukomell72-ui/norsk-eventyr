@@ -12,7 +12,7 @@
     grammarTitle:"Практическая грамматика",grammarRuleRu,grammarExamples:[phrase]};
  }
  function get(id){
-  const data=lessons[String(id||'')];
+  const data=lessons[String(id||'')]||window.NEAdvancedBank?.[String(id||'')];
   return data?JSON.parse(JSON.stringify(data)):null;
  }
  // Keep answer positions different across topics and practice sessions, without
@@ -32,5 +32,5 @@
   }
   return lesson;
  }
- window.NECurated={get,variant,ids:Object.freeze(Object.keys(lessons)),version:'8.1-practice-2'};
+ window.NECurated={get,variant,get ids(){return Object.keys(lessons).concat(Object.keys(window.NEAdvancedBank||{}))},version:'8.2-practice-1'};
 })();
