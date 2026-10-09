@@ -112,6 +112,24 @@ const server=http.createServer(async(req,res)=>{
    lessonSession.step=6;lessonSession.speakingFollowup=true;persistLessonCheckpoint();renderLesson();
  });
  assert((await page.locator('#app main').innerText()).includes('Hva slags tilleggsdata'));
+ const followupAssessment=await page.evaluate(async()=>{
+   const prev=aiEvaluate,submissions=[];
+   aiEvaluate=async payload=>{submissions.push(payload);return{ok:true,data:{accepted:true,score:87,breakdown:{grammar:85,vocabulary:90},strengths_ru:['Ответ по теме'],improvements_ru:[],explanation_ru:'Понятный ответ',corrected:''}}};
+   const text=document.getElementById('freeAnswer');
+   text.value='Vi trenger bedre data og et lengre forsøk før vi tar en beslutning.';
+   text.dataset.fromVoice='false';
+   try{
+     await checkFree('speaking');
+     await checkFree('speaking'); // second click must not double-count
+     return{n:submissions.length,question:submissions[0]?.question,mode:submissions[0]?.mode,locked:lessonSession.locked,skill:state.learningV8.attempts.at(-1)?.skill};
+   }finally{aiEvaluate=prev}
+ });
+ assert.equal(followupAssessment.n,1,'accepted follow-up must not be scored twice');
+ assert.equal(followupAssessment.question,await page.evaluate(()=>lessonSession.lesson.speakingFollowUp),'follow-up must be assessed against the question displayed');
+ assert.equal(followupAssessment.mode,'writing','typed reply must get writing rubric, not speaking rubric');
+ assert.equal(followupAssessment.skill,'writing','typed follow-up must not prove oral communication');
+ assert.equal(followupAssessment.locked,true,'accepted answer must stay locked until Next');
+ console.log('PASS B2 follow-up evaluates its true question, rejects duplicate grading and does not overclaim voice');
  console.log('PASS realistic B2 two-stage audio and saved oral follow-up in browser');
  await page.evaluate(()=>{if(state.activeLesson?.id==='adaptive-qa-b2-staged')delete state.activeLesson;saveState();});
  const screenshotsDir=path.join(__dirname,'artifacts');fs.mkdirSync(screenshotsDir,{recursive:true});
