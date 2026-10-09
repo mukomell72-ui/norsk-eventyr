@@ -119,7 +119,7 @@
   }
   // A pending navigation or restart must not turn a stale response into new evidence.
   const now=stage();if(!now||now.p!==x.p||now.index!==x.index||now.p.productive.status!=='in_progress'||!box.isConnected){busy=false;return;}
-  const score=clamp(r.data.score);
+  const score=r.data.accepted===false?Math.min(49,clamp(r.data.score)):clamp(r.data.score);
   x.p.productive.results.push({skill:task.skill,score,level:x.target,source:voice?'microphone_transcript':'typed_answer',date:new Date().toISOString()});
   if(window.NEAdaptive){
    const tracker=NEAdaptive.ensure(state);
