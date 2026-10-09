@@ -784,7 +784,20 @@
     const blob=new Blob([JSON.stringify({version:3,exportedAt:new Date().toISOString(),state},null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="norsk-eventyr-progress.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   }
   async function importProgressFile(file){
-    if(!file)return;try{const d=JSON.parse(await file.text());if(!validProgressState(d.state))throw new Error("BAD_STATE");const restored={...state,...d.state};localStorage.setItem("ne2_state_before_import",JSON.stringify(state));localStorage.setItem("ne2_state",JSON.stringify(restored));alert("Прогресс восстановлен.");location.reload()}catch{alert("Файл прогресса повреждён или не подходит.")}
+    if(!file)return;
+    try{
+      // Do not load unbounded or malformed backups into the browser.
+      if(file.size>4*1024*1024)throw new Error("BACKUP_TOO_LARGE");
+      const d=JSON.parse(await file.text());
+      if(!d||typeof d!=="object"||!validProgressState(d.state))throw new Error("BAD_STATE");
+      const restored={...state,...d.state};
+      const encoded=JSON.stringify(restored);
+      if(encoded.length>4*1024*1024)throw new Error("BACKUP_TOO_LARGE");
+      localStorage.setItem("ne2_state_before_import",JSON.stringify(state));
+      localStorage.setItem("ne2_state",encoded);
+      alert("Прогресс восстановлен.");location.reload();
+    }catch{alert("Файл прогресса повреждён, слишком большой или не подходит.")}
+
   }
 
   Object.assign(window,{startTopic,renderDaily,generateDailyPack,startDailyPractice,checkDailyTask,nextDailyTask,renderDictionary,filterDictionary,setDictionaryPos,renderChat,setChatPref,setChatTopic,toggleChatTranslation,clearChat,startChat,sendChat,renderReview,startReview,answerReview,renderPlacement,startPlacement,answerPlacement,checkGrammar,startExamPart,playExamAudio,answerExamObjectiveV3,submitExamProductive,nextExamProductive,exitExamV3,exportProgress,importProgressFile,neApiPost:apiPost,neWeakSkills:weakSkills,neReinforcementWords:reinforcementWordList,neUpdateSkill:updateSkill,neRememberError:rememberError,neDueWords:dueWords,neLocalDate:localDateKey});
