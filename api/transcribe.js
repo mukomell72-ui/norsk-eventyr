@@ -1,4 +1,5 @@
 import {guard} from "./_guard.js";
+import {decodeAudioBase64} from "./_audio-input.js";
 
 function audioMeta(rawMime=""){
   const base=String(rawMime||"audio/webm").toLowerCase().split(";")[0].trim();
@@ -12,7 +13,7 @@ function audioMeta(rawMime=""){
     "audio/wav":["audio/wav","speech.wav"],
     "audio/x-wav":["audio/wav","speech.wav"]
   };
-  return map[base]||["audio/webm","speech.webm"];
+  return map[base]||null;
 }
 
 function cleanHint(v,max=420){
@@ -50,14 +51,14 @@ export default async function handler(req,res){
   if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED",code:"AI_NOT_CONFIGURED"});
 
   const {audioBase64="",mime="audio/webm",expected="",context=""}=req.body||{};
-  if(typeof audioBase64!=="string"||audioBase64.length<100||audioBase64.length>9000000){
+  const bytes=decodeAudioBase64(audioBase64,6750000,64);
+  const meta=audioMeta(mime);
+  if(!bytes||!meta||typeof expected!=="string"||typeof context!=="string"){
     return res.status(400).json({error:"BAD_AUDIO",code:"BAD_AUDIO"});
   }
 
   try{
-    const bytes=Buffer.from(audioBase64,"base64");
-    if(bytes.length<64)return res.status(400).json({error:"BAD_AUDIO",code:"BAD_AUDIO"});
-    const [type,name]=audioMeta(mime),hint=norwegianPrompt(expected,context);
+    const [type,name]=meta,hint=norwegianPrompt(expected,context);
 
     // Accuracy matters more than a small latency saving for a language learner:
     // use the full transcription model first, then the mini model as fallback.
