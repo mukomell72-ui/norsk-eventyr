@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import {requireApproved} from "./_access.js";
+import {requireApproved,accessRpc} from "./_access.js";
 
 // Defense in depth only: these in-memory counters are per server instance.
 // Public release also requires a project-wide WAF/distributed rate limit.
@@ -88,11 +88,32 @@ function payloadWithinLimit(req){
     return Buffer.byteLength(JSON.stringify(req.body),"utf8")<=limit;
   }catch{return false}
 }
+// AI calls consume billable resources. In production a distributed DB quota
+// is mandatory and fails closed if the prepared SQL has not been applied.
+const BILLABLE_ROUTES=new Set(['/api/chat','/api/evaluate','/api/generate','/api/speech','/api/transcribe','/api/pronounce','/api/drill','/api/daily','/api/listening-questions']);
+async function distributedQuota(req,res){
+  if(!BILLABLE_ROUTES.has(endpointKey(req.url)))return true;
+  const enforce=process.env.VERCEL_ENV==='production'||process.env.NE_DISTRIBUTED_QUOTA==='enforce';
+  if(!enforce)return true; // Preview remains usable before staging the migration.
+  const token=req.neAccessIdentity?.token;
+  if(!token){res.status(503).json({error:'AI_QUOTA_UNAVAILABLE',code:'AI_QUOTA_UNAVAILABLE'});return false}
+  try{
+    const check=await accessRpc(token,'ne_ai_quota_check',{p_route:endpointKey(req.url)});
+    if(check?.allowed===true)return true;
+    const status=check?.reason==='DENIED'?403:429;
+    const code=status===403?'APPROVAL_REQUIRED':'AI_QUOTA_EXCEEDED';
+    res.status(status).json({error:code,code});return false;
+  }catch{
+    res.status(503).json({error:'AI_QUOTA_UNAVAILABLE',code:'AI_QUOTA_UNAVAILABLE'});
+    return false;
+  }
+}
 export async function guard(req,res,{limit=60,requireSession=true,requireAccess=true}={}){
   if(!sameOrigin(req)){res.status(403).json({error:"ORIGIN_DENIED",code:"ORIGIN_DENIED"});return false}
   if(!payloadWithinLimit(req)){res.status(413).json({error:"BODY_TOO_LARGE",code:"BODY_TOO_LARGE"});return false}
   if(!rateLimit(req,endpointKey(req.url),limit)){res.status(429).json({error:"RATE_LIMIT",code:"RATE_LIMIT"});return false}
   if(requireSession&&!verifySession(req)){res.status(401).json({error:"SESSION_REQUIRED",code:"SESSION_REQUIRED"});return false}
   if(requireAccess&&!await requireApproved(req,res))return false;
+  if(requireAccess&&!await distributedQuota(req,res))return false;
   return true
 }
