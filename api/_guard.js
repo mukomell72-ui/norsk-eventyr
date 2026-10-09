@@ -75,8 +75,22 @@ export function rateLimit(req,key,limit=60,windowMs=3600000){
   b.count++;
   return true;
 }
+function payloadWithinLimit(req){
+  if(req.method!=="POST")return true;
+  const route=endpointKey(req.url);
+  // Audio base64 (~9 MB WAV); cloud state (<750 kB); compact JSON everywhere else.
+  const limit=route==="/api/cloud"?1048576:
+    (route==="/api/transcribe"||route==="/api/pronounce")?12582912:131072;
+  const declared=Number(req.headers?.["content-length"]);
+  if(Number.isFinite(declared)&&declared>limit)return false;
+  try{
+    if(req.body===undefined||req.body===null)return true;
+    return Buffer.byteLength(JSON.stringify(req.body),"utf8")<=limit;
+  }catch{return false}
+}
 export async function guard(req,res,{limit=60,requireSession=true,requireAccess=true}={}){
   if(!sameOrigin(req)){res.status(403).json({error:"ORIGIN_DENIED",code:"ORIGIN_DENIED"});return false}
+  if(!payloadWithinLimit(req)){res.status(413).json({error:"BODY_TOO_LARGE",code:"BODY_TOO_LARGE"});return false}
   if(!rateLimit(req,endpointKey(req.url),limit)){res.status(429).json({error:"RATE_LIMIT",code:"RATE_LIMIT"});return false}
   if(requireSession&&!verifySession(req)){res.status(401).json({error:"SESSION_REQUIRED",code:"SESSION_REQUIRED"});return false}
   if(requireAccess&&!await requireApproved(req,res))return false;
