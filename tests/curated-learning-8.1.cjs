@@ -21,9 +21,19 @@ for(const id of expected){
  assert([x.correct,x.listeningCorrect,x.grammarCorrect].every(n=>n===0),'Wrong assessment key '+id);
  assert(x.listeningQ.trim().endsWith('?')&&x.q.trim().endsWith('?'),'Use explicit comprehension questions '+id);
  assert(x.writing!==x.speaking,'Productive exercises need distinct prompts '+id);
+ const variation=B.variant(id,0);
+ assert(variation,'Missing rotated assessment '+id);
+ for(const [field,answer] of [['opts','correct'],['listeningOpts','listeningCorrect'],['grammarOpts','grammarCorrect']]){
+  assert.equal(variation[field][variation[answer]],x[field][x[answer]],'Correct answer shifted incorrectly in '+field+' '+id);
+  assert(variation[answer]>=0&&variation[answer]<4,'Correct answer must remain valid '+id);
+ }
+ assert.notEqual(B.variant(id,0).vocab[0][0],'BROKEN');
  const copy=B.get(id);copy.vocab[0][0]='BROKEN';
  assert.notEqual(B.get(id).vocab[0][0],'BROKEN','Lessons must be isolated across sessions '+id);
 }
+const positions=expected.map(id=>B.variant(id,0).correct);
+ assert(new Set(positions).size>=3,'Initial curated answers should not always occupy the first position');
+ assert(expected.some(id=>B.variant(id,1).correct!==B.variant(id,0).correct),'Repeating a lesson should rotate answer position');
 const access=read('access.js'),sw=read('sw.js'),teacher=read('adaptive-teacher.js'),app=read('app.js'),v3=read('v3.js');
 assert(access.includes("'practice-foundations.js'")&&sw.includes('/practice-foundations.js?v='),'practice foundations must load and pre-cache after approval');
 assert(teacher.includes('isFirstAttempt&&foundation')&&teacher.includes('if(foundation&&mission.kind'), 'First learning and fallback must use curated content');
