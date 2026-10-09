@@ -5,7 +5,7 @@ async function ask(input,max=2600,effort="low"){
   const data=await r.json().catch(()=>({}));if(!r.ok){const e=data?.error||{};throw Object.assign(new Error("UPSTREAM"),{code:e.code||e.type||("OPENAI_"+r.status)})}
   return (data.output||[]).flatMap(x=>x.content||[]).find(x=>x.type==="output_text")?.text||"";
 }
-function validChoice(opts,correct){return Array.isArray(opts)&&opts.length===4&&opts.every(o=>typeof o==="string"&&o.trim())&&correct!==null&&correct!==""&&typeof correct!=="boolean"&&Number.isInteger(Number(correct))&&Number(correct)>=0&&Number(correct)<opts.length}
+function validChoice(opts,correct){return Array.isArray(opts)&&opts.length===4&&opts.every(o=>typeof o==="string"&&o.trim())&&new Set(opts.map(o=>o.trim().toLowerCase())).size===4&&correct!==null&&correct!==""&&typeof correct!=="boolean"&&Number.isInteger(Number(correct))&&Number(correct)>=0&&Number(correct)<opts.length}
 function validGrammarQuestion(q){const s=String(q||"").trim();if(!s)return false;return !/^(?:velg|choose|выбери(?:те)?)\s+(?:riktig(?:e)?|korrekt(?:e)?|correct|правильн\w*)\s+(?:setning(?:en)?|alternativ(?:et)?|sentence|предложен\w*|вариант\w*)[.!?]?$/i.test(s)}
 function validateShape(kind,x){
   if(!x||typeof x!=="object")return false;
@@ -62,6 +62,14 @@ export default async function handler(req,res){
     let out=first;
     try{const checked=parseJson(await ask(reviewPrompt,2800,"none"));if(validateShape(kind,checked))out=checked}catch{}
     if(!validateShape(kind,out))return res.status(502).json({error:"AI_GENERATION_INVALID",code:"AI_GENERATION_INVALID"});
+    // Guard against shallow advanced lessons; a handcrafted mission is available as fallback.
+    if(kind!=="test"&&["B1","B2"].includes(level)){
+      const count=t=>String(t||"").trim().split(/\\s+/).filter(Boolean).length;
+      const audioMin=level==="B2"?80:60,readingMin=level==="B2"?100:85;
+      if(count(out.listeningAudio)<audioMin||count(out.read)<readingMin){
+        return res.status(502).json({error:"AI_LESSON_TOO_SHORT",code:"AI_LESSON_TOO_SHORT"});
+      }
+    }
     return res.status(200).json(out);
   }catch(e){return res.status(502).json({error:"AI_GENERATION_FAILED",code:e?.code||"AI_GENERATION_FAILED"})}
 }
