@@ -30,6 +30,14 @@
     lesson[answer]=(correct-shift+4)%4;
    }
   }
+  if(Array.isArray(lesson.listeningSets)){
+   lesson.listeningSets=lesson.listeningSets.map((item,i)=>{
+    if(!Array.isArray(item.opts)||item.opts.length!==4)return item;
+    const rotation=(hash+i*3+attempt)%4;
+    const correct=Number(item.correct)||0;
+    return {...item,opts:item.opts.slice(rotation).concat(item.opts.slice(0,rotation)),correct:(correct-rotation+4)%4};
+   });
+  }
   return lesson;
  }
  window.NECurated={get,variant,get ids(){return Object.keys(lessons).concat(Object.keys(window.NEAdvancedBank||{}))},version:'8.2-practice-1'};
