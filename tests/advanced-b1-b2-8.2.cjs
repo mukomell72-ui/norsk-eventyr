@@ -43,6 +43,12 @@ for(const m of all){
   assert(!/Norskprøven|CEFR B2 passed/i.test(item.title),'Do not present authored exercises as official');
  }
 }
+// Advanced grammar must test a defensible conclusion, not only A1/A2 word order.
+const cautious=B.get('b2-presentation'),capstone=B.get('b2-capstone');
+assert(cautious.grammarOpts[cautious.grammarCorrect].includes('ikke gitt at'),'B2 presentation must model appropriately hedged conclusions');
+assert(cautious.grammarQ.includes('осторожную'),'B2 prompt must explicitly assess caution');
+assert(capstone.grammarOpts[capstone.grammarCorrect].includes('eventuelt utvides'),'B2 capstone must not imply a decision is already final');
+assert(capstone.grammarOpts[capstone.grammarCorrect].includes('resultatene vurderes uavhengig'),'B2 capstone must require independent assessment');
 const app=load('app.js'),access=load('access.js'),sw=load('sw.js');
 assert(access.includes("'advanced-b1.js','advanced-b2.js'")&&sw.includes('/advanced-b2.js?v='),'B1-B2 must be loaded and pre-cached');
 assert(app.includes('continueListeningStep')&&app.includes('listeningIndex:session.listeningIndex||0'),'Multi-part comprehension must be resumable');
