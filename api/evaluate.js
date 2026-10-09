@@ -25,7 +25,7 @@ function clean(x,n=180){return String(x||"").replace(/\s+/g," ").trim().slice(0,
 function normLemma(x){return clean(x,120).toLowerCase().replace(/^å\s+/,"").replace(/\s+/g," ")}
 
 export default async function handler(req,res){
-  if(req.method==="GET")return res.status(200).json({ok:true,configured:Boolean(process.env.OPENAI_API_KEY),model:"gpt-5.6-luna",version:"4.1.0"});
+  if(req.method==="GET"){res.setHeader?.("Cache-Control","no-store");return res.status(200).json({ok:true,version:"4.1.0"});}
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY",code:"POST_ONLY"});
   if(!await guard(req,res,{limit:85}))return;
   if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED",code:"AI_NOT_CONFIGURED"});
