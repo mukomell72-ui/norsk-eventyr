@@ -151,7 +151,7 @@ assert(app.includes('const XP_REWARDS=[')&&app.includes('{xp:100,id:"cafe"')&&ap
 assert(app.includes('repeat===0?base:repeat===1?Math.max(4,Math.round(base*.25)):0'),'same-day lesson repeats must not allow unlimited XP farming');
 assert(app.includes('Оценка занятия Норы:')&&app.includes('xpRewardStatus'),'lesson completion must show score-based XP and next reward progress');
 assert(app.includes("Почему '+reward.avg+'/100")&&app.includes('Что улучшить:')&&app.includes('Комментарий Норы:'),'lesson completion and accepted AI answers must explain why the score is below 100');
-assert(app.includes('onclick="lessonNext(15)">Дальше →</button>'),'adaptive grammar/listening/reading feedback must require Next');
+assert(app.includes("?'continueListeningStep()':'lessonNext(15)'")&&app.includes('Следующая запись →'),'adaptive grammar/reading feedback must require Next, listening requires explicit next recording');
 assert((v3.match(/lesson-next-v8/g)||[]).length>=3,'legacy grammar, choices and productive lesson answers must require Next');
 assert(v3.includes('aiLessonFeedbackHtml(d,"✓ Хороший ответ")'),'legacy productive lesson feedback must show Nora score details before advancing');
 assert(app.includes('aiLessonFeedbackHtml(d,"✓ Задача выполнена")')&&app.includes('aiLessonFeedbackHtml(d,"✓ "+(rem?'),'accepted adaptive dialogue and productive answers must show detailed Nora feedback');
