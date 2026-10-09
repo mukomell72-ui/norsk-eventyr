@@ -252,6 +252,11 @@ function continueListeningStep(){
  session.choiceMiss=false;session.locked=false;
  persistLessonCheckpoint();renderLesson();
 }
+function continueSpeakingFollowup(){
+ const session=lessonSession;
+ if(!session?.speakingFollowup||!session.locked)return;
+ session.locked=false;persistLessonCheckpoint();renderLesson();
+}
 function freeEx(l,mode){
  const sp=mode==="speaking",rem=l?._adaptive&&lessonSession.remediation?.mode===mode?lessonSession.remediation:null,p=rem?.prompt||(sp?(lessonSession.speakingFollowup&&l.speakingFollowUp?l.speakingFollowUp:l.speaking):l.writing);
  return `<article class="card"><div class="eyebrow">${sp?"Устная речь":"Письмо"} · ${rem?"перенос исправления":"AI"}</div>${rem?'<div class="notice"><b>Новая ситуация.</b> Примени исправление сам, без копирования готового ответа.'+(rem.rule?'<br><small>'+esc(rem.rule)+'</small>':'')+'</div><br>':""}<div class="prompt">${esc(p)}</div>${sp?'<div class="notice">Нажми микрофон и говори по-норвежски. Текстовый ответ проверяется как письмо, а не как устная речь.</div>':""}<textarea id="freeAnswer" class="input" placeholder="Ответ по-норвежски…" oninput="this.dataset.fromVoice='false'"></textarea><div class="row" style="margin-top:10px">${sp?'<button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>':""}<button class="btn" onclick="checkFree('${mode}')">🧠 Проверить AI</button></div><div id="freeFb"></div></article>`
@@ -264,16 +269,18 @@ async function checkFree(mode){
  const s=lessonSession,input=document.getElementById("freeAnswer"),a=input?.value.trim();if(!a||!s||s.locked)return;
  const l=s.lesson,rem=l?._adaptive&&s.remediation?.mode===mode?s.remediation:null,p=rem?.prompt||(mode==="speaking"?(s.speakingFollowup&&l.speakingFollowUp?l.speakingFollowUp:l.speaking):l.writing),b=document.getElementById("freeFb"),spoken=mode==="speaking"&&input.dataset.fromVoice==="true";
  s.locked=true;b.innerHTML='<div class="feedback">Проверяю…</div>';
- const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode:rem?mode+"_transfer":(mode==="speaking"&&!spoken?"writing":mode)});
+ const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode:rem?(spoken?"speaking_transfer":"writing_transfer"):(spoken?"speaking":"writing")});
  if(!b.isConnected||lessonSession!==s){s.locked=false;return}
  if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
- const d=r.data,ok=d.accepted===true&&(d.score??70)>=55,skill=spoken?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer;trackLessonScore(d.score??(ok?70:40),{label:spoken?"Речь":"Письмо",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||""});
- if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill,score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l?.id,source:mode==="speaking"&&!spoken?"lesson_free_text":rem?"lesson_free_transfer":"lesson_free",errorTag:d.error_tag||"",transfer:isTransfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}
+ const d=r.data,ok=d.accepted===true&&(d.score??70)>=55,skill=spoken?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer,
+ evidenceScore=ok?Math.max(0,Math.min(100,Math.round(Number(d.score)||0))):Math.min(40,Math.max(0,Math.round(Number(d.score)||0)));
+ trackLessonScore(evidenceScore,{label:spoken?"Речь":"Письмо",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||""});
+ if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill,score:evidenceScore,moduleId:l?._adaptive?.moduleId||l?.id,source:mode==="speaking"&&!spoken?"lesson_free_text":rem?"lesson_free_transfer":"lesson_free",errorTag:d.error_tag||"",transfer:isTransfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}
  if(ok){
-  s.remediation=null;s.locked=false;
+  s.remediation=null;s.locked=true;
   if(mode==="speaking"&&l.speakingFollowUp&&!s.speakingFollowup){
    s.speakingFollowup=true;persistLessonCheckpoint();
-   b.innerHTML=aiLessonFeedbackHtml(d,"✓ Первая часть разговора выполнена")+'<button class="btn lesson-next-v8" onclick="renderLesson()">Ответить на уточнение →</button>';
+   b.innerHTML=aiLessonFeedbackHtml(d,"✓ Первая часть разговора выполнена")+'<button class="btn lesson-next-v8" onclick="continueSpeakingFollowup()">Ответить на уточнение →</button>';
    return;
   }
   b.innerHTML=aiLessonFeedbackHtml(d,"✓ "+(rem?"Исправление перенесено в новую ситуацию":"Коммуникативная задача выполнена"))+'<button class="btn lesson-next-v8" onclick="lessonNext('+(rem?25:20)+')">Дальше →</button>';
@@ -341,6 +348,6 @@ function startTimer(){stopTimer();timerHandle=setInterval(()=>{if(!examSession)r
 function updateTimer(){const e=document.getElementById("timer");if(!e||!examSession)return;const m=Math.floor(examSession.remaining/60),s=examSession.remaining%60;e.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")}
 function stopTimer(){if(timerHandle){clearInterval(timerHandle);timerHandle=null}}
 
-Object.assign(window,{navigate,renderCourse,lessonNext,lessonChoice,checkDialogue,continueCheckedDialogue,continueAdaptiveVocab,checkFree,continueListeningStep,speakText,toggle,toggleMic,answerTest,answerTestFree,testNext,answerExamObj,answerExamFree,examNext,exitExam,resetProgress,xpRewardStatus,xpRewardCatalog});
+Object.assign(window,{navigate,renderCourse,lessonNext,lessonChoice,checkDialogue,continueCheckedDialogue,continueAdaptiveVocab,checkFree,continueListeningStep,continueSpeakingFollowup,speakText,toggle,toggleMic,answerTest,answerTestFree,testNext,answerExamObj,answerExamFree,examNext,exitExam,resetProgress,xpRewardStatus,xpRewardCatalog});
 renderHome();
 // Service worker registration and update notices are handled by updates.js.
