@@ -291,16 +291,31 @@
   }
   async function cloudSync(show=true){
     const link=cloudLink();if(!link||cloudBusy)return false;cloudBusy=true;
+    // Do not replace the local state before the server has actually accepted it.
+    // Otherwise a rejected push can leave the learner with unconfirmed remote data.
     try{
-      const pulled=await rpc("norsk_eventyr_sync_pull",{p_sync_id:link.sync_id,p_secret:link.secret});if(cloudLink()?.sync_id!==link.sync_id)return false;if(!pulled.ok)throw new Error("Код синхронизации отклонён.");
+      const pulled=await rpc("norsk_eventyr_sync_pull",{p_sync_id:link.sync_id,p_secret:link.secret});
+      if(cloudLink()?.sync_id!==link.sync_id)return false;
+      if(!pulled.ok)throw new Error("Код синхронизации отклонён.");
       if(!validProgressState(pulled.state))throw new Error("В облаке повреждённый прогресс. Локальные данные сохранены.");
-      const merged=mergeState(state,pulled.state);state=merged;baseSaveState();
-      const pushed=await rpc("norsk_eventyr_sync_push",{p_sync_id:link.sync_id,p_secret:link.secret,p_state:state,p_expected_revision:Number(pulled.revision)});
+      const outgoing=mergeState(state,pulled.state);
+      if(!validProgressState(outgoing))throw new Error("Не удалось безопасно объединить учебные данные.");
+      const pushed=await rpc("norsk_eventyr_sync_push",{p_sync_id:link.sync_id,p_secret:link.secret,p_state:outgoing,p_expected_revision:Number(pulled.revision)});
       if(!pushed.ok&&pushed.error==="CONFLICT")throw new Error("Данные изменились на другом устройстве. Нажми синхронизацию ещё раз.");
       if(!pushed.ok)throw new Error("Облако не подтвердило сохранение. Попробуй ещё раз.");
       if(cloudLink()?.sync_id!==link.sync_id)return false;
-      link.revision=Number(pushed.revision)||Number(pulled.revision);link.lastSync=new Date().toISOString();setCloudLink(link);if(show&&document.getElementById("cloudFb"))renderCloud();return true;
-    }catch(e){if(show)document.getElementById("cloudFb")?.replaceChildren(Object.assign(document.createElement("div"),{className:"feedback bad",textContent:e.message}));return false}finally{cloudBusy=false}
+      // Merge fresh local progress again: the learner might have answered a task
+      // while the network request was in flight. Never roll those answers back.
+      state=mergeState(state,outgoing);
+      if(!baseSaveState())throw new Error("Не удалось сохранить объединённый прогресс на устройстве.");
+      link.revision=Number(pushed.revision)||Number(pulled.revision);
+      link.lastSync=new Date().toISOString();setCloudLink(link);
+      if(show&&document.querySelector('.shell-v7[data-screen="cloud"] #cloudFb'))renderCloud();
+      return true;
+    }catch(e){
+      if(show)document.getElementById("cloudFb")?.replaceChildren(Object.assign(document.createElement("div"),{className:"feedback bad",textContent:e.message}));
+      return false;
+    }finally{cloudBusy=false}
   }
   function scheduleCloud(){if(!cloudLink())return;clearTimeout(cloudTimer);cloudTimer=setTimeout(()=>cloudSync(false),4000)}
   async function connectCloud(){
