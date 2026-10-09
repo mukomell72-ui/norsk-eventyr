@@ -122,7 +122,7 @@
   const score=clamp(r.data.score);
   x.p.productive.results.push({skill:task.skill,score,level:x.target,source:voice?'microphone_transcript':'typed_answer',date:new Date().toISOString()});
   if(window.NEAdaptive){
-   NEAdaptive.recordAttempt(state,{level:x.target,skill:task.skill,score,moduleId:x.target.toLowerCase()+'-placement2',source:voice?'placement2_voice':'placement2_written',errorTag:r.data.error_tag||'',transfer:false});
+   NEAdaptive.recordAttempt(state,{level:x.target,skill:task.skill,score,moduleId:x.target.toLowerCase()+'-placement2',source:voice?'placement2_voice':'placement2_written',errorTag:r.data.error_tag||'',transfer:false,diagnostic:true});
    // Conservative provisional scores: neither a high AI rating nor good reading certifies CEFR.
    const profile=NEAdaptive.ensure(state).levelSkills[x.target];
    const preliminary=clamp(30+score*.45);
