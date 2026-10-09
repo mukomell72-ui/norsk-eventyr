@@ -32,3 +32,10 @@ for(let i=0;i<35;i++)A.recordAttempt(s,{level:'A1',moduleId:'a1-foundation',skil
 assert.equal(A.levelGate(s,'A1').pass,false,'High writing grades alone must not certify CEFR');
 assert(A.ensure(s).levelSkills.A1.speaking<70,'Writing attempts must not inflate oral skill');
 console.log('PASS pedagogy integrity: A1/A2 answer key safety, voice-only oral evidence and zero false A1 certification');
+
+
+// Pronunciation similarity is only exercise feedback, never CEFR speaking evidence.
+const voiceLayer=load('v3.js'),uiLayer=load('ui-v8.js');
+assert(!voiceLayer.includes('updateSkill("speaking",sc);'),'ASR or pronunciation imitation may not boost speaking proficiency');
+assert(voiceLayer.includes('Совпадение распознанного текста с образцом'),'ASR-only fallback must be labeled accurately');
+assert(!uiLayer.includes('Слушай настоящий норвежский'),'Synthetic audio must not be advertised as natural speaker recordings');
