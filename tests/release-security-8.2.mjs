@@ -46,14 +46,15 @@ delete process.env.NE_SESSION_SECRET;delete process.env.OPENAI_API_KEY;
 assert.equal(createSession(good),null,'never sign sessions with a public fallback constant');
 assert(!verifySession(good),'unconfigured server cannot verify forged/default-key tokens');
 process.env.NE_SESSION_SECRET=savedKey;process.env.OPENAI_API_KEY=savedOpenAI;
-let cloudCalls=0,remoteError=false,quotaMode='allow',quotaCalls=0;
-globalThis.fetch=async url=>{
+let cloudCalls=0,remoteError=false,quotaMode='allow',quotaCalls=0,v2Calls=0,lastV2Options=null;
+globalThis.fetch=async (url,options)=>{
  const u=String(url);
  if(u.includes('/auth/v1/user'))return {ok:true,status:200,json:async()=>({email_confirmed_at:'2026-01-01'})};
  if(u.includes('/rpc/ne_access_status_v2'))return {ok:true,status:200,json:async()=>({status:'trial',access_granted:true,owner:false})};
  if(u.includes('/rpc/ne_device_authorize'))return {ok:true,status:200,json:async()=>({allowed:true})};
  if(u.includes('/rpc/ne_ai_quota_check')){quotaCalls++;if(quotaMode==='offline')throw Error('quota storage unavailable');return {ok:true,status:200,json:async()=>({allowed:quotaMode==='allow',reason:'QUOTA'})}}
 
+ if(u.includes('/rest/v1/rpc/ne_sync_v2')){v2Calls++;lastV2Options=options;return {ok:true,status:200,json:async()=>({ok:true,revision:2,state:{xp:8}})}}
  if(u.includes('/rest/v1/rpc/norsk_eventyr_sync_')){
    cloudCalls++;return remoteError?{ok:false,status:500,json:async()=>({message:'DATABASE INTERNAL SECRET'})}:
      {ok:true,status:200,json:async()=>({ok:true,revision:1,state:{}})};
@@ -81,6 +82,16 @@ remoteError=true;
 const failure=await invoke('norsk_eventyr_sync_pull',{p_sync_id:id,p_secret:secret});
 assert.equal(failure.code,503);
 assert(!JSON.stringify(failure.data).includes('SECRET'),'remote database error text must stay private');
+// Simulate the production adapter with an already-applied v2 migration. No live DB calls.
+remoteError=false;
+process.env.NE_SYNC_V2_ENFORCE='enforce';
+const bound=await invoke('norsk_eventyr_sync_pull',{p_sync_id:id,p_secret:secret});
+assert.equal(bound.code,200);
+assert.equal(v2Calls,1);
+assert.equal(JSON.parse(lastV2Options.body).p_action,'pull');
+assert.equal(lastV2Options.headers.Authorization,'Bearer qa','v2 requires the authenticated learner token');
+delete process.env.NE_SYNC_V2_ENFORCE;
+
 // Unauthenticated status endpoints must not advertise secret/configured AI details.
 const healthRes=response();await health({method:'GET'},healthRes);
 assert.equal(healthRes.code,200);
