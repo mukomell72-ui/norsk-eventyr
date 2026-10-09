@@ -95,7 +95,7 @@
   try{
    await fetch('/api/session',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',...deviceHeaders()},body:JSON.stringify({
     action:'client_error',code:String(code||'CLIENT_ERROR').slice(0,80),message:messageText.slice(0,500),
-    path:String(location.pathname||'/').slice(0,300),app_version:'8.0.1',user_agent:String(navigator.userAgent||'').slice(0,250)
+    path:String(location.pathname||'/').slice(0,300),app_version:'8.2.0',user_agent:String(navigator.userAgent||'').slice(0,250)
    }),cache:'no-store'});
   }catch{}finally{setTimeout(()=>{errorReportBusy=false},1500)}
  }
