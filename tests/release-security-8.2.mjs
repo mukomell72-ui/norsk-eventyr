@@ -46,6 +46,14 @@ delete process.env.NE_SESSION_SECRET;delete process.env.OPENAI_API_KEY;
 assert.equal(createSession(good),null,'never sign sessions with a public fallback constant');
 assert(!verifySession(good),'unconfigured server cannot verify forged/default-key tokens');
 process.env.NE_SESSION_SECRET=savedKey;process.env.OPENAI_API_KEY=savedOpenAI;
+// Production requires a dedicated signing secret rather than falling back
+// to the upstream AI provider key, which may be rotated independently.
+process.env.VERCEL_ENV='production';
+delete process.env.NE_SESSION_SECRET;
+assert.equal(createSession(good),null,'production must fail closed without its own NE_SESSION_SECRET');
+process.env.NE_SESSION_SECRET=savedKey;
+assert.equal(typeof createSession(good),'string','dedicated production signing key works');
+delete process.env.VERCEL_ENV;
 let cloudCalls=0,remoteError=false,quotaMode='allow',quotaCalls=0,v2Calls=0,lastV2Options=null;
 globalThis.fetch=async (url,options)=>{
  const u=String(url);
