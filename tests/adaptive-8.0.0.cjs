@@ -128,7 +128,7 @@ assert(v3.includes('mastery,errorPatterns,learnerContext:noraLearningContext(),t
 assert(v3.includes('d.score_valid===true')&&v3.includes('source:"conversation"'),'conversation evidence is not guarded by a valid score');
 assert(!v3.includes('startTest=async function(level){\n    touchStudy();state.level=level'),'active v3 diagnostics must not switch the course level on start');
 assert(v3.includes('skillEvidence:{reading:[],listening:[],writing:[],speaking:[],grammar:[],vocabulary:[]}'),'active v3 diagnostics must collect six-skill evidence');
-assert(v3.includes('source:"level_test"')&&v3.includes('source:"level_test_free"'),'active v3 diagnostics must feed adaptive evidence');
+assert(v3.includes('source:"level_test"')&&v3.includes('?"level_test_typed":"level_test_free"'),'active v3 diagnostics must distinguish voice evidence from typed responses');
 assert(v3.includes('scope:"receptive_screening"'),'placement must be stored as a starting-point screening');
 assert(v3.includes('profile.writing=35;profile.speaking=35'),'fresh placement must not invent productive-skill mastery');
 assert(v3.includes('Это не означает, что уровень '),'placement result must not present the recommended start as a confirmed CEFR level');
