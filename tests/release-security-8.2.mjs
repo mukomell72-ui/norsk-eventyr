@@ -46,12 +46,14 @@ delete process.env.NE_SESSION_SECRET;delete process.env.OPENAI_API_KEY;
 assert.equal(createSession(good),null,'never sign sessions with a public fallback constant');
 assert(!verifySession(good),'unconfigured server cannot verify forged/default-key tokens');
 process.env.NE_SESSION_SECRET=savedKey;process.env.OPENAI_API_KEY=savedOpenAI;
-let cloudCalls=0,remoteError=false;
+let cloudCalls=0,remoteError=false,quotaMode='allow',quotaCalls=0;
 globalThis.fetch=async url=>{
  const u=String(url);
  if(u.includes('/auth/v1/user'))return {ok:true,status:200,json:async()=>({email_confirmed_at:'2026-01-01'})};
  if(u.includes('/rpc/ne_access_status_v2'))return {ok:true,status:200,json:async()=>({status:'trial',access_granted:true,owner:false})};
  if(u.includes('/rpc/ne_device_authorize'))return {ok:true,status:200,json:async()=>({allowed:true})};
+ if(u.includes('/rpc/ne_ai_quota_check')){quotaCalls++;if(quotaMode==='offline')throw Error('quota storage unavailable');return {ok:true,status:200,json:async()=>({allowed:quotaMode==='allow',reason:'QUOTA'})}}
+
  if(u.includes('/rest/v1/rpc/norsk_eventyr_sync_')){
    cloudCalls++;return remoteError?{ok:false,status:500,json:async()=>({message:'DATABASE INTERNAL SECRET'})}:
      {ok:true,status:200,json:async()=>({ok:true,revision:1,state:{}})};
@@ -115,5 +117,21 @@ assert.equal(malformedTranscribe.code,400,'non-canonical base64 must be denied')
 const badWav=response();
 await pronounce(req('/api/pronounce',BASE_IP+'54',{audioBase64:encodedAudio,expected:'God dag'}),badWav);
 assert.equal(badWav.code,400,'pronunciation requires a real WAV header');
+// Production AI operations require a shared quota, not only a process-local counter.
+process.env.NE_DISTRIBUTED_QUOTA='enforce';
+const allowedAI=req('/api/chat',BASE_IP+'61',{message:'Hallo'});
+assert.equal(await guard(allowedAI,response()),true);
+assert.equal(quotaCalls,1);
+assert.equal(allowedAI.neAccessIdentity?.user?.email_confirmed_at,'2026-01-01');
+quotaMode='denied';
+const quotaDenied=response();
+assert.equal(await guard(req('/api/chat',BASE_IP+'62',{message:'Hallo'}),quotaDenied),false);
+assert.equal(quotaDenied.code,429);
+quotaMode='offline';
+const quotaDown=response();
+assert.equal(await guard(req('/api/evaluate',BASE_IP+'63',{answer:'hei'}),quotaDown),false);
+assert.equal(quotaDown.code,503,'when shared quota is down, billable AI must fail closed');
+delete process.env.NE_DISTRIBUTED_QUOTA;
+quotaMode='allow';
 console.log('PASS release security guards: origin, session, resource limits and cloud parameter/error isolation, bounded media, API input sizes and diagnostic privacy');
 
