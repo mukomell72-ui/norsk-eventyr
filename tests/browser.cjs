@@ -9,6 +9,57 @@ const server=http.createServer(async(req,res)=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch({...(process.env.NE_CHROMIUM_PATH?{executablePath:process.env.NE_CHROMIUM_PATH}:{}),args:['--no-sandbox','--disable-gpu','--disable-dev-shm-usage']});const page=await browser.newPage({viewport:{width:390,height:844},serviceWorkers:'block'});let errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.dismiss());await page.goto('http://127.0.0.1:'+server.address().port);await page.waitForFunction(()=>window.NEAccess?.ready());
  for(const route of ['home','course','chat','story','hub','dictionary','daily','review','tests','exam','progress','plan','dictation','grammarlab','pronunciation','listeninglab','cloud','settings','storyjournal','storyside','teacher']){await page.evaluate(route=>navigate(route),route);await page.waitForTimeout(160);assert(await page.locator('#app main').innerText(),route);assert(!await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),route+' overflow')}
  console.log('PASS 21 routes including adaptive teacher');
+
+ // 8.2 end-to-end calibration, isolated from the remainder of the learning QA.
+ const calibrationPage=await browser.newPage({viewport:{width:360,height:780},serviceWorkers:'block'});
+ const calibrationErrors=[];calibrationPage.on('pageerror',e=>calibrationErrors.push(e.message));
+ await calibrationPage.goto('http://127.0.0.1:'+server.address().port);
+ await calibrationPage.waitForFunction(()=>window.NEAccess?.ready());
+ await calibrationPage.evaluate(()=>navigate('home'));
+ assert((await calibrationPage.locator('#placementEntryCard').innerText()).includes('С чего начать норвежский?'));
+ assert(!await calibrationPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),'beginner calibration banner overflows on phone');
+ await calibrationPage.evaluate(()=>{NECalibration.beginner()});
+ assert.equal(await calibrationPage.evaluate(()=>state.placement?.scope),'beginner_choice');
+ assert.equal(await calibrationPage.evaluate(()=>state.level),'A1');
+ assert.equal(await calibrationPage.evaluate(()=>state.learningV8.attempts.filter(x=>x.diagnostic===true).length),0);
+ await calibrationPage.evaluate(()=>{state.placement={level:'B2',recommendedStart:'B2',scope:'receptive_screening'};state.level='B2';saveState();navigate('home')});
+ assert((await calibrationPage.locator('#placementEntryCard').innerText()).includes('Уточнить индивидуальный маршрут'));
+ await calibrationPage.locator('#placementEntryCard button').first().click();
+ assert((await calibrationPage.locator('#app main').innerText()).includes('Письмо · B2'));
+ await calibrationPage.locator('#calibrationAnswer').fill('Digitalisering kan effektivisere tjenestene, men tilbudet må også være tilgjengelig for alle.');
+ await calibrationPage.locator('#calibrationSubmit').click();
+ await calibrationPage.waitForFunction(()=>state.placement?.productive?.nextIndex===1);
+ assert((await calibrationPage.locator('#app main').innerText()).includes('Говорение'));
+ await calibrationPage.locator('#calibrationAnswer').fill('Jeg synes det er viktig.');
+ await calibrationPage.locator('#calibrationSubmit').click();
+ assert((await calibrationPage.locator('#calibrationFeedback').innerText()).includes('вручную'));
+ assert.equal(await calibrationPage.evaluate(()=>state.placement.productive.nextIndex),1,'typed speaking cannot advance');
+ await calibrationPage.evaluate(()=>document.getElementById('calibrationAnswer').dataset.fromVoice='true');
+ await calibrationPage.locator('#calibrationSubmit').click();
+ await calibrationPage.waitForFunction(()=>state.placement.productive.nextIndex===2);
+ await calibrationPage.locator('#calibrationAnswer').fill('Vi må ta hensyn til både effektivitet og mennesker som trenger personlig hjelp.');
+ await calibrationPage.evaluate(()=>document.getElementById('calibrationAnswer').dataset.fromVoice='recognition');
+ await calibrationPage.locator('#calibrationSubmit').click();
+ await calibrationPage.waitForFunction(()=>state.placement.productive.status==='complete');
+ const calibrationResult=await calibrationPage.evaluate(()=>({
+  level:state.level,writing:state.placement.productive.results.filter(x=>x.skill==='writing').length,
+  speaking:state.placement.productive.results.filter(x=>x.skill==='speaking').length,
+  unearned:state.learningV8.attempts.filter(x=>x.diagnostic&&x.transfer).length,
+  recentSources:state.learningV8.attempts.filter(x=>x.diagnostic).slice(-3).map(x=>x.source),
+  reviews:state.learningV8.reviews
+ }));
+ assert.equal(calibrationResult.level,'B2');
+ assert.equal(calibrationResult.writing,1);
+ assert.equal(calibrationResult.speaking,2);
+ assert.equal(calibrationResult.unearned,0);
+ assert.deepEqual(calibrationResult.recentSources,['placement2_written','placement2_voice','placement2_voice']);
+ assert(!await calibrationPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),'calibration summary overflows');
+ const calibrationShots=path.join(__dirname,'artifacts');fs.mkdirSync(calibrationShots,{recursive:true});
+ await calibrationPage.screenshot({path:path.join(calibrationShots,'norsk-eventyr-8.2-calibration-summary-360.png'),fullPage:true});
+ assert.deepEqual(calibrationErrors,[]);
+ await calibrationPage.close();
+ console.log('PASS 8.2 real Chromium flow: beginner choice, B2 two-stage writing/voice, typed rejection, mobile layout');
+
   await page.evaluate(()=>{state.level='A1';navigate('teacher')});assert((await page.locator('#app main').innerText()).includes('Нора ведёт занятие'));
   await page.evaluate(()=>teacherStartMission());await page.waitForTimeout(500);const adaptiveDebug=await page.evaluate(()=>({moduleId:lessonSession?.lesson?._adaptive?.moduleId,title:lessonSession?.lesson?.title,text:document.querySelector('#app main')?.innerText||''}));assert(adaptiveDebug.moduleId==='a1-foundation',JSON.stringify(adaptiveDebug));assert(adaptiveDebug.text.toLowerCase().includes('знакомство без шаблона')||adaptiveDebug.text.toLowerCase().includes('qa adaptive lesson'),JSON.stringify(adaptiveDebug));console.log('PASS adaptive teacher opens a mastery lesson with curated foundation');
   await page.locator('#dialogAnswer').fill('Jeg heter Ola.');await page.evaluate(()=>checkDialogue());await page.waitForTimeout(260);assert.equal(await page.evaluate(()=>lessonSession.step),0);assert.equal(await page.evaluate(()=>state.learningV8.attempts.at(-1)?.skill),'writing','typed dialogue must never prove oral proficiency');assert.equal(await page.locator('.lesson-next-v8').innerText(),'Дальше →');await page.locator('.lesson-next-v8').click();await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>lessonSession.step),1);console.log('PASS dialogue feedback waits for explicit Next');
