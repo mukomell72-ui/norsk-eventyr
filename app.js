@@ -188,7 +188,7 @@ async function checkDialogue(){
  const r=await aiEvaluate({answer:a,question:turn.phrase,goal:turn.goal,level:l.level,mode:"dialogue"});
  if(!b.isConnected||lessonSession!==s){s.locked=false;return;}
  if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return;}
- const d=r.data,ok=d.accepted!==false&&(d.score??70)>=55;trackLessonScore(d.score??(ok?70:40),{label:"Диалог",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||""});
+ const d=r.data,ok=d.accepted===true&&(d.score??70)>=55;trackLessonScore(d.score??(ok?70:40),{label:"Диалог",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||""});
  if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:l.level,skill:spoken?"speaking":"writing",score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l.id,source:spoken?"dialogue_voice":"dialogue_text",errorTag:d.error_tag||"",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});saveState();
  if(ok){
   b.innerHTML=aiLessonFeedbackHtml(d,"✓ Задача выполнена")+'<button class="btn lesson-next-v8" onclick="continueCheckedDialogue()">Дальше →</button>';
@@ -262,12 +262,12 @@ function deferFreeRemediation(){
 }
 async function checkFree(mode){
  const s=lessonSession,input=document.getElementById("freeAnswer"),a=input?.value.trim();if(!a||!s||s.locked)return;
- const l=s.lesson,rem=l?._adaptive&&s.remediation?.mode===mode?s.remediation:null,p=rem?.prompt||(mode==="speaking"?l.speaking:l.writing),b=document.getElementById("freeFb"),spoken=mode==="speaking"&&input.dataset.fromVoice==="true";
+ const l=s.lesson,rem=l?._adaptive&&s.remediation?.mode===mode?s.remediation:null,p=rem?.prompt||(mode==="speaking"?(s.speakingFollowup&&l.speakingFollowUp?l.speakingFollowUp:l.speaking):l.writing),b=document.getElementById("freeFb"),spoken=mode==="speaking"&&input.dataset.fromVoice==="true";
  s.locked=true;b.innerHTML='<div class="feedback">Проверяю…</div>';
- const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode:rem?mode+"_transfer":mode});
+ const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode:rem?mode+"_transfer":(mode==="speaking"&&!spoken?"writing":mode)});
  if(!b.isConnected||lessonSession!==s){s.locked=false;return}
  if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
- const d=r.data,ok=d.accepted!==false&&(d.score??70)>=55,skill=spoken?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer;trackLessonScore(d.score??(ok?70:40),{label:mode==="speaking"?"Речь":"Письмо",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||""});
+ const d=r.data,ok=d.accepted===true&&(d.score??70)>=55,skill=spoken?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer;trackLessonScore(d.score??(ok?70:40),{label:spoken?"Речь":"Письмо",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||""});
  if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill,score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l?.id,source:mode==="speaking"&&!spoken?"lesson_free_text":rem?"lesson_free_transfer":"lesson_free",errorTag:d.error_tag||"",transfer:isTransfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}
  if(ok){
   s.remediation=null;s.locked=false;
