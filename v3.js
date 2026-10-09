@@ -152,7 +152,7 @@
     window.speechSynthesis?.cancel();
     restoreSpeechButton(speechActiveButton);
   }
-  function speechKey(text,level){return String(level||"A1")+"\n"+String(text||"").trim()}
+  function speechKey(text,level,voice="marin"){return String(level||"A1")+"\n"+String(voice||"marin")+"\n"+String(text||"").trim()}
   function trimSpeechCache(){
     while(speechCache.size>SPEECH_CACHE_LIMIT){
       const [key,item]=speechCache.entries().next().value||[];
@@ -161,12 +161,12 @@
       speechCache.delete(key);
     }
   }
-  async function getSpeechAudio(text,level){
-    const key=speechKey(text,level),cached=speechCache.get(key);
+  async function getSpeechAudio(text,level,voice="marin"){
+    const key=speechKey(text,level,voice),cached=speechCache.get(key);
     if(cached?.url)return cached;
     if(cached?.promise)return cached.promise;
     const promise=(async()=>{
-      const r=await apiPost("/api/speech",{text,level});
+      const r=await apiPost("/api/speech",{text,level,voice});
       if(!r.ok)throw new Error(r.error||"SPEECH_FAILED");
       const blob=await r.response.blob(),url=URL.createObjectURL(blob),item={url};
       speechCache.set(key,item);trimSpeechCache();return item;
@@ -184,7 +184,7 @@
     u.onstart=()=>setSpeechButton(btn,"playing");u.onend=()=>restoreSpeechButton(btn);u.onerror=()=>restoreSpeechButton(btn);
     speechSynthesis.speak(u);
   }
-  speakText=async function(text,rate=.9,btn=null){
+  speakText=async function(text,rate=.9,btn=null,voice="marin"){
     btn=btn||(document.activeElement?.tagName==="BUTTON"?document.activeElement:null);
     const request=++speechRequest;stopSpeechPlayback();setSpeechButton(btn,"loading");
     // Prefer a licensed real-human Nora recording when an exact clip exists.
@@ -197,7 +197,7 @@
     }catch{}
     const level=(lessonSession?.lesson?.level)||state.level||"A1";
     try{
-      const item=await getSpeechAudio(text,level);if(request!==speechRequest){restoreSpeechButton(btn);return}
+      const item=await getSpeechAudio(text,level,voice);if(request!==speechRequest){restoreSpeechButton(btn);return}
       const a=new Audio(item.url);speechAudio=a;a.preload="auto";a.volume=1;
       a.playbackRate=Math.max(.75,Math.min(1.25,Number(rate)/.9||1));
       try{
