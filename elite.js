@@ -336,7 +336,7 @@
   }
   async function runHealthCheck(){
     const box=document.getElementById("healthRemote");if(box)box.querySelector("strong").textContent="…";
-    try{const r=await fetch("/api/health",{cache:"no-store"}),d=await r.json();if(box)box.querySelector("strong").textContent=r.ok&&d.aiConfigured?"✓ AI готов":"⚠ проверка"}catch{if(box)box.querySelector("strong").textContent="✕"}
+    try{const r=await fetch("/api/health",{cache:"no-store"}),d=await r.json();if(box)box.querySelector("strong").textContent=r.ok&&d.ok===true?"✓ сервер доступен":"⚠ проверка"}catch{if(box)box.querySelector("strong").textContent="✕"}
   }
   function setEliteGoal(g){state.elite.goal=g;saveState();renderSettings()}
   function setDailyMinutes(n){state.elite.dailyMinutes=n;saveState();renderSettings()}
