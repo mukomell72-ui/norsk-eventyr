@@ -91,7 +91,7 @@
     '<p class="muted">Напиши собственный ответ на Bokmål. Ошибки помогут определить, что нужно тренировать.</p>')+
    '<textarea id="calibrationAnswer" rows="5" class="input" maxlength="6000" placeholder="'+(isSpeaking?'Нажми микрофон и произнеси ответ…':'Твой ответ по-норвежски…')+'" oninput="this.dataset.fromVoice=\'false\'"></textarea>'+
    '<div class="row" style="margin-top:12px">'+
-   (isSpeaking?'<button class="btn secondary" onclick="toggleMic(\'calibrationAnswer\')">🎤 Записать ответ</button>':'')+
+   (isSpeaking?'<button id="micBtn" class="btn secondary" onclick="toggleMic(\'calibrationAnswer\')">🎤 Записать ответ</button>':'')+
    '<button id="calibrationSubmit" class="btn" onclick="NECalibration.submit()">Проверить ответ</button>'+
    '<button class="btn ghost" onclick="NECalibration.postpone()">Продолжить позже</button></div>'+
    '<div id="calibrationFeedback" role="status" aria-live="polite"></div>'+
