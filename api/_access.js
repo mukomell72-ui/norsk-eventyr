@@ -57,6 +57,8 @@ export async function requireApproved(req,res){
    res.status(403).json({error:code,code});return false
   }
   if(identity.access.access_granted!==true){res.status(403).json({error:'APPROVAL_REQUIRED',code:'APPROVAL_REQUIRED'});return false}
+  // The verified identity is reusable only within this server request; never trust a client-supplied identity.
+  req.neAccessIdentity=identity;
   return true;
  }catch{res.status(503).json({error:'ACCESS_UNAVAILABLE',code:'ACCESS_UNAVAILABLE'});return false}
 }
