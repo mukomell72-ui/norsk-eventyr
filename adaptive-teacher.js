@@ -99,6 +99,16 @@ function nextMission(state){
   const d=due[0],known=window.NECurriculum?.moduleById(d.moduleId),reviewLevel=['A1','A2','B1','B2'].includes(d.level)?d.level:(known?.level||level),m=known||nextModule(state,reviewLevel);
   return{kind:'review',level:reviewLevel,module:m,skill:d.skill,reason:'Пора проверить, сохранился ли материал после паузы.',reviewKey:d.key};
  }
+ // A weak productive skill never downgrades the learner's stronger skills.
+ // Offer one focused lower-level practice mission, then return to the main route.
+ const gaps=state.placement?.productive?.remediation||{};
+ for(const skill of ['speaking','writing']){
+  const gap=gaps[skill];
+  if(gap&&!gap.done&&LEVEL_ORDER.includes(gap.level)&&LEVEL_ORDER.indexOf(gap.level)<currentIndex){
+   const module=nextModule(state,gap.level);
+   if(module)return{kind:'remediation',level:gap.level,module,skill,reason:'Дополнительная практика '+LABEL[skill].toLowerCase()+' уровня '+gap.level+' без потери выбранного маршрута '+current+'.'};
+  }
+ }
  const skill=weakestSkill(state,level),module=nextModule(state,level);
  return{kind:'learn',level,module,skill,reason:level!==current?'Предыдущий уровень подтверждён. Начинаем следующий этап.':'Тренируем навык, которому нужна практика в новой ситуации.'};
 }
@@ -110,6 +120,10 @@ function assessment(state,level,score,skillScores={}){
 function completeLesson(state,lesson){
  const p=ensure(state),id=lesson?._adaptive?.moduleId||lesson?.id||'lesson',m=moduleState(p,id);m.lastCompleted=dayKey();m.completions=(m.completions||0)+1;if(lesson?._adaptive)p.lastSessionDate=dayKey();
  if(lesson?._adaptive?.kind==='review'&&lesson._adaptive.reviewKey&&p.reviews[lesson._adaptive.reviewKey])p.reviews[lesson._adaptive.reviewKey].completedAt=new Date().toISOString();
+ if(lesson?._adaptive?.kind==='remediation'){
+  const gap=state.placement?.productive?.remediation?.[lesson._adaptive.skill];
+  if(gap&&gap.level===lesson.level){gap.done=true;gap.completedAt=new Date().toISOString()}
+ }
 }
 function errors(state){return Object.entries(ensure(state).errorPatterns).sort((a,b)=>b[1]-a[1]).slice(0,6).map(x=>x[0])}
 function reviewWords(state){if(typeof window.neReinforcementWords==='function')return window.neReinforcementWords(12);return[]}
@@ -163,7 +177,7 @@ async function runTeacherMission(mission){
  revision=(p.modules[m.id]?.completions||0)+(p.modules[m.id]?.attempts||0),
  payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...targetProfile},errorPatterns:errors(state),weakSkills:ALL.filter(s=>targetProfile[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review',scenarioVariation:variations[revision%variations.length]};
  const foundation=window.NECurated?.variant?.(m.id,revision)||window.NECurated?.get(m.id);
- const isFirstAttempt=revision===0&&mission.kind==='learn';
+ const isFirstAttempt=revision===0&&(mission.kind==='learn'||mission.kind==='remediation');
  try{
   let data,source='AI';
   if(isFirstAttempt&&foundation){
