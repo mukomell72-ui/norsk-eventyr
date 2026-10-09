@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      TEST_PREVIEW_URL: https://norsk-eventyr-mvp-git-feature-nora-personal-lear-5ad3bb-fffff19.vercel.app/
+      TEST_PREVIEW_URL: https://norsk-eventyr-mvp-git-feature-820-placement-calibration-fffff19.vercel.app/
     steps:
       - name: Checkout private feature branch
         uses: actions/checkout@v4
@@ -41,6 +41,6 @@ jobs:
       - name: Save APK for private device testing
         uses: actions/upload-artifact@v4
         with:
-          name: Norsk-Eventyr-8.1-private-debug-APK
+          name: Norsk-Eventyr-8.2-private-debug-APK
           path: android-test/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
