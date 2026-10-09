@@ -64,7 +64,7 @@ export default async function handler(req,res){
     if(!validateShape(kind,out))return res.status(502).json({error:"AI_GENERATION_INVALID",code:"AI_GENERATION_INVALID"});
     // Guard against shallow advanced lessons; a handcrafted mission is available as fallback.
     if(kind!=="test"&&["B1","B2"].includes(level)){
-      const count=t=>String(t||"").trim().split(/\\s+/).filter(Boolean).length;
+      const count=t=>String(t||"").trim().split(/\s+/).filter(Boolean).length;
       const audioMin=level==="B2"?80:60,readingMin=level==="B2"?100:85;
       if(count(out.listeningAudio)<audioMin||count(out.read)<readingMin){
         return res.status(502).json({error:"AI_LESSON_TOO_SHORT",code:"AI_LESSON_TOO_SHORT"});
