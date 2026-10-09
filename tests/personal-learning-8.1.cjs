@@ -25,6 +25,11 @@ assert.equal(A.nextMission(s).module.level,'A2');
 const novice={level:'A1',skills:{},learningV8:{startLevel:'A1'}};
 A.ensure(novice);
 assert.equal(A.nextMission(novice).level,'A1','inexperienced learners cannot skip a level');
+const revisiting={level:'A1',skills:{},learningV8:{startLevel:'B2'}};
+A.ensure(revisiting);
+revisiting.learningV8.reviews['b2-argument:listening']={due:'2000-01-01',level:'B2',stage:0,lastScore:30};
+assert.equal(A.nextMission(revisiting).level,'A1','reviewing lower course must not unexpectedly jump to placement B2');
+assert.equal(A.nextMission(revisiting).module.level,'A1','old higher-level review should not preempt current A1 course');
 assert.equal(A.moduleMission(novice,'b2-argument').blocked,true,'B2 must remain locked');
 
 const local=new Map();
