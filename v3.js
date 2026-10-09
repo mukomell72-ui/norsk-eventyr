@@ -250,7 +250,12 @@
       const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
       if(!SR)return alert("Запись речи недоступна в этом браузере.");
       const rec=new SR();rec.lang="nb-NO";rec.interimResults=true;const f=document.getElementById(target);
-      rec.onstart=()=>{if(btn)btn.textContent="■ Слушаю…"};rec.onresult=e=>{let t="";for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;f.value=t};
+      rec.onstart=()=>{if(btn)btn.textContent="■ Слушаю…"};rec.onresult=e=>{
+        let t="";for(let i=0;i<e.results.length;i++)t+=e.results[i][0].transcript;
+        if(f?.isConnected){f.value=t;f.dataset.fromVoice="recognition"}
+        // Browser recognition provides text only; do not claim assessed audio or pronunciation.
+        if(target==="chatInput")chatInputWasVoice=false;
+      };
       rec.onend=()=>{if(btn)btn.textContent="🎤 Говорить"};rec.start();return;
     }
     try{
@@ -399,7 +404,7 @@
     b.innerHTML='<div class="feedback">Проверяю…</div>';const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode});
     if(!b.isConnected||lessonSession!==s){s.locked=false;return}
     if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
-    const d=r.data,score=Number(d.score||0),ok=d.accepted!==false&&score>=55;trackLessonScore(score);
+    const d=r.data,score=Number(d.score||0),ok=d.accepted===true&&score>=55;trackLessonScore(score);
     updateSkill(mode,score);updateSkill("grammar",d.breakdown?.grammar??score);updateSkill("vocabulary",d.breakdown?.vocabulary??score);rememberError(d.error_tag);
     if(ok){
       b.innerHTML=(typeof aiLessonFeedbackHtml==="function"?aiLessonFeedbackHtml(d,"✓ Хороший ответ"):'<div class="feedback good"><b>✓ Хороший ответ · '+score+'/100</b><br>'+esc(d.explanation_ru||"Ответ принят.")+'</div>')+'<button class="btn lesson-next-v8" onclick="lessonNext(20)">Дальше →</button>';
@@ -474,7 +479,7 @@
     const r=await aiEvaluate({answer:a,question:t.prompt_ru,goal,level:s.pack.level,mode:"daily_vocabulary"});
     if(!b.isConnected||dailyTaskSession!==s){s.locked=false;return}
     if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
-    const score=Number(r.data.score||0),ok=r.data.accepted!==false&&score>=55;
+    const score=Number(r.data.score||0),ok=r.data.accepted===true&&score>=55;
     updateDailyStrength([...(t.review_words||[]),...(t.new_words||[])],score);updateSkill("vocabulary",score);updateSkill("grammar",r.data.breakdown?.grammar??score);rememberError(r.data.error_tag);
     if(ok){
       s.scores.push(score);b.innerHTML='<div class="feedback good"><b>✓ '+score+'/100</b></div>';
