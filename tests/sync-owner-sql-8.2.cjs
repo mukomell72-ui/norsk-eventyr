@@ -50,6 +50,18 @@ const {PGlite}=require(process.env.NE_PGLITE_PATH||'@electric-sql/pglite');
  await db.query('insert into public.norsk_eventyr_sync(sync_id,secret_hash,state) values($1,convert_to($2,\'UTF8\'),$3::jsonb)',[legacyId,legacySecret,'{"xp":25}']);
  assert.equal((await as(v,rpc('pull',legacyId,legacySecret))).state.xp,25);
  assert.equal((await as(u,rpc('pull',legacyId,legacySecret))).error,'AUTH');
+ assert.equal((await as(v,rpc('pull',legacyId,'d'.repeat(45)))).error,'AUTH','wrong old cloud secret must never grant access');
+ // Revoking app access must immediately stop subsequent cloud operations.
+ await db.exec('reset role');
+ await db.query("select set_config('test.granted','false',false)");
+ assert.equal((await as(v,rpc('pull',legacyId,legacySecret))).error,'ACCESS','revoked user must not read cloud progress');
+ assert.equal((await as(v,rpc('push',legacyId,legacySecret,`'{"xp":999}'::jsonb,1::bigint`))).error,'ACCESS','revoked user must not write progress');
+ await db.exec('reset role');
+ await db.query("select set_config('test.granted','true',false)");
+ // Deletion must be owner-only and must not touch another learner's record.
+ assert.equal((await as(u,rpc('delete',legacyId,legacySecret))).error,'AUTH');
+ assert.equal((await as(v,rpc('delete',legacyId,legacySecret))).ok,true);
+ assert.equal((await as(v,rpc('pull',legacyId,legacySecret))).error,'AUTH','deleted cloud copy cannot be restored via the old code');
 
  await db.exec('reset role');await db.query("select set_config('request.jwt.sub','',false)");await db.exec('set role anon');
  await assert.rejects(db.query(rpc('pull')));
