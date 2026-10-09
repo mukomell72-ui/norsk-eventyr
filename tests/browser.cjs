@@ -88,6 +88,32 @@ const server=http.createServer(async(req,res)=>{
  for(const level of ['A1','A2','B1','B2']){await page.evaluate(level=>navigate('course',level),level);assert.equal(await page.locator('.near-lesson-v7').count(),await page.evaluate(()=>lessons(state.level).length))}
  for(const width of [360,390,768]){await page.setViewportSize({width,height:844});for(const screen of ['welcome','home','course','chat','story','learnedwords','lesson','listeninglab','grammarlab','exam','progress','settings']){await page.evaluate(screen=>navigate(screen,screen==='lesson'?'a1-1':undefined),screen);assert(!await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),screen+' '+width)}}console.log('PASS every core lesson and 12 screens at three widths');
  await page.evaluate(()=>document.getElementById('cloudCode')?.remove());
+ const staged=await page.evaluate(()=>{
+    const data=NECurated.variant('b2-listening',0);
+    const lesson={...data,id:'adaptive-qa-b2-staged',level:'B2',_adaptive:{moduleId:'b2-listening',kind:'learn',skill:'listening'}};
+    state.generatedLessons[lesson.id]=lesson;
+    lessonSession={lesson,step:3,listeningIndex:0,choiceMiss:false,locked:false,xpScores:[]};
+    persistLessonCheckpoint();renderLesson();
+    return{part:lessonSession.listeningIndex,hasFollowup:!!lesson.speakingFollowUp,correct:lesson.listeningSets[0].correct};
+ });
+ assert.equal(staged.part,0);
+ assert.equal(staged.hasFollowup,true);
+ assert((await page.locator('#app main').innerText()).includes('часть 1/2'),'first listening recording must be visible');
+ await page.evaluate(()=>{
+   const c=lessonSession.lesson.listeningSets[0].correct;
+   lessonChoice(document.querySelectorAll('.choice')[c],c,c,'Первый этап','listening');
+ });
+ assert((await page.locator('#fb').innerText()).includes('Следующая запись'));
+ await page.locator('#fb .lesson-next-v8').click();
+ assert.equal(await page.evaluate(()=>lessonSession.listeningIndex),1,'second listening part should start');
+ assert.equal(await page.evaluate(()=>state.activeLesson?.listeningIndex),1,'multi-part checkpoint must persist');
+ assert((await page.locator('#app main').innerText()).includes('часть 2/2'));
+ await page.evaluate(()=>{
+   lessonSession.step=6;lessonSession.speakingFollowup=true;persistLessonCheckpoint();renderLesson();
+ });
+ assert((await page.locator('#app main').innerText()).includes('Hva slags tilleggsdata'));
+ console.log('PASS realistic B2 two-stage audio and saved oral follow-up in browser');
+ await page.evaluate(()=>{if(state.activeLesson?.id==='adaptive-qa-b2-staged')delete state.activeLesson;saveState();});
  const screenshotsDir=path.join(__dirname,'artifacts');fs.mkdirSync(screenshotsDir,{recursive:true});
  await page.setViewportSize({width:390,height:844});
  for(const [view,arg] of [['home',undefined],['teacher',undefined],['chat',undefined],['lesson','a1-1']]){
