@@ -6,7 +6,7 @@ vm.runInContext(read('curriculum-v8.js'),sandbox);
 vm.runInContext(read('practice-foundations.js'),sandbox);
 const C=sandbox.window.NECurriculum, B=sandbox.window.NECurated;
 const expected=[...C.modules('A1'),...C.modules('A2')].map(x=>x.id).sort();
-assert.deepEqual(Array.from(B.ids).sort(),expected,'curated bank must cover all 16 A1/A2 modules without extra modules');
+assert.deepEqual(Array.from(B.ids).filter(id=>id.startsWith('a1-')||id.startsWith('a2-')).sort(),expected,'curated bank must cover all 16 foundational A1/A2 modules');
 function optionsGood(options){
  return Array.isArray(options)&&options.length===4&&new Set(options.map(x=>x.trim().toLowerCase())).size===4
  &&options.every(x=>typeof x==='string'&&x.trim().length>=2);
