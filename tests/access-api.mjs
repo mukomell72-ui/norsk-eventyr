@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import handler from '../api/session.js';import {guard,createSession} from '../api/_guard.js';
 process.env.NE_LEGAL_CONTROLLER_NAME='QA Controller';
+process.env.NE_SESSION_SECRET='qa-session-signing-secret-32-characters';
 let status='pending',owner=false,confirmed=true,down=false,deviceAllowed=true,rpcCalls=[],lastFetchUrl='';
 globalThis.fetch=async(url,options)=>{
  lastFetchUrl=String(url);
