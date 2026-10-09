@@ -133,3 +133,12 @@ button.speech-playing{transform:translateY(1px) scale(.985);box-shadow:0 0 0 3px
  .main-v7 input,.main-v7 textarea{font-size:16px}
 }
 @media(prefers-reduced-motion:reduce){.home-v7 .route-step-v7{transition:none}}
+
+/* 8.1: lightweight, useful vocabulary preview instead of an empty dashboard card. */
+.daily-focus-v81 .section-head-v7 p{max-width:480px}
+.daily-words-v81{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.daily-word-v81{display:flex;flex-direction:column;gap:4px;border:1px solid rgba(54,135,163,.25);border-radius:14px;padding:12px 14px;background:rgba(18,71,96,.08);min-width:0}
+.daily-word-v81 b{font-size:17px;line-height:1.25;overflow-wrap:anywhere}
+.daily-word-v81 span{font-size:13px;opacity:.82;line-height:1.35;overflow-wrap:anywhere}
+@media(max-width:620px){.daily-words-v81{gap:7px;margin-top:10px}.daily-word-v81{padding:9px 8px}.daily-word-v81 b{font-size:14px}.daily-word-v81 span{font-size:12px}}
+@media(max-width:340px){.daily-words-v81{grid-template-columns:1fr}.daily-word-v81{padding:9px 12px}}
