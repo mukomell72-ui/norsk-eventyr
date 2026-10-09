@@ -28,7 +28,7 @@
   setInterval(()=>{if(!document.hidden)refreshOwnerBadge()},30000);
   setTimeout(()=>refreshOwnerBadge(true),0);
   shell=window.shell=function(content,active){
-    if(content.includes('fsi-audio-list-v63'))content='<div class="listening-scene-v8"><h2>Слушай настоящий норвежский</h2><p>Выбери запись, послушай и перескажи смысл своими словами.</p></div>'+content;
+    if(content.includes('fsi-audio-list-v63'))content='<div class="listening-scene-v8"><h2>Слушай норвежскую речь</h2><p>Выбери запись, послушай и перескажи смысл своими словами.</p></div>'+content;
     if(content.includes('lesson-head-v6'))content='<div class="lesson-scene-v8"><span>Nora · учимся в ситуации</span></div>'+content;
     baseShell(content,active);
     const topbar=document.querySelector('.topbar-v7'),status=document.querySelector('.status-v7');
