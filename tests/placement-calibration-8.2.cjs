@@ -74,6 +74,21 @@ function harness(level=null){
  assert(user.screens.at(-1).includes('не к фонетике'));
  assert.equal(user.state.learningV8.levelSkills.B2.writing,65);
  assert.equal(user.attempts.filter(x=>x.skill==='speaking').length,2);
+ assert(user.screens.some(html=>html.includes('id="micBtn"')),'Calibration microphone button must expose recording status');
+
+ // A rejected answer with a contradictory high model score may not certify proficiency.
+ const rejected=harness('A2');
+ rejected.api.render();rejected.elements.calibrationAnswer.value='Jeg ikke vet.';
+ rejected.setEvaluator(async()=>({ok:true,data:{score:99,accepted:false}}));
+ await rejected.api.submit();
+ assert.equal(rejected.state.placement.productive.results[0].score,49,'Rejected response cannot be recorded as high proficiency');
+
+ // Debug APK must be tied exclusively to the 8.2 preview alias, never old 8.1 or Production.
+ const gradle=read('android-test/app/build.gradle'),workflow=read('.github/workflows/android-private-apk.yml');
+ const alias='norsk-eventyr-mvp-git-feature-820-placement-calibration-fffff19.vercel.app';
+ assert(gradle.includes(alias)&&workflow.includes(alias));
+ assert(!workflow.includes('feature-nora-personal'),'Old 8.1 preview must not be shipped');
+ assert(gradle.includes("versionName '8.2-private-test'"));
 
  const retry=harness('A2');
  retry.api.render();retry.elements.calibrationAnswer.value='Jeg blir litt forsinket fordi bussen er sen.';
