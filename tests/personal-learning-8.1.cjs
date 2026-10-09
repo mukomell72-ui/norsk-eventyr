@@ -55,7 +55,14 @@ assert.equal(vm.runInContext('lessonSession.dialogueIndex',app),0);
 app=boot();
 vm.runInContext("startLesson('a1-1');",app);
 assert.equal(vm.runInContext('lessonSession.step',app),2);
-
+// A wrong first choice must not turn into a 100-point answer by leaving the lesson.
+vm.runInContext('lessonSession.choiceMiss=true;persistLessonCheckpoint()',app);
+assert.equal(JSON.parse(local.get('ne2_state')).activeLesson.choiceMiss,true,'wrong first attempt must be checkpointed');
+app=boot();
+vm.runInContext("startLesson('a1-1')",app);
+assert.equal(vm.runInContext('lessonSession.choiceMiss',app),true,'reopening may not wipe an incorrect first attempt');
+vm.runInContext("lessonNext()",app);
+assert.equal(vm.runInContext('lessonSession.choiceMiss',app),false,'new questions start with their own first-attempt evidence');
 const v3=read('v3.js'),api=read('api/chat.js'),u=read('ui-v7.js'),generator=read('api/generate.js'),elite=read('elite.js');
 assert(v3.includes('state.noraMemory')&&v3.includes('learnerContext:noraLearningContext()'),'Nora must receive per-learner context');
 assert(v3.includes('state.noraMemory.introduced=true'),'a finished dialogue must record a prior meeting');
