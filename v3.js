@@ -704,7 +704,7 @@
     '<label class="switch-row"><input type="checkbox" '+(p.autoSpeak?"checked":"")+' onchange="setChatPref(\'autoSpeak\',this.checked)"> Автоматически озвучивать ответы</label>'+
     '<div class="row"><button class="btn secondary" onclick="startChat()">Начать новый разговор</button><button class="btn ghost" onclick="clearChat()">Очистить</button></div></aside>'+
     '<div class="chat-main card"><div id="chatMessages" class="chat-messages">'+(h.length?renderChatMessages(h):'<div class="chat-empty"><div class="chat-avatar">N</div><h2>Hei!</h2><p>Выбери уровень и тему. Можно написать первую фразу самому или нажать «Начать новый разговор» — собеседник заговорит первым.</p></div>')+'</div>'+
-    '<div class="chat-composer"><textarea id="chatInput" class="input" rows="2" placeholder="Напиши по-норвежски или нажми микрофон…"></textarea><div class="row"><button id="chatMicBtn" class="btn secondary" onclick="toggleMic(\'chatInput\')">🎤 Говорить</button><button id="chatSendBtn" class="btn" onclick="sendChat()">Отправить →</button></div><small>AI-собеседник. В режиме речи микрофон сначала превращает твою речь в текст, затем собеседник отвечает.</small></div></div></section>',"chat");
+    '<div class="chat-composer"><textarea id="chatInput" class="input" rows="2" placeholder="Напиши по-норвежски или нажми микрофон…" oninput="this.dataset.fromVoice=false"></textarea><div class="row"><button id="chatMicBtn" class="btn secondary" onclick="toggleMic(\'chatInput\')">🎤 Говорить</button><button id="chatSendBtn" class="btn" onclick="sendChat()">Отправить →</button></div><small>AI-собеседник. В режиме речи микрофон сначала превращает твою речь в текст, затем собеседник отвечает.</small></div></div></section>',"chat");
     setTimeout(()=>{const box=document.getElementById("chatMessages");if(box)box.scrollTop=box.scrollHeight},0);
   }
   function renderChatMessages(h){
@@ -737,7 +737,7 @@
   }
   async function sendChat(){
     const input=document.getElementById("chatInput"),btn=document.getElementById("chatSendBtn"),msg=input?.value.trim();if(!msg)return;
-    const p=state.chatPrefs,wasVoice=chatInputWasVoice;chatInputWasVoice=false;
+    const p=state.chatPrefs,wasVoice=chatInputWasVoice&&input?.dataset.fromVoice==="true";chatInputWasVoice=false;
     state.chatMemories=state.chatMemories||{};const memoryKey=state.chatThreadId||"general";
     if(!state.chatMemories[memoryKey])state.chatMemories[memoryKey]=[];
     const memory=state.chatMemories[memoryKey];if(memory.length<8){
