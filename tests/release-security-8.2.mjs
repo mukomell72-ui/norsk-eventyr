@@ -2,6 +2,11 @@
 import assert from 'node:assert/strict';
 import {createSession,verifySession,guard} from '../api/_guard.js';
 import cloud from '../api/cloud.js';
+import transcribe from '../api/transcribe.js';
+import pronounce from '../api/pronounce.js';
+import evaluate from '../api/evaluate.js';
+import health from '../api/health.js';
+import {decodeAudioBase64,isWav} from '../api/_audio-input.js';
 process.env.NE_SESSION_SECRET='qa-standalone-session-signing-key-2026';
 process.env.OPENAI_API_KEY='qa-only-no-live-provider-key-2026';
 const BASE_IP='198.51.100.';
@@ -74,4 +79,41 @@ remoteError=true;
 const failure=await invoke('norsk_eventyr_sync_pull',{p_sync_id:id,p_secret:secret});
 assert.equal(failure.code,503);
 assert(!JSON.stringify(failure.data).includes('SECRET'),'remote database error text must stay private');
-console.log('PASS release security guards: origin, session, resource limits and cloud parameter/error isolation');
+// Unauthenticated status endpoints must not advertise secret/configured AI details.
+const healthRes=response();await health({method:'GET'},healthRes);
+assert.equal(healthRes.code,200);
+assert(!Object.hasOwn(healthRes.data,'aiConfigured'));
+const evalRes=response();await evaluate({method:'GET'},evalRes);
+assert.equal(evalRes.code,200);
+assert(!Object.hasOwn(evalRes.data,'configured'));
+assert(!Object.hasOwn(evalRes.data,'model'));
+
+// Reject oversized payloads consistently before reaching downstream services.
+const oversized=req('/api/chat',BASE_IP+'50',{message:'x'.repeat(135000)});
+const oversizedRes=response();
+assert.equal(await guard(oversized,oversizedRes,{requireSession:false,requireAccess:false}),false);
+assert.equal(oversizedRes.code,413);
+const claimed=req('/api/chat',BASE_IP+'51',{message:'hei'});
+claimed.headers['content-length']='200000';
+const claimedRes=response();
+assert.equal(await guard(claimed,claimedRes,{requireSession:false,requireAccess:false}),false);
+assert.equal(claimedRes.code,413);
+
+// The audio decoder is intentionally strict: malformed base64 cannot reach a paid provider.
+const rawAudio=Buffer.alloc(256,7),encodedAudio=rawAudio.toString('base64');
+assert.equal(decodeAudioBase64(encodedAudio,300)?.length,256);
+assert.equal(decodeAudioBase64(encodedAudio+'!',300),null);
+assert.equal(decodeAudioBase64(encodedAudio,128),null);
+assert.equal(decodeAudioBase64(encodedAudio.replace(/=$/,'/'),300),null);
+assert(!isWav(rawAudio));
+const invalidTranscribe=response();
+await transcribe(req('/api/transcribe',BASE_IP+'52',{audioBase64:encodedAudio,mime:'application/octet-stream'}),invalidTranscribe);
+assert.equal(invalidTranscribe.code,400,'unsupported audio type must be denied');
+const malformedTranscribe=response();
+await transcribe(req('/api/transcribe',BASE_IP+'53',{audioBase64:encodedAudio+'!',mime:'audio/webm'}),malformedTranscribe);
+assert.equal(malformedTranscribe.code,400,'non-canonical base64 must be denied');
+const badWav=response();
+await pronounce(req('/api/pronounce',BASE_IP+'54',{audioBase64:encodedAudio,expected:'God dag'}),badWav);
+assert.equal(badWav.code,400,'pronunciation requires a real WAV header');
+console.log('PASS release security guards: origin, session, resource limits and cloud parameter/error isolation, bounded media, API input sizes and diagnostic privacy');
+
