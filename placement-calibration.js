@@ -122,12 +122,15 @@
   const score=clamp(r.data.score);
   x.p.productive.results.push({skill:task.skill,score,level:x.target,source:voice?'microphone_transcript':'typed_answer',date:new Date().toISOString()});
   if(window.NEAdaptive){
+   const tracker=NEAdaptive.ensure(state);
+   const before=tracker.levelSkills[x.target][task.skill];
+   const authentic=tracker.attempts.filter(z=>z.level===x.target&&z.skill===task.skill&&z.diagnostic!==true).length;
    NEAdaptive.recordAttempt(state,{level:x.target,skill:task.skill,score,moduleId:x.target.toLowerCase()+'-placement2',source:voice?'placement2_voice':'placement2_written',errorTag:r.data.error_tag||'',transfer:false,diagnostic:true});
-   // Conservative provisional scores: neither a high AI rating nor good reading certifies CEFR.
+   // A fresh AI estimate can never erase substantial evidence from actual lessons.
    const profile=NEAdaptive.ensure(state).levelSkills[x.target];
-   const preliminary=clamp(30+score*.45);
    const previous=x.p.productive.results.filter(z=>z.skill===task.skill);
-   profile[task.skill]=clamp(30+mean(previous.map(z=>z.score))*.45);
+   const preliminary=clamp(30+mean(previous.map(z=>z.score))*.45);
+   profile[task.skill]=authentic>=4?clamp(before*.8+preliminary*.2):authentic>0?clamp(before*.6+preliminary*.4):preliminary;
    if(state.level===x.target)state.learningV8.skills[task.skill]=profile[task.skill];
   }
   x.p.productive.nextIndex++;
