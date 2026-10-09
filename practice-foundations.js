@@ -12,8 +12,16 @@
     grammarTitle:"Практическая грамматика",grammarRuleRu,grammarExamples:[phrase]};
  }
  function get(id){
-  const data=lessons[String(id||'')]||window.NEAdvancedBank?.[String(id||'')];
-  return data?JSON.parse(JSON.stringify(data)):null;
+  const key=String(id||'');
+  let data=lessons[key]||window.NEAdvancedBank?.[key];
+  if(!data)return null;
+  const ext=window.NEFoundationExtensions?.[key];
+  if(ext){
+   const initial={audio:data.listeningAudio,q:data.listeningQ,opts:data.listeningOpts,correct:data.listeningCorrect};
+   data={...data,read:data.read+' '+ext.readAdd,speakingFollowUp:ext.speakingFollowUp,
+    listeningSets:[initial,ext.listeningFollowUp]};
+  }
+  return JSON.parse(JSON.stringify(data));
  }
  // Keep answer positions different across topics and practice sessions, without
  // mutating the original checked exercise or losing the answer key.
