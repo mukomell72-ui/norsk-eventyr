@@ -10,4 +10,11 @@ assert.equal((await run(generate,'/api/generate',{kind:'lesson',level:'A1'},less
 assert.equal((await run(generate,'/api/generate',{kind:'lesson',level:'A1'},{...lesson,listeningAudio:''})).status,502);
 assert.equal((await run(generate,'/api/generate',{kind:'lesson',level:'A1'},{...lesson,listeningQ:''})).status,502);
 assert.equal((await run(generate,'/api/generate',{kind:'lesson',level:'A1'},{...lesson,listeningCorrect:4})).status,502);
+assert.equal((await run(generate,'/api/generate',{kind:'lesson',level:'B1'},lesson)).status,502,'Brief A1-type lesson cannot pass as B1');
+assert.equal((await run(generate,'/api/generate',{kind:'lesson',level:'B2'},lesson)).status,502,'Brief A1-type lesson cannot pass as B2');
+assert.equal((await run(generate,'/api/generate',{kind:'lesson',level:'A1'},{...lesson,opts:['Identisk','Identisk','B','C']})).status,502,'Duplicate answer choices must be rejected');
+const meaningfulFiller='Det er viktig å undersøke saken nøye før vi trekker en endelig konklusjon. ';
+const advanced={...lesson,listeningAudio:meaningfulFiller.repeat(13),read:meaningfulFiller.repeat(17)};
+assert.equal((await run(generate,'/api/generate',{kind:'lesson',level:'B1'},advanced)).status,200,'A sufficiently substantial B1 lesson should remain supported');
+assert.equal((await run(generate,'/api/generate',{kind:'lesson',level:'B2'},advanced)).status,200,'A sufficiently substantial B2 lesson should remain supported');
 console.log('PASS 21 malformed AI responses rejected and four valid responses accepted');
