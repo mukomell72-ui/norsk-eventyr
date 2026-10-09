@@ -274,7 +274,7 @@
         const pronouncePromise=expected?blobToWavBase64(blob).then(wav=>apiPost("/api/pronounce",{audioBase64:wav,expected})).catch(()=>null):Promise.resolve(null);
         const [r,pron]=await Promise.all([transcribePromise,pronouncePromise]);
         if(r.ok){
-          const text=r.data.text||"",f=document.getElementById(target);if(f===field&&field?.isConnected)f.value=text;if(target==="chatInput"&&f===field&&field?.isConnected)chatInputWasVoice=true;
+          const text=r.data.text||"",f=document.getElementById(target);if(f===field&&field?.isConnected){f.value=text;f.dataset.fromVoice="true"}if(target==="chatInput"&&f===field&&field?.isConnected)chatInputWasVoice=true;
           if(expected){
             const fallback=similarity(text,expected),box=document.getElementById("pronFb"),p=pron&&pron.ok?pron.data:null,sc=p?.score??fallback;
             if(box)box.innerHTML='<div class="feedback '+(sc>=70?"good":"bad")+'"><b>Произношение: '+sc+'/100</b><br>'+(p?esc(p.pronunciation_ru||""):'Речь оценена по точности распознавания.')+(p?'<br><small>Разборчивость '+p.clarity+' · ритм '+p.rhythm+' · соответствие образцу '+p.accuracy+'</small>':'')+(p?.difficult_words?.length?'<br><b>Потренировать:</b> '+p.difficult_words.map(esc).join(", "):'')+'<br><small>AI-оценка аудиозаписи для тренировки, не оценка официального экзаменатора.</small></div>';
