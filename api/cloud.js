@@ -33,8 +33,17 @@ export default async function handler(req,res){
   try{
     if(!validInput(name,params))return res.status(400).json({error:"BAD_PARAMS"});
   }catch{return res.status(400).json({error:"BAD_PARAMS"})}
+  // The production migration is fail-closed: authenticated, account-owned RPC
+  // only. Preview retains legacy sync until the staged Supabase migration is tested.
+  const strict=process.env.VERCEL_ENV==="production"||process.env.NE_SYNC_V2_ENFORCE==="enforce";
+  const token=req.neAccessIdentity?.token;
+  if(strict&&!token)return res.status(503).json({error:"CLOUD_UNAVAILABLE"});
+  const operation=name.slice("norsk_eventyr_sync_".length);
+  const rpcName=strict?"ne_sync_v2":name;
+  const outgoing=strict?{...params,p_action:operation}:params;
+  const rpcHeaders={"Content-Type":"application/json","apikey":SB_KEY,...(strict?{"Authorization":"Bearer "+token}:{})};
   try{
-    const r=await fetch(SB_URL+"/rest/v1/rpc/"+name,{method:"POST",headers:{"Content-Type":"application/json","apikey":SB_KEY},body:JSON.stringify(params),signal:AbortSignal.timeout(12000)});
+    const r=await fetch(SB_URL+"/rest/v1/rpc/"+rpcName,{method:"POST",headers:rpcHeaders,body:JSON.stringify(outgoing),signal:AbortSignal.timeout(12000)});
     const data=await r.json().catch(()=>({}));
     // The database error text must never be sent back to clients.
     if(!r.ok)return res.status(r.status===429?429:503).json({error:"CLOUD_UNAVAILABLE"});
