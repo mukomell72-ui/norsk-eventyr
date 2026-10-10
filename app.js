@@ -189,7 +189,7 @@ async function checkDialogue(){
  if(!b.isConnected||lessonSession!==s){s.locked=false;return;}
  if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return;}
  const d=r.data,ok=d.accepted===true&&(d.score??70)>=55;trackLessonScore(d.score??(ok?70:40),{label:"Диалог",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||""});
- if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:l.level,skill:spoken?"speaking":"writing",score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l.id,source:spoken?"dialogue_voice":"dialogue_text",errorTag:d.error_tag||"",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});saveState();
+ if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:l.level,skill:spoken?"speaking":"writing",score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l.id,source:spoken?"dialogue_voice":"dialogue_text",errorTag:d.error_tag||"",targetErrorTag:l?._adaptive?.errorTag||"",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});saveState();
  if(ok){
   b.innerHTML=aiLessonFeedbackHtml(d,"✓ Задача выполнена")+'<button class="btn lesson-next-v8" onclick="continueCheckedDialogue()">Дальше →</button>';
   return;
@@ -275,7 +275,7 @@ async function checkFree(mode){
  const d=r.data,ok=d.accepted===true&&(d.score??70)>=55,skill=spoken?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer,
  evidenceScore=ok?Math.max(0,Math.min(100,Math.round(Number(d.score)||0))):Math.min(40,Math.max(0,Math.round(Number(d.score)||0)));
  trackLessonScore(evidenceScore,{label:spoken?"Речь":"Письмо",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||""});
- if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill,score:evidenceScore,moduleId:l?._adaptive?.moduleId||l?.id,source:mode==="speaking"&&!spoken?"lesson_free_text":rem?"lesson_free_transfer":"lesson_free",errorTag:d.error_tag||"",transfer:isTransfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}
+ if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill,score:evidenceScore,moduleId:l?._adaptive?.moduleId||l?.id,source:mode==="speaking"&&!spoken?"lesson_free_text":rem?"lesson_free_transfer":"lesson_free",errorTag:d.error_tag||"",targetErrorTag:rem?.errorTag||l?._adaptive?.errorTag||"",transfer:isTransfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}
  if(ok){
   s.remediation=null;s.locked=true;
   if(mode==="speaking"&&l.speakingFollowUp&&!s.speakingFollowup){
