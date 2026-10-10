@@ -2,8 +2,8 @@ plugins {
     id 'com.android.application'
 }
 def testUrl = providers.gradleProperty('norskUrl').orElse('').get()
-if (testUrl != 'https://norsk-eventyr-mvp-git-feature-820-placement-calibration-fffff19.vercel.app/') {
-    throw new GradleException('A verified HTTPS feature-preview URL is required via -PnorskUrl. Production is forbidden for this debug APK.')
+if (testUrl != 'https://norsk-eventyr-mvp-git-release-820-rc-20261010-fffff19.vercel.app/') {
+    throw new GradleException('A verified HTTPS RC-preview URL is required via -PnorskUrl. Production is forbidden for this debug APK.')
 }
 android {
     namespace 'no.norskeventyr.personaltest'
