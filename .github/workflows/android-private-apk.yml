@@ -42,8 +42,8 @@ jobs:
         run: |
           set -euo pipefail
           APK=android-test/app/build/outputs/apk/debug/app-debug.apk
-          unzip -p "$APK" classes.dex | strings | grep -F "$TEST_PREVIEW_URL"
-          if unzip -p "$APK" classes.dex | strings | grep -F 'feature-820-placement-calibration'; then
+          unzip -p "$APK" 'classes*.dex' | strings | grep -F "$TEST_PREVIEW_URL"
+          if unzip -p "$APK" 'classes*.dex' | strings | grep -F 'feature-820-placement-calibration'; then
             echo "ERROR: test APK still points to the old 8.2 feature preview" >&2
             exit 1
           fi
