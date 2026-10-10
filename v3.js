@@ -453,14 +453,33 @@
     (w.collocation?'<div class="notice"><b>Часто вместе:</b> '+esc(w.collocation)+'</div>':'')+
     (w.note_ru?'<p class="muted daily-note">'+esc(w.note_ru)+'</p>':'')+'<a class="btn ghost link-btn" target="_blank" rel="noopener" href="https://ordbokene.no/bm/'+encodeURIComponent(w.lemma||w.word)+'">Проверить в Bokmålsordboka ↗</a></article>';
   }
+  // One request per day; slow AI may not hijack the screen after navigation.
+  let pendingDailyPack=null;
   async function generateDailyPack(){
-    const date=localDateKey();if(state.dailyPacks[date])return renderDaily();
+    const date=localDateKey();
+    if(state.dailyPacks[date])return renderDaily();
+    if(pendingDailyPack?.date===date)return pendingDailyPack.promise;
+    const requestedLevel=state.level||"A1";
     shell('<section class="card loading-card"><div class="spinner"></div><h2>Подбираю 5 новых слов</h2><p class="muted">Проверяю словарь, чтобы не повторить уже изученное, и добавляю слова прошлых дней в новые примеры.</p></section>',"home");
+    const loadingScreen=document.querySelector('#app .loading-card');
     const review=reinforcementEntries(12).map(x=>({word:x.lemma||x.word,translation_ru:x.translation_ru,daysAgo:x.daysAgo,strength:x.strength||20}));
     const dayNumber=(state.dailyDayCount||0)+1;
-    const r=await apiPost("/api/daily",{level:state.level||"A1",date,knownWords:knownDailyWords(),reviewWords:review,weakSkills:weakSkills(),dayNumber});
-    if(!r.ok){shell('<section class="card"><h2>Не удалось создать слова на сегодня</h2><p class="muted">'+esc(r.error)+'</p><button class="btn" onclick="renderDaily()">Назад</button></section>',"home");return}
-    const pack=r.data;pack.date=date;pack.level=state.level||"A1";state.dailyPacks[date]=pack;state.dailyProgress[date]={completed:false,scores:[]};state.dailyDayCount=dayNumber;const oldDates=Object.keys(state.dailyPacks).sort();while(oldDates.length>120){const old=oldDates.shift();delete state.dailyPacks[old];delete state.dailyProgress[old]}registerDailyPack(pack);renderDaily();
+    const request=(async()=>{
+      const r=await apiPost("/api/daily",{level:requestedLevel,date,knownWords:knownDailyWords(),reviewWords:review,weakSkills:weakSkills(),dayNumber});
+      if(!r.ok||!r.data||typeof r.data!=="object"){
+        if(loadingScreen?.isConnected)shell('<section class="card"><h2>Не удалось создать слова на сегодня</h2><p class="muted">'+esc(r.error||"Неполный ответ сервера")+'</p><button class="btn" onclick="renderDaily()">Назад</button></section>',"home");
+        return;
+      }
+      if(state.dailyPacks[date]){if(loadingScreen?.isConnected)renderDaily();return}
+      const pack=r.data;pack.date=date;pack.level=requestedLevel;
+      state.dailyPacks[date]=pack;state.dailyProgress[date]={completed:false,scores:[]};state.dailyDayCount=dayNumber;
+      const oldDates=Object.keys(state.dailyPacks).sort();
+      while(oldDates.length>120){const old=oldDates.shift();delete state.dailyPacks[old];delete state.dailyProgress[old]}
+      registerDailyPack(pack);
+      if(loadingScreen?.isConnected)renderDaily();
+    })();
+    pendingDailyPack={date,promise:request};
+    try{return await request}finally{if(pendingDailyPack?.promise===request)pendingDailyPack=null}
   }
   function startDailyPractice(date=localDateKey()){
     const pack=state.dailyPacks[date];if(!pack||!(pack.practice||[]).length)return renderDaily();
