@@ -66,7 +66,42 @@ const {PGlite}=require(process.env.NE_PGLITE_PATH||'@electric-sql/pglite');
  await db.exec('reset role');await db.query("select set_config('request.jwt.sub','',false)");await db.exec('set role anon');
  await assert.rejects(db.query(rpc('pull')));
  await assert.rejects(db.query('select * from public.norsk_eventyr_sync'));
- // The final cutover must actually revoke every legacy function in production.
+ // Rehearse legacy RPC cutover only inside isolated, in-memory PostgreSQL.
+ await db.exec('reset role');
+ await db.exec(`
+   create function public.norsk_eventyr_sync_create(uuid,text,jsonb) returns jsonb
+     language sql security definer set search_path='' as $select '{}'::jsonb$;
+   create function public.norsk_eventyr_sync_pull(uuid,text) returns jsonb
+     language sql security definer set search_path='' as $select '{}'::jsonb$;
+   create function public.norsk_eventyr_sync_push(uuid,text,jsonb,bigint) returns jsonb
+     language sql security definer set search_path='' as $select '{}'::jsonb$;
+   create function public.norsk_eventyr_sync_delete(uuid,text) returns jsonb
+     language sql security definer set search_path='' as $select '{}'::jsonb$;
+ `);
+ const legacyNames=['create','pull','push','delete'];
+ const signatures={create:'uuid,text,jsonb',pull:'uuid,text',push:'uuid,text,jsonb,bigint',delete:'uuid,text'};
+ async function canExecute(role,fn){
+   const full='public.'+fn+'('+signatures[fn.slice('norsk_eventyr_sync_'.length)]+')';
+   return (await db.query('select has_function_privilege($1,$2,\'EXECUTE\') as allowed',[role,full])).rows[0].allowed;
+ }
+ for(const action of legacyNames)assert.equal(await canExecute('anon','norsk_eventyr_sync_'+action),true,
+   'rehearsal must start with the old anonymous permissions');
+ await db.exec(fs.readFileSync(path.join(__dirname,'../deferred/SECURITY_8_2_SYNC_CUTOVER.sql'),'utf8'));
+ for(const action of legacyNames){
+   assert.equal(await canExecute('anon','norsk_eventyr_sync_'+action),false,'anon legacy '+action+' must be revoked');
+   assert.equal(await canExecute('authenticated','norsk_eventyr_sync_'+action),false,'auth legacy '+action+' must be revoked');
+ }
+ assert.equal((await db.query("select has_function_privilege('authenticated','public.ne_sync_v2(text,uuid,text,jsonb,bigint)','EXECUTE') as allowed")).rows[0].allowed,true,
+   'legacy cutover must preserve the new authenticated sync RPC');
+ assert.equal((await as(u,rpc('pull'))).state.xp,8,
+   'legacy cutover must preserve existing bound learning progress');
+ // Demonstrate emergency legacy grant rollback in test only. In production
+ // this would reopen the old anonymous access path and needs separate approval.
+ await db.exec('reset role');
+ for(const action of legacyNames){
+   await db.exec('grant execute on function public.norsk_eventyr_sync_'+action+'('+signatures[action]+') to anon,authenticated');
+   assert.equal(await canExecute('anon','norsk_eventyr_sync_'+action),true);
+ }
  await db.close();
- console.log('PASS staged sync SQL: authenticated ownership, migration claim, revision conflict, cross-user denial and RLS');
+ console.log('PASS staged sync SQL: account ownership, old-link claim, RLS, legacy cutover/rollback rehearsal and progress preservation');
 })().catch(e=>{console.error(e);process.exit(1)});
