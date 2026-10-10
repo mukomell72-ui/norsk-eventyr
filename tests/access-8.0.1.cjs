@@ -55,9 +55,9 @@ assert(migration.includes("'active_free'"),'free-access owner metric missing');
 assert(access.includes('ownerMarkPurchaseSeen'),'purchase-interest notification acknowledgement missing');
 assert(access.includes("if(loaded&&!panelOpen&&!document.hidden")&&access.includes("if(loaded&&!panelOpen&&!gate.querySelector('#accessList')"),'background access checks must not close an open panel');
 
-assert(app.includes('APP_VERSION="8.0.1"'),'app version mismatch');
-assert(health.includes('version:"8.0.1"'),'health version mismatch');
-assert(index.includes('8.0.1-access-r1'),'public asset revision mismatch');
-assert(sw.includes('norsk-eventyr-v8-0-1-access-r1'),'service worker revision mismatch');
+assert(app.includes('APP_VERSION="8.2.0"'),'app version mismatch');
+assert(health.includes('version:"8.2.0"'),'health version mismatch');
+assert(index.includes('8.2.0-rc1'),'public asset revision mismatch');
+assert(sw.includes('norsk-eventyr-v8-2-0-rc1'),'service worker revision mismatch');
 assert(migration.includes("'format','norsk-eventyr-backup-v4'"),'backup v4 missing');
 console.log('Norsk Eventyr 8.0.1 access, promo, paid and device controls: PASS');

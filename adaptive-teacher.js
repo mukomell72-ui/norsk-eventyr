@@ -11,7 +11,19 @@ function addDays(iso,days){const d=iso?new Date(iso+'T12:00:00'):new Date();d.se
 function ensure(state){
  if(!state.learningV8||typeof state.learningV8!=='object'||Array.isArray(state.learningV8))state.learningV8={};
  const p=state.learningV8,current=['A1','A2','B1','B2'].includes(state.level)?state.level:'A1';
- p.version='8.0-method-4';p.skills=p.skills||{};p.levelSkills=p.levelSkills||{};p.modules=p.modules||{};p.reviews=p.reviews||{};p.errorPatterns=p.errorPatterns||{};p.assessments=Array.isArray(p.assessments)?p.assessments:[];p.attempts=Array.isArray(p.attempts)?p.attempts:[];
+ p.version='8.2-method-rc';p.skills=p.skills||{};p.levelSkills=p.levelSkills||{};p.modules=p.modules||{};p.reviews=p.reviews||{};p.errorPatterns=p.errorPatterns||{};p.patternStats=p.patternStats||{};p.assessments=Array.isArray(p.assessments)?p.assessments:[];p.attempts=Array.isArray(p.attempts)?p.attempts:[];
+ // Rebuild scoped memories only from dated, level-specific evidence. Legacy
+ // global counters cannot safely be attributed to a particular CEFR level.
+ if(p.patternStatsMigrated!==true){
+  const alreadyTracked=new Set(Object.keys(p.patternStats));
+  for(const a of p.attempts){
+   if(a?.diagnostic||!LEVEL_ORDER.includes(a?.level)||!a?.errorTag||clamp(a.score)>=80)continue;
+   const key=a.level+':'+String(a.errorTag).slice(0,50);
+   const prior=p.patternStats[key]||{tag:String(a.errorTag).slice(0,50),level:a.level,skill:a.skill,misses:0,passes:0,transferPasses:0,severity:0,due:dayKey()};
+   if(!alreadyTracked.has(key)){prior.misses++;prior.severity=clamp(prior.severity+(clamp(a.score)<55?24:14));p.patternStats[key]=prior;}
+  }
+  p.patternStatsMigrated=true;
+ }
  if(!LEVEL_ORDER.includes(p.startLevel))p.startLevel=LEVEL_ORDER.includes(state.placement?.recommendedStart)?state.placement.recommendedStart:(LEVEL_ORDER.includes(state.placement?.level)?state.placement.level:(LEVEL_ORDER.includes(state.level)?state.level:'A1'));
  for(const level of ['A1','A2','B1','B2']){
   p.levelSkills[level]=p.levelSkills[level]||{};
@@ -26,6 +38,24 @@ function ensure(state){
  return p;
 }
 function levelProfile(p,level){return p.levelSkills?.[level]||Object.fromEntries(ALL.map(s=>[s,35]))}
+function skillForError(tag){return({word_order:'grammar',verb_form:'grammar',article:'grammar',vocabulary:'vocabulary',task:'writing',coherence:'writing'})[String(tag||'')]||'grammar'}
+function recordPattern(p,{tag,level,skill,score,target=false,transfer=false}){
+ const cleanTag=String(tag||'').slice(0,50);if(!cleanTag||!LEVEL_ORDER.includes(level))return;
+ const key=level+':'+cleanTag,record=p.patternStats[key]||(p.patternStats[key]={tag:cleanTag,level,skill:skillForError(cleanTag),misses:0,passes:0,transferPasses:0,severity:0,due:dayKey()});
+ if(ALL.includes(skill))record.skill=skill;
+ const n=clamp(score);record.lastSeen=new Date().toISOString();
+ if(target&&n>=75){
+  record.passes++;if(transfer&&n>=80)record.transferPasses++;
+  record.severity=clamp(record.severity-(transfer&&n>=80?32:18));
+  record.lastSuccess=record.lastSeen;record.due=addDays(dayKey(),transfer&&n>=80?7:3);
+ }else if(n<80){
+  record.misses++;record.severity=clamp(record.severity+(n<55?24:14));record.due=dayKey();
+ }
+}
+function priorityError(state,level){
+ const p=ensure(state),today=dayKey();
+ return Object.values(p.patternStats).filter(e=>e&&e.level===level&&e.misses>=2&&e.severity>=35&&(!e.due||e.due<=today)).sort((a,b)=>b.severity-a.severity||b.misses-a.misses)[0]||null;
+}
 function moduleState(p,id){return p.modules[id]||(p.modules[id]={skills:{},attempts:0,mastery:0,lastSeen:null,transferPasses:0})}
 function skillForStep(step,mode){
  if(mode==='writing'||mode==='speaking')return mode;
@@ -35,12 +65,21 @@ function recordAttempt(state,input={}){
  const p=ensure(state),skill=ALL.includes(input.skill)?input.skill:'vocabulary',score=clamp(input.score),weight=input.transfer?0.28:0.18;
  const id=String(input.moduleId||input.lessonId||'general').slice(0,90),moduleInfo=window.NECurriculum?.moduleById(id),level=['A1','A2','B1','B2'].includes(input.level)?input.level:(moduleInfo?.level||state.level||'A1'),profile=levelProfile(p,level);
  const old=clamp(profile[skill]);profile[skill]=clamp(old*(1-weight)+score*weight);if(level===state.level)p.skills[skill]=profile[skill];
+ // Placement answers adjust the tentative profile but are not lesson mastery
+ // or spaced-repetition evidence until tested independently.
+ if(input.diagnostic===true){
+  p.attempts.push({date:new Date().toISOString(),level,skill,score,moduleId:id,source:String(input.source||'placement').slice(0,40),diagnostic:true,transfer:false});
+  p.attempts=p.attempts.slice(-500);
+  return profile[skill];
+ }
  const m=moduleState(p,id),mo=Number.isFinite(m.skills[skill])?m.skills[skill]:old;
  m.skills[skill]=clamp(mo*(1-weight)+score*weight);m.attempts=(m.attempts||0)+1;m.lastSeen=dayKey();
  if(input.transfer&&score>=80)m.transferPasses=(m.transferPasses||0)+1;
  const vals=ALL.map(s=>m.skills[s]).filter(Number.isFinite),avg=vals.length?clamp(vals.reduce((a,b)=>a+b,0)/vals.length):0,min=vals.length?Math.min(...vals):0;m.mastery=vals.length===ALL.length&&min>=65?avg:Math.min(69,avg);
- const tag=String(input.errorTag||'').slice(0,50);if(tag&&score<80)p.errorPatterns[tag]=(p.errorPatterns[tag]||0)+1;
- p.attempts.push({date:new Date().toISOString(),level,skill,score,moduleId:id,source:String(input.source||'practice').slice(0,40),errorTag:tag,transfer:!!input.transfer});
+ const tag=String(input.errorTag||'').slice(0,50),targetTag=String(input.targetErrorTag||'').slice(0,50);
+ if(tag&&score<80){p.errorPatterns[tag]=(p.errorPatterns[tag]||0)+1;recordPattern(p,{tag,level,skill,score})}
+ if(targetTag&&(targetTag!==tag||score>=80))recordPattern(p,{tag:targetTag,level,skill,score,target:true,transfer:!!input.transfer});
+ p.attempts.push({date:new Date().toISOString(),level,skill,score,moduleId:id,source:String(input.source||'practice').slice(0,40),errorTag:tag,targetErrorTag:targetTag,transfer:!!input.transfer});
  p.attempts=p.attempts.slice(-500);
  const originKey=String(input.reviewKey||''),originReview=originKey?p.reviews[originKey]:null,originCut=originKey.lastIndexOf(':'),originSkill=originCut>=0?originKey.slice(originCut+1):'';
  const delayedDue=!!(originReview&&originSkill===skill&&originReview.due&&originReview.due<=dayKey());
@@ -85,19 +124,38 @@ function levelGate(state,level){
  const pass=avg>=80&&Math.min(...scores)>=70&&clamp(profile.grammar)>=70&&clamp(profile.vocabulary)>=70&&mastered>=Math.max(1,mods.length-2)&&transferScore>=80&&delayed===CORE.length;
  return{pass,avg:clamp(avg),minCore:Math.min(...scores),mastered,total:mods.length,transferScore,delayed};
 }
-function weakestSkill(state){const p=ensure(state),profile=levelProfile(p,state.level);return ALL.slice().sort((a,b)=>profile[a]-profile[b])[0]}
+function weakestSkill(state,level=state.level){const p=ensure(state),profile=levelProfile(p,level);return ALL.slice().sort((a,b)=>profile[a]-profile[b])[0]}
 function nextModule(state,level){
  const mods=levelModules(level);if(!mods.length)return null;
  return mods.find(m=>moduleMastery(state,m.id)<78)||mods.at(-1);
 }
 function nextMission(state){
- const p=ensure(state),level=['A1','A2','B1','B2'].includes(state.level)?state.level:'A1',due=dueReviews(state);
+ const p=ensure(state),current=LEVEL_ORDER.includes(state.level)?state.level:'A1',
+ currentIndex=LEVEL_ORDER.indexOf(current),
+ level=levelGate(state,current).pass&&currentIndex<LEVEL_ORDER.length-1?LEVEL_ORDER[currentIndex+1]:current,
+ due=dueReviews(state).filter(r=>LEVEL_ORDER.indexOf(r.level||window.NECurriculum?.moduleById(r.moduleId)?.level||current)<=LEVEL_ORDER.indexOf(level));
  if(due.length){
   const d=due[0],known=window.NECurriculum?.moduleById(d.moduleId),reviewLevel=['A1','A2','B1','B2'].includes(d.level)?d.level:(known?.level||level),m=known||nextModule(state,reviewLevel);
   return{kind:'review',level:reviewLevel,module:m,skill:d.skill,reason:'Пора проверить, сохранился ли материал после паузы.',reviewKey:d.key};
  }
- const skill=weakestSkill(state),module=nextModule(state,level);
- return{kind:'learn',level,module,skill,reason:'Сейчас это самое слабое звено в твоём профиле навыков.'};
+ // A weak productive skill never downgrades the learner's stronger skills.
+ // Offer one focused lower-level practice mission, then return to the main route.
+ const gaps=state.placement?.productive?.remediation||{};
+ for(const skill of ['speaking','writing']){
+  const gap=gaps[skill];
+  if(gap&&!gap.done&&LEVEL_ORDER.includes(gap.level)&&LEVEL_ORDER.indexOf(gap.level)<currentIndex){
+   const module=nextModule(state,gap.level);
+   if(module)return{kind:'remediation',level:gap.level,module,skill,reason:'Дополнительная практика '+LABEL[skill].toLowerCase()+' уровня '+gap.level+' без потери выбранного маршрута '+current+'.'};
+  }
+ }
+ const recurring=priorityError(state,level);
+ if(recurring){
+  const module=nextModule(state,level);
+  if(module)return{kind:'error_remediation',level,module,skill:ALL.includes(recurring.skill)?recurring.skill:skillForError(recurring.tag),errorTag:recurring.tag,
+   reason:'Закрепляем повторяющуюся ошибку в новой ситуации: '+recurring.tag+'.'};
+ }
+ const skill=weakestSkill(state,level),module=nextModule(state,level);
+ return{kind:'learn',level,module,skill,reason:level!==current?'Предыдущий уровень подтверждён. Начинаем следующий этап.':'Тренируем навык, которому нужна практика в новой ситуации.'};
 }
 function assessment(state,level,score,skillScores={}){
  const p=ensure(state),s=clamp(score);
@@ -107,18 +165,33 @@ function assessment(state,level,score,skillScores={}){
 function completeLesson(state,lesson){
  const p=ensure(state),id=lesson?._adaptive?.moduleId||lesson?.id||'lesson',m=moduleState(p,id);m.lastCompleted=dayKey();m.completions=(m.completions||0)+1;if(lesson?._adaptive)p.lastSessionDate=dayKey();
  if(lesson?._adaptive?.kind==='review'&&lesson._adaptive.reviewKey&&p.reviews[lesson._adaptive.reviewKey])p.reviews[lesson._adaptive.reviewKey].completedAt=new Date().toISOString();
+ if(lesson?._adaptive?.kind==='remediation'){
+  const gap=state.placement?.productive?.remediation?.[lesson._adaptive.skill];
+  if(gap&&gap.level===lesson.level){gap.done=true;gap.completedAt=new Date().toISOString()}
+ }
 }
-function errors(state){return Object.entries(ensure(state).errorPatterns).sort((a,b)=>b[1]-a[1]).slice(0,6).map(x=>x[0])}
+function errors(state,level=state.level){
+ const p=ensure(state),scope=LEVEL_ORDER.includes(level)?level:state.level;
+ return Object.values(p.patternStats).filter(e=>e&&e.level===scope&&e.severity>0).sort((a,b)=>b.severity-a.severity||b.misses-a.misses).slice(0,6).map(e=>e.tag);
+}
 function reviewWords(state){if(typeof window.neReinforcementWords==='function')return window.neReinforcementWords(12);return[]}
 function bars(state){
  const p=ensure(state),profile=levelProfile(p,state.level);return ALL.map(s=>'<div class="metric"><span>'+LABEL[s]+'</span><strong>'+clamp(profile[s])+'%</strong></div><div class="progress"><i style="width:'+clamp(profile[s])+'%"></i></div>').join('');
 }
+function learningBlocker(gate){
+ if(!gate.total)return 'Пока нет модулей для этого уровня.';
+ if(gate.avg<80||gate.minCore<70)return 'Нужно укрепить аудирование, чтение, письмо или речь.';
+ if(gate.mastered<Math.max(1,gate.total-2))return 'Нужно освоить остальные модули уровня.';
+ if(gate.transferScore<80)return 'Проверь материал в новой практической ситуации.';
+ if(gate.delayed<4)return 'Не хватает отложенных проверок четырёх навыков.';
+ return gate.pass?'Следующий уровень открыт.':'Закрепи грамматику и словарь.';
+}
 function startAdaptiveTeacher(){
  ensure(state);const mission=nextMission(state),gate=levelGate(state,state.level),p=state.learningV8,attempts=p.attempts.length;
- const m=mission.module,reason=mission.reason+(m?' Цель: '+m.canDo[0]+'.':'');
+ const m=mission.module,pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id],reason=(pending?'Есть незавершённое занятие. Продолжим с места остановки. ':mission.reason)+(m?' Цель: '+m.canDo[0]+'.':'');
  shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Адаптивный преподаватель · '+esc(state.level)+'</div><h2 style="margin:0">Нора ведёт занятие</h2></div></div>'+
- '<section class="grid"><article class="card"><div class="eyebrow">Следующий шаг</div><h2>'+esc(m?.title||'Диагностика')+'</h2><p>'+esc(reason)+'</p><div class="row"><span class="tag">'+esc(LABEL[mission.skill]||mission.skill)+'</span><span class="tag">'+(mission.kind==='review'?'Повторение':'Новый материал')+'</span></div><br><button class="btn" onclick="teacherStartMission()">Начать занятие</button></article>'+
- '<article class="card"><div class="eyebrow">Допуск к '+esc(state.level)+'</div><h2>'+gate.avg+'% профиль</h2><p class="muted">Уровень не засчитывается по одному тесту. Нужны четыре навыка, перенос в новой ситуации и отложенная проверка.</p><div class="metric"><span>Освоено модулей</span><strong>'+gate.mastered+'/'+gate.total+'</strong></div><div class="metric"><span>Отложенных подтверждений</span><strong>'+gate.delayed+'/4</strong></div><div class="metric"><span>Статус</span><strong>'+(gate.pass?'Пройден':'Есть работа')+'</strong></div></article></section>'+
+ '<section class="grid"><article class="card"><div class="eyebrow">Следующий шаг</div><h2>'+esc(pending?.title||m?.title||'Диагностика')+'</h2><p>'+esc(reason)+'</p><div class="row"><span class="tag">'+esc(LABEL[mission.skill]||mission.skill)+'</span><span class="tag">'+(pending?'Продолжение':mission.kind==='review'?'Повторение':'Новый материал')+'</span></div><br><button class="btn" onclick="teacherStartMission()">'+(pending?'Продолжить с места остановки':'Начать занятие')+'</button></article>'+
+ '<article class="card"><div class="eyebrow">Допуск к '+esc(state.level)+'</div><h2>'+gate.avg+'% профиль</h2><p class="muted">'+esc(learningBlocker(gate))+' Для перехода нужны четыре навыка и отложенная проверка.</p><div class="metric"><span>Освоено модулей</span><strong>'+gate.mastered+'/'+gate.total+'</strong></div><div class="metric"><span>Отложенных подтверждений</span><strong>'+gate.delayed+'/4</strong></div><div class="metric"><span>Статус</span><strong>'+(gate.pass?'Пройден':'Есть работа')+'</strong></div></article></section>'+
  '<div class="section-title"><h2>Профиль навыков</h2></div><section class="card">'+bars(state)+'</section>'+
  (attempts<8?'<section class="notice" style="margin-top:14px"><b>Пока мало данных.</b> Пройди контроль уровня: после нескольких ответов преподаватель будет выбирать задания точнее. <button class="btn secondary" style="margin-top:10px" onclick="navigate(\'test\',\''+escJs(state.level)+'\')">Диагностика '+esc(state.level)+'</button></section>':'')+
  '<section class="card" style="margin-top:14px"><h3>Как работает преподаватель</h3><p class="muted">Не переводит дальше только за факт прохождения. Он собирает доказательства по аудированию, чтению, письму, речи, грамматике и словарю; возвращает ошибки через интервалы; усложняет контекст; требует самостоятельного ответа и переноса навыка.</p></section>','home');
@@ -147,17 +220,42 @@ function moduleMission(state,moduleId){
 async function runTeacherMission(mission){
  const m=mission?.module;if(!m)return;
  shell('<section class="card loading-card"><div class="spinner"></div><h2>Нора готовит занятие</h2><p class="muted">Цель — '+esc(m.canDo[0])+'. Задания будут подстроены под слабые места, а не случайно сгенерированы.</p></section>','home');
- const p=ensure(state),targetProfile=levelProfile(p,mission.level),payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...targetProfile},errorPatterns:errors(state),weakSkills:ALL.filter(s=>targetProfile[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review'};
+ const p=ensure(state),targetProfile=levelProfile(p,mission.level),
+ variations=['Другой собеседник, новый повод разговора.','Другая обстановка и непредвиденное уточнение.','Новая причина просьбы и ограничение по времени.','Та же цель, но другая последовательность действий.'],
+ revision=(p.modules[m.id]?.completions||0)+(p.modules[m.id]?.attempts||0),
+ payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...targetProfile},errorPatterns:errors(state,mission.level),targetErrorTag:mission.errorTag||'',weakSkills:ALL.filter(s=>targetProfile[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review',scenarioVariation:variations[revision%variations.length]};
+ const foundation=window.NECurated?.variant?.(m.id,revision)||window.NECurated?.get(m.id);
+ const isFirstAttempt=revision===0&&(mission.kind==='learn'||mission.kind==='remediation');
  try{
-  const r=typeof neApiPost==='function'?await neApiPost('/api/generate',payload):await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(async x=>({ok:x.ok,data:await x.json()}));
-  if(!r.ok||!r.data)throw new Error(r.error||'GENERATION');
-  const lesson={...r.data,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,title:r.data.title||m.title,grammar:r.data.grammarRuleRu||m.grammar,_adaptive:{moduleId:m.id,skill:mission.skill,kind:mission.kind,reviewKey:mission.reviewKey||'',canDo:m.canDo,transfer:mission.kind==='review'||/transfer|capstone/.test(m.id)}};
-  state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;saveState();lessonSession={lesson,step:0,locked:false,xpScores:[]};renderLesson();
- }catch(e){shell('<section class="card"><h2>Занятие не создано</h2><p class="muted">Не засчитываю ничего без полноценного задания. Проверь соединение и повтори.</p><button class="btn" onclick="startAdaptiveTeacher()">Назад</button></section>','home')}
+  let data,source='AI';
+  if(isFirstAttempt&&foundation){
+   data=foundation;source='Подготовленный учебный материал';
+  }else{
+   const r=typeof neApiPost==='function'?await neApiPost('/api/generate',payload):await fetch('/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(async x=>({ok:x.ok,data:await x.json()}));
+   if(!r.ok||!r.data)throw new Error(r.error||'GENERATION');
+   data=r.data;
+  }
+  const lesson={...data,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,title:data.title||m.title,grammar:data.grammarRuleRu||m.grammar,_adaptive:{moduleId:m.id,skill:mission.skill,kind:mission.kind,reviewKey:mission.reviewKey||'',errorTag:mission.errorTag||'',canDo:m.canDo,transfer:mission.kind==='review'||mission.kind==='error_remediation'||/transfer|capstone/.test(m.id),origin:source}};
+  state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;lessonSession={lesson,step:0,locked:false,xpScores:[]};persistLessonCheckpoint();renderLesson();
+ }catch(e){
+  if(foundation&&mission.kind!=='review'){
+   const lesson={...foundation,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,grammar:foundation.grammarRuleRu,_adaptive:{moduleId:m.id,skill:mission.skill,kind:'learn',reviewKey:'',errorTag:'',canDo:m.canDo,transfer:false,origin:'Резервная базовая практика'}};
+   state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;lessonSession={lesson,step:0,locked:false,xpScores:[]};persistLessonCheckpoint();renderLesson();return;
+  }
+  shell('<section class="card"><h2>Занятие не создано</h2><p class="muted">Не засчитываю ничего без полноценного задания. Проверь соединение и повтори.</p><button class="btn" onclick="startAdaptiveTeacher()">Назад</button></section>','home');
+ }
 }
-async function teacherStartMission(){return runTeacherMission(nextMission(state))}
+async function teacherStartMission(){
+ const pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id];
+ if(pending)return startLesson(pending.id);
+ const mission=nextMission(state);
+ if(mission&&LEVEL_ORDER.indexOf(mission.level)>LEVEL_ORDER.indexOf(state.level)){state.level=mission.level;saveState();}
+ return runTeacherMission(mission);
+}
 async function teacherStartModule(moduleId){
  const mission=moduleMission(state,moduleId);if(!mission)return;
+ const pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id];
+ if(pending?._adaptive?.moduleId===moduleId)return startLesson(pending.id);
  if(mission.blocked){
   const next=mission.firstOpen,byLevel=!!mission.blockedByLevel,title=byLevel?'Сначала подтверди '+mission.unlockedLevel:'Сначала закрепи предыдущий модуль',text=byLevel?'Следующий уровень откроется только после устойчивого результата по '+mission.unlockedLevel+'. Можно посмотреть программу выше, но нельзя засчитать её вместо незакрытого уровня.':'Следующий обязательный шаг — '+(next?.title||'текущий модуль')+'. Будущий материал виден заранее, но не заменяет незакрытые навыки.';
   return shell('<section class="card" style="max-width:680px;margin:35px auto"><div class="eyebrow">Маршрут '+esc(mission.unlockedLevel||mission.level)+'</div><h2>'+esc(title)+'</h2><p class="muted">'+esc(text)+'</p><div class="row"><button class="btn" onclick="teacherStartModule(\''+escJs(next?.id||'')+'\')">Продолжить маршрут</button><button class="btn ghost" onclick="navigate(\'course\',\''+escJs(mission.unlockedLevel||mission.level)+'\')">К карте курса</button></div></section>','course');

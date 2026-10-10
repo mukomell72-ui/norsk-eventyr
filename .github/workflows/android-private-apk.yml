@@ -1,0 +1,55 @@
+name: Private Android APK (no Play publication)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'android-test/**'
+      - '.github/workflows/android-private-apk.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  personal-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TEST_PREVIEW_URL: https://norsk-eventyr-mvp-git-release-820-rc-20261010-fffff19.vercel.app/
+    steps:
+      - name: Checkout private feature branch
+        uses: actions/checkout@v4
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Android 36 platform
+        run: |
+          echo "ANDROID_HOME=${ANDROID_HOME:-/usr/local/lib/android/sdk}" >> "$GITHUB_ENV"
+          export ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
+      - name: Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Build local debug APK (release candidate preview only)
+        run: gradle --no-daemon -p android-test assembleDebug "-PnorskUrl=$TEST_PREVIEW_URL"
+      - name: Verify compiled artifact
+        run: test -s android-test/app/build/outputs/apk/debug/app-debug.apk
+      - name: Verify APK embeds RC preview URL, not older branch
+        run: |
+          set -euo pipefail
+          APK=android-test/app/build/outputs/apk/debug/app-debug.apk
+          unzip -p "$APK" 'classes*.dex' | strings | grep -F "$TEST_PREVIEW_URL"
+          if unzip -p "$APK" 'classes*.dex' | strings | grep -F 'feature-820-placement-calibration'; then
+            echo "ERROR: test APK still points to the old 8.2 feature preview" >&2
+            exit 1
+          fi
+      - name: Save APK for private device testing
+        uses: actions/upload-artifact@v4
+        with:
+          name: Norsk-Eventyr-8.2-private-debug-APK
+          path: android-test/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7

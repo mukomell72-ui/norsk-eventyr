@@ -9,6 +9,12 @@
   state.placement=state.placement||null;
   state.completedTopics=state.completedTopics||{};
   state.chatHistory=Array.isArray(state.chatHistory)?state.chatHistory.slice(-40):[];
+  state.noraMemory=state.noraMemory&&typeof state.noraMemory==="object"&&!Array.isArray(state.noraMemory)?state.noraMemory:{introduced:false,conversationCount:0,lastTopic:"",lastPracticeDate:""};
+  if(!state.noraMemory.introduced&&(state.completed?.["a1-1"]===true||
+      state.chatHistory.some(x=>x.role==="user")||
+      Object.values(state.chatThreads||{}).some(t=>Array.isArray(t)&&t.some(x=>x?.role==="user")))){
+    state.noraMemory.introduced=true;
+  }
   state.chatPrefs=state.chatPrefs||{level:state.level||"A1",mode:"free",topic:"",scenario:"butikk",autoSpeak:true};
   state.dailyPacks=state.dailyPacks||{};
   state.dailyDictionary=state.dailyDictionary||{};
@@ -146,7 +152,7 @@
     window.speechSynthesis?.cancel();
     restoreSpeechButton(speechActiveButton);
   }
-  function speechKey(text,level){return String(level||"A1")+"\n"+String(text||"").trim()}
+  function speechKey(text,level,voice="marin"){return String(level||"A1")+"\n"+String(voice||"marin")+"\n"+String(text||"").trim()}
   function trimSpeechCache(){
     while(speechCache.size>SPEECH_CACHE_LIMIT){
       const [key,item]=speechCache.entries().next().value||[];
@@ -155,12 +161,12 @@
       speechCache.delete(key);
     }
   }
-  async function getSpeechAudio(text,level){
-    const key=speechKey(text,level),cached=speechCache.get(key);
+  async function getSpeechAudio(text,level,voice="marin"){
+    const key=speechKey(text,level,voice),cached=speechCache.get(key);
     if(cached?.url)return cached;
     if(cached?.promise)return cached.promise;
     const promise=(async()=>{
-      const r=await apiPost("/api/speech",{text,level});
+      const r=await apiPost("/api/speech",{text,level,voice});
       if(!r.ok)throw new Error(r.error||"SPEECH_FAILED");
       const blob=await r.response.blob(),url=URL.createObjectURL(blob),item={url};
       speechCache.set(key,item);trimSpeechCache();return item;
@@ -178,7 +184,7 @@
     u.onstart=()=>setSpeechButton(btn,"playing");u.onend=()=>restoreSpeechButton(btn);u.onerror=()=>restoreSpeechButton(btn);
     speechSynthesis.speak(u);
   }
-  speakText=async function(text,rate=.9,btn=null){
+  speakText=async function(text,rate=.9,btn=null,voice="marin"){
     btn=btn||(document.activeElement?.tagName==="BUTTON"?document.activeElement:null);
     const request=++speechRequest;stopSpeechPlayback();setSpeechButton(btn,"loading");
     // Prefer a licensed real-human Nora recording when an exact clip exists.
@@ -191,7 +197,7 @@
     }catch{}
     const level=(lessonSession?.lesson?.level)||state.level||"A1";
     try{
-      const item=await getSpeechAudio(text,level);if(request!==speechRequest){restoreSpeechButton(btn);return}
+      const item=await getSpeechAudio(text,level,voice);if(request!==speechRequest){restoreSpeechButton(btn);return}
       const a=new Audio(item.url);speechAudio=a;a.preload="auto";a.volume=1;
       a.playbackRate=Math.max(.75,Math.min(1.25,Number(rate)/.9||1));
       try{
@@ -244,7 +250,12 @@
       const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
       if(!SR)return alert("Запись речи недоступна в этом браузере.");
       const rec=new SR();rec.lang="nb-NO";rec.interimResults=true;const f=document.getElementById(target);
-      rec.onstart=()=>{if(btn)btn.textContent="■ Слушаю…"};rec.onresult=e=>{let t="";for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;f.value=t};
+      rec.onstart=()=>{if(btn)btn.textContent="■ Слушаю…"};rec.onresult=e=>{
+        let t="";for(let i=0;i<e.results.length;i++)t+=e.results[i][0].transcript;
+        if(f?.isConnected){f.value=t;f.dataset.fromVoice="recognition"}
+        // Browser recognition provides text only; do not claim assessed audio or pronunciation.
+        if(target==="chatInput")chatInputWasVoice=false;
+      };
       rec.onend=()=>{if(btn)btn.textContent="🎤 Говорить"};rec.start();return;
     }
     try{
@@ -268,11 +279,11 @@
         const pronouncePromise=expected?blobToWavBase64(blob).then(wav=>apiPost("/api/pronounce",{audioBase64:wav,expected})).catch(()=>null):Promise.resolve(null);
         const [r,pron]=await Promise.all([transcribePromise,pronouncePromise]);
         if(r.ok){
-          const text=r.data.text||"",f=document.getElementById(target);if(f===field&&field?.isConnected)f.value=text;if(target==="chatInput"&&f===field&&field?.isConnected)chatInputWasVoice=true;
+          const text=r.data.text||"",f=document.getElementById(target);if(f===field&&field?.isConnected){f.value=text;f.dataset.fromVoice="true"}if(target==="chatInput"&&f===field&&field?.isConnected)chatInputWasVoice=true;
           if(expected){
             const fallback=similarity(text,expected),box=document.getElementById("pronFb"),p=pron&&pron.ok?pron.data:null,sc=p?.score??fallback;
-            if(box)box.innerHTML='<div class="feedback '+(sc>=70?"good":"bad")+'"><b>Произношение: '+sc+'/100</b><br>'+(p?esc(p.pronunciation_ru||""):'Речь оценена по точности распознавания.')+(p?'<br><small>Разборчивость '+p.clarity+' · ритм '+p.rhythm+' · соответствие образцу '+p.accuracy+'</small>':'')+(p?.difficult_words?.length?'<br><b>Потренировать:</b> '+p.difficult_words.map(esc).join(", "):'')+'<br><small>AI-оценка аудиозаписи для тренировки, не оценка официального экзаменатора.</small></div>';
-            updateSkill("speaking",sc);
+            if(box)box.innerHTML='<div class="feedback '+(sc>=70?"good":"bad")+'"><b>'+(p?'Произношение (предварительная AI-оценка): ':'Совпадение распознанного текста с образцом: ')+sc+'/100</b><br>'+(p?esc(p.pronunciation_ru||""):'Речь оценена по точности распознавания.')+(p?'<br><small>Разборчивость '+p.clarity+' · ритм '+p.rhythm+' · соответствие образцу '+p.accuracy+'</small>':'')+(p?.difficult_words?.length?'<br><b>Потренировать:</b> '+p.difficult_words.map(esc).join(", "):'')+'<br><small>AI-оценка аудиозаписи для тренировки, не оценка официального экзаменатора.</small></div>';
+            // Pronunciation imitation does not independently prove communicative speaking level.
           }
         }else{
           const msg=r.error==="NO_SPEECH"?"Речь не распознана. Попробуй говорить чуть громче и ближе к телефону.":"Не удалось обработать запись. Попробуй записать фразу ещё раз.";
@@ -393,7 +404,7 @@
     b.innerHTML='<div class="feedback">Проверяю…</div>';const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode});
     if(!b.isConnected||lessonSession!==s){s.locked=false;return}
     if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
-    const d=r.data,score=Number(d.score||0),ok=d.accepted!==false&&score>=55;trackLessonScore(score);
+    const d=r.data,score=Number(d.score||0),ok=d.accepted===true&&score>=55;trackLessonScore(score);
     updateSkill(mode,score);updateSkill("grammar",d.breakdown?.grammar??score);updateSkill("vocabulary",d.breakdown?.vocabulary??score);rememberError(d.error_tag);
     if(ok){
       b.innerHTML=(typeof aiLessonFeedbackHtml==="function"?aiLessonFeedbackHtml(d,"✓ Хороший ответ"):'<div class="feedback good"><b>✓ Хороший ответ · '+score+'/100</b><br>'+esc(d.explanation_ru||"Ответ принят.")+'</div>')+'<button class="btn lesson-next-v8" onclick="lessonNext(20)">Дальше →</button>';
@@ -442,14 +453,33 @@
     (w.collocation?'<div class="notice"><b>Часто вместе:</b> '+esc(w.collocation)+'</div>':'')+
     (w.note_ru?'<p class="muted daily-note">'+esc(w.note_ru)+'</p>':'')+'<a class="btn ghost link-btn" target="_blank" rel="noopener" href="https://ordbokene.no/bm/'+encodeURIComponent(w.lemma||w.word)+'">Проверить в Bokmålsordboka ↗</a></article>';
   }
+  // One request per day; slow AI may not hijack the screen after navigation.
+  let pendingDailyPack=null;
   async function generateDailyPack(){
-    const date=localDateKey();if(state.dailyPacks[date])return renderDaily();
+    const date=localDateKey();
+    if(state.dailyPacks[date])return renderDaily();
+    if(pendingDailyPack?.date===date)return pendingDailyPack.promise;
+    const requestedLevel=state.level||"A1";
     shell('<section class="card loading-card"><div class="spinner"></div><h2>Подбираю 5 новых слов</h2><p class="muted">Проверяю словарь, чтобы не повторить уже изученное, и добавляю слова прошлых дней в новые примеры.</p></section>',"home");
+    const loadingScreen=document.querySelector('#app .loading-card');
     const review=reinforcementEntries(12).map(x=>({word:x.lemma||x.word,translation_ru:x.translation_ru,daysAgo:x.daysAgo,strength:x.strength||20}));
     const dayNumber=(state.dailyDayCount||0)+1;
-    const r=await apiPost("/api/daily",{level:state.level||"A1",date,knownWords:knownDailyWords(),reviewWords:review,weakSkills:weakSkills(),dayNumber});
-    if(!r.ok){shell('<section class="card"><h2>Не удалось создать слова на сегодня</h2><p class="muted">'+esc(r.error)+'</p><button class="btn" onclick="renderDaily()">Назад</button></section>',"home");return}
-    const pack=r.data;pack.date=date;pack.level=state.level||"A1";state.dailyPacks[date]=pack;state.dailyProgress[date]={completed:false,scores:[]};state.dailyDayCount=dayNumber;const oldDates=Object.keys(state.dailyPacks).sort();while(oldDates.length>120){const old=oldDates.shift();delete state.dailyPacks[old];delete state.dailyProgress[old]}registerDailyPack(pack);renderDaily();
+    const request=(async()=>{
+      const r=await apiPost("/api/daily",{level:requestedLevel,date,knownWords:knownDailyWords(),reviewWords:review,weakSkills:weakSkills(),dayNumber});
+      if(!r.ok||!r.data||typeof r.data!=="object"){
+        if(loadingScreen?.isConnected)shell('<section class="card"><h2>Не удалось создать слова на сегодня</h2><p class="muted">'+esc(r.error||"Неполный ответ сервера")+'</p><button class="btn" onclick="renderDaily()">Назад</button></section>',"home");
+        return;
+      }
+      if(state.dailyPacks[date]){if(loadingScreen?.isConnected)renderDaily();return}
+      const pack=r.data;pack.date=date;pack.level=requestedLevel;
+      state.dailyPacks[date]=pack;state.dailyProgress[date]={completed:false,scores:[]};state.dailyDayCount=dayNumber;
+      const oldDates=Object.keys(state.dailyPacks).sort();
+      while(oldDates.length>120){const old=oldDates.shift();delete state.dailyPacks[old];delete state.dailyProgress[old]}
+      registerDailyPack(pack);
+      if(loadingScreen?.isConnected)renderDaily();
+    })();
+    pendingDailyPack={date,promise:request};
+    try{return await request}finally{if(pendingDailyPack?.promise===request)pendingDailyPack=null}
   }
   function startDailyPractice(date=localDateKey()){
     const pack=state.dailyPacks[date];if(!pack||!(pack.practice||[]).length)return renderDaily();
@@ -468,7 +498,7 @@
     const r=await aiEvaluate({answer:a,question:t.prompt_ru,goal,level:s.pack.level,mode:"daily_vocabulary"});
     if(!b.isConnected||dailyTaskSession!==s){s.locked=false;return}
     if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
-    const score=Number(r.data.score||0),ok=r.data.accepted!==false&&score>=55;
+    const score=Number(r.data.score||0),ok=r.data.accepted===true&&score>=55;
     updateDailyStrength([...(t.review_words||[]),...(t.new_words||[])],score);updateSkill("vocabulary",score);updateSkill("grammar",r.data.breakdown?.grammar??score);rememberError(r.data.error_tag);
     if(ok){
       s.scores.push(score);b.innerHTML='<div class="feedback good"><b>✓ '+score+'/100</b></div>';
@@ -566,7 +596,7 @@
     }
     state.level=rec;if(state.chatPrefs)state.chatPrefs.level=rec;if(window.NEAdaptive){const p=NEAdaptive.ensure(state);p.startLevel=rec}
     state.placement={level:rec,recommendedStart:rec,scope:"receptive_screening",byLevel:rat,byLevelSkill:s.byLevelSkill,date:new Date().toISOString()};saveState();
-    shell('<section class="card" style="max-width:720px;margin:35px auto;text-align:center"><div class="eyebrow">Результат входного скрининга</div><h1>Начать материалы с '+rec+'</h1><p class="muted">A1 '+Math.round(rat.A1*100)+'% · A2 '+Math.round(rat.A2*100)+'% · B1 '+Math.round(rat.B1*100)+'% · B2 '+Math.round(rat.B2*100)+'%</p><div class="notice"><b>Это не означает, что уровень '+rec+' подтверждён.</b> Скрининг не проверял письмо и речь. Нора начнёт с '+rec+' и уточнит профиль по реальным ответам; при пробелах автоматически вернёт нужный материал.</div><br><button class="btn" onclick="navigate(\'teacher\')">Начать с Норой</button></section>',"home");
+    shell('<section class="card" style="max-width:720px;margin:35px auto;text-align:center"><div class="eyebrow">Результат входного скрининга</div><h1>Начать материалы с '+rec+'</h1><p class="muted">A1 '+Math.round(rat.A1*100)+'% · A2 '+Math.round(rat.A2*100)+'% · B1 '+Math.round(rat.B1*100)+'% · B2 '+Math.round(rat.B2*100)+'%</p><div class="notice"><b>Это не означает, что уровень '+rec+' подтверждён.</b> Скрининг не проверял письмо и речь. Нора начнёт с '+rec+' и уточнит профиль по реальным ответам; при пробелах автоматически вернёт нужный материал.</div><br><button class="btn" onclick="navigate(\'calibration\')">Проверить письмо и речь</button><button class="btn secondary" onclick="NECalibration.postpone()">Продолжить обучение</button></section>',"home");
   }
 
   renderTests=function(){
@@ -598,11 +628,11 @@
   };
   answerTestFree=async function(){
     const s=testSession,q=s?.questions[s.i],a=document.getElementById("testFree")?.value.trim();if(!q||!a||s.locked)return;s.locked=true;const b=document.getElementById("testFb");b.innerHTML='<div class="feedback">Оцениваю…</div>';
-    const mode=q.mode||"writing",r=await aiEvaluate({answer:a,question:q.text,goal:q.text,level:testSession.level,mode:"test_"+mode});
+    const mode=q.mode||"writing",field=document.getElementById("testFree"),skill=mode==="speaking"&&field?.dataset.fromVoice!=="true"?"writing":mode,r=await aiEvaluate({answer:a,question:q.text,goal:q.text,level:testSession.level,mode:"test_"+skill});
     if(!b.isConnected||testSession!==s){s.locked=false;return}
     if(r.ok){
-      const pts=Math.max(0,Math.min(1,(r.data.score||0)/100)),score=Math.round(pts*100);testSession.freeScores.push(pts);testSession.skillEvidence=testSession.skillEvidence||{};(testSession.skillEvidence[mode]||(testSession.skillEvidence[mode]=[])).push(score);updateSkill(mode,score);updateSkill("grammar",r.data.breakdown?.grammar??score);updateSkill("vocabulary",r.data.breakdown?.vocabulary??score);rememberError(r.data.error_tag);
-      if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:testSession.level,skill:mode,score,moduleId:testSession.level+"-diagnostic",source:"level_test_free",errorTag:r.data.error_tag||"",transfer:true});
+      const pts=Math.max(0,Math.min(1,(r.data.score||0)/100)),score=Math.round(pts*100);testSession.freeScores.push(pts);testSession.skillEvidence=testSession.skillEvidence||{};(testSession.skillEvidence[skill]||(testSession.skillEvidence[skill]=[])).push(score);updateSkill(skill,score);updateSkill("grammar",r.data.breakdown?.grammar??score);updateSkill("vocabulary",r.data.breakdown?.vocabulary??score);rememberError(r.data.error_tag);
+      if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:testSession.level,skill,score,moduleId:testSession.level+"-diagnostic",source:mode==="speaking"&&skill==="writing"?"level_test_typed":"level_test_free",errorTag:r.data.error_tag||"",transfer:true});
       saveState();b.innerHTML='<div class="feedback '+(pts>=.55?"good":"bad")+'"><b>'+score+'/100</b> · '+esc(r.data.explanation_ru||"Оценено.")+(r.data.corrected?'<br><b>Лучше:</b> '+esc(r.data.corrected):"")+'</div>';
       neAdvance(()=>{s.locked=false;testNext()},900);
     }else{
@@ -652,10 +682,10 @@
   }
   function renderExamProductive(){
     const s=examV3,it=s.items[s.i];if(!it)return finishExamV3();const sp=s.part==="speaking";
-    shell('<div class="screen-head"><button class="back" onclick="exitExamV3()">←</button><div style="flex:1"><div class="eyebrow">'+(sp?"Устная речь":"Письмо")+' · '+s.band+'</div><h2 style="margin:0">Задание '+(s.i+1)+'/'+s.items.length+'</h2></div><span id="timer" class="pill timer"></span></div><section class="exercise"><article class="card">'+(!sp?'<div class="tag">Ориентир: '+wordHint(s.band,s.i)+'</div>':'<div class="notice">Говори самостоятельно. Приложение оценивает распознанный текст; фонетическая точность отдельно не оценивается.</div>')+'<div class="prompt">'+esc(it.q)+'</div><textarea id="examFreeV3" class="input" placeholder="'+(sp?"Нажми микрофон и говори по-норвежски…":"Напиши ответ по-норвежски…")+'"></textarea><div class="row" style="margin-top:10px">'+(sp?'<button id="micBtn" class="btn secondary" onclick="toggleMic(\'examFreeV3\')">🎤 Записать ответ</button>':'')+'<button class="btn" onclick="submitExamProductive()">Сдать ответ</button></div><div id="examFbV3"></div></article></section>',"exam");updateTimerV3();
+    shell('<div class="screen-head"><button class="back" onclick="exitExamV3()">←</button><div style="flex:1"><div class="eyebrow">'+(sp?"Устная речь":"Письмо")+' · '+s.band+'</div><h2 style="margin:0">Задание '+(s.i+1)+'/'+s.items.length+'</h2></div><span id="timer" class="pill timer"></span></div><section class="exercise"><article class="card">'+(!sp?'<div class="tag">Ориентир: '+wordHint(s.band,s.i)+'</div>':'<div class="notice">Говори самостоятельно. Приложение оценивает распознанный текст; фонетическая точность отдельно не оценивается.</div>')+'<div class="prompt">'+esc(it.q)+'</div><textarea id="examFreeV3" class="input" oninput="this.dataset.fromVoice=&#39;false&#39;" placeholder="'+(sp?"Нажми микрофон и говори по-норвежски…":"Напиши ответ по-норвежски…")+'"></textarea><div class="row" style="margin-top:10px">'+(sp?'<button id="micBtn" class="btn secondary" onclick="toggleMic(\'examFreeV3\')">🎤 Записать ответ</button>':'')+'<button class="btn" onclick="submitExamProductive()">Сдать ответ</button></div><div id="examFbV3"></div></article></section>',"exam");updateTimerV3();
   }
   async function submitExamProductive(){
-    const s=examV3,a=document.getElementById("examFreeV3")?.value.trim();if(!a||!s||s.locked)return;s.locked=true;const b=document.getElementById("examFbV3"),q=s.items[s.i].q;b.innerHTML='<div class="feedback">Оцениваю…</div>';
+    const s=examV3,field=document.getElementById("examFreeV3"),a=field?.value.trim();if(!a||!s||s.locked)return;if(s.part==="speaking"&&field.dataset.fromVoice!=="true"){document.getElementById("examFbV3").innerHTML='<div class="feedback bad">Для проверки устной речи запиши ответ через микрофон. Напечатанный ответ не доказывает навык говорения.</div>';return}s.locked=true;const b=document.getElementById("examFbV3"),q=s.items[s.i].q;b.innerHTML='<div class="feedback">Оцениваю…</div>';
     const r=await aiEvaluate({answer:a,question:q,goal:q,level:s.band.split("-")[1],mode:"exam_"+s.part});
     if(!b.isConnected||examV3!==s){s.locked=false;return}
     if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">AI не ответил. Попробуй отправить ответ ещё раз.</div>';return}
@@ -698,7 +728,7 @@
     '<label class="switch-row"><input type="checkbox" '+(p.autoSpeak?"checked":"")+' onchange="setChatPref(\'autoSpeak\',this.checked)"> Автоматически озвучивать ответы</label>'+
     '<div class="row"><button class="btn secondary" onclick="startChat()">Начать новый разговор</button><button class="btn ghost" onclick="clearChat()">Очистить</button></div></aside>'+
     '<div class="chat-main card"><div id="chatMessages" class="chat-messages">'+(h.length?renderChatMessages(h):'<div class="chat-empty"><div class="chat-avatar">N</div><h2>Hei!</h2><p>Выбери уровень и тему. Можно написать первую фразу самому или нажать «Начать новый разговор» — собеседник заговорит первым.</p></div>')+'</div>'+
-    '<div class="chat-composer"><textarea id="chatInput" class="input" rows="2" placeholder="Напиши по-норвежски или нажми микрофон…"></textarea><div class="row"><button id="chatMicBtn" class="btn secondary" onclick="toggleMic(\'chatInput\')">🎤 Говорить</button><button id="chatSendBtn" class="btn" onclick="sendChat()">Отправить →</button></div><small>AI-собеседник. В режиме речи микрофон сначала превращает твою речь в текст, затем собеседник отвечает.</small></div></div></section>',"chat");
+    '<div class="chat-composer"><textarea id="chatInput" class="input" rows="2" placeholder="Напиши по-норвежски или нажми микрофон…" oninput="this.dataset.fromVoice=false"></textarea><div class="row"><button id="chatMicBtn" class="btn secondary" onclick="toggleMic(\'chatInput\')">🎤 Говорить</button><button id="chatSendBtn" class="btn" onclick="sendChat()">Отправить →</button></div><small>AI-собеседник. В режиме речи микрофон сначала превращает твою речь в текст, затем собеседник отвечает.</small></div></div></section>',"chat");
     setTimeout(()=>{const box=document.getElementById("chatMessages");if(box)box.scrollTop=box.scrollHeight},0);
   }
   function renderChatMessages(h){
@@ -714,17 +744,24 @@
   function setChatTopic(topic){state.chatPrefs.topic=topic;saveState();renderChat()}
   function toggleChatTranslation(i){const e=document.getElementById("chatTr"+i);if(e)e.style.display=e.style.display==="none"?"block":"none"}
   function clearChat(){if(!state.chatHistory.length||confirm("Очистить историю этого разговора?")){state.chatHistory=[];saveState();renderChat()}}
+  function noraLearningContext(){
+    const memory=state.noraMemory||{};
+    return {introduced:memory.introduced===true,conversationCount:Math.min(100000,Number(memory.conversationCount)||0),previousTopic:String(memory.lastTopic||"").slice(0,120),lastPracticeDate:String(memory.lastPracticeDate||"").slice(0,20)};
+  }
   async function startChat(){
-    state.chatHistory=[];state.chatMemories=state.chatMemories||{};delete state.chatMemories[state.chatThreadId||"general"];saveState();renderChat();
+    state.chatHistory=[];state.chatMemories=state.chatMemories||{};saveState();renderChat();
     const box=document.getElementById("chatMessages");if(box)box.innerHTML='<div class="chat-thinking">Нора начинает разговор…</div>';
     const p=state.chatPrefs;if(window.NEAdaptive)NEAdaptive.ensure(state);const mastery=state.learningV8?.levelSkills?.[p.level]||{},errorPatterns=window.NEAdaptive?NEAdaptive.errors(state):[];
-    const r=await apiPost("/api/chat",{start:true,message:"",level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:[],practiceWords:reinforcementWordList(15),mastery,errorPatterns,teacherMode:true});
+    const r=await apiPost("/api/chat",{start:true,message:"",level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:[],practiceWords:reinforcementWordList(15),mastery,errorPatterns,learnerContext:noraLearningContext(),teacherMode:true});
     if(!r.ok){if(box)box.innerHTML='<div class="feedback bad">Собеседник временно недоступен: '+esc(r.error)+'</div>';return}
-    const d=r.data;state.chatHistory=[{role:"assistant",text:d.reply_no,meta:d}];saveState();if(!window.neChatVisible||neChatVisible()){renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);}
+    const d=r.data;state.chatHistory=[{role:"assistant",text:d.reply_no,meta:d}];
+    state.noraMemory.conversationCount=(Number(state.noraMemory.conversationCount)||0)+1;
+    state.noraMemory.lastTopic=String(p.topic||p.conversationTitle||"").slice(0,120);
+    saveState();if(!window.neChatVisible||neChatVisible()){renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);}
   }
   async function sendChat(){
     const input=document.getElementById("chatInput"),btn=document.getElementById("chatSendBtn"),msg=input?.value.trim();if(!msg)return;
-    const p=state.chatPrefs,wasVoice=chatInputWasVoice;chatInputWasVoice=false;
+    const p=state.chatPrefs,wasVoice=chatInputWasVoice&&input?.dataset.fromVoice==="true";chatInputWasVoice=false;
     state.chatMemories=state.chatMemories||{};const memoryKey=state.chatThreadId||"general";
     if(!state.chatMemories[memoryKey])state.chatMemories[memoryKey]=[];
     const memory=state.chatMemories[memoryKey];if(memory.length<8){
@@ -734,12 +771,15 @@
     const box=document.getElementById("chatMessages");if(box){box.insertAdjacentHTML("beforeend",'<div class="chat-thinking">Нора думает…</div>');box.scrollTop=box.scrollHeight}
     const hist=state.chatHistory.slice(0,-1).slice(-32).map(x=>({role:x.role,text:x.text}));
     if(window.NEAdaptive)NEAdaptive.ensure(state);const mastery=state.learningV8?.levelSkills?.[p.level]||{},errorPatterns=window.NEAdaptive?NEAdaptive.errors(state):[];
-    const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:hist,context:state.chatMemories[memoryKey].map(x=>(x.role==="user"?"Ученик: ":"Nora: ")+x.text).join("\n"),practiceWords:reinforcementWordList(15),mastery,errorPatterns,teacherMode:true});
+    const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:hist,context:state.chatMemories[memoryKey].map(x=>(x.role==="user"?"Ученик: ":"Nora: ")+x.text).join("\n"),practiceWords:reinforcementWordList(15),mastery,errorPatterns,learnerContext:noraLearningContext(),teacherMode:true});
     if(!r.ok){state.chatHistory.push({role:"assistant",text:"Beklager, jeg fikk et teknisk problem. Prøv igjen.",meta:{translation_ru:"Извините, произошла техническая ошибка. Попробуйте ещё раз."}});saveState();if(!window.neChatVisible||neChatVisible())return renderChat();return;}
     const d=r.data;state.chatHistory.push({role:"assistant",text:d.reply_no,meta:d});state.chatHistory=state.chatHistory.slice(-40);
+    state.noraMemory.introduced=true;
+    state.noraMemory.lastTopic=String(p.topic||p.conversationTitle||"").slice(0,120);
+    state.noraMemory.lastPracticeDate=new Date().toISOString().slice(0,10);
     updateSkill(wasVoice?"speaking":"writing",d.score_valid?d.score:50);if(d.error_tag){rememberError(d.error_tag);updateSkill("grammar",Math.max(20,(d.score_valid?d.score:50)-8))}
     if(window.NEAdaptive&&d.score_valid===true)NEAdaptive.recordAttempt(state,{level:p.level,skill:wasVoice?"speaking":"writing",score:d.score,moduleId:p.level.toLowerCase()+"-conversation",source:"conversation",errorTag:d.error_tag||"",transfer:false});
-    if(d.suggested_level&&d.suggested_level!==p.level)state.chatPrefs.level=d.suggested_level;
+    // A conversation alone is insufficient evidence for a CEFR level change; the course gate controls promotion.
     saveState();if(!window.neChatVisible||neChatVisible()){renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);}
   }
 
@@ -763,7 +803,20 @@
     const blob=new Blob([JSON.stringify({version:3,exportedAt:new Date().toISOString(),state},null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="norsk-eventyr-progress.json";a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   }
   async function importProgressFile(file){
-    if(!file)return;try{const d=JSON.parse(await file.text());if(!validProgressState(d.state))throw new Error("BAD_STATE");const restored={...state,...d.state};localStorage.setItem("ne2_state_before_import",JSON.stringify(state));localStorage.setItem("ne2_state",JSON.stringify(restored));alert("Прогресс восстановлен.");location.reload()}catch{alert("Файл прогресса повреждён или не подходит.")}
+    if(!file)return;
+    try{
+      // Do not load unbounded or malformed backups into the browser.
+      if(file.size>4*1024*1024)throw new Error("BACKUP_TOO_LARGE");
+      const d=JSON.parse(await file.text());
+      if(!d||typeof d!=="object"||!validProgressState(d.state))throw new Error("BAD_STATE");
+      const restored={...state,...d.state};
+      const encoded=JSON.stringify(restored);
+      if(encoded.length>4*1024*1024)throw new Error("BACKUP_TOO_LARGE");
+      localStorage.setItem("ne2_state_before_import",JSON.stringify(state));
+      localStorage.setItem("ne2_state",encoded);
+      alert("Прогресс восстановлен.");location.reload();
+    }catch{alert("Файл прогресса повреждён, слишком большой или не подходит.")}
+
   }
 
   Object.assign(window,{startTopic,renderDaily,generateDailyPack,startDailyPractice,checkDailyTask,nextDailyTask,renderDictionary,filterDictionary,setDictionaryPos,renderChat,setChatPref,setChatTopic,toggleChatTranslation,clearChat,startChat,sendChat,renderReview,startReview,answerReview,renderPlacement,startPlacement,answerPlacement,checkGrammar,startExamPart,playExamAudio,answerExamObjectiveV3,submitExamProductive,nextExamProductive,exitExamV3,exportProgress,importProgressFile,neApiPost:apiPost,neWeakSkills:weakSkills,neReinforcementWords:reinforcementWordList,neUpdateSkill:updateSkill,neRememberError:rememberError,neDueWords:dueWords,neLocalDate:localDateKey});

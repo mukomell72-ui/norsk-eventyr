@@ -25,7 +25,7 @@ function clean(x,n=180){return String(x||"").replace(/\s+/g," ").trim().slice(0,
 function normLemma(x){return clean(x,120).toLowerCase().replace(/^å\s+/,"").replace(/\s+/g," ")}
 
 export default async function handler(req,res){
-  if(req.method==="GET")return res.status(200).json({ok:true,configured:Boolean(process.env.OPENAI_API_KEY),model:"gpt-5.6-luna",version:"4.1.0"});
+  if(req.method==="GET"){res.setHeader?.("Cache-Control","no-store");return res.status(200).json({ok:true,version:"4.1.0"});}
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY",code:"POST_ONLY"});
   if(!await guard(req,res,{limit:85}))return;
   if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED",code:"AI_NOT_CONFIGURED"});
@@ -107,7 +107,8 @@ export default async function handler(req,res){
     parsed.score=Math.max(0,Math.min(100,Math.round(Number(parsed.score)||0)));
     if(!parsed.breakdown||typeof parsed.breakdown!=="object")parsed.breakdown={};
     for(const k of ["meaning","grammar","vocabulary","coherence"])parsed.breakdown[k]=Math.max(0,Math.min(100,Math.round(Number(parsed.breakdown[k])||0)));
-    parsed.accepted=Boolean(parsed.accepted);parsed.cefr_estimate=String(parsed.cefr_estimate||target);
+    // Only an explicit JSON boolean can approve a learner's answer. "false" is not true.
+    parsed.accepted=parsed.accepted===true;parsed.cefr_estimate=String(parsed.cefr_estimate||target);
     parsed.corrected=String(parsed.corrected||"").slice(0,1800);parsed.explanation_ru=String(parsed.explanation_ru||"").slice(0,1600);
     parsed.strengths_ru=Array.isArray(parsed.strengths_ru)?parsed.strengths_ru.slice(0,2):[];
     parsed.improvements_ru=Array.isArray(parsed.improvements_ru)?parsed.improvements_ru.slice(0,2):[];

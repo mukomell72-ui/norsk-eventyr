@@ -1,0 +1,24 @@
+plugins {
+    id 'com.android.application'
+}
+def testUrl = providers.gradleProperty('norskUrl').orElse('').get()
+if (testUrl != 'https://norsk-eventyr-mvp-git-release-820-rc-20261010-fffff19.vercel.app/') {
+    throw new GradleException('A verified HTTPS RC-preview URL is required via -PnorskUrl. Production is forbidden for this debug APK.')
+}
+android {
+    namespace 'no.norskeventyr.personaltest'
+    compileSdk 36
+    defaultConfig {
+        applicationId 'no.norskeventyr.personaltest'
+        minSdk 26
+        targetSdk 36
+        versionCode 82
+        versionName '8.2-private-test'
+        buildConfigField 'String', 'START_URL', '"' + testUrl + '"'
+    }
+    buildFeatures { buildConfig true }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

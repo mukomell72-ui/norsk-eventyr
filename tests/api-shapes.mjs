@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import generate from '../api/generate.js';import drill from '../api/drill.js';import listening from '../api/listening-questions.js';import {createSession} from '../api/_guard.js';
 process.env.OPENAI_API_KEY='qa-local-dummy';
+process.env.NE_SESSION_SECRET='qa-session-signing-secret-32-characters';
 async function run(handler,path,body,out){globalThis.fetch=async(url)=>url.includes('/auth/v1/user')?{ok:true,json:async()=>({email_confirmed_at:'2026-01-01'})}:url.includes('/rpc/ne_access_status')?{ok:true,json:async()=>({status:'free',access_granted:true})}:url.includes('/rpc/ne_device_authorize')?{ok:true,json:async()=>({allowed:true,max_devices:2})}:({ok:true,json:async()=>({output:[{content:[{type:'output_text',text:JSON.stringify(out)}]}]})});const req={method:'POST',url:path,headers:{cookie:'ne_access=qa',host:'localhost','x-forwarded-for':path+Math.random(),'x-ne-device-id':'device_qa_api_shapes_123456','x-ne-device-name':'QA API'},body};req.headers['x-ne-session']=createSession(req);let status,data;const res={status(v){status=v;return this},json(v){data=v;return this}};await handler(req,res);return {status,data};}
 const q={q:'Вопрос',opts:['a','b','c','d'],correct:0};
 for(const correct of [-1,4,1.5,null,'',true]){assert.equal((await run(generate,'/api/generate',{kind:'test',level:'A1'},{questions:Array.from({length:8},()=>({...q,correct}))})).status,502);assert.equal((await run(drill,'/api/drill',{kind:'grammar',level:'A1'},{items:Array.from({length:6},()=>({...q,q_ru:'Вопрос',correct}))})).status,502);assert.equal((await run(listening,'/api/listening-questions',{transcript:'Jeg bor i Norge og jeg jobber i en butikk hver dag.',level:'A1'},{questions:Array.from({length:5},()=>({...q,correct}))})).status,502);}
@@ -10,4 +11,11 @@ assert.equal((await run(generate,'/api/generate',{kind:'lesson',level:'A1'},less
 assert.equal((await run(generate,'/api/generate',{kind:'lesson',level:'A1'},{...lesson,listeningAudio:''})).status,502);
 assert.equal((await run(generate,'/api/generate',{kind:'lesson',level:'A1'},{...lesson,listeningQ:''})).status,502);
 assert.equal((await run(generate,'/api/generate',{kind:'lesson',level:'A1'},{...lesson,listeningCorrect:4})).status,502);
+assert.equal((await run(generate,'/api/generate',{kind:'lesson',level:'B1'},lesson)).status,502,'Brief A1-type lesson cannot pass as B1');
+assert.equal((await run(generate,'/api/generate',{kind:'lesson',level:'B2'},lesson)).status,502,'Brief A1-type lesson cannot pass as B2');
+assert.equal((await run(generate,'/api/generate',{kind:'lesson',level:'A1'},{...lesson,opts:['Identisk','Identisk','B','C']})).status,502,'Duplicate answer choices must be rejected');
+const meaningfulFiller='Det er viktig å undersøke saken nøye før vi trekker en endelig konklusjon. ';
+const advanced={...lesson,listeningAudio:meaningfulFiller.repeat(13),read:meaningfulFiller.repeat(17)};
+assert.equal((await run(generate,'/api/generate',{kind:'lesson',level:'B1'},advanced)).status,200,'A sufficiently substantial B1 lesson should remain supported');
+assert.equal((await run(generate,'/api/generate',{kind:'lesson',level:'B2'},advanced)).status,200,'A sufficiently substantial B2 lesson should remain supported');
 console.log('PASS 21 malformed AI responses rejected and four valid responses accepted');

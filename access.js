@@ -1,7 +1,7 @@
 // Access is established by the server before any learning screen is loaded.
 (() => {
  const TERMS_VERSION='2026-10-08-v2',PRIVACY_VERSION='2026-10-08-v4';
- const ASSET_REV='8.0.1-access-r1',scripts=['data.js','curriculum-v8.js','adaptive-teacher.js','app.js','voice-pack.js','v3.js','lexicon.js','elite.js','story-data.js','story.js','ui-v6.js','ui-v7.js','ui-v8.js','updates.js','feedback.js'];
+ const ASSET_REV='8.2.0-rc1',scripts=['data.js','curriculum-v8.js','practice-foundations.js','foundation-extensions.js','advanced-b1.js','advanced-b2.js','adaptive-teacher.js','app.js','voice-pack.js','v3.js','lexicon.js','elite.js','story-data.js','story.js','ui-v6.js','ui-v7.js','ui-v8.js','placement-calibration.js','updates.js','feedback.js'];
  const app=document.getElementById('app'),gate=document.createElement('main');gate.id='accessGate';gate.className='access-gate';document.body.append(gate);
  let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false,confirmationEmail=null,installSeenSent=false,errorReportBusy=false,growthActivityDateSent='',panelOpen=false,panelEpoch=0;
  const safe=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -95,7 +95,7 @@
   try{
    await fetch('/api/session',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',...deviceHeaders()},body:JSON.stringify({
     action:'client_error',code:String(code||'CLIENT_ERROR').slice(0,80),message:messageText.slice(0,500),
-    path:String(location.pathname||'/').slice(0,300),app_version:'8.0.1',user_agent:String(navigator.userAgent||'').slice(0,250)
+    path:String(location.pathname||'/').slice(0,300),app_version:'8.2.0',user_agent:String(navigator.userAgent||'').slice(0,250)
    }),cache:'no-store'});
   }catch{}finally{setTimeout(()=>{errorReportBusy=false},1500)}
  }
@@ -208,7 +208,7 @@
   if(identity.status==='pending')text='Заявка отправлена владельцу. После решения можно получить бесплатный или платный период доступа.';
   if(identity.status==='denied')text='В доступе отказано владельцем.';
   if(identity.status==='revoked')text='Ранее выданный доступ отозван владельцем.';
-  const feedback=askFeedback?'<section class="trial-feedback-prompt"><h2>Оцени Norsk Eventyr</h2><p>Пробные 5 дней закончились. Поставь от 1 до 5 звёзд и, при желании, оставь комментарий.</p><div class="feedback-stars" id="trialFeedbackStars" role="radiogroup" aria-label="Оценка от 1 до 5">'+[1,2,3,4,5].map(value=>'<button type="button" role="radio" aria-label="'+value+' из 5" aria-checked="false" data-rating="'+value+'">★</button>').join('')+'</div><label>Комментарий<textarea id="trialFeedbackComment" maxlength="1200" placeholder="Что понравилось или что можно улучшить?"></textarea></label><p class="feedback-help">Комментарий будет виден всем пользователям.</p><div class="row"><button class="btn" id="trialFeedbackSubmit">Отправить оценку</button><button class="btn ghost" id="trialFeedbackLater">Не сейчас</button></div></section>':'';
+  const feedback=askFeedback?'<section class="trial-feedback-prompt"><h2>Оцени Norsk Eventyr</h2><p>Пробные 5 дней закончились. Поставь от 1 до 5 звёзд и, при желании, оставь комментарий.</p><div class="feedback-stars" id="trialFeedbackStars" role="radiogroup" aria-label="Оценка от 1 до 5">'+[1,2,3,4,5].map(value=>'<button type="button" role="radio" aria-label="'+value+' из 5" aria-checked="false" data-rating="'+value+'">★</button>').join('')+'</div><label>Публичный отзыв<textarea id="trialFeedbackComment" maxlength="1200" placeholder="Что понравилось в обучении?"></textarea></label><p class="feedback-help">Текст публичного отзыва смогут увидеть другие пользователи. Оценка внутри приложения не связана с Google Play и не даёт бонусного доступа.</p><label>Предложение напрямую разработчику<select id="trialFeedbackKind"><option value="Улучшить">Что улучшить</option><option value="Добавить">Что добавить</option><option value="Упростить">Что убрать или упростить</option><option value="Ошибка">Сообщить об ошибке</option></select></label><label>Личное предложение<textarea id="trialFeedbackSuggestion" maxlength="1150" placeholder="Опиши идею или ошибку. Это не публикуется в общем рейтинге."></textarea></label><div class="row"><button class="btn" id="trialFeedbackSubmit">Отправить оценку</button><button class="btn ghost" id="trialFeedbackLater">Не сейчас</button></div></section>':'';
   const showInterest=identity.status==='expired'||identity.status==='pending';
   const interest=showInterest?'<section class="purchase-interest"><h2>Продолжить обучение</h2><p><b>99 NOK за 30 дней</b></p><p class="feedback-help">Оплата пока не списывается. Первое нажатие покажет владельцу готовность оформить подписку. После одобрения владельцем один раз добавятся 30 бесплатных дней.</p><button class="btn" id="purchaseInterest">Готов оформить подписку · +30 дней</button><p id="purchaseInterestMessage" class="feedback-help"></p></section>':'';
   const promo=showInterest?'<section class="purchase-interest"><h2>Есть промокод?</h2><form id="promoRedeem"><label>Промокод<input id="promoCode" autocomplete="off" maxlength="32" placeholder="Например FRIEND30"></label><button class="btn secondary" type="submit">Активировать промокод</button></form></section>':'';
@@ -217,7 +217,7 @@
    let rating=0;const buttons=[...document.querySelectorAll('#trialFeedbackStars button')];
    const setRating=value=>{rating=value;for(const button of buttons){button.classList.toggle('selected',Number(button.dataset.rating)<=rating);button.setAttribute('aria-checked',String(Number(button.dataset.rating)===rating))}};
    for(const button of buttons)button.onclick=()=>setRating(Number(button.dataset.rating));
-   document.getElementById('trialFeedbackSubmit').onclick=()=>act(async()=>{if(!rating){message('Выбери оценку от 1 до 5 звёзд.');return}await call('feedback_submit',{rating,comment:document.getElementById('trialFeedbackComment').value,suggestion:''});identity.feedback_submitted=true;identity.feedback_prompt_due=false;await status()});
+   document.getElementById('trialFeedbackSubmit').onclick=()=>act(async()=>{if(!rating){message('Выбери оценку от 1 до 5 звёзд.');return}await call('feedback_submit',{rating,comment:document.getElementById('trialFeedbackComment').value,suggestion:(document.getElementById('trialFeedbackKind').value+': '+document.getElementById('trialFeedbackSuggestion').value).slice(0,1200)});identity.feedback_submitted=true;identity.feedback_prompt_due=false;await status()});
    document.getElementById('trialFeedbackLater').onclick=()=>{document.querySelector('.trial-feedback-prompt')?.remove()};
   }
   if(canRequest)document.getElementById('accessRequest').onsubmit=e=>{e.preventDefault();act(async()=>{await call('request',{name:document.getElementById('accessName').value});await status()})};

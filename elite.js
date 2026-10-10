@@ -272,6 +272,12 @@
     m.learningV8.attempts=adaptiveAttempts.filter(x=>{const key=JSON.stringify([x?.date,x?.skill,x?.moduleId,x?.source,x?.score]);if(seenAdaptive.has(key))return false;seenAdaptive.add(key);return true}).sort((a,b)=>String(a?.date||"").localeCompare(String(b?.date||""))).slice(-500);
     m.story={...(remote.story||{}),...(local.story||{})};m.story.completed={...(remote.story?.completed||{}),...(local.story?.completed||{})};m.story.choices={...(remote.story?.choices||{}),...(local.story?.choices||{})};m.story.journal={...(remote.story?.journal||{}),...(local.story?.journal||{})};m.story.sideQuests={...(remote.story?.sideQuests||{}),...(local.story?.sideQuests||{})};m.story.stats={...(remote.story?.stats||{})};for(const [k,v] of Object.entries(local.story?.stats||{}))m.story.stats[k]=Math.max(m.story.stats[k]||0,v||0);
     for(const key of ["wordFavorites","chatThreads","chatMemories","generatedLessons"]){m[key]={...(remote[key]||{}),...(local[key]||{})};}
+    const rm=remote.noraMemory||{},lm=local.noraMemory||{};
+    m.noraMemory={...rm,...lm,introduced:rm.introduced===true||lm.introduced===true,
+      conversationCount:Math.max(Number(rm.conversationCount)||0,Number(lm.conversationCount)||0),
+      lastPracticeDate:[rm.lastPracticeDate,lm.lastPracticeDate].filter(Boolean).sort().at(-1)||""};
+    const ra=remote.activeLesson,la=local.activeLesson;
+    m.activeLesson=(ra&&la)?(String(ra.savedAt||"")>String(la.savedAt||"")?ra:la):(la||ra||null);
     m.elite={...(remote.elite||{}),...(local.elite||{})};
     for(const key of ["drills","grammarDrills"]){m.elite[key]={...(remote.elite?.[key]||{}),...(local.elite?.[key]||{})};}
     m.testHistory=mergeHist(remote.testHistory,local.testHistory);m.examHistory=mergeHist(remote.examHistory,local.examHistory);
@@ -285,16 +291,31 @@
   }
   async function cloudSync(show=true){
     const link=cloudLink();if(!link||cloudBusy)return false;cloudBusy=true;
+    // Do not replace the local state before the server has actually accepted it.
+    // Otherwise a rejected push can leave the learner with unconfirmed remote data.
     try{
-      const pulled=await rpc("norsk_eventyr_sync_pull",{p_sync_id:link.sync_id,p_secret:link.secret});if(cloudLink()?.sync_id!==link.sync_id)return false;if(!pulled.ok)throw new Error("Код синхронизации отклонён.");
+      const pulled=await rpc("norsk_eventyr_sync_pull",{p_sync_id:link.sync_id,p_secret:link.secret});
+      if(cloudLink()?.sync_id!==link.sync_id)return false;
+      if(!pulled.ok)throw new Error("Код синхронизации отклонён.");
       if(!validProgressState(pulled.state))throw new Error("В облаке повреждённый прогресс. Локальные данные сохранены.");
-      const merged=mergeState(state,pulled.state);state=merged;baseSaveState();
-      const pushed=await rpc("norsk_eventyr_sync_push",{p_sync_id:link.sync_id,p_secret:link.secret,p_state:state,p_expected_revision:Number(pulled.revision)});
+      const outgoing=mergeState(state,pulled.state);
+      if(!validProgressState(outgoing))throw new Error("Не удалось безопасно объединить учебные данные.");
+      const pushed=await rpc("norsk_eventyr_sync_push",{p_sync_id:link.sync_id,p_secret:link.secret,p_state:outgoing,p_expected_revision:Number(pulled.revision)});
       if(!pushed.ok&&pushed.error==="CONFLICT")throw new Error("Данные изменились на другом устройстве. Нажми синхронизацию ещё раз.");
       if(!pushed.ok)throw new Error("Облако не подтвердило сохранение. Попробуй ещё раз.");
       if(cloudLink()?.sync_id!==link.sync_id)return false;
-      link.revision=Number(pushed.revision)||Number(pulled.revision);link.lastSync=new Date().toISOString();setCloudLink(link);if(show&&document.getElementById("cloudFb"))renderCloud();return true;
-    }catch(e){if(show)document.getElementById("cloudFb")?.replaceChildren(Object.assign(document.createElement("div"),{className:"feedback bad",textContent:e.message}));return false}finally{cloudBusy=false}
+      // Merge fresh local progress again: the learner might have answered a task
+      // while the network request was in flight. Never roll those answers back.
+      state=mergeState(state,outgoing);
+      if(!baseSaveState())throw new Error("Не удалось сохранить объединённый прогресс на устройстве.");
+      link.revision=Number(pushed.revision)||Number(pulled.revision);
+      link.lastSync=new Date().toISOString();setCloudLink(link);
+      if(show&&document.querySelector('.shell-v7[data-screen="cloud"] #cloudFb'))renderCloud();
+      return true;
+    }catch(e){
+      if(show)document.getElementById("cloudFb")?.replaceChildren(Object.assign(document.createElement("div"),{className:"feedback bad",textContent:e.message}));
+      return false;
+    }finally{cloudBusy=false}
   }
   function scheduleCloud(){if(!cloudLink())return;clearTimeout(cloudTimer);cloudTimer=setTimeout(()=>cloudSync(false),4000)}
   async function connectCloud(){
@@ -304,18 +325,30 @@
   }
   function renderCloud(){
     const link=cloudLink(),last=link?.lastSync?new Date(link.lastSync).toLocaleString("ru-RU"):"—",code=link?link.sync_id+"."+link.secret:"";
-    shell('<div class="screen-head"><button class="back" onclick="navigate(\'hub\')">←</button><div><div class="eyebrow">Облако</div><h2 style="margin:0">Синхронизация между устройствами</h2></div></div><section class="card"><p class="muted">Прогресс можно переносить между телефонами без аккаунта. Секретная часть кода хранится только на твоих устройствах; в облаке хранится её хэш.</p>'+(link?'<div class="metric"><span>Последняя синхронизация</span><strong>'+esc(last)+'</strong></div><label class="field-label">Код восстановления</label><textarea id="cloudRecovery" class="input" readonly>'+esc(code)+'</textarea><div class="notice"><b>Не публикуй этот код.</b> Он даёт доступ к твоему учебному прогрессу.</div><div class="row" style="margin-top:12px"><button class="btn" onclick="cloudSync()">Синхронизировать сейчас</button><button class="btn secondary" onclick="copyRecovery()">Копировать код</button><button class="btn ghost" onclick="disconnectCloud()">Отключить это устройство</button></div>':'<button class="btn" onclick="createCloud()">Создать облачную синхронизацию</button><hr><label class="field-label">Или код с другого устройства</label><textarea id="cloudCode" class="input" placeholder="UUID.секретный-код"></textarea><button class="btn secondary" style="margin-top:10px" onclick="connectCloud()">Подключить</button>')+'<div id="cloudFb"></div></section>',"home");
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'hub\')">←</button><div><div class="eyebrow">Облако</div><h2 style="margin:0">Синхронизация между устройствами</h2></div></div><section class="card"><p class="muted">Секретный код нужен для восстановления учебного прогресса. В старом режиме облака он даёт доступ к данным; новая защита дополнительно проверяет аккаунт. Не передавай код другим людям и сохрани резервную копию перед сменой устройства.</p>'+(link?'<div class="metric"><span>Последняя синхронизация</span><strong>'+esc(last)+'</strong></div><label class="field-label">Код восстановления</label><textarea id="cloudRecovery" class="input" readonly>'+esc(code)+'</textarea><div class="notice"><b>Не публикуй этот код.</b> Он даёт доступ к твоему учебному прогрессу.</div><div class="row" style="margin-top:12px"><button class="btn" onclick="cloudSync()">Синхронизировать сейчас</button><button class="btn secondary" onclick="copyRecovery()">Копировать код</button><button class="btn ghost" onclick="disconnectCloud()">Отключить это устройство</button><button class="btn ghost" onclick="deleteCloudData()">Удалить облачную копию</button></div>':'<button class="btn" onclick="createCloud()">Создать облачную синхронизацию</button><hr><label class="field-label">Или код с другого устройства</label><textarea id="cloudCode" class="input" placeholder="UUID.секретный-код"></textarea><button class="btn secondary" style="margin-top:10px" onclick="connectCloud()">Подключить</button>')+'<div id="cloudFb"></div></section>',"home");
   }
   async function copyRecovery(){const t=document.getElementById("cloudRecovery")?.value;if(t){await navigator.clipboard.writeText(t);alert("Код скопирован.")}}
   function disconnectCloud(){if(confirm("Отключить облако только на этом устройстве? Данные в облаке останутся.")){setCloudLink(null);renderCloud()}}
+  async function deleteCloudData(){
+    const link=cloudLink();if(!link||cloudBusy)return;
+    if(!confirm("Удалить облачную копию навсегда? Код восстановления перестанет работать на ВСЕХ устройствах. Локальный прогресс сохранится."))return;
+    cloudBusy=true;
+    try{
+      const data=await rpc("norsk_eventyr_sync_delete",{p_sync_id:link.sync_id,p_secret:link.secret});
+      if(data?.ok!==true)throw new Error("Удаление не подтверждено сервером.");
+      if(cloudLink()?.sync_id===link.sync_id){setCloudLink(null);renderCloud();alert("Облачная копия удалена. Прогресс на устройстве сохранён.");}
+    }catch{alert("Не удалось удалить облачную копию. Она могла остаться в облаке; повтори попытку.");}
+    finally{cloudBusy=false}
+  }
+
 
   function renderSettings(){
     const canInstall=!!installPrompt;
-    shell('<div class="screen-head"><button class="back" onclick="navigate(\'hub\')">←</button><div><div class="eyebrow">Настройки</div><h2 style="margin:0">Norsk Eventyr 8.0 beta</h2></div></div><section class="grid"><article class="card"><h3>Учебная цель</h3><div class="goal-options">'+Object.entries(GOALS).map(([k,v])=>'<button class="goal-option '+(state.elite.goal===k?"active":"")+'" onclick="setEliteGoal(\''+k+'\')"><b>'+esc(v[0])+'</b><small>'+esc(v[1])+'</small></button>').join("")+'</div></article><article class="card"><h3>Время в день</h3><div class="row">'+[10,20,30,45].map(n=>'<button class="btn '+(state.elite.dailyMinutes===n?"":"ghost")+'" onclick="setDailyMinutes('+n+')">'+n+' мин</button>').join("")+'</div><hr><h3>Приложение</h3><button class="btn secondary" '+(canInstall?"":"disabled")+' onclick="installApp()">'+(canInstall?"Установить на телефон":"Установка уже недоступна/выполнена")+'</button></article></section><div class="section-title"><h2>Системная проверка</h2></div><section class="card health-list"><div class="metric"><span>LocalStorage</span><strong>✓</strong></div><div class="metric"><span>Service Worker</span><strong>'+("serviceWorker" in navigator?"✓":"—")+'</strong></div><div class="metric"><span>Микрофон API</span><strong>'+(navigator.mediaDevices?.getUserMedia?"✓":"—")+'</strong></div><div class="metric"><span>Облако</span><strong>'+(cloudLink()?"✓":"не подключено")+'</strong></div><div id="healthRemote" class="metric"><span>Сервер AI</span><strong>—</strong></div><div class="row"><button class="btn ghost" onclick="runHealthCheck()">Проверить сервер</button><button class="btn ghost" onclick="navigate(\'cloud\')">Настроить облако</button></div></section>',"home");
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'hub\')">←</button><div><div class="eyebrow">Настройки</div><h2 style="margin:0">Norsk Eventyr 8.2</h2></div></div><section class="grid"><article class="card"><h3>Учебная цель</h3><div class="goal-options">'+Object.entries(GOALS).map(([k,v])=>'<button class="goal-option '+(state.elite.goal===k?"active":"")+'" onclick="setEliteGoal(\''+k+'\')"><b>'+esc(v[0])+'</b><small>'+esc(v[1])+'</small></button>').join("")+'</div></article><article class="card"><h3>Время в день</h3><div class="row">'+[10,20,30,45].map(n=>'<button class="btn '+(state.elite.dailyMinutes===n?"":"ghost")+'" onclick="setDailyMinutes('+n+')">'+n+' мин</button>').join("")+'</div><hr><h3>Приложение</h3><button class="btn secondary" '+(canInstall?"":"disabled")+' onclick="installApp()">'+(canInstall?"Установить на телефон":"Установка уже недоступна/выполнена")+'</button></article></section><div class="section-title"><h2>Системная проверка</h2></div><section class="card health-list"><div class="metric"><span>LocalStorage</span><strong>✓</strong></div><div class="metric"><span>Service Worker</span><strong>'+("serviceWorker" in navigator?"✓":"—")+'</strong></div><div class="metric"><span>Микрофон API</span><strong>'+(navigator.mediaDevices?.getUserMedia?"✓":"—")+'</strong></div><div class="metric"><span>Облако</span><strong>'+(cloudLink()?"✓":"не подключено")+'</strong></div><div id="healthRemote" class="metric"><span>Сервер AI</span><strong>—</strong></div><div class="row"><button class="btn ghost" onclick="runHealthCheck()">Проверить сервер</button><button class="btn ghost" onclick="navigate(\'cloud\')">Настроить облако</button></div></section>',"home");
   }
   async function runHealthCheck(){
     const box=document.getElementById("healthRemote");if(box)box.querySelector("strong").textContent="…";
-    try{const r=await fetch("/api/health",{cache:"no-store"}),d=await r.json();if(box)box.querySelector("strong").textContent=r.ok&&d.aiConfigured?"✓ AI готов":"⚠ проверка"}catch{if(box)box.querySelector("strong").textContent="✕"}
+    try{const r=await fetch("/api/health",{cache:"no-store"}),d=await r.json();if(box)box.querySelector("strong").textContent=r.ok&&d.ok===true?"✓ сервер доступен":"⚠ проверка"}catch{if(box)box.querySelector("strong").textContent="✕"}
   }
   function setEliteGoal(g){state.elite.goal=g;saveState();renderSettings()}
   function setDailyMinutes(n){state.elite.dailyMinutes=n;saveState();renderSettings()}
@@ -323,7 +356,7 @@
 
   function errorCard(title,msg){shell('<section class="card"><h2>'+esc(title)+'</h2><p class="muted">'+esc(msg||"Неизвестная ошибка")+'</p><button class="btn" onclick="navigate(\'home\')">На главную</button></section>',"home")}
 
-  Object.assign(window,{renderPlan,startDictation,checkDictation,nextDictation,startGrammarLab,answerGrammarLab,nextGrammarLab,renderPronunciationLab,selectSoundGroup,selectPronPhrase,practicePronounce,renderListeningLab,analyzeListeningFile,answerListeningLab,nextListeningLab,renderCloud,createCloud,cloudSync,connectCloud,copyRecovery,disconnectCloud,renderSettings,runHealthCheck,setEliteGoal,setDailyMinutes,installApp,neMergeState:mergeState,neResolveStartLevel:resolveStartLevel});
+  Object.assign(window,{renderPlan,startDictation,checkDictation,nextDictation,startGrammarLab,answerGrammarLab,nextGrammarLab,renderPronunciationLab,selectSoundGroup,selectPronPhrase,practicePronounce,renderListeningLab,analyzeListeningFile,answerListeningLab,nextListeningLab,renderCloud,createCloud,cloudSync,connectCloud,copyRecovery,disconnectCloud,deleteCloudData,renderSettings,runHealthCheck,setEliteGoal,setDailyMinutes,installApp,neMergeState:mergeState,neResolveStartLevel:resolveStartLevel});
 
   window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e});
   window.addEventListener("appinstalled",()=>{installPrompt=null});

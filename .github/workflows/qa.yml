@@ -37,3 +37,11 @@ jobs:
       - name: Run QA suite
         working-directory: tests
         run: npm test
+      - name: Store screenshots for manual visual QA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Norsk-Eventyr-8.2-visual-QA
+          path: tests/artifacts/*.png
+          retention-days: 7
+          if-no-files-found: ignore

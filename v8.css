@@ -103,3 +103,53 @@ button.speech-playing{transform:translateY(1px) scale(.985);box-shadow:0 0 0 3px
 
 /* 8.0: learner controls when checked lesson feedback leaves the screen. */
 .lesson-next-v8{width:100%;margin-top:12px}
+
+/* 8.1 personal-study refresh. Stable layouts, not animated distractions. */
+.home-v7 .hero-v7{min-height:468px}
+.home-v7 .hero-overlay-v7{background:linear-gradient(180deg,#04172530 5%,#04172568 43%,#041725ed 100%)}
+.home-v7 .hero-copy-v7{position:absolute;top:auto;bottom:22px;left:20px;right:20px;width:auto;max-width:430px;display:flex;flex-direction:column;align-items:flex-start;gap:8px}
+.home-v7 .hero-copy-v7 h1{font-size:clamp(29px,5vw,37px);line-height:1.12;margin:0}
+.home-v7 .hero-copy-v7 p{position:static;top:auto;left:auto;margin:0;max-width:345px;font-size:15px;line-height:1.45;color:#e5f1f6}
+.home-v7 .hero-copy-v7 .home-focus-v81{margin:3px 0 5px;max-width:100%}
+.home-v7 .hero-copy-v7 .cta-v7{position:static;top:auto;left:auto;min-height:46px;box-sizing:border-box}
+.home-v7 .route-step-v7{min-height:58px;box-sizing:border-box;transition:background-color .12s ease,transform .12s ease}
+.home-v7 .route-step-v7:hover{background:#18415a}
+.main-v7 .choice:focus-visible,.main-v7 .btn:focus-visible,.dock-v7 button:focus-visible,.main-v7 textarea:focus-visible,.main-v7 input:focus-visible{
+ outline:3px solid #4ecbe8;outline-offset:3px
+}
+.lesson-exercise-v6 .choice{min-height:48px}
+.lesson-exercise-v6 .btn{min-height:44px}
+.lesson-exercise-v6 textarea,.lesson-exercise-v6 input{font-size:16px!important;line-height:1.45}
+.lesson-exercise-v6 .eyebrow{font-weight:800;letter-spacing:.035em}
+.lesson-exercise-v6 .muted{line-height:1.5}
+.lesson-exercise-v6 .feedback{margin-top:10px}
+@media(max-width:620px){
+ .home-v7 .hero-v7{min-height:466px}
+ .home-v7 .hero-copy-v7{left:16px;right:16px;bottom:20px;gap:7px}
+ .home-v7 .hero-copy-v7 h1{font-size:clamp(29px,9vw,36px)}
+ .home-v7 .hero-copy-v7 p{font-size:14px;line-height:1.42}
+ .home-v7 .hero-copy-v7 .home-focus-v81{margin:3px 0 4px}
+ .home-v7 .route-step-v7 small{font-size:12px;line-height:1.3}
+ .main-v7 input,.main-v7 textarea{font-size:16px}
+}
+@media(prefers-reduced-motion:reduce){.home-v7 .route-step-v7{transition:none}}
+
+/* 8.1: lightweight, useful vocabulary preview instead of an empty dashboard card. */
+.daily-focus-v81 .section-head-v7 p{max-width:480px}
+.daily-words-v81{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px}
+.daily-word-v81{display:flex;flex-direction:column;gap:4px;border:1px solid rgba(54,135,163,.25);border-radius:14px;padding:12px 14px;background:rgba(18,71,96,.08);min-width:0}
+.daily-word-v81 b{font-size:17px;line-height:1.25;overflow-wrap:anywhere}
+.daily-word-v81 span{font-size:13px;opacity:.82;line-height:1.35;overflow-wrap:anywhere}
+@media(max-width:620px){.daily-words-v81{gap:7px;margin-top:10px}.daily-word-v81{padding:9px 8px}.daily-word-v81 b{font-size:14px}.daily-word-v81 span{font-size:12px}}
+@media(max-width:340px){.daily-words-v81{grid-template-columns:1fr}.daily-word-v81{padding:9px 12px}}
+
+
+/* 8.2 private calibration entry: concise, distinct from ordinary lesson cards. */
+#placementEntryCard{position:relative;overflow:hidden;margin:16px 0;padding:20px 22px;border-radius:20px;border:1px solid rgba(88,197,212,.3);background:linear-gradient(125deg,rgba(7,38,58,.98),rgba(17,69,87,.94));box-shadow:0 12px 30px rgba(0,14,30,.16);color:#f0fbff}
+#placementEntryCard::after{content:"";pointer-events:none;position:absolute;right:-48px;top:-72px;width:205px;height:205px;border-radius:50%;background:radial-gradient(circle,rgba(66,182,197,.16),transparent 70%)}
+#placementEntryCard h3{font-size:21px;line-height:1.22;color:#f8fdff;margin:0 0 8px}
+#placementEntryCard p{font-size:14px;line-height:1.55;max-width:640px;color:#d1e3ec;margin:0 0 12px}
+#placementEntryCard .row{position:relative;display:flex;flex-wrap:wrap;gap:10px;margin:0 0 10px}
+#placementEntryCard .btn{min-height:44px}
+#placementEntryCard small{color:#aac8d5}
+@media(max-width:620px){#placementEntryCard{padding:17px 16px;margin:12px 0}#placementEntryCard h3{font-size:19px}#placementEntryCard .row .btn{flex:1 1 150px}}
