@@ -9,6 +9,7 @@ const quota=read('deferred/SECURITY_8_2_DISTRIBUTED_QUOTA.sql');
 const sync=read('deferred/SECURITY_8_2_SYNC_PREPARE.sql');
 const cutover=read('deferred/SECURITY_8_2_SYNC_CUTOVER.sql');
 const android=read('android-test/app/build.gradle');
+const apkWorkflow=read('.github/workflows/android-private-apk.yml');
 const ui=read('elite.js');
 const imports=read('v3.js');
 const plan=read('SECURITY_RELEASE_PLAN_8_2.md');
@@ -31,6 +32,11 @@ for(const action of ['create','pull','push','delete']){
  assert(cutover.includes('public.norsk_eventyr_sync_'+action),'old anonymous sync '+action+' must be disabled at cutover');
 }
 assert(android.includes('Production is forbidden'),'private debug APK must not point to Production');
+const rcPreview='https://norsk-eventyr-mvp-git-release-820-rc-20261010-fffff19.vercel.app/';
+assert(android.includes(rcPreview),'Android debug build must be restricted to exact RC Preview URL');
+assert(apkWorkflow.includes(rcPreview),'Android CI must build the verified RC Preview target');
+assert(!android.includes('feature-820-placement-calibration'),'old preview must not leak into RC APK');
+assert(!apkWorkflow.includes('feature-820-placement-calibration'),'old preview must not leak into RC build workflow');
 assert(ui.includes('function deleteCloudData()'),'user-controlled cloud copy removal missing');
 assert(imports.includes('BACKUP_TOO_LARGE'),'backup import must enforce a size limit');
 assert(plan.includes('NO-GO'),'release plan must document stop conditions');
