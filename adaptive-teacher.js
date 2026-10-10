@@ -15,11 +15,12 @@ function ensure(state){
  // Rebuild scoped memories only from dated, level-specific evidence. Legacy
  // global counters cannot safely be attributed to a particular CEFR level.
  if(p.patternStatsMigrated!==true){
+  const alreadyTracked=new Set(Object.keys(p.patternStats));
   for(const a of p.attempts){
    if(a?.diagnostic||!LEVEL_ORDER.includes(a?.level)||!a?.errorTag||clamp(a.score)>=80)continue;
    const key=a.level+':'+String(a.errorTag).slice(0,50);
    const prior=p.patternStats[key]||{tag:String(a.errorTag).slice(0,50),level:a.level,skill:a.skill,misses:0,passes:0,transferPasses:0,severity:0,due:dayKey()};
-   if(!p.patternStats[key]){prior.misses++;prior.severity=clamp(prior.severity+(clamp(a.score)<55?24:14));p.patternStats[key]=prior;}
+   if(!alreadyTracked.has(key)){prior.misses++;prior.severity=clamp(prior.severity+(clamp(a.score)<55?24:14));p.patternStats[key]=prior;}
   }
   p.patternStatsMigrated=true;
  }
