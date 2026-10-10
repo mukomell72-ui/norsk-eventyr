@@ -238,11 +238,11 @@ async function runTeacherMission(mission){
   const lesson={...data,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,title:data.title||m.title,grammar:data.grammarRuleRu||m.grammar,_adaptive:{moduleId:m.id,skill:mission.skill,kind:mission.kind,reviewKey:mission.reviewKey||'',errorTag:mission.errorTag||'',canDo:m.canDo,transfer:mission.kind==='review'||mission.kind==='error_remediation'||/transfer|capstone/.test(m.id),origin:source}};
   state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;lessonSession={lesson,step:0,locked:false,xpScores:[]};persistLessonCheckpoint();renderLesson();
  }catch(e){
-  if(foundation&&mission.kind!=='review'){
+  if(foundation&&revision===0&&mission.kind!=='review'){
    const lesson={...foundation,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,grammar:foundation.grammarRuleRu,_adaptive:{moduleId:m.id,skill:mission.skill,kind:'learn',reviewKey:'',errorTag:'',canDo:m.canDo,transfer:false,origin:'Резервная базовая практика'}};
    state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;lessonSession={lesson,step:0,locked:false,xpScores:[]};persistLessonCheckpoint();renderLesson();return;
   }
-  shell('<section class="card"><h2>Занятие не создано</h2><p class="muted">Не засчитываю ничего без полноценного задания. Проверь соединение и повтори.</p><button class="btn" onclick="startAdaptiveTeacher()">Назад</button></section>','home');
+  shell('<section class="card"><h2>Не удалось создать новое задание</h2><p class="muted">Повторять прежние вопросы не буду. Проверь соединение и попробуй снова.</p><button class="btn" onclick="startAdaptiveTeacher()">Назад</button></section>','home');
  }
 }
 async function teacherStartMission(){
