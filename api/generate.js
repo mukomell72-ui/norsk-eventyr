@@ -16,7 +16,7 @@ export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY"});
   if(!await guard(req,res,{limit:24}))return;
   if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED"});
-  const {kind="lesson",level="A1",topic="",goal="",weakSkills=[],reviewWords=[],moduleId="",skillFocus="",canDo=[],grammarFocus="",lexiconFocus="",mastery={},errorPatterns=[],teacherMode=false,reviewMode=false,scenarioVariation=""}=req.body||{};
+  const {kind="lesson",level="A1",topic="",goal="",weakSkills=[],reviewWords=[],moduleId="",skillFocus="",canDo=[],grammarFocus="",lexiconFocus="",mastery={},errorPatterns=[],targetErrorTag="",teacherMode=false,reviewMode=false,scenarioVariation=""}=req.body||{};
   if(!["A1","A2","B1","B2"].includes(level))return res.status(400).json({error:"BAD_LEVEL"});
   const reinforcement=Array.isArray(reviewWords)?reviewWords.slice(0,15).map(x=>String(x).slice(0,100)).filter(Boolean):[];
   const common=[
@@ -25,6 +25,7 @@ export default async function handler(req,res){
     "Can-do цели: "+(Array.isArray(canDo)?canDo.slice(0,6).map(x=>String(x).slice(0,180)).join("; "):"")+".",
     "Главный навык занятия: "+String(skillFocus).slice(0,40)+". Грамматика: "+String(grammarFocus).slice(0,220)+". Лексическое поле: "+String(lexiconFocus).slice(0,220)+".",
     "Текущий профиль мастерства 0–100: "+JSON.stringify(mastery||{}).slice(0,500)+". Повторяющиеся ошибки: "+(Array.isArray(errorPatterns)?errorPatterns.slice(0,8).join(", "):"")+".",
+    targetErrorTag?"Целевая повторяющаяся ошибка: "+String(targetErrorTag).slice(0,50)+". Дай минимум две естественные возможности самостоятельно исправить её в новых обстоятельствах, не показывая правильный ответ заранее.":""
     "Слова прошлых дней для естественного закрепления: "+(reinforcement.join(", ")||"нет")+".",
     "Если список закрепления не пуст, используй эти слова в тексте, примерах, письме или речи настолько часто, насколько это естественно.",
     "Если teacherMode=true, работай как требовательный преподаватель: одна ясная цель, короткое объяснение, затем активное извлечение из памяти, применение и перенос в новую ситуацию.",
