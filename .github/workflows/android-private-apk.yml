@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      TEST_PREVIEW_URL: https://norsk-eventyr-mvp-git-feature-820-placement-calibration-fffff19.vercel.app/
+      TEST_PREVIEW_URL: https://norsk-eventyr-mvp-git-release-820-rc-20261010-fffff19.vercel.app/
     steps:
       - name: Checkout private feature branch
         uses: actions/checkout@v4
@@ -34,10 +34,19 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - name: Build local debug APK (feature preview only)
+      - name: Build local debug APK (release candidate preview only)
         run: gradle --no-daemon -p android-test assembleDebug "-PnorskUrl=$TEST_PREVIEW_URL"
       - name: Verify compiled artifact
         run: test -s android-test/app/build/outputs/apk/debug/app-debug.apk
+      - name: Verify APK embeds RC preview URL, not older branch
+        run: |
+          set -euo pipefail
+          APK=android-test/app/build/outputs/apk/debug/app-debug.apk
+          unzip -p "$APK" classes.dex | strings | grep -F "$TEST_PREVIEW_URL"
+          if unzip -p "$APK" classes.dex | strings | grep -F 'feature-820-placement-calibration'; then
+            echo "ERROR: test APK still points to the old 8.2 feature preview" >&2
+            exit 1
+          fi
       - name: Save APK for private device testing
         uses: actions/upload-artifact@v4
         with:
