@@ -36,7 +36,7 @@ const positions=expected.map(id=>B.variant(id,0).correct);
  assert(expected.some(id=>B.variant(id,1).correct!==B.variant(id,0).correct),'Repeating a lesson should rotate answer position');
 const access=read('access.js'),sw=read('sw.js'),teacher=read('adaptive-teacher.js'),app=read('app.js'),v3=read('v3.js');
 assert(access.includes("'practice-foundations.js'")&&sw.includes('/practice-foundations.js?v='),'practice foundations must load and pre-cache after approval');
-assert(teacher.includes('isFirstAttempt&&foundation')&&teacher.includes('if(foundation&&mission.kind'), 'First learning and fallback must use curated content');
+assert(teacher.includes('isFirstAttempt&&foundation')&&teacher.includes("if(foundation&&revision===0&&mission.kind!=='review')"), 'First learning uses curated content; later AI failures must not silently repeat it');
 assert(app.includes('skill:spoken?"speaking":"writing"'),'A typed dialogue cannot be counted as speech');
 assert(app.includes('skill=spoken?"speaking":"writing"'),'A typed free-form answer cannot be counted as speech');
 assert(v3.includes('f.dataset.fromVoice="true"'),'Microphone transcription should mark its provenance');
