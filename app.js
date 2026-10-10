@@ -1,4 +1,4 @@
-const APP_VERSION="8.2.0";
+const APP_VERSION="8.2.1";
 const DEFAULT_STATE={level:"A1",xp:0,completed:{},testHistory:[],examHistory:[],streak:1,lastStudy:null};
 let state=loadState(),lessonSession=null,testSession=null,examSession=null,speechRec=null,timerHandle=null;
 
@@ -130,7 +130,7 @@ function renderCourse(level=state.level){
 function persistLessonCheckpoint(){
  const session=lessonSession;
  if(!session?.lesson)return;
- state.activeLesson={id:session.lesson.id,step:session.step,dialogueIndex:session.dialogueIndex||0,vocabIndex:session.vocabIndex||0,remediation:session.remediation||null,choiceMiss:session.choiceMiss===true,listeningIndex:session.listeningIndex||0,speakingFollowup:session.speakingFollowup===true,savedAt:new Date().toISOString()};
+ state.activeLesson={id:session.lesson.id,step:session.step,dialogueIndex:session.dialogueIndex||0,vocabIndex:session.vocabIndex||0,remediation:session.remediation||null,choiceMiss:session.choiceMiss===true,listeningIndex:session.listeningIndex||0,speakingFollowup:session.speakingFollowup===true,introReview:session.introReview===true,introReviewVariant:session.introReviewVariant||0,savedAt:new Date().toISOString()};
  saveState();
 }
 function startLesson(id){
@@ -139,8 +139,9 @@ function startLesson(id){
  if(l.id==="a1-1"&&!Number.isInteger(state.introVariant))state.introVariant=Math.floor(Math.random()*3);
  state.level=l.level;touchStudy();
  const saved=state.activeLesson?.id===l.id?state.activeLesson:null;
- const max=lessonSteps(l).length;
- lessonSession={lesson:l,step:saved&&Number.isInteger(saved.step)&&saved.step>=0&&saved.step<max?saved.step:0,
+ const max=l._adaptive?lessonSteps(l).length:7;
+ const introReview=l.id==='a1-1'?(saved?saved.introReview===true:(state.noraMemory?.introduced===true||state.completed?.[l.id]===true)):false;
+ lessonSession={lesson:l,introReview,introReviewVariant:saved?.introReviewVariant??(Number(state.introVariant)||0),step:saved&&Number.isInteger(saved.step)&&saved.step>=0&&saved.step<max?saved.step:0,
   dialogueIndex:saved?.dialogueIndex||0,vocabIndex:saved?.vocabIndex||0,remediation:saved?.remediation||null,
   locked:false,choiceMiss:saved?.choiceMiss===true,listeningIndex:saved?.listeningIndex||0,speakingFollowup:saved?.speakingFollowup===true,xpScores:[]};
  persistLessonCheckpoint();renderLesson();
@@ -164,10 +165,34 @@ const INTRODUCTION_DIALOGUE=[
  {phrase:"Hva gjør du til daglig? Jobber du, eller lærer du norsk?",ru:"Чем ты занимаешься каждый день? Работаешь или учишь норвежский?",goal:"Расскажи о работе или изучении норвежского. Оба варианта допустимы."},
  {phrase:"Nå er det din tur. Still meg et spørsmål for å bli kjent med meg.",ru:"Теперь твоя очередь. Задай мне вопрос, чтобы познакомиться со мной.",goal:"Задай собеседнице один простой вопрос о её имени, происхождении, месте жительства или работе."}
 ];
+const INTRODUCTION_RETURN_DIALOGUES=[
+ [
+  {phrase:"Hei igjen! Hvordan har dagen din vært?",ru:"Снова привет! Как прошёл твой день?",goal:"Расскажи, как прошёл день."},
+  {phrase:"Hva har du gjort på jobb eller på kurset i dag?",ru:"Что ты делал сегодня на работе или на курсах?",goal:"Расскажи об одном сегодняшнем деле."},
+  {phrase:"Hva skal du gjøre i morgen?",ru:"Что ты собираешься делать завтра?",goal:"Назови план на завтра."},
+  {phrase:"Hvilket sted i Norge liker du å besøke?",ru:"Какое место в Норвегии тебе нравится посещать?",goal:"Назови место и объясни почему."},
+  {phrase:"Still meg ett spørsmål om dagen min.",ru:"Задай мне один вопрос о моём дне.",goal:"Задай собеседнице свой вопрос."}
+ ],
+ [
+  {phrase:"Godt å se deg igjen! Hva trenger du å øve på i dag?",ru:"Рада снова тебя видеть! Что ты хочешь потренировать?",goal:"Назови тему для практики."},
+  {phrase:"Når begynner du vanligvis på jobb eller skole?",ru:"Когда обычно начинается твой рабочий или учебный день?",goal:"Расскажи о своём расписании."},
+  {phrase:"Hva gjør du når du ikke forstår en beskjed?",ru:"Что ты делаешь, когда не понимаешь сообщение?",goal:"Объясни, как просишь уточнить."},
+  {phrase:"Hva trenger du å kjøpe denne uken?",ru:"Что тебе нужно купить на этой неделе?",goal:"Расскажи об одной-двух покупках."},
+  {phrase:"Spør meg om en avtale som passer denne uken.",ru:"Спроси меня о времени для встречи.",goal:"Предложи время для встречи."}
+ ],
+ [
+  {phrase:"Hei igjen! Hva er planen din denne uken?",ru:"Снова привет! Какие планы на неделю?",goal:"Расскажи об одном плане."},
+  {phrase:"Kan du fortelle om noe som gikk bra i går?",ru:"Расскажи о чём-то хорошем, что произошло вчера.",goal:"Расскажи о вчерашнем событии."},
+  {phrase:"Hvordan kommer du deg vanligvis til jobb eller skole?",ru:"Как ты обычно добираешься до работы или учёбы?",goal:"Опиши свой маршрут."},
+  {phrase:"Hva gjør du hvis bussen er forsinket?",ru:"Что ты делаешь, если автобус опаздывает?",goal:"Объясни своё решение."},
+  {phrase:"Still meg et spørsmål om planene mine.",ru:"Задай мне вопрос о моих планах.",goal:"Задай вопрос без подсказки."}
+ ]
+];
 function currentDialogueTurn(l){
  if(l.id!=="a1-1")return {phrase:l.phrase,ru:l.ru,goal:"Естественно ответить собеседнику своими словами по-норвежски."};
- const i=lessonSession.dialogueIndex||0;
- return {...INTRODUCTION_DIALOGUE[i],...(i===0?{phrase:INTRODUCTION_OPENERS[(state.introVariant||0)%INTRODUCTION_OPENERS.length]}:{}),dialogueLabel:"Знакомство с Норой · "+(i+1)+"/"+INTRODUCTION_DIALOGUE.length};
+ const i=lessonSession.dialogueIndex||0,returnVisit=lessonSession.introReview===true;
+ const turns=returnVisit?INTRODUCTION_RETURN_DIALOGUES[(lessonSession.introReviewVariant||0)%INTRODUCTION_RETURN_DIALOGUES.length]:INTRODUCTION_DIALOGUE;
+ return {...turns[i],...(!returnVisit&&i===0?{phrase:INTRODUCTION_OPENERS[(state.introVariant||0)%INTRODUCTION_OPENERS.length]}:{}),dialogueLabel:(returnVisit?"Практика с Норой":"Знакомство с Норой")+" · "+(i+1)+"/"+turns.length};
 }
 function lessonIntro(l){const turn=currentDialogueTurn(l);const shown={...l,...turn};l=shown;return `<article class="card lesson-intro-v6"><div class="phrase-v6"><small>${l.dialogueLabel||"Фраза"}</small><div class="prompt">${esc(l.phrase)}</div><div class="phrase-actions-v6"><button onclick="speakText('${escJs(l.phrase)}',.82,this)">🔊 Фраза</button><button onclick="toggle('tr')">RU Перевод</button></div><div id="tr" class="translation compact-translation-v6" style="display:none">${esc(l.ru)}</div></div><div class="lesson-words-v6">${l.vocab.map(v=>`<span><b>${esc(v[0])}</b><small>${esc(v[1])}</small></span>`).join("")}</div><div class="answer-label-v6"><b>Твой ответ</b><span>текстом или голосом</span></div><textarea id="dialogAnswer" class="input lesson-answer-v6" rows="2" placeholder="Напиши по-норвежски…" oninput="this.dataset.fromVoice='false'"></textarea><div class="lesson-actions-v6"><button id="micBtn" class="btn secondary" onclick="toggleMic('dialogAnswer','','${escJs(l.phrase)}')">🎤 Сказать</button><button class="btn" onclick="checkDialogue()">✓ Проверить</button></div><div id="dialogFb"></div><details class="grammar-fold-v6"><summary>Грамматика</summary><p>${esc(l.grammar)}</p></details></article>`}
 function continueCheckedDialogue(){
