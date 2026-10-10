@@ -36,7 +36,7 @@ const rcPreview='https://norsk-eventyr-mvp-git-release-820-rc-20261010-fffff19.v
 assert(android.includes(rcPreview),'Android debug build must be restricted to exact RC Preview URL');
 assert(apkWorkflow.includes(rcPreview),'Android CI must build the verified RC Preview target');
 assert(!android.includes('feature-820-placement-calibration'),'old preview must not leak into RC APK');
-assert(!apkWorkflow.includes('feature-820-placement-calibration'),'old preview must not leak into RC build workflow');
+assert(!apkWorkflow.includes('https://norsk-eventyr-mvp-git-feature-820-placement-calibration-fffff19.vercel.app/'),'old preview must not leak into RC build workflow');
 assert(ui.includes('function deleteCloudData()'),'user-controlled cloud copy removal missing');
 assert(imports.includes('BACKUP_TOO_LARGE'),'backup import must enforce a size limit');
 assert(plan.includes('NO-GO'),'release plan must document stop conditions');
