@@ -384,7 +384,7 @@
     if(s.step===0)b=lessonIntro(l);if(s.step===1)b=grammarEx(l);if(s.step===2)b=vocabEx(l);if(s.step===3)b=listenExV3(l);if(s.step===4)b=readEx(l);if(s.step===5)b=freeEx(l,"writing");if(s.step===6)b=freeEx(l,"speaking");
     shell('<div class="screen-head"><button class="back" onclick="navigate(\'course\',\''+l.level+'\')">←</button><div><div class="eyebrow">'+l.level+' · '+esc(l.title)+'</div><h2 style="margin:0">'+n[s.step]+' · '+(s.step+1)+'/7</h2></div></div><div class="progress"><i style="width:'+pct(s.step,7)+'%"></i></div><section class="exercise">'+b+'</section>',"course");
   };
-  lessonNext=function(xp=0){if(lessonSession?.lesson?._adaptive&&typeof adaptiveLessonNext==="function")return adaptiveLessonNext(xp);saveState();lessonSession.step++;lessonSession.locked=false;if(lessonSession.step>6)return finishLesson();renderLesson()};
+  lessonNext=function(xp=0){if(lessonSession?.lesson?._adaptive&&typeof adaptiveLessonNext==="function")return adaptiveLessonNext(xp);lessonSession.step++;lessonSession.locked=false;lessonSession.choiceMiss=false;if(lessonSession.step>6)return finishLesson();persistLessonCheckpoint();renderLesson()};
   lessonChoice=function(btn,i,c,note,skillHint=""){
     if(lessonSession?.lesson?._adaptive&&typeof adaptiveLessonChoice==="function")return adaptiveLessonChoice(btn,i,c,note,skillHint);
     if(lessonSession.locked)return;const ok=i===c;trackLessonScore(ok?100:35);
@@ -417,6 +417,8 @@
   finishLesson=function(){
     if(lessonSession?.lesson?._adaptive&&typeof adaptiveFinishLesson==="function")return adaptiveFinishLesson();
     const l=lessonSession.lesson;
+    if(state.activeLesson?.id===l.id)delete state.activeLesson;
+    if(l.id==="a1-1"){state.noraMemory=state.noraMemory||{};state.noraMemory.introduced=true;state.introVariant=((Number(state.introVariant)||0)+1)%3}
     if(l.topicId)state.completedTopics[l.topicId]=true;else state.completed[l.id]=true;
     seedSrs(l);const reward=awardLessonXp(l),xp=xpRewardStatus();
     const today=localDateKey();state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.lessonDates=state.guidedJourney.lessonDates||{};state.guidedJourney.lessonDates[today]=l.id;

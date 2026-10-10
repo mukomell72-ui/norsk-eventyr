@@ -1,0 +1,35 @@
+const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
+const root=path.resolve(__dirname,'..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
+const appCode=read('app.js').replace(/\nrenderHome\(\);(?=\s*\/\/ Service worker registration)/,'\n');
+const local=new Map(),storage={getItem:k=>local.get(k)||null,setItem:(k,v)=>local.set(k,String(v)),removeItem:k=>local.delete(k)};
+const course=[{id:'a1-1',level:'A1',phrase:'Hei!',grammar:'Jeg heter',vocab:[['hei','привет']],read:'Hei',q:'?',opts:['a','b','c','d'],correct:0,writing:'Skriv',speaking:'Snakk'}];
+function boot(){
+ const ctx={localStorage:storage,COURSE:course,Date,JSON,Math,Intl,console,alert:()=>{},window:{},navigator:{}};
+ vm.createContext(ctx);vm.runInContext(appCode,ctx);
+ vm.runInContext('renderLesson=function(){};touchStudy=function(){};',ctx);
+ return ctx;
+}
+let c=boot();
+assert.equal(vm.runInContext('APP_VERSION',c),'8.2.1');
+vm.runInContext('state.noraMemory={introduced:true,conversationCount:2};saveState();startLesson("a1-1")',c);
+assert.equal(vm.runInContext('lessonSession.introReview',c),true);
+const first=vm.runInContext('currentDialogueTurn(lessonSession.lesson).phrase',c);
+assert(!first.includes('Hva heter du?'),'known learner must not be asked for name again');
+assert(!first.includes('Jeg heter Nora'),'Nora must not introduce herself again');
+assert.equal(JSON.parse(local.get('ne2_state')).activeLesson.introReview,true,'intro review flag must survive reload');
+vm.runInContext('lessonSession.step=6;persistLessonCheckpoint()',c);
+c=boot();vm.runInContext('startLesson("a1-1")',c);
+assert.equal(vm.runInContext('lessonSession.step',c),6,'seventh stage of legacy lesson must resume');
+assert.equal(vm.runInContext('lessonSession.introReview',c),true,'returning review must remain review');
+local.clear();c=boot();vm.runInContext('startLesson("a1-1")',c);
+assert.equal(vm.runInContext('lessonSession.introReview',c),false,'first lesson must teach introduction');
+assert(vm.runInContext('currentDialogueTurn(lessonSession.lesson).phrase',c).includes('Hva heter du?'));
+const legacy=read('v3.js'),teacher=read('adaptive-teacher.js'),ui=read('ui-v7.js'),sw=read('sw.js');
+assert(legacy.includes('if(state.activeLesson?.id===l.id)delete state.activeLesson'),'completed legacy lessons must clear checkpoint');
+assert(legacy.includes('persistLessonCheckpoint();renderLesson()'),'advancing normal lessons must save new stage');
+assert(teacher.includes("if(foundation&&revision===0&&mission.kind!=='review')"),'repeated missions must not silently replay static fallback');
+assert(teacher.includes('Повторять прежние вопросы не буду'),'AI generation failure must be explicit');
+assert(ui.includes('Дополнительное занятие с Норой'),'daily route must offer new optional mission');
+assert(!ui.includes('8.1 · тест')&&!read('ui-v8.js').includes('8.2 · тест'),'production UI must not display a test label');
+assert(sw.includes('norsk-eventyr-v8-2-1')&&read('access.js').includes("ASSET_REV='8.2.1'"),'installed users must receive fresh cache');
+console.log('PASS Norsk Eventyr 8.2.1 repeat-learning regression: Nora memory, checkpoints, nonrepeat fallback, PWA');

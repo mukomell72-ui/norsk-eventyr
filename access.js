@@ -1,7 +1,7 @@
 // Access is established by the server before any learning screen is loaded.
 (() => {
  const TERMS_VERSION='2026-10-08-v2',PRIVACY_VERSION='2026-10-08-v4';
- const ASSET_REV='8.2.0-rc1',scripts=['data.js','curriculum-v8.js','practice-foundations.js','foundation-extensions.js','advanced-b1.js','advanced-b2.js','adaptive-teacher.js','app.js','voice-pack.js','v3.js','lexicon.js','elite.js','story-data.js','story.js','ui-v6.js','ui-v7.js','ui-v8.js','placement-calibration.js','updates.js','feedback.js'];
+ const ASSET_REV='8.2.1',scripts=['data.js','curriculum-v8.js','practice-foundations.js','foundation-extensions.js','advanced-b1.js','advanced-b2.js','adaptive-teacher.js','app.js','voice-pack.js','v3.js','lexicon.js','elite.js','story-data.js','story.js','ui-v6.js','ui-v7.js','ui-v8.js','placement-calibration.js','updates.js','feedback.js'];
  const app=document.getElementById('app'),gate=document.createElement('main');gate.id='accessGate';gate.className='access-gate';document.body.append(gate);
  let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false,confirmationEmail=null,installSeenSent=false,errorReportBusy=false,growthActivityDateSent='',panelOpen=false,panelEpoch=0;
  const safe=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -95,7 +95,7 @@
   try{
    await fetch('/api/session',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',...deviceHeaders()},body:JSON.stringify({
     action:'client_error',code:String(code||'CLIENT_ERROR').slice(0,80),message:messageText.slice(0,500),
-    path:String(location.pathname||'/').slice(0,300),app_version:'8.2.0',user_agent:String(navigator.userAgent||'').slice(0,250)
+    path:String(location.pathname||'/').slice(0,300),app_version:'8.2.1',user_agent:String(navigator.userAgent||'').slice(0,250)
    }),cache:'no-store'});
   }catch{}finally{setTimeout(()=>{errorReportBusy=false},1500)}
  }

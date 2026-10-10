@@ -71,7 +71,7 @@
     document.getElementById("app").innerHTML=
       '<div class="shell-v7">'+
         '<header class="topbar-v7">'+
-          '<button class="brand-v7" onclick="navigate(\'home\')"><span>Norsk Eventyr</span><b>8.1 · тест</b></button>'+
+          '<button class="brand-v7" onclick="navigate(\'home\')"><span>Norsk Eventyr</span><b>8.2.1</b></button>'+
           '<div class="status-v7"><button class="streak-v7" onclick="navigate(\'hub\')">🔥 <b>'+streak+'</b></button><button class="level-v7" onclick="navigate(\'course\')">'+level+'</button></div>'+
         '</header>'+
         '<main class="main-v7">'+content+helpMarkupV7()+'</main>'+
@@ -125,7 +125,7 @@
       {id:"teacher",title:pending?"Продолжить незаконченный урок":"Главное занятие с Норой",sub:focus,mins:Math.max(10,Math.min(25,Number(state.elite?.dailyMinutes)||20)),done:teacherDone,route:pending?"lesson":"teacher",data:pending?.id},
       ...(reviewRequired?[{id:"review",title:"Повторение по памяти",sub:adaptiveDue?adaptiveDue+" адаптивных проверки":wordDue+" слов по интервалу",mins:5,done:reviewDone,route:adaptiveDue?"teacher":"review"}]:[])
     ];
-    const next=steps.find(x=>!x.done)||{title:"Дополнительная практика",sub:"Обязательная часть готова",mins:0,route:"hub"};
+    const next=steps.find(x=>!x.done)||{title:"Дополнительное занятие с Норой",sub:"Сегодняшний план готов, можно продолжить с новым заданием",mins:0,route:"teacher"};
     return {day,due:wordDue+adaptiveDue,story:storyForLevelV7().current,lesson:nextLessonV7(),steps,next,done:steps.filter(x=>x.done).length,total:steps.length,mins:steps.filter(x=>!x.done).reduce((a,x)=>a+x.mins,0)};
   }
   function v7ContinueToday(){const x=guidedV7().next;navigate(x.route,x.data)}
