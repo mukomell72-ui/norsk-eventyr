@@ -38,6 +38,7 @@ assert(apkWorkflow.includes(rcPreview),'Android CI must build the verified RC Pr
 assert(!android.includes('feature-820-placement-calibration'),'old preview must not leak into RC APK');
 assert(!apkWorkflow.includes('https://norsk-eventyr-mvp-git-feature-820-placement-calibration-fffff19.vercel.app/'),'old preview must not leak into RC build workflow');
 assert(ui.includes('function deleteCloudData()'),'user-controlled cloud copy removal missing');
+assert(ui.includes('Norsk Eventyr 8.2')&&!ui.includes('Norsk Eventyr 8.0 beta'),'learner settings must display current release version');
 assert(imports.includes('BACKUP_TOO_LARGE'),'backup import must enforce a size limit');
 assert(plan.includes('NO-GO'),'release plan must document stop conditions');
 const csp=headers.flatMap(h=>h.headers||[]).find(h=>h.key==='Content-Security-Policy');
