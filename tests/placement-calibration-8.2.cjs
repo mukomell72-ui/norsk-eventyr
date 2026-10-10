@@ -83,9 +83,9 @@ function harness(level=null){
  await rejected.api.submit();
  assert.equal(rejected.state.placement.productive.results[0].score,49,'Rejected response cannot be recorded as high proficiency');
 
- // Debug APK must be tied exclusively to the 8.2 preview alias, never old 8.1 or Production.
+ // Debug APK must be tied exclusively to the 8.2 RC preview alias, never old 8.1 or Production.
  const gradle=read('android-test/app/build.gradle'),workflow=read('.github/workflows/android-private-apk.yml');
- const alias='norsk-eventyr-mvp-git-feature-820-placement-calibration-fffff19.vercel.app';
+ const alias='norsk-eventyr-mvp-git-release-820-rc-20261010-fffff19.vercel.app';
  assert(gradle.includes(alias)&&workflow.includes(alias));
  assert(!workflow.includes('feature-nora-personal'),'Old 8.1 preview must not be shipped');
  assert(gradle.includes("versionName '8.2-private-test'"));
