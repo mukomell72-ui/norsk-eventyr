@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "test": "node publication-preflight-8.2.cjs && node release-security-8.2.mjs && node quota-sql-8.2.cjs && node sync-owner-sql-8.2.cjs && node access-api.mjs && node access-sql.cjs && node access-8.0.1.cjs && node access-8.0.1-sql.cjs && node access-browser.cjs && node api-shapes.mjs && node browser.cjs && node async-media.cjs && node updates.cjs && node professional-7.3.8.cjs && node growth-7.4.0.cjs && node admin-7.4.0.cjs && node adaptive-8.0.0.cjs && node personal-learning-8.1.cjs && node curated-learning-8.1.cjs && node pedagogy-integrity-8.1.cjs && node advanced-b1-b2-8.2.cjs && node foundation-extensions-8.2.cjs && node placement-calibration-8.2.cjs"
+    "test": "node publication-preflight-8.2.cjs && node release-security-8.2.mjs && node quota-sql-8.2.cjs && node sync-owner-sql-8.2.cjs && node access-api.mjs && node access-sql.cjs && node access-8.0.1.cjs && node access-8.0.1-sql.cjs && node access-browser.cjs && node api-shapes.mjs && node browser.cjs && node async-media.cjs && node updates.cjs && node professional-7.3.8.cjs && node growth-7.4.0.cjs && node admin-7.4.0.cjs && node adaptive-8.0.0.cjs && node personal-learning-8.1.cjs && node curated-learning-8.1.cjs && node pedagogy-integrity-8.1.cjs && node advanced-b1-b2-8.2.cjs && node foundation-extensions-8.2.cjs && node placement-calibration-8.2.cjs && node consolidated-intelligence-8.2.cjs"
   },
   "devDependencies": {
     "playwright": "1.62.1",
