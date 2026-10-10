@@ -70,13 +70,13 @@ const {PGlite}=require(process.env.NE_PGLITE_PATH||'@electric-sql/pglite');
  await db.exec('reset role');
  await db.exec(`
    create function public.norsk_eventyr_sync_create(uuid,text,jsonb) returns jsonb
-     language sql security definer set search_path='' as $select '{}'::jsonb$;
+     language sql security definer set search_path='' as $q$select '{}'::jsonb$q$;
    create function public.norsk_eventyr_sync_pull(uuid,text) returns jsonb
-     language sql security definer set search_path='' as $select '{}'::jsonb$;
+     language sql security definer set search_path='' as $q$select '{}'::jsonb$q$;
    create function public.norsk_eventyr_sync_push(uuid,text,jsonb,bigint) returns jsonb
-     language sql security definer set search_path='' as $select '{}'::jsonb$;
+     language sql security definer set search_path='' as $q$select '{}'::jsonb$q$;
    create function public.norsk_eventyr_sync_delete(uuid,text) returns jsonb
-     language sql security definer set search_path='' as $select '{}'::jsonb$;
+     language sql security definer set search_path='' as $q$select '{}'::jsonb$q$;
  `);
  const legacyNames=['create','pull','push','delete'];
  const signatures={create:'uuid,text,jsonb',pull:'uuid,text',push:'uuid,text,jsonb,bigint',delete:'uuid,text'};
