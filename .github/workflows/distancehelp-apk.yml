@@ -27,7 +27,9 @@ jobs:
           gradle-version: '8.9'
       - name: Assemble APK
         working-directory: distancehelp
-        run: gradle :app:assembleDebug --no-daemon --stacktrace
+        run: |
+          gradle :app:assembleDebug --no-daemon --stacktrace 2>&1 | tee ../distancehelp-build-log.txt
+          exit ${PIPESTATUS[0]}
       - name: Save APK
         run: cp distancehelp/app/build/outputs/apk/debug/app-debug.apk DistanceHelp.apk
       - uses: actions/upload-artifact@v4
@@ -41,3 +43,14 @@ jobs:
           git add -f DistanceHelp.apk
           git commit -m 'Build Android APK [skip ci]'
           git push
+      - name: Save build failure log to isolated branch
+        if: failure()
+        run: |
+          if [ -f distancehelp-build-log.txt ]; then
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            cp distancehelp-build-log.txt DistanceHelp-build-error.txt
+            git add -f DistanceHelp-build-error.txt
+            git commit -m 'Record Android build error [skip ci]' || true
+            git push || true
+          fi
