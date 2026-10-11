@@ -64,15 +64,26 @@ function trackLessonScore(score,meta={}){
   strength:String(meta.strength||""),
   improvement:String(meta.improvement||""),
   corrected:String(meta.corrected||""),
-  rule:String(meta.rule||"")
+  rule:String(meta.rule||""),
+  scoreReason:String(meta.scoreReason||"")
  });
+}
+function clearerTaskPrompt(prompt){
+ const value=String(prompt||"");
+ // A Russian statement in quotes is a translation request, not a question to answer.
+ if(/^Ответьте? по-норвежски\s*:\s*[«"“]/i.test(value)&&!/[?？]/.test(value))return value.replace(/^Ответьте? по-норвежски\s*:/i,"Переведите на норвежский:");
+ return value;
 }
 function aiLessonFeedbackHtml(d,title){
  const score=Math.max(0,Math.min(100,Math.round(Number(d?.score)||0))),strengths=Array.isArray(d?.strengths_ru)?d.strengths_ru.filter(Boolean).slice(0,2):[],improvements=Array.isArray(d?.improvements_ru)?d.improvements_ru.filter(Boolean).slice(0,2):[];
+ const verdict=d?.feedback_status==="incorrect"?"Неправильно":d?.feedback_status==="partial"?"Частично правильно":"Правильно";
  const detail=[
+  '<br><b>Проверка:</b> '+verdict,
+  d?.error_fragment_ru?'<br><b>Где ошибка:</b> '+esc(d.error_fragment_ru):"",
   strengths.length?'<br><b>Что хорошо:</b> '+strengths.map(esc).join("; "):"",
   improvements.length?'<br><b>Что улучшить:</b> '+improvements.map(esc).join("; "):"",
   d?.explanation_ru?'<br><b>Комментарий Норы:</b> '+esc(d.explanation_ru):"",
+  d?.score_reason_ru?'<br><b>Почему '+score+'/100:</b> '+esc(d.score_reason_ru):"",
   d?.corrected?'<br><b>Естественнее:</b> '+esc(d.corrected):"",
   d?.micro_rule_ru?'<br><b>Правило:</b> '+esc(d.micro_rule_ru):""
  ].join("");
@@ -83,7 +94,7 @@ function lessonFeedbackSummary(reward){
  if(reward.avg>=100)return '<div class="notice" style="margin-top:14px"><b>Почему 100/100:</b> все оценённые этапы выполнены без снижения балла.</div>';
  const shown=(lower.length?lower:items).slice(-6);
  const rows=shown.map(x=>{
-  const why=x.improvement||x.explanation||x.rule||"Этот этап был оценён ниже 100.";
+  const why=x.scoreReason||x.improvement||x.explanation||x.rule||"Причина снижения не установлена. Оценка предварительная.";
   return '<div style="margin-top:9px"><b>'+esc(x.label)+' · '+x.score+'/100</b><br><small>'+esc(why)+'</small>'+(x.corrected?'<br><small><b>Естественнее:</b> '+esc(x.corrected)+'</small>':"")+'</div>';
  }).join("");
  return '<div class="notice" style="margin-top:14px"><b>Почему '+reward.avg+'/100</b>'+(rows||'<br><small>Один или несколько этапов были оценены ниже 100.</small>')+'</div>';
@@ -213,7 +224,7 @@ async function checkDialogue(){
  const r=await aiEvaluate({answer:a,question:turn.phrase,goal:turn.goal,level:l.level,mode:"dialogue"});
  if(!b.isConnected||lessonSession!==s){s.locked=false;return;}
  if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return;}
- const d=r.data,ok=d.accepted===true&&(d.score??70)>=55;trackLessonScore(d.score??(ok?70:40),{label:"Диалог",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||""});
+ const d=r.data,ok=d.accepted===true&&(d.score??70)>=55;trackLessonScore(d.score??(ok?70:40),{label:"Диалог",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});
  if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:l.level,skill:spoken?"speaking":"writing",score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l.id,source:spoken?"dialogue_voice":"dialogue_text",errorTag:d.error_tag||"",targetErrorTag:l?._adaptive?.errorTag||"",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});saveState();
  if(ok){
   b.innerHTML=aiLessonFeedbackHtml(d,"✓ Задача выполнена")+'<button class="btn lesson-next-v8" onclick="continueCheckedDialogue()">Дальше →</button>';
@@ -284,7 +295,7 @@ function continueSpeakingFollowup(){
 }
 function freeEx(l,mode){
  const sp=mode==="speaking",rem=l?._adaptive&&lessonSession.remediation?.mode===mode?lessonSession.remediation:null,p=rem?.prompt||(sp?(lessonSession.speakingFollowup&&l.speakingFollowUp?l.speakingFollowUp:l.speaking):l.writing);
- return `<article class="card"><div class="eyebrow">${sp?"Устная речь":"Письмо"} · ${rem?"перенос исправления":"AI"}</div>${rem?'<div class="notice"><b>Новая ситуация.</b> Примени исправление сам, без копирования готового ответа.'+(rem.rule?'<br><small>'+esc(rem.rule)+'</small>':'')+'</div><br>':""}<div class="prompt">${esc(p)}</div>${sp?'<div class="notice">Нажми микрофон и говори по-норвежски. Текстовый ответ проверяется как письмо, а не как устная речь.</div>':""}<textarea id="freeAnswer" class="input" placeholder="Ответ по-норвежски…" oninput="this.dataset.fromVoice='false'"></textarea><div class="row" style="margin-top:10px">${sp?'<button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>':""}<button class="btn" onclick="checkFree('${mode}')">🧠 Проверить AI</button></div><div id="freeFb"></div></article>`
+ return `<article class="card"><div class="eyebrow">${sp?"Устная речь":"Письмо"} · ${rem?"перенос исправления":"AI"}</div>${rem?'<div class="notice"><b>Новая ситуация.</b> Примени исправление сам, без копирования готового ответа.'+(rem.rule?'<br><small>'+esc(rem.rule)+'</small>':'')+'</div><br>':""}<div class="prompt">${esc(clearerTaskPrompt(p))}</div>${sp?'<div class="notice">Нажми микрофон и говори по-норвежски. Текстовый ответ проверяется как письмо, а не как устная речь.</div>':""}<textarea id="freeAnswer" class="input" placeholder="Ответ по-норвежски…" oninput="this.dataset.fromVoice='false'"></textarea><div class="row" style="margin-top:10px">${sp?'<button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>':""}<button class="btn" onclick="checkFree('${mode}')">🧠 Проверить AI</button></div><div id="freeFb"></div></article>`
 }
 function openFreeTransfer(){if(lessonSession?.remediation){lessonSession.locked=false;renderLesson()}}
 function deferFreeRemediation(){
@@ -299,7 +310,7 @@ async function checkFree(mode){
  if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
  const d=r.data,ok=d.accepted===true&&(d.score??70)>=55,skill=spoken?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer,
  evidenceScore=ok?Math.max(0,Math.min(100,Math.round(Number(d.score)||0))):Math.min(40,Math.max(0,Math.round(Number(d.score)||0)));
- trackLessonScore(evidenceScore,{label:spoken?"Речь":"Письмо",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||""});
+ trackLessonScore(evidenceScore,{label:spoken?"Речь":"Письмо",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});
  if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill,score:evidenceScore,moduleId:l?._adaptive?.moduleId||l?.id,source:mode==="speaking"&&!spoken?"lesson_free_text":rem?"lesson_free_transfer":"lesson_free",errorTag:d.error_tag||"",targetErrorTag:rem?.errorTag||l?._adaptive?.errorTag||"",transfer:isTransfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}
  if(ok){
   s.remediation=null;s.locked=true;
