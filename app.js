@@ -71,7 +71,7 @@ function trackLessonScore(score,meta={}){
 function clearerTaskPrompt(prompt){
  const value=String(prompt||"");
  // A Russian statement in quotes is a translation request, not a question to answer.
- if(/^Ответьте? по-норвежски\s*:\s*[«"“]/i.test(value)&&!/[?？]/.test(value))return value.replace(/^Ответьте? по-норвежски\s*:/i,"Переведите на норвежский:");
+ if(/^Ответь(?:те)? по-норвежски\s*:\s*[«"“]/i.test(value)&&!/[?？]/.test(value))return value.replace(/^Ответь(?:те)? по-норвежски\s*:/i,"Переведите на норвежский:");
  return value;
 }
 function aiLessonFeedbackHtml(d,title){
