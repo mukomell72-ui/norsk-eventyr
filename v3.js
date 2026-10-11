@@ -737,7 +737,7 @@
     return h.map((m,i)=>{
       if(m.role==="user")return '<div class="chat-row user"><div class="chat-bubble user-bubble">'+esc(m.text)+'</div></div>';
       const meta=m.meta||{};
-      return '<div class="chat-row assistant"><div class="chat-avatar">N</div><div class="chat-stack"><div class="chat-bubble ai-bubble">'+esc(m.text)+'</div><div class="chat-actions"><button onclick="speakText(\''+escJs(m.text)+'\',.9,this)">🔊 Слушать</button>'+(meta.translation_ru?'<button onclick="toggleChatTranslation('+i+')">RU перевод</button>':'')+'</div>'+(meta.translation_ru?'<div id="chatTr'+i+'" class="chat-translation" style="display:none">'+esc(meta.translation_ru)+'</div>':'')+(meta.corrected?'<div class="chat-correction"><b>Лучше сказать:</b> '+esc(meta.corrected)+(meta.explanation_ru?'<br><small>'+esc(meta.explanation_ru)+'</small>':'')+'</div>':'')+(meta.score!==undefined?'<small class="chat-score">Учебная оценка ответа: '+meta.score+'/100</small>':'')+'</div></div>';
+      return '<div class="chat-row assistant"><div class="chat-avatar">N</div><div class="chat-stack"><div class="chat-bubble ai-bubble">'+esc(m.text)+'</div><div class="chat-actions"><button onclick="speakText(\''+escJs(m.text)+'\',.9,this)">🔊 Слушать</button>'+(meta.translation_ru?'<button onclick="toggleChatTranslation('+i+')">RU перевод</button>':'')+'</div>'+(meta.translation_ru?'<div id="chatTr'+i+'" class="chat-translation" style="display:none">'+esc(meta.translation_ru)+'</div>':'')+(meta.score_valid===true?'<div class="chat-correction"><b>'+esc(({correct:"Правильно",partial:"Частично правильно",incorrect:"Неправильно"})[meta.feedback_status]||"Проверка")+'</b>'+(meta.explanation_ru?'<br>'+esc(meta.explanation_ru):'')+(meta.corrected?'<br><b>Как правильно:</b> '+esc(meta.corrected):'')+(meta.score_reason_ru?'<br><b>Почему '+esc(meta.score)+'/100:</b> '+esc(meta.score_reason_ru):'')+'</div>':'')+(meta.score!==undefined?'<small class="chat-score">Учебная оценка ответа: '+meta.score+'/100</small>':'')+'</div></div>';
     }).join("");
   }
   function setChatPref(key,value){
@@ -779,7 +779,10 @@
     state.noraMemory.introduced=true;
     state.noraMemory.lastTopic=String(p.topic||p.conversationTitle||"").slice(0,120);
     state.noraMemory.lastPracticeDate=new Date().toISOString().slice(0,10);
-    updateSkill(wasVoice?"speaking":"writing",d.score_valid?d.score:50);if(d.error_tag){rememberError(d.error_tag);updateSkill("grammar",Math.max(20,(d.score_valid?d.score:50)-8))}
+    if(d.score_valid===true&&d.feedback_status!=="unverified"){
+      updateSkill(wasVoice?"speaking":"writing",d.score);
+      if(d.error_tag){rememberError(d.error_tag);updateSkill("grammar",Math.max(20,d.score-8))}
+    }
     if(window.NEAdaptive&&d.score_valid===true)NEAdaptive.recordAttempt(state,{level:p.level,skill:wasVoice?"speaking":"writing",score:d.score,moduleId:p.level.toLowerCase()+"-conversation",source:"conversation",errorTag:d.error_tag||"",transfer:false});
     // A conversation alone is insufficient evidence for a CEFR level change; the course gate controls promotion.
     saveState();if(!window.neChatVisible||neChatVisible()){renderChat();if(p.autoSpeak&&d.reply_no)speakText(d.reply_no);}
