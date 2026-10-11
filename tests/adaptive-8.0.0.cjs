@@ -174,7 +174,7 @@ assert(elite.includes('m.gamification.lessonAwards={}')&&elite.includes('Math.ma
 assert(adaptive.includes('xpScores:[]'),'adaptive lessons must start a fresh XP scoring session');
 assert(uiV7.includes('XP · награды Норы')&&uiV7.includes('Языковые уровни по-прежнему открываются только знаниями'),'XP UI must keep CEFR progression separate from rewards');
 assert(uiV7.includes('function v7XpMission')&&uiV7.includes("XP-миссия Норы"),'unlocked XP milestones must launch distinct Nora bonus missions');
-assert(chat.includes('max_output_tokens:chatMode==="explain"?800:500'),'normal Nora replies must use the lower latency output budget');
+assert(chat.includes('max_output_tokens:chatMode==="explain"?800:1100'),'Nora must have room for a complete scored explanation without truncation');
 assert(uiV7.includes('state.story.selectedLevel=picked.level'),'Fjordvik must store its own practice level');
 assert(!uiV7.includes('if(picked?.level&&picked.level!==state.level){state.level=picked.level'),'Fjordvik season selection must not switch the course');
 console.log('Norsk Eventyr adaptive teacher 8.0 foundation checks: PASS');
