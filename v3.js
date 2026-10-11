@@ -489,7 +489,7 @@
   }
   function renderDailyPractice(){
     const s=dailyTaskSession,t=s.pack.practice[s.i];if(!t)return finishDailyPractice();
-    shell('<div class="screen-head"><button class="back" onclick="renderDaily()">←</button><div><div class="eyebrow">Ежедневная практика</div><h2 style="margin:0">Задание '+(s.i+1)+'/'+s.pack.practice.length+'</h2></div></div><div class="progress"><i style="width:'+pct(s.i,s.pack.practice.length)+'%"></i></div><section class="exercise"><article class="card"><div class="prompt">'+esc(t.prompt_ru)+'</div>'+
+    shell('<div class="screen-head"><button class="back" onclick="renderDaily()">←</button><div><div class="eyebrow">Ежедневная практика</div><h2 style="margin:0">Задание '+(s.i+1)+'/'+s.pack.practice.length+'</h2></div></div><div class="progress"><i style="width:'+pct(s.i,s.pack.practice.length)+'%"></i></div><section class="exercise"><article class="card"><div class="prompt">'+esc(typeof clearerTaskPrompt==="function"?clearerTaskPrompt(t.prompt_ru):t.prompt_ru)+'</div>'+
     ((t.review_words||[]).length?'<div class="wordchips"><span class="tag">Повторяем</span>'+t.review_words.map(x=>'<span class="wordchip">'+esc(x)+'</span>').join("")+'</div>':'')+
     ((t.new_words||[]).length?'<div class="wordchips"><span class="tag">Новые</span>'+t.new_words.map(x=>'<span class="wordchip">'+esc(x)+'</span>').join("")+'</div>':'')+
     '<textarea id="dailyAnswer" class="input" placeholder="Напиши ответ по-норвежски…"></textarea><div class="row" style="margin-top:10px"><button id="micBtn" class="btn secondary" onclick="toggleMic(\'dailyAnswer\')">🎤 Сказать</button><button class="btn" onclick="checkDailyTask()">🧠 Проверить</button></div><div id="dailyFb"></div></article></section>',"home");
@@ -500,14 +500,16 @@
     const r=await aiEvaluate({answer:a,question:t.prompt_ru,goal,level:s.pack.level,mode:"daily_vocabulary"});
     if(!b.isConnected||dailyTaskSession!==s){s.locked=false;return}
     if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
+    if(r.data.score_valid===false){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка неполная. Попробуй ещё раз — ответ пока не засчитан.</div>';return}
     const score=Number(r.data.score||0),ok=r.data.accepted===true&&score>=55;
     updateDailyStrength([...(t.review_words||[]),...(t.new_words||[])],score);updateSkill("vocabulary",score);updateSkill("grammar",r.data.breakdown?.grammar??score);rememberError(r.data.error_tag);
     if(ok){
-      s.scores.push(score);b.innerHTML='<div class="feedback good"><b>✓ '+score+'/100</b></div>';
-      neAdvance(()=>{s.locked=false;nextDailyTask()},500);return;
+      s.scores.push(score);s.locked=true;
+      b.innerHTML=(typeof aiLessonFeedbackHtml==="function"?aiLessonFeedbackHtml(r.data,"✓ Задание выполнено"):'<div class="feedback good"><b>✓ '+score+'/100</b><br>'+esc(r.data.explanation_ru||"")+'</div>')+
+        '<button class="btn lesson-next-v8" onclick="nextDailyTask()">Дальше →</button>';return;
     }
     s.locked=false;
-    b.innerHTML='<div class="feedback bad"><b>Исправь и попробуй ещё раз</b><br>'+esc(r.data.explanation_ru||"")+(r.data.corrected?'<br><br><b>Возможный вариант:</b><br>'+esc(r.data.corrected):"")+(t.model_answer_no?'<br><br><b>Пример:</b> '+esc(t.model_answer_no):"")+'</div>';
+    b.innerHTML='<div class="feedback bad"><b>Неправильно — исправь и попробуй ещё раз</b>'+(r.data.error_fragment_ru?'<br><b>Ошибка:</b> '+esc(r.data.error_fragment_ru):"")+'<br>'+esc(r.data.explanation_ru||"")+(r.data.score_reason_ru?'<br><b>Почему '+score+'/100:</b> '+esc(r.data.score_reason_ru):"")+(r.data.corrected?'<br><b>Правильно:</b> '+esc(r.data.corrected):"")+(t.model_answer_no?'<br><b>Пример:</b> '+esc(t.model_answer_no):"")+'</div>';
     document.getElementById("dailyAnswer")?.focus();
   }
   function nextDailyTask(){dailyTaskSession.i++;renderDailyPractice()}
