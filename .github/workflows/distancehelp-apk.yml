@@ -6,6 +6,11 @@ on:
       - 'distancehelp/**'
       - '.github/workflows/distancehelp-apk.yml'
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'distancehelp/**'
+      - '.github/workflows/distancehelp-apk.yml'
 
 permissions:
   contents: write
