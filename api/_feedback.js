@@ -22,7 +22,7 @@ export function normalizeAssessment(raw,{requireDecision=true}={}){
  // Never deduct arbitrary points for a fully accepted response with no stated deficiency.
  if(validDecision&&accepted&&validScore&&score>=85&&noVisibleIssue&&!explicitReason)score=100;
  const status=!validDecision||!validScore?(requireDecision?"unverified":"unverified"):
-   !accepted?"incorrect":score===100&&noVisibleIssue?"correct":"partial";
+   !accepted?"incorrect":score===100?"correct":"partial";
  let reason=explicitReason;
  if(!reason&&validScore){
    if(score===100)reason="Баллы не сняты: конкретных ошибок, снижающих оценку, не выявлено.";
