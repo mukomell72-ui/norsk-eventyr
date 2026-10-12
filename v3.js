@@ -138,7 +138,7 @@
   const SPEECH_WAIT_MS=4000,SPEECH_RETRY_COOLDOWN_MS=20000;
   let speechPrimeTimer=null,speechPlaybackTimer=null,speechFallbackUntil=0;
   function norwegianVoice(){
-    try{return window.speechSynthesis?.getVoices?.().find(v=>/^(nb|nn|no)([-_]|$)/i.test(v.lang||""))||null}catch{return null}
+    try{const voices=window.speechSynthesis?.getVoices?.()||[];return voices.find(v=>/^nb([-_]|$)/i.test(v.lang||""))||voices.find(v=>/^no([-_]|$)/i.test(v.lang||""))||voices.find(v=>/^nn([-_]|$)/i.test(v.lang||""))||null}catch{return null}
   }
   function restoreSpeechButton(btn){
     if(!btn)return;
@@ -238,7 +238,7 @@
     a.playbackRate=Math.max(.75,Math.min(1.25,Number(rate)/.9||1));
     a.onplaying=()=>{if(request===speechRequest)setSpeechButton(btn,"playing")};
     a.onended=()=>{if(request===speechRequest){speechAudio=null;restoreSpeechButton(btn)}};
-    a.onerror=()=>{if(request===speechRequest){speechAudio=null;restoreSpeechButton(btn)}};
+    a.onerror=()=>{if(request===speechRequest){speechAudio=null;fallbackSpeech(text,rate,btn,request)}};
     let playTimer;
     try{
       await Promise.race([a.play(),new Promise((_,reject)=>{playTimer=setTimeout(()=>reject(new Error("AUDIO_START_TIMEOUT")),2500)})]);
