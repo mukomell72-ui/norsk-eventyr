@@ -187,6 +187,15 @@
   speakText=async function(text,rate=.9,btn=null,voice="marin"){
     btn=btn||(document.activeElement?.tagName==="BUTTON"?document.activeElement:null);
     const request=++speechRequest;stopSpeechPlayback();setSpeechButton(btn,"loading");
+    // Unlock Web Audio during the original user gesture. Mobile browsers can block
+    // playback if an AudioContext is first resumed after an async TTS request.
+    try{
+      const AC=window.AudioContext||window.webkitAudioContext;
+      if(AC){
+        speechAudioContext=speechAudioContext||new AC();
+        if(speechAudioContext.state==="suspended")speechAudioContext.resume().catch(()=>{});
+      }
+    }catch{}
     // Prefer a licensed real-human Nora recording when an exact clip exists.
     try{
       if(window.NEHumanVoice?.has?.(text)){
@@ -221,6 +230,27 @@
       fallbackSpeech(text,rate,btn);return {source:"browser"};
     }
   };
+  // For individual dictionary words, use an installed Norwegian device voice
+  // immediately (while the tap gesture is active). Otherwise use Nora's AI TTS.
+  function speakWord(text,btn=null){
+    const word=String(text||"").trim();
+    if(!word)return Promise.resolve({source:"unavailable"});
+    const speech=window.speechSynthesis;
+    const voice=speech?.getVoices?.().find(v=>/^(nb|nn|no)(-|_|$)/i.test(v.lang||""));
+    if(voice&&typeof window.SpeechSynthesisUtterance==="function"){
+      const request=++speechRequest;
+      stopSpeechPlayback();
+      const u=new SpeechSynthesisUtterance(word);
+      u.lang="nb-NO";u.voice=voice;u.rate=.9;
+      u.onstart=()=>{if(request===speechRequest)setSpeechButton(btn,"playing")};
+      u.onend=()=>{if(request===speechRequest)restoreSpeechButton(btn)};
+      u.onerror=()=>{if(request===speechRequest)speakText(word,.9,btn)};
+      try{setSpeechButton(btn,"loading");speech.speak(u);return Promise.resolve({source:"device"})}
+      catch{restoreSpeechButton(btn)}
+    }
+    return speakText(word,.9,btn);
+  }
+  window.neSpeakWord=speakWord;
   window.nePrimeSpeech=primeSpeech;
 
   function normSpeech(s){return String(s||"").toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}\s]/gu,"").replace(/\s+/g," ").trim()}
@@ -254,9 +284,9 @@
         let t="";for(let i=0;i<e.results.length;i++)t+=e.results[i][0].transcript;
         if(f?.isConnected){f.value=t;f.dataset.fromVoice="recognition"}
         // Browser recognition provides text only; do not claim assessed audio or pronunciation.
-        if(target==="chatInput")chatInputWasVoice=false;
+        if(target==="chatInput")chatInputWasVoice=true;
       };
-      rec.onend=()=>{if(btn)btn.textContent="🎤 Говорить"};rec.start();return;
+      rec.onend=()=>{if(btn)btn.textContent="🎤 Говорить";if(target==="chatInput"){const status=document.getElementById("chatVoiceStatus");if(status)status.textContent=f?.value?.trim()?"Речь распознана автоматически. Проверь текст перед отправкой: распознавание может ошибаться.":""}};rec.start();return;
     }
     try{
       micBusy=true;
@@ -280,6 +310,7 @@
         const [r,pron]=await Promise.all([transcribePromise,pronouncePromise]);
         if(r.ok){
           const text=r.data.text||"",f=document.getElementById(target);if(f===field&&field?.isConnected){f.value=text;f.dataset.fromVoice="true"}if(target==="chatInput"&&f===field&&field?.isConnected)chatInputWasVoice=true;
+          if(target==="chatInput"&&f===field&&field?.isConnected){const status=document.getElementById("chatVoiceStatus");if(status)status.textContent="Речь распознана автоматически. Проверь текст перед отправкой: распознавание может ошибаться.";}
           if(expected){
             const fallback=similarity(text,expected),box=document.getElementById("pronFb"),p=pron&&pron.ok?pron.data:null,sc=p?.score??fallback;
             if(box)box.innerHTML='<div class="feedback '+(sc>=70?"good":"bad")+'"><b>'+(p?'Произношение (предварительная AI-оценка): ':'Совпадение распознанного текста с образцом: ')+sc+'/100</b><br>'+(p?esc(p.pronunciation_ru||""):'Речь оценена по точности распознавания.')+(p?'<br><small>Разборчивость '+p.clarity+' · ритм '+p.rhythm+' · соответствие образцу '+p.accuracy+'</small>':'')+(p?.difficult_words?.length?'<br><b>Потренировать:</b> '+p.difficult_words.map(esc).join(", "):'')+'<br><small>AI-оценка аудиозаписи для тренировки, не оценка официального экзаменатора.</small></div>';
@@ -567,13 +598,56 @@
   }
   function finishReview(){const today=localDateKey();state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.reviewDates=state.guidedJourney.reviewDates||{};state.guidedJourney.reviewDates[today]=true;saveState();shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">Повторение завершено</div><h1>Готово</h1><p class="muted">Следующие даты пересчитаны. Возвращаемся к сегодняшнему маршруту.</p><button class="btn" onclick="navigate(\'home\')">Продолжить день →</button></section>',"home")}
 
-  function renderPlacement(){
-    shell('<section class="card" style="max-width:760px;margin:30px auto"><div class="eyebrow">Входной скрининг</div><h1>С какого материала лучше начать?</h1><p class="muted">20 коротких заданий A1–B2 проверяют грамматику, словарь, чтение и аудирование. Это быстрый выбор точки старта, а не определение полного уровня.</p><div class="notice"><b>Письмо и речь здесь не измеряются.</b> Их Нора проверит в реальных ответах первых занятий. Скрининг не подтверждает CEFR и не заменяет Norskprøven.</div><br><button class="btn" onclick="startPlacement()">Начать скрининг</button></section>',"home");
+
+  // Repeat assessment samples a different set and weights the prior level.
+  function placementRetakeQuestions(previous){
+    const levels=["A1","A2","B1","B2"],target=previous?.recommendedStart||previous?.level||"A1";
+    const quotas={A1:[7,6,4,3],A2:[5,7,5,3],B1:[3,3,9,5],B2:[3,3,5,9]}[target]||[5,5,5,5];
+    const seen=new Set(previous?.questionIds?.length?previous.questionIds:PLACEMENT_BANK.map((_,i)=>"base-"+i));
+    const pool=PLACEMENT_BANK.map((q,i)=>({...q,id:"base-"+i}));
+    const mix=items=>{const arr=[...items];for(let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];}return arr;};
+    for(const level of levels){
+      (GRAMMAR_GUIDE[level]||[]).forEach((q,i)=>{
+        if(q.opts?.length===4)pool.push({id:"grammar-"+level+"-"+i,level,skill:"grammar",q:q.q,opts:q.opts,correct:q.correct});
+      });
+      const lessons=COURSE.filter(q=>q.level===level);
+      lessons.forEach(lesson=>{
+        if(lesson.opts?.length===4)pool.push({id:"reading-"+lesson.id,level,skill:"reading",q:lesson.q,context:lesson.read,opts:lesson.opts,correct:lesson.correct});
+        const others=lessons.filter(q=>q.id!==lesson.id).slice(0,3).map(q=>q.phrase);
+        if(others.length===3)pool.push({id:"listening-"+lesson.id,level,skill:"listening",q:"Какую фразу ты услышал?",audio:lesson.phrase,opts:[lesson.phrase,...others],correct:0});
+        const translations=[...new Set(lessons.flatMap(q=>(q.vocab||[]).map(v=>v[1])))];
+        (lesson.vocab||[]).forEach(([word,translation],i)=>{
+          const alternatives=mix(translations.filter(x=>x!==translation)).slice(0,3);
+          if(alternatives.length===3)pool.push({id:"vocabulary-"+lesson.id+"-"+i,level,skill:"vocabulary",q:"Что означает «"+word+"»?",opts:[translation,...alternatives],correct:0});
+        });
+      });
+    }
+    const selected=[];
+    levels.forEach((level,index)=>{
+      const fresh=mix(pool.filter(q=>q.level===level&&!seen.has(q.id))),backup=mix(pool.filter(q=>q.level===level&&seen.has(q.id)));
+      const counts={grammar:0,reading:0,listening:0,vocabulary:0};
+      for(let i=0;i<quotas[index];i++){
+        const choices=fresh.length?fresh:backup;if(!choices.length)break;
+        choices.sort((a,b)=>counts[a.skill]-counts[b.skill]);
+        const next=choices.shift();selected.push(next);counts[next.skill]++;
+      }
+    });
+    return mix(selected).map(q=>{
+      const choices=mix(q.opts.map((text,i)=>({text,i})));
+      return {...q,opts:choices.map(x=>x.text),correct:choices.findIndex(x=>x.i===q.correct)};
+    });
   }
-  function startPlacement(){placementSession={qs:[...PLACEMENT_BANK],i:0,byLevel:{A1:[0,0],A2:[0,0],B1:[0,0],B2:[0,0]},bySkill:{},byLevelSkill:{A1:{},A2:{},B1:{},B2:{}}};renderPlacementQ()}
+  function renderPlacement(){
+    const previous=state.placement;
+    shell('<section class="card" style="max-width:760px;margin:30px auto"><div class="eyebrow">Входной скрининг</div><h1>'+(previous?'Повторная аттестация уровня':'С какого материала лучше начать?')+'</h1><p class="muted">20 коротких заданий A1–B2 проверяют грамматику, словарь, чтение и аудирование. Это быстрый выбор точки старта, а не определение полного уровня.</p><div class="notice"><b>Письмо и речь здесь не измеряются.</b> Их Нора проверит в реальных ответах первых занятий. Скрининг не подтверждает CEFR и не заменяет Norskprøven.</div><br><p class="muted">'+(previous?'Предыдущая стартовая ступень: <b>'+esc(previous.recommendedStart||previous.level)+'</b>. Новый вариант адаптируется к результату, уроки и словарь сохраняются.':'')+'</p><button class="btn" onclick="startPlacement()">'+(previous?'Пройти заново':'Начать скрининг')+'</button></section>',"home");
+  }
+  function startPlacement(){
+    const previous=state.placement,qs=previous?placementRetakeQuestions(previous):PLACEMENT_BANK.map((q,i)=>({...q,id:"base-"+i}));
+    placementSession={qs,previous,i:0,byLevel:{A1:[0,0],A2:[0,0],B1:[0,0],B2:[0,0]},bySkill:{},byLevelSkill:{A1:{},A2:{},B1:{},B2:{}}};renderPlacementQ();
+  }
   function renderPlacementQ(){
     const s=placementSession,q=s.qs[s.i];if(!q)return finishPlacement();
-    shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Диагностика</div><h2 style="margin:0">Задание '+(s.i+1)+'/20</h2></div></div><div class="progress"><i style="width:'+pct(s.i,20)+'%"></i></div><section class="exercise"><article class="card">'+(q.context?'<div class="translation">'+esc(q.context)+'</div><br>':"")+(q.audio?'<button class="btn" onclick="speakText(\''+escJs(q.audio)+'\',.9,this)">▶ Прослушать</button><br><br>':"")+'<div class="prompt">'+esc(q.q)+'</div><div class="choice-list">'+q.opts.map((x,i)=>'<button class="choice" onclick="answerPlacement('+i+')">'+esc(x)+'</button>').join("")+'</div></article></section>',"home");
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Диагностика</div><h2 style="margin:0">Задание '+(s.i+1)+'/'+s.qs.length+'</h2></div></div><div class="progress"><i style="width:'+pct(s.i,s.qs.length)+'%"></i></div><section class="exercise"><article class="card">'+(q.context?'<div class="translation">'+esc(q.context)+'</div><br>':"")+(q.audio?'<button class="btn" onclick="speakText(\''+escJs(q.audio)+'\',.9,this)">▶ Прослушать</button><br><br>':"")+'<div class="prompt">'+esc(q.q)+'</div><div class="choice-list">'+q.opts.map((x,i)=>'<button class="choice" onclick="answerPlacement('+i+')">'+esc(x)+'</button>').join("")+'</div></article></section>',"home");
   }
   function answerPlacement(i){
     const s=placementSession,q=s.qs[s.i],ok=i===q.correct;s.byLevel[q.level][1]++;if(ok)s.byLevel[q.level][0]++;
@@ -599,7 +673,8 @@
       }
     }
     state.level=rec;if(state.chatPrefs)state.chatPrefs.level=rec;if(window.NEAdaptive){const p=NEAdaptive.ensure(state);p.startLevel=rec}
-    state.placement={level:rec,recommendedStart:rec,scope:"receptive_screening",byLevel:rat,byLevelSkill:s.byLevelSkill,date:new Date().toISOString()};saveState();
+    if(s.previous)state.placementHistory=[...(Array.isArray(state.placementHistory)?state.placementHistory:[]),{level:s.previous.recommendedStart||s.previous.level,date:s.previous.date||"",byLevel:s.previous.byLevel||{}}].slice(-10);
+    state.placement={level:rec,recommendedStart:rec,scope:"receptive_screening",byLevel:rat,byLevelSkill:s.byLevelSkill,date:new Date().toISOString(),attemptNumber:(Number(s.previous?.attemptNumber)||(s.previous?1:0))+1,questionIds:s.qs.map(q=>q.id)};saveState();
     shell('<section class="card" style="max-width:720px;margin:35px auto;text-align:center"><div class="eyebrow">Результат входного скрининга</div><h1>Начать материалы с '+rec+'</h1><p class="muted">A1 '+Math.round(rat.A1*100)+'% · A2 '+Math.round(rat.A2*100)+'% · B1 '+Math.round(rat.B1*100)+'% · B2 '+Math.round(rat.B2*100)+'%</p><div class="notice"><b>Это не означает, что уровень '+rec+' подтверждён.</b> Скрининг не проверял письмо и речь. Нора начнёт с '+rec+' и уточнит профиль по реальным ответам; при пробелах автоматически вернёт нужный материал.</div><br><button class="btn" onclick="navigate(\'calibration\')">Проверить письмо и речь</button><button class="btn secondary" onclick="NECalibration.postpone()">Продолжить обучение</button></section>',"home");
   }
 
@@ -765,7 +840,7 @@
   }
   async function sendChat(){
     const input=document.getElementById("chatInput"),btn=document.getElementById("chatSendBtn"),msg=input?.value.trim();if(!msg)return;
-    const p=state.chatPrefs,wasVoice=chatInputWasVoice&&input?.dataset.fromVoice==="true";chatInputWasVoice=false;
+    const p=state.chatPrefs,wasVoice=chatInputWasVoice&&["true","recognition"].includes(input?.dataset.fromVoice);chatInputWasVoice=false;
     state.chatMemories=state.chatMemories||{};const memoryKey=state.chatThreadId||"general";
     if(!state.chatMemories[memoryKey])state.chatMemories[memoryKey]=[];
     const memory=state.chatMemories[memoryKey];if(memory.length<8){
@@ -775,7 +850,7 @@
     const box=document.getElementById("chatMessages");if(box){box.insertAdjacentHTML("beforeend",'<div class="chat-thinking">Нора думает…</div>');box.scrollTop=box.scrollHeight}
     const hist=state.chatHistory.slice(0,-1).slice(-32).map(x=>({role:x.role,text:x.text}));
     if(window.NEAdaptive)NEAdaptive.ensure(state);const mastery=state.learningV8?.levelSkills?.[p.level]||{},errorPatterns=window.NEAdaptive?NEAdaptive.errors(state):[];
-    const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:hist,context:state.chatMemories[memoryKey].map(x=>(x.role==="user"?"Ученик: ":"Nora: ")+x.text).join("\n"),practiceWords:reinforcementWordList(15),mastery,errorPatterns,learnerContext:noraLearningContext(),teacherMode:true});
+    const r=await apiPost("/api/chat",{message:msg,inputSource:wasVoice?"voice_transcript":"typed_text",level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:hist,context:state.chatMemories[memoryKey].map(x=>(x.role==="user"?"Ученик: ":"Nora: ")+x.text).join("\n"),practiceWords:reinforcementWordList(15),mastery,errorPatterns,learnerContext:noraLearningContext(),teacherMode:true});
     if(!r.ok){state.chatHistory.push({role:"assistant",text:"Beklager, jeg fikk et teknisk problem. Prøv igjen.",meta:{translation_ru:"Извините, произошла техническая ошибка. Попробуйте ещё раз."}});saveState();if(!window.neChatVisible||neChatVisible())return renderChat();return;}
     const d=r.data;state.chatHistory.push({role:"assistant",text:d.reply_no,meta:d});state.chatHistory=state.chatHistory.slice(-40);
     state.noraMemory.introduced=true;
