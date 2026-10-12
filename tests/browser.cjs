@@ -102,6 +102,38 @@ const server=http.createServer(async(req,res)=>{
   await page.evaluate(()=>{state.level='A1';saveState();navigate('test','B2')});await page.waitForTimeout(500);
   const diagnosticState=await page.evaluate(()=>({courseLevel:state.level,testLevel:testSession?.level,hasSix:Object.keys(testSession?.skillEvidence||{}).sort().join(',')}));
   assert.equal(diagnosticState.courseLevel,'A1');assert.equal(diagnosticState.testLevel,'B2');assert.equal(diagnosticState.hasSix,'grammar,listening,reading,speaking,vocabulary,writing');console.log('PASS active B2 diagnostic does not switch A1 course and collects six skills');
+  // B1 retake must use a new question pool, keep history and preserve lessons.
+  const originalRetake=await page.evaluate(()=>{
+    state.level='B1';
+    state.placement={level:'B1',recommendedStart:'B1',scope:'receptive_screening',date:'2026-10-01T00:00:00Z',productive:{status:'complete',results:[],nextIndex:3}};
+    state.completed['a1-1']=true;
+    saveState();navigate('home');
+    return{completed:state.completed['a1-1'],xp:state.xp};
+  });
+  assert((await page.locator('#placementEntryCard').innerText()).includes('Проверить уровень заново'));
+  await page.locator('#placementEntryCard button').first().click();
+  assert((await page.locator('#app main').innerText()).includes('Повторная аттестация уровня'));
+  await page.evaluate(()=>startPlacement());
+  assert((await page.locator('#app main').innerText()).includes('Задание 1/20'));
+  await page.evaluate(()=>{for(let i=0;i<20;i++)answerPlacement(0)});
+  const retakeResult=await page.evaluate(()=>({
+    questions:state.placement.questionIds,
+    last:state.placementHistory?.at(-1),
+    b1Count:Object.values(state.placement.byLevelSkill.B1).reduce((n,cell)=>n+cell[1],0),
+    attempt:state.placement.attemptNumber,
+    completion:state.completed['a1-1'],
+    xp:state.xp
+  }));
+  assert.equal(retakeResult.questions.length,20);
+  assert(retakeResult.questions.every(q=>!q.startsWith('base-')),'Retake must not repeat the original 20 questions');
+  assert.equal(retakeResult.b1Count,9,'Retake for B1 should emphasize B1');
+  assert.equal(retakeResult.attempt,2);
+  assert.equal(retakeResult.last.level,'B1');
+  assert.equal(retakeResult.completion,originalRetake.completed);
+  assert.equal(retakeResult.xp,originalRetake.xp);
+  await page.evaluate(()=>{state.placement={level:'B1',recommendedStart:'B1',scope:'receptive_screening',attemptNumber:2};navigate('calibration')});
+  assert((await page.locator('#app main').innerText()).includes('изменить рабочий график'),'New B1 writing task should differ');
+  console.log('PASS B1 retake: 20 new tasks, level weighting, assessment history, preserved lesson progress');
   const placementResult=await page.evaluate(()=>{state.level='A1';state.learningV8={};state.placement=null;saveState();startPlacement();[0,0,0,1,0,1,2,1,1,1,1,1,0,1,1,1,1,0,1,2].forEach(a=>answerPlacement(a));return{level:state.level,placement:state.placement,b2:state.learningV8?.levelSkills?.B2,text:document.querySelector('#app main')?.innerText||''}});
   assert.equal(placementResult.level,'B2');assert.equal(placementResult.placement?.scope,'receptive_screening');assert.equal(placementResult.b2?.writing,35);assert.equal(placementResult.b2?.speaking,35);assert(placementResult.b2?.reading<=70);assert(placementResult.text.includes('не означает, что уровень B2 подтверждён'));console.log('PASS perfect placement recommends B2 material without certifying productive B2');
   await page.evaluate(()=>navigate('course','A1'));const courseText=(await page.locator('#app main').innerText());assert(courseText.includes('8 модулей A1'));assert(courseText.includes('Старт и выживание'));assert(courseText.includes('A1: реальные ситуации'));console.log('PASS active course shows the A1 mastery curriculum');
