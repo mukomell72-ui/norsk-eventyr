@@ -412,19 +412,36 @@
     if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){
       const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
       if(!SR)return alert("Запись речи недоступна в этом браузере.");
-      const rec=new SR();rec.lang="nb-NO";rec.interimResults=false;const f=document.getElementById(target);
-      rec.onstart=()=>{if(btn)btn.textContent="■ Слушаю…"};rec.onresult=e=>{
+      const rec=new SR();rec.lang="nb-NO";rec.interimResults=false;
+      const f=document.getElementById(target);
+      let recognitionStartedAt=Date.now(),finalTranscript="";
+      rec.onstart=()=>{recognitionStartedAt=Date.now();if(btn)btn.textContent="■ Слушаю…"};
+      rec.onresult=e=>{
         let t="";for(let i=0;i<e.results.length;i++)if(e.results[i].isFinal)t+=e.results[i][0].transcript;
-        if(t.trim()&&f?.isConnected){f.value=t;f.dataset.fromVoice="recognition"}
-        // Browser recognition provides text only; do not claim assessed audio or pronunciation.
-        if(target==="chatInput")chatInputWasVoice=true;
+        finalTranscript=t.trim();
       };
-      rec.onend=()=>{if(btn)btn.textContent="🎤 Говорить";if(target==="chatInput"){const status=document.getElementById("chatVoiceStatus");if(status)status.textContent=f?.value?.trim()?"Речь распознана автоматически. Проверь текст перед отправкой: распознавание может ошибаться.":""}};rec.start();return;
+      rec.onend=()=>{
+        if(btn)btn.textContent="🎤 Говорить";
+        const enoughSpeechTime=Date.now()-recognitionStartedAt>=1200;
+        if(enoughSpeechTime&&finalTranscript&&f?.isConnected){
+          f.value=finalTranscript;
+          f.dataset.fromVoice="recognition";
+          if(target==="chatInput")chatInputWasVoice=true;
+        }
+        if(target==="chatInput"){
+          const status=document.getElementById("chatVoiceStatus");
+          if(status)status.textContent=enoughSpeechTime&&finalTranscript?
+            "Речь распознана автоматически. Проверь текст перед отправкой: распознавание может ошибаться.":
+            "Речь не записана. Говори после включения микрофона.";
+        }
+      };
+      rec.start();return;
     }
+    let micActivity=null;
     try{
       micBusy=true;
       const recordedField=document.getElementById(target);
-      mediaStream=await getMicStream();const micActivity=monitorMicActivity(mediaStream);recordChunks=[];recordStartedAt=Date.now();
+      mediaStream=await getMicStream();micActivity=monitorMicActivity(mediaStream);recordChunks=[];recordStartedAt=Date.now();
       const preferredMime=["audio/webm;codecs=opus","audio/webm","audio/mp4"].find(x=>MediaRecorder.isTypeSupported?.(x));
       try{mediaRecorder=new MediaRecorder(mediaStream,preferredMime?{mimeType:preferredMime,audioBitsPerSecond:128000}:{audioBitsPerSecond:128000})}catch{mediaRecorder=preferredMime?new MediaRecorder(mediaStream,{mimeType:preferredMime}):new MediaRecorder(mediaStream)};
       mediaRecorder.ondataavailable=e=>{if(e.data.size)recordChunks.push(e.data)};
@@ -468,7 +485,7 @@
       mediaRecorder.start(250);if(btn)btn.textContent="■ Слушаю…";
       recordTimer=setTimeout(()=>{if(mediaRecorder?.state==="recording")mediaRecorder.stop()},30000);
     }catch(e){
-      micBusy=false;parkMicStream();if(btn)btn.textContent="🎤 Говорить";
+      micActivity?.close();micBusy=false;parkMicStream();if(btn)btn.textContent="🎤 Говорить";
       alert(e?.name==="NotAllowedError"?"Разреши микрофон для этого сайта в настройках браузера. Выбери постоянное разрешение, если браузер предлагает его.":"Не удалось включить микрофон. Проверь, что он доступен, и попробуй снова.");
     }
   };
