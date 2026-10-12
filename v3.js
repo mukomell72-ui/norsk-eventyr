@@ -254,9 +254,9 @@
         let t="";for(let i=0;i<e.results.length;i++)t+=e.results[i][0].transcript;
         if(f?.isConnected){f.value=t;f.dataset.fromVoice="recognition"}
         // Browser recognition provides text only; do not claim assessed audio or pronunciation.
-        if(target==="chatInput")chatInputWasVoice=false;
+        if(target==="chatInput")chatInputWasVoice=true;
       };
-      rec.onend=()=>{if(btn)btn.textContent="🎤 Говорить"};rec.start();return;
+      rec.onend=()=>{if(btn)btn.textContent="🎤 Говорить";if(target==="chatInput"){const status=document.getElementById("chatVoiceStatus");if(status)status.textContent=f?.value?.trim()?"Речь распознана автоматически. Проверь текст перед отправкой: распознавание может ошибаться.":""}};rec.start();return;
     }
     try{
       micBusy=true;
@@ -280,6 +280,7 @@
         const [r,pron]=await Promise.all([transcribePromise,pronouncePromise]);
         if(r.ok){
           const text=r.data.text||"",f=document.getElementById(target);if(f===field&&field?.isConnected){f.value=text;f.dataset.fromVoice="true"}if(target==="chatInput"&&f===field&&field?.isConnected)chatInputWasVoice=true;
+          if(target==="chatInput"&&f===field&&field?.isConnected){const status=document.getElementById("chatVoiceStatus");if(status)status.textContent="Речь распознана автоматически. Проверь текст перед отправкой: распознавание может ошибаться.";}
           if(expected){
             const fallback=similarity(text,expected),box=document.getElementById("pronFb"),p=pron&&pron.ok?pron.data:null,sc=p?.score??fallback;
             if(box)box.innerHTML='<div class="feedback '+(sc>=70?"good":"bad")+'"><b>'+(p?'Произношение (предварительная AI-оценка): ':'Совпадение распознанного текста с образцом: ')+sc+'/100</b><br>'+(p?esc(p.pronunciation_ru||""):'Речь оценена по точности распознавания.')+(p?'<br><small>Разборчивость '+p.clarity+' · ритм '+p.rhythm+' · соответствие образцу '+p.accuracy+'</small>':'')+(p?.difficult_words?.length?'<br><b>Потренировать:</b> '+p.difficult_words.map(esc).join(", "):'')+'<br><small>AI-оценка аудиозаписи для тренировки, не оценка официального экзаменатора.</small></div>';
@@ -765,7 +766,7 @@
   }
   async function sendChat(){
     const input=document.getElementById("chatInput"),btn=document.getElementById("chatSendBtn"),msg=input?.value.trim();if(!msg)return;
-    const p=state.chatPrefs,wasVoice=chatInputWasVoice&&input?.dataset.fromVoice==="true";chatInputWasVoice=false;
+    const p=state.chatPrefs,wasVoice=chatInputWasVoice&&["true","recognition"].includes(input?.dataset.fromVoice);chatInputWasVoice=false;
     state.chatMemories=state.chatMemories||{};const memoryKey=state.chatThreadId||"general";
     if(!state.chatMemories[memoryKey])state.chatMemories[memoryKey]=[];
     const memory=state.chatMemories[memoryKey];if(memory.length<8){
@@ -775,7 +776,7 @@
     const box=document.getElementById("chatMessages");if(box){box.insertAdjacentHTML("beforeend",'<div class="chat-thinking">Нора думает…</div>');box.scrollTop=box.scrollHeight}
     const hist=state.chatHistory.slice(0,-1).slice(-32).map(x=>({role:x.role,text:x.text}));
     if(window.NEAdaptive)NEAdaptive.ensure(state);const mastery=state.learningV8?.levelSkills?.[p.level]||{},errorPatterns=window.NEAdaptive?NEAdaptive.errors(state):[];
-    const r=await apiPost("/api/chat",{message:msg,level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:hist,context:state.chatMemories[memoryKey].map(x=>(x.role==="user"?"Ученик: ":"Nora: ")+x.text).join("\n"),practiceWords:reinforcementWordList(15),mastery,errorPatterns,learnerContext:noraLearningContext(),teacherMode:true});
+    const r=await apiPost("/api/chat",{message:msg,inputSource:wasVoice?"voice_transcript":"typed_text",level:p.level,mode:p.mode,topic:p.topic,scenario:p.sceneContext||CHAT_SCENARIOS[p.scenario]||"",history:hist,context:state.chatMemories[memoryKey].map(x=>(x.role==="user"?"Ученик: ":"Nora: ")+x.text).join("\n"),practiceWords:reinforcementWordList(15),mastery,errorPatterns,learnerContext:noraLearningContext(),teacherMode:true});
     if(!r.ok){state.chatHistory.push({role:"assistant",text:"Beklager, jeg fikk et teknisk problem. Prøv igjen.",meta:{translation_ru:"Извините, произошла техническая ошибка. Попробуйте ещё раз."}});saveState();if(!window.neChatVisible||neChatVisible())return renderChat();return;}
     const d=r.data;state.chatHistory.push({role:"assistant",text:d.reply_no,meta:d});state.chatHistory=state.chatHistory.slice(-40);
     state.noraMemory.introduced=true;
