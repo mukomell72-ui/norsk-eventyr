@@ -353,6 +353,58 @@
     for(let i=0;i<len;i++){let s=0;for(let c=0;c<channels;c++)s+=data[c][i];s=Math.max(-1,Math.min(1,s/channels));v.setInt16(o,s<0?s*0x8000:s*0x7fff,true);o+=2}
     await ac.close();let bin="",u=new Uint8Array(out);for(let i=0;i<u.length;i+=0x8000)bin+=String.fromCharCode(...u.subarray(i,i+0x8000));return btoa(bin);
   }
+  // A tap with no meaningful speaking time must never be transcribed.
+  function micRecordingProblem(bytes,durationMs,nearlySilent,target){
+    const minimumMs=target==="pronText"?650:1200;
+    if(!Number.isFinite(durationMs)||durationMs<minimumMs||bytes<900)return "TOO_SHORT";
+    if(nearlySilent)return "SILENT";
+    return "";
+  }
+  // Track near-silent microphone input before sending audio to the AI.
+  // A low-level meter is deliberately conservative: if audio inspection is
+  // unavailable or uncertain, keep the recording rather than reject quiet speech.
+  function monitorMicActivity(stream){
+    const AC=window.AudioContext||window.webkitAudioContext;
+    if(!AC)return null;
+    let ctx=null,source=null,analyser=null,timer=null;
+    try{
+      ctx=new AC();
+      if(typeof ctx.createMediaStreamSource!=="function"||typeof ctx.createAnalyser!=="function"){ctx.close?.();return null}
+      source=ctx.createMediaStreamSource(stream);
+      analyser=ctx.createAnalyser();analyser.fftSize=1024;
+      source.connect(analyser);
+      if(typeof analyser.getFloatTimeDomainData!=="function"){source.disconnect();ctx.close?.();return null}
+      const waveform=new Float32Array(analyser.fftSize);
+      let samples=0,peakRms=0;
+      const sample=()=>{
+        if(ctx.state!=="running")return;
+        try{
+          analyser.getFloatTimeDomainData(waveform);
+          let total=0;
+          for(let i=0;i<waveform.length;i++)total+=waveform[i]*waveform[i];
+          const rms=Math.sqrt(total/waveform.length);
+          peakRms=Math.max(peakRms,rms);samples++;
+        }catch{}
+      };
+      const ready=ctx.state==="running"?Promise.resolve():ctx.resume();
+      ready?.catch?.(()=>{});
+      timer=setInterval(sample,100);
+      return {
+        // Reject only digital/nearly-digital silence, not quiet spoken answers.
+        silent:()=>samples>=3&&peakRms<0.0015,
+        close:()=>{
+          clearInterval(timer);
+          try{source.disconnect()}catch{}
+          try{ctx.close?.()}catch{}
+        }
+      };
+    }catch{
+      clearInterval(timer);
+      try{source?.disconnect()}catch{}
+      try{ctx?.close?.()}catch{}
+      return null;
+    }
+  }
   toggleMic=async function(target="freeAnswer",expected="",context=""){
     const btn=target==="chatInput"?document.getElementById("chatMicBtn"):(document.getElementById("micBtn")||document.getElementById("pronBtn"));
     if(mediaRecorder&&mediaRecorder.state==="recording"){mediaRecorder.stop();return}
@@ -360,31 +412,56 @@
     if(!navigator.mediaDevices?.getUserMedia||!window.MediaRecorder){
       const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
       if(!SR)return alert("Запись речи недоступна в этом браузере.");
-      const rec=new SR();rec.lang="nb-NO";rec.interimResults=true;const f=document.getElementById(target);
-      rec.onstart=()=>{if(btn)btn.textContent="■ Слушаю…"};rec.onresult=e=>{
-        let t="";for(let i=0;i<e.results.length;i++)t+=e.results[i][0].transcript;
-        if(f?.isConnected){f.value=t;f.dataset.fromVoice="recognition"}
-        // Browser recognition provides text only; do not claim assessed audio or pronunciation.
-        if(target==="chatInput")chatInputWasVoice=true;
+      const rec=new SR();rec.lang="nb-NO";rec.interimResults=false;
+      const f=document.getElementById(target);
+      let recognitionStartedAt=Date.now(),finalTranscript="";
+      rec.onstart=()=>{recognitionStartedAt=Date.now();if(btn)btn.textContent="■ Слушаю…"};
+      rec.onresult=e=>{
+        let t="";for(let i=0;i<e.results.length;i++)if(e.results[i].isFinal)t+=e.results[i][0].transcript;
+        finalTranscript=t.trim();
       };
-      rec.onend=()=>{if(btn)btn.textContent="🎤 Говорить";if(target==="chatInput"){const status=document.getElementById("chatVoiceStatus");if(status)status.textContent=f?.value?.trim()?"Речь распознана автоматически. Проверь текст перед отправкой: распознавание может ошибаться.":""}};rec.start();return;
+      rec.onend=()=>{
+        if(btn)btn.textContent="🎤 Говорить";
+        const enoughSpeechTime=Date.now()-recognitionStartedAt>=1200;
+        if(enoughSpeechTime&&finalTranscript&&f?.isConnected){
+          f.value=finalTranscript;
+          f.dataset.fromVoice="recognition";
+          if(target==="chatInput")chatInputWasVoice=true;
+        }
+        if(target==="chatInput"){
+          const status=document.getElementById("chatVoiceStatus");
+          if(status)status.textContent=enoughSpeechTime&&finalTranscript?
+            "Речь распознана автоматически. Проверь текст перед отправкой: распознавание может ошибаться.":
+            "Речь не записана. Говори после включения микрофона.";
+        }
+      };
+      rec.start();return;
     }
+    let micActivity=null;
     try{
       micBusy=true;
       const recordedField=document.getElementById(target);
-      mediaStream=await getMicStream();recordChunks=[];recordStartedAt=Date.now();
+      mediaStream=await getMicStream();micActivity=monitorMicActivity(mediaStream);recordChunks=[];recordStartedAt=Date.now();
       const preferredMime=["audio/webm;codecs=opus","audio/webm","audio/mp4"].find(x=>MediaRecorder.isTypeSupported?.(x));
       try{mediaRecorder=new MediaRecorder(mediaStream,preferredMime?{mimeType:preferredMime,audioBitsPerSecond:128000}:{audioBitsPerSecond:128000})}catch{mediaRecorder=preferredMime?new MediaRecorder(mediaStream,{mimeType:preferredMime}):new MediaRecorder(mediaStream)};
       mediaRecorder.ondataavailable=e=>{if(e.data.size)recordChunks.push(e.data)};
-      mediaRecorder.onerror=()=>{clearTimeout(recordTimer);mediaRecorder=null;micBusy=false;parkMicStream();if(btn)btn.textContent="🎤 Говорить";alert("Запись прервалась. Попробуй ещё раз.")};
+      mediaRecorder.onerror=()=>{clearTimeout(recordTimer);micActivity?.close();mediaRecorder=null;micBusy=false;parkMicStream();if(btn)btn.textContent="🎤 Говорить";alert("Запись прервалась. Попробуй ещё раз.")};
       mediaRecorder.onstop=async()=>{
         const recorder=mediaRecorder,chunks=recordChunks.slice(),field=recordedField;
+        const silentAudio=micActivity?.silent()===true;micActivity?.close();
         try{
         clearTimeout(recordTimer);if(btn)btn.textContent="⏳ Распознаю…";
         const blob=new Blob(chunks,{type:(recorder.mimeType||"audio/webm").split(";")[0]});
         parkMicStream();mediaRecorder=null;
         const durationMs=Date.now()-recordStartedAt;recordStartedAt=0;
-        if(blob.size<900||durationMs<650){if(btn)btn.textContent="🎤 Говорить";alert("Запись слишком короткая. Нажми микрофон, начни говорить и останови запись после фразы.");return}
+        const recordingProblem=micRecordingProblem(blob.size,durationMs,silentAudio,target);
+        if(recordingProblem){
+          if(btn)btn.textContent="🎤 Говорить";
+          alert(recordingProblem==="SILENT"?
+            "В записи не обнаружен звук речи. Попробуй ещё раз — Нора не будет угадывать ответ по тишине.":
+            "Запись слишком короткая. Нажми микрофон, произнеси ответ и затем останови запись.");
+          return;
+        }
         const b64=await blobToBase64(blob);
         const transcribePromise=apiPost("/api/transcribe",{audioBase64:b64,mime:blob.type,expected,context});
         const pronouncePromise=expected?blobToWavBase64(blob).then(wav=>apiPost("/api/pronounce",{audioBase64:wav,expected})).catch(()=>null):Promise.resolve(null);
@@ -408,7 +485,7 @@
       mediaRecorder.start(250);if(btn)btn.textContent="■ Слушаю…";
       recordTimer=setTimeout(()=>{if(mediaRecorder?.state==="recording")mediaRecorder.stop()},30000);
     }catch(e){
-      micBusy=false;parkMicStream();if(btn)btn.textContent="🎤 Говорить";
+      micActivity?.close();micBusy=false;parkMicStream();if(btn)btn.textContent="🎤 Говорить";
       alert(e?.name==="NotAllowedError"?"Разреши микрофон для этого сайта в настройках браузера. Выбери постоянное разрешение, если браузер предлагает его.":"Не удалось включить микрофон. Проверь, что он доступен, и попробуй снова.");
     }
   };
