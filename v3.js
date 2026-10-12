@@ -110,17 +110,17 @@
     });
     saveState();
   }
-  async function ensureSession(force=false){
+  async function ensureSession(force=false,signal){
     if(neSession&&!force)return neSession;
-    const r=await fetch("/api/session",{method:"POST",headers:{"Content-Type":"application/json",...(window.NEAccess?.headers?.()||{})}});
+    const r=await fetch("/api/session",{method:"POST",signal,headers:{"Content-Type":"application/json",...(window.NEAccess?.headers?.()||{})}});
     if(!r.ok)throw new Error("SESSION");
     const d=await r.json();neSession=d.token;sessionStorage.setItem("ne_session",neSession);return neSession;
   }
-  async function apiPost(path,payload){
+  async function apiPost(path,payload,options={}){
     try{
-      await ensureSession();
-      let r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json","x-ne-session":neSession,...(window.NEAccess?.headers?.()||{})},body:JSON.stringify(payload)});
-      if(r.status===401){await ensureSession(true);r=await fetch(path,{method:"POST",headers:{"Content-Type":"application/json","x-ne-session":neSession,...(window.NEAccess?.headers?.()||{})},body:JSON.stringify(payload)})}
+      await ensureSession(false,options.signal);
+      let r=await fetch(path,{method:"POST",signal:options.signal,headers:{"Content-Type":"application/json","x-ne-session":neSession,...(window.NEAccess?.headers?.()||{})},body:JSON.stringify(payload)});
+      if(r.status===401){await ensureSession(true,options.signal);r=await fetch(path,{method:"POST",signal:options.signal,headers:{"Content-Type":"application/json","x-ne-session":neSession,...(window.NEAccess?.headers?.()||{})},body:JSON.stringify(payload)})}
       if(!r.ok){const d=await r.json().catch(()=>({}));if(["APPROVAL_REQUIRED","LOGIN_REQUIRED"].includes(d.code))window.NEAccess?.status();return {ok:false,error:d.code||d.error||("HTTP "+r.status)}}
       const ct=r.headers.get("content-type")||"";
       return ct.includes("application/json")?{ok:true,data:await r.json()}:{ok:true,response:r};
@@ -132,6 +132,14 @@
     return r.ok?{ok:true,data:r.data}:{ok:false,error:r.error};
   };
 
+  // Shared speech engine for placement, lessons, chat, dictionary and exams.
+  // A Norwegian device voice starts without network latency. AI MP3 is used
+  // when a matching device voice is unavailable; network waits are bounded.
+  const SPEECH_WAIT_MS=4000,SPEECH_RETRY_COOLDOWN_MS=20000;
+  let speechPrimeTimer=null,speechPlaybackTimer=null,speechFallbackUntil=0;
+  function norwegianVoice(){
+    try{return window.speechSynthesis?.getVoices?.().find(v=>/^(nb|nn|no)([-_]|$)/i.test(v.lang||""))||null}catch{return null}
+  }
   function restoreSpeechButton(btn){
     if(!btn)return;
     if(btn.dataset.speechOriginal!==undefined)btn.innerHTML=btn.dataset.speechOriginal;
@@ -148,8 +156,9 @@
     speechActiveButton=btn;
   }
   function stopSpeechPlayback(){
-    speechAudio?.pause();speechAudio=null;
-    window.speechSynthesis?.cancel();
+    clearTimeout(speechPlaybackTimer);
+    if(speechAudio){speechAudio.pause();speechAudio.onended=null;speechAudio.onerror=null;speechAudio=null}
+    try{window.speechSynthesis?.cancel()}catch{}
     restoreSpeechButton(speechActiveButton);
   }
   function speechKey(text,level,voice="marin"){return String(level||"A1")+"\n"+String(voice||"marin")+"\n"+String(text||"").trim()}
@@ -165,91 +174,126 @@
     const key=speechKey(text,level,voice),cached=speechCache.get(key);
     if(cached?.url)return cached;
     if(cached?.promise)return cached.promise;
+    if(Date.now()<speechFallbackUntil)throw new Error("SPEECH_COOLDOWN");
+    const controller=new AbortController();
+    const timer=setTimeout(()=>controller.abort(),SPEECH_WAIT_MS);
     const promise=(async()=>{
-      const r=await apiPost("/api/speech",{text,level,voice});
-      if(!r.ok)throw new Error(r.error||"SPEECH_FAILED");
-      const blob=await r.response.blob(),url=URL.createObjectURL(blob),item={url};
-      speechCache.set(key,item);trimSpeechCache();return item;
-    })().catch(e=>{speechCache.delete(key);throw e});
-    speechCache.set(key,{promise});return promise;
+      try{
+        const r=await apiPost("/api/speech",{text,level,voice},{signal:controller.signal});
+        if(!r.ok||!r.response)throw new Error(r.error||"SPEECH_FAILED");
+        const blob=await r.response.blob();
+        if(controller.signal.aborted||blob.size<128||(blob.type&&!/^audio\//i.test(blob.type)))throw new Error("INVALID_SPEECH_AUDIO");
+        const item={url:URL.createObjectURL(blob)};
+        speechCache.delete(key);speechCache.set(key,item);trimSpeechCache();
+        return item;
+      }catch(error){
+        speechCache.delete(key);
+        speechFallbackUntil=Date.now()+SPEECH_RETRY_COOLDOWN_MS;
+        throw error;
+      }finally{clearTimeout(timer)}
+    })();
+    speechCache.set(key,{promise});
+    return promise;
   }
   function primeSpeech(text,level=(lessonSession?.lesson?.level)||state.level||"A1"){
-    if(!String(text||"").trim()||window.NEHumanVoice?.has?.(text))return;
-    getSpeechAudio(text,level).catch(()=>{});
+    clearTimeout(speechPrimeTimer);
+    if(!String(text||"").trim()||window.NEHumanVoice?.has?.(text)||norwegianVoice()||Date.now()<speechFallbackUntil)return;
+    // Defer to reading time; do not launch requests for skipped screens.
+    speechPrimeTimer=setTimeout(()=>{if(document.visibilityState!=="hidden")getSpeechAudio(text,level).catch(()=>{})},350);
   }
-  function fallbackSpeech(text,rate=.9,btn=null){
-    if(!("speechSynthesis" in window)){restoreSpeechButton(btn);return}
-    speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang="nb-NO";u.rate=rate;
-    const v=speechSynthesis.getVoices().find(x=>/^nb|no/i.test(x.lang));if(v)u.voice=v;
-    u.onstart=()=>setSpeechButton(btn,"playing");u.onend=()=>restoreSpeechButton(btn);u.onerror=()=>restoreSpeechButton(btn);
-    speechSynthesis.speak(u);
+  function fallbackSpeech(text,rate=.9,btn=null,request=speechRequest){
+    if(!window.speechSynthesis||typeof window.SpeechSynthesisUtterance!=="function"){
+      restoreSpeechButton(btn);return {source:"unavailable"};
+    }
+    try{
+      const synth=window.speechSynthesis,voice=norwegianVoice(),u=new SpeechSynthesisUtterance(text);
+      u.lang="nb-NO";if(voice)u.voice=voice;
+      u.rate=Math.max(.75,Math.min(1.15,Number(rate)||.9));
+      let started=false;
+      u.onstart=()=>{
+        if(request!==speechRequest)return;
+        started=true;setSpeechButton(btn,"playing");
+      };
+      const end=()=>{if(request===speechRequest){clearTimeout(speechPlaybackTimer);restoreSpeechButton(btn)}};
+      u.onend=end;u.onerror=end;
+      synth.cancel();
+      setSpeechButton(btn,"loading");
+      synth.speak(u);
+      // Some mobile TTS implementations never fire start/end: reset the UI.
+      speechPlaybackTimer=setTimeout(()=>{
+        if(request!==speechRequest)return;
+        try{synth.cancel()}catch{}
+        restoreSpeechButton(btn);
+      },Math.min(120000,Math.max(10000,String(text).length*125)));
+      // Distinguish an unavailable TTS service from a long utterance.
+      setTimeout(()=>{if(request===speechRequest&&!started&&speechActiveButton===btn){try{synth.resume()}catch{}}},1200);
+      return {source:voice?"device":"browser"};
+    }catch{
+      restoreSpeechButton(btn);return {source:"unavailable"};
+    }
+  }
+  async function playSpeechAudio(item,text,rate,btn,request){
+    const a=new Audio(item.url);
+    speechAudio=a;a.preload="auto";a.volume=1;
+    a.playbackRate=Math.max(.75,Math.min(1.25,Number(rate)/.9||1));
+    a.onplaying=()=>{if(request===speechRequest)setSpeechButton(btn,"playing")};
+    a.onended=()=>{if(request===speechRequest){speechAudio=null;restoreSpeechButton(btn)}};
+    a.onerror=()=>{if(request===speechRequest){speechAudio=null;restoreSpeechButton(btn)}};
+    let playTimer;
+    try{
+      await Promise.race([a.play(),new Promise((_,reject)=>{playTimer=setTimeout(()=>reject(new Error("AUDIO_START_TIMEOUT")),2500)})]);
+      if(request!==speechRequest){a.pause();return {source:"cancelled"}}
+      return {source:"ai"};
+    }catch{
+      a.pause();if(speechAudio===a)speechAudio=null;
+      if(request!==speechRequest)return {source:"cancelled"};
+      return fallbackSpeech(text,rate,btn,request);
+    }finally{clearTimeout(playTimer)}
   }
   speakText=async function(text,rate=.9,btn=null,voice="marin"){
+    text=String(text||"").trim();
+    if(!text)return {source:"unavailable"};
     btn=btn||(document.activeElement?.tagName==="BUTTON"?document.activeElement:null);
-    const request=++speechRequest;stopSpeechPlayback();setSpeechButton(btn,"loading");
-    // Unlock Web Audio during the original user gesture. Mobile browsers can block
-    // playback if an AudioContext is first resumed after an async TTS request.
-    try{
-      const AC=window.AudioContext||window.webkitAudioContext;
-      if(AC){
-        speechAudioContext=speechAudioContext||new AC();
-        if(speechAudioContext.state==="suspended")speechAudioContext.resume().catch(()=>{});
-      }
-    }catch{}
-    // Prefer a licensed real-human Nora recording when an exact clip exists.
-    try{
-      if(window.NEHumanVoice?.has?.(text)){
-        setSpeechButton(btn,"playing");
-        const played=await window.NEHumanVoice.play(text,rate);
-        if(played){setTimeout(()=>restoreSpeechButton(btn),Math.max(900,String(text).length*65));return {source:"human",speaker:window.NEHumanVoice.speaker}}
-      }
-    }catch{}
-    const level=(lessonSession?.lesson?.level)||state.level||"A1";
-    try{
-      const item=await getSpeechAudio(text,level,voice);if(request!==speechRequest){restoreSpeechButton(btn);return}
-      const a=new Audio(item.url);speechAudio=a;a.preload="auto";a.volume=1;
-      a.playbackRate=Math.max(.75,Math.min(1.25,Number(rate)/.9||1));
+    const request=++speechRequest;
+    stopSpeechPlayback();
+    clearTimeout(speechPrimeTimer);
+    // Exact licensed human recordings take priority if registered.
+    if(window.NEHumanVoice?.has?.(text)){
       try{
-        const AC=window.AudioContext||window.webkitAudioContext;
-        if(AC){
-          speechAudioContext=speechAudioContext||new AC();
-          if(speechAudioContext.state==="suspended")await speechAudioContext.resume();
-          const src=speechAudioContext.createMediaElementSource(a);
-          const high=speechAudioContext.createBiquadFilter();high.type="highpass";high.frequency.value=90;high.Q.value=.7;
-          const low=speechAudioContext.createBiquadFilter();low.type="lowpass";low.frequency.value=9500;low.Q.value=.7;
-          const comp=speechAudioContext.createDynamicsCompressor();comp.threshold.value=-24;comp.knee.value=18;comp.ratio.value=2.2;comp.attack.value=.004;comp.release.value=.16;
-          src.connect(high).connect(low).connect(comp).connect(speechAudioContext.destination);
+        setSpeechButton(btn,"loading");
+        const played=await window.NEHumanVoice.play(text,rate);
+        if(request!==speechRequest)return {source:"cancelled"};
+        if(played){
+          setSpeechButton(btn,"playing");
+          speechPlaybackTimer=setTimeout(()=>{if(request===speechRequest)restoreSpeechButton(btn)},Math.max(1800,text.length*110));
+          return {source:"human",speaker:window.NEHumanVoice.speaker};
         }
       }catch{}
-      a.onplaying=()=>setSpeechButton(btn,"playing");
-      a.onended=()=>{speechAudio=null;restoreSpeechButton(btn)};
-      a.onerror=()=>{speechAudio=null;restoreSpeechButton(btn)};
-      await a.play();return {source:"ai"};
+    }
+    const level=(lessonSession?.lesson?.level)||state.level||"A1",cached=speechCache.get(speechKey(text,level,voice));
+    if(cached?.url){
+      setSpeechButton(btn,"loading");
+      return playSpeechAudio(cached,text,rate,btn,request);
+    }
+    // On Android with a Norwegian system voice, speak on the original tap.
+    // This also works offline and avoids paid AI requests.
+    if(norwegianVoice())return fallbackSpeech(text,rate,btn,request);
+    setSpeechButton(btn,"loading");
+    try{
+      // Resume Web Audio in the original gesture, before the network await.
+      const AC=window.AudioContext||window.webkitAudioContext;
+      if(AC){speechAudioContext=speechAudioContext||new AC();if(speechAudioContext.state==="suspended")speechAudioContext.resume().catch(()=>{})}
+    }catch{}
+    try{
+      const item=await getSpeechAudio(text,level,voice);
+      if(request!==speechRequest)return {source:"cancelled"};
+      return await playSpeechAudio(item,text,rate,btn,request);
     }catch{
-      if(request!==speechRequest){restoreSpeechButton(btn);return}
-      fallbackSpeech(text,rate,btn);return {source:"browser"};
+      if(request!==speechRequest)return {source:"cancelled"};
+      return fallbackSpeech(text,rate,btn,request);
     }
   };
-  // For individual dictionary words, use an installed Norwegian device voice
-  // immediately (while the tap gesture is active). Otherwise use Nora's AI TTS.
-  function speakWord(text,btn=null){
-    const word=String(text||"").trim();
-    if(!word)return Promise.resolve({source:"unavailable"});
-    const speech=window.speechSynthesis;
-    const voice=speech?.getVoices?.().find(v=>/^(nb|nn|no)(-|_|$)/i.test(v.lang||""));
-    if(voice&&typeof window.SpeechSynthesisUtterance==="function"){
-      const request=++speechRequest;
-      stopSpeechPlayback();
-      const u=new SpeechSynthesisUtterance(word);
-      u.lang="nb-NO";u.voice=voice;u.rate=.9;
-      u.onstart=()=>{if(request===speechRequest)setSpeechButton(btn,"playing")};
-      u.onend=()=>{if(request===speechRequest)restoreSpeechButton(btn)};
-      u.onerror=()=>{if(request===speechRequest)speakText(word,.9,btn)};
-      try{setSpeechButton(btn,"loading");speech.speak(u);return Promise.resolve({source:"device"})}
-      catch{restoreSpeechButton(btn)}
-    }
-    return speakText(word,.9,btn);
-  }
+  function speakWord(text,btn=null){return speakText(String(text||"").trim(),.9,btn)}
   window.neSpeakWord=speakWord;
   window.nePrimeSpeech=primeSpeech;
 
