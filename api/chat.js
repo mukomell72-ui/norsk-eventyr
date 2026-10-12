@@ -15,7 +15,7 @@ export default async function handler(req,res){
   if(!await guard(req,res,{limit:90})) return;
   if(!process.env.OPENAI_API_KEY) return res.status(503).json({error:"AI_NOT_CONFIGURED",code:"AI_NOT_CONFIGURED"});
 
-  const {message="",level="A1",mode="free",topic="",scenario="",history=[],start=false,practiceWords=[],context="",mastery={},errorPatterns=[],learnerContext={},teacherMode=false}=req.body||{};
+  const {message="",level="A1",mode="free",topic="",scenario="",history=[],start=false,practiceWords=[],context="",mastery={},errorPatterns=[],learnerContext={},teacherMode=false,inputSource="typed_text"}=req.body||{};
   if(!start&&(typeof message!=="string"||!message.trim())) return res.status(400).json({error:"MISSING_MESSAGE",code:"MISSING_MESSAGE"});
   if(message.length>1800) return res.status(413).json({error:"MESSAGE_TOO_LONG",code:"MESSAGE_TOO_LONG"});
   const allowedLevels=["A1","A2","B1","B2"];
@@ -24,6 +24,7 @@ export default async function handler(req,res){
   const chatMode=allowedModes.includes(mode)?mode:"free";
   const xpMission=chatMode==="roleplay"&&String(scenario).includes("XP-миссия Норы");
   const assessEveryTurn=chatMode==="roleplay"||chatMode==="corrections"||teacherMode===true;
+  const voiceTranscript=!start&&inputSource==="voice_transcript";
   const learner=learnerContext&&typeof learnerContext==="object"&&!Array.isArray(learnerContext)?learnerContext:{};
   const knownToNora=learner.introduced===true;
   const previousTopic=String(learner.previousTopic||"").slice(0,120);
@@ -67,6 +68,7 @@ export default async function handler(req,res){
     chatMode==="roleplay"?"Ролевая ситуация: "+(String(scenario).slice(0,1200)||"естественная бытовая ситуация")+".":"",
     levelRules[target],
     modeRules[chatMode],
+    voiceTranscript?"ВАЖНО: реплика ученика — автоматическая расшифровка его ГОЛОСОВОГО ответа, а не собственноручно набранный текст. Ошибки распознавания (особенно написание слов и пунктуация) нельзя объявлять ошибками письма или произношения ученика и нельзя за них снижать балл. Оценивай смысл и лишь однозначные грамматические/лексические ошибки, не требуй дословного совпадения. Ты не получаешь оригинальное аудио, поэтому не оценивай акцент, звуки, ударение и дикцию. При неоднозначной фразе укажи, что распознавание могло ошибиться, и попроси повторить, вместо уверенного утверждения о конкретной ошибке. Это правило имеет приоритет над общими инструкциями о проверке орфографии.":"",
     "Основной язык разговора — норвежский Bokmål. Имя Nora не нужно повторять в каждой реплике; веди себя как один и тот же знакомый собеседник.",
     "Не требуй дословных ответов. Реагируй на смысл того, что сказал ученик.",
     assessEveryTurn?"Для каждой реплики ученика явно определи accepted и feedback_status (correct, partial, incorrect). Некорректные, бессмысленные и неуместные ответы считай incorrect, не хвали и не продолжай сцену, словно задача выполнена. При partial объясни ошибку; при correct исправление не требуется.":"",
@@ -133,6 +135,7 @@ export default async function handler(req,res){
     }else{
       out.score_valid=false;out.accepted=false;out.feedback_status="unverified";delete out.score;
     }
+    out.assessment_source=voiceTranscript?"voice_transcript":"typed_text";
     out.error_tag=String(out.error_tag||"").slice(0,50);
     out.suggested_level=allowedLevels.includes(out.suggested_level)?out.suggested_level:"";
     return res.status(200).json(out);
