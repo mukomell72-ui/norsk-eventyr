@@ -24,6 +24,27 @@
    {skill:'speaking',prompt:'Ответь голосом на возражение: En kollega mener at digitale løsninger alltid er mer effektive. Hva vil du svare, og hvilke forbehold vil du ta?'}
   ]
  };
+ const ALTERNATE_TASKS={
+  A1:[
+   {skill:'writing',prompt:'Напиши 2–3 предложения о том, что ты обычно делаешь утром и вечером.'},
+   {skill:'speaking',prompt:'Ответь голосом: Hva liker du å gjøre i helgen, og hvorfor?'}
+  ],
+  A2:[
+   {skill:'writing',prompt:'Напиши коллеге сообщение о переносе встречи. Назови причину и предложи другое время.'},
+   {skill:'speaking',prompt:'Ответь голосом: Fortell om en tur du tok. Hvor dro du, og hva gjorde du?'}
+  ],
+  B1:[
+   {skill:'writing',prompt:'Напиши руководителю вежливое письмо с просьбой изменить рабочий график. Объясни причину и предложи решение.'},
+   {skill:'speaking',prompt:'Ответь голосом: Fortell om en situasjon der du måtte løse et problem sammen med andre. Hva gjorde dere?'},
+   {skill:'speaking',prompt:'Ответь на дополнительный вопрос: Hva lærte du av situasjonen, og hva ville du gjort annerledes neste gang?'}
+  ],
+  B2:[
+   {skill:'writing',prompt:'Напиши аргументированное мнение о гибком рабочем графике: преимущества, недостатки, контраргумент и вывод.'},
+   {skill:'speaking',prompt:'Ответь голосом: Bør flere ansatte ha mulighet til å jobbe hjemmefra? Drøft fordeler og ulemper.'},
+   {skill:'speaking',prompt:'Ответь на возражение: En kollega mener at hjemmekontor alltid reduserer produktiviteten. Hvordan vil du svare?'}
+  ]
+ };
+ const currentTasks=p=>(p.productive?.variant===1||(p.productive?.variant===undefined&&Number(p.attemptNumber)>=2)?ALTERNATE_TASKS:TASKS)[validLevel(p.recommendedStart||p.level)];
  const safe=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const clamp=x=>Math.max(0,Math.min(100,Math.round(Number(x)||0)));
  const mean=a=>Math.round(a.reduce((sum,x)=>sum+x,0)/Math.max(1,a.length));
@@ -35,7 +56,7 @@
   const p=state.placement;
   p.productive=p.productive&&typeof p.productive==='object'&&!Array.isArray(p.productive)?p.productive:{status:'pending',nextIndex:0,results:[]};
   p.productive.results=Array.isArray(p.productive.results)?p.productive.results:[];
-  p.productive.nextIndex=Math.max(0,Math.min(TASKS[validLevel(p.recommendedStart||p.level)].length,Number(p.productive.nextIndex)||0));
+  p.productive.nextIndex=Math.max(0,Math.min(currentTasks(p).length,Number(p.productive.nextIndex)||0));
   return p;
  }
  function beginner(){
@@ -54,13 +75,14 @@
  }
  function reset(){ // repeat without erasing existing learning evidence
   const p=placement();if(!p)return navigate('placement');
-  p.productive={status:'pending',nextIndex:0,results:[]};
+  const variant=p.productive.variant===1?0:1;
+  p.productive={status:'pending',nextIndex:0,results:[],variant};
   saveState();render();
  }
  function stage(){
   const p=placement();if(!p)return null;
   const target=validLevel(p.recommendedStart||p.level);
-  return{p,target,tasks:TASKS[target],index:p.productive.nextIndex};
+  return{p,target,tasks:currentTasks(p),index:p.productive.nextIndex};
  }
  function resultFor(results,skill){const scores=results.filter(x=>x.skill===skill&&Number.isFinite(x.score)).map(x=>x.score);return scores.length?mean(scores):null}
  function summarize(){
@@ -148,7 +170,7 @@
  function banner(){
   const p=state.placement,prod=p?.productive;
   if(!p)return '<section class="card" id="placementEntryCard"><h3>С чего начать норвежский?</h3><p>Нора подберёт подходящую ступень A1–B2. Новичку не придётся проходить сложный тест.</p><div class="row"><button class="btn" onclick="navigate(\'placement\')">Я уже немного знаю</button><button class="btn secondary" onclick="NECalibration.beginner()">Начинаю с нуля</button></div><small class="muted">Входная проверка — ориентир, не официальный экзамен.</small></section>';
-  if(prod?.status==='complete')return '';
+  if(prod?.status==='complete')return '<section class="card" id="placementEntryCard"><h3>Проверить уровень заново</h3><p>Предварительная ступень: <b>'+safe(validLevel(p.recommendedStart||p.level))+'</b>. Повторная аттестация получит другие задания; уроки и словарь сохраняются.</p><div class="row"><button class="btn secondary" onclick="navigate(\\'placement\\')">Повторить аттестацию A1–B2</button></div></section>';
   return '<section class="card" id="placementEntryCard"><h3>Уточнить индивидуальный маршрут</h3><p>Старт '+safe(validLevel(p.recommendedStart||p.level))+' выбран предварительно. '+(p.scope==='beginner_choice'?'Ты можешь сразу заниматься с Норой.':'Осталось проверить письмо и говорение отдельно.')+'</p><div class="row"><button class="btn secondary" onclick="navigate(\'calibration\')">Проверить письмо и речь</button></div><small class="muted">Можешь продолжать уроки и вернуться к этой проверке позднее.</small></section>';
  }
  function mountEntry(){
