@@ -102,6 +102,23 @@ const server=http.createServer(async(req,res)=>{
   await page.evaluate(()=>{state.level='A1';saveState();navigate('test','B2')});await page.waitForTimeout(500);
   const diagnosticState=await page.evaluate(()=>({courseLevel:state.level,testLevel:testSession?.level,hasSix:Object.keys(testSession?.skillEvidence||{}).sort().join(',')}));
   assert.equal(diagnosticState.courseLevel,'A1');assert.equal(diagnosticState.testLevel,'B2');assert.equal(diagnosticState.hasSix,'grammar,listening,reading,speaking,vocabulary,writing');console.log('PASS active B2 diagnostic does not switch A1 course and collects six skills');
+  // A tapped word must play immediately, and the dialog must support replay.
+  await page.evaluate(()=>{
+    state.level='A1';navigate('lesson','a1-1');
+    window.__spokenWords=[];
+    window.__speakWordOriginal=window.neSpeakWord;
+    window.neSpeakWord=word=>{window.__spokenWords.push(word);return Promise.resolve({source:'device'})};
+  });
+  await page.locator('.prompt .word-translate-v7').first().click();
+  assert.equal(await page.locator('#wordTranslationV7').count(),1);
+  const spokenOnce=await page.evaluate(()=>window.__spokenWords.slice());
+  assert.equal(spokenOnce.length,1,'Word tap should start audio once');
+  await page.locator('#wordTranslationV7 .word-listen-v7').click();
+  const spokenTwice=await page.evaluate(()=>window.__spokenWords.slice());
+  assert.deepEqual(spokenTwice,[spokenOnce[0],spokenOnce[0]],'Word playback button must replay the same word');
+  await page.locator('#wordTranslationV7 button[aria-label="Закрыть перевод"]').click();
+  await page.evaluate(()=>{window.neSpeakWord=window.__speakWordOriginal;delete window.__speakWordOriginal});
+  console.log('PASS word translation automatically plays tapped word and repeats on demand');
   // B1 retake must use a new question pool, keep history and preserve lessons.
   const originalRetake=await page.evaluate(()=>{
     state.level='B1';
