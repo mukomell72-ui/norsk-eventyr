@@ -215,6 +215,20 @@
     "course");
   }
 
+  function v7NoraFeedback(meta){
+    if(meta.score_valid!==true||!["correct","partial","incorrect"].includes(meta.feedback_status))return "";
+    const label={correct:"Правильно",partial:"Частично правильно",incorrect:"Неправильно"}[meta.feedback_status];
+    const good=meta.feedback_status!=="incorrect";
+    const parts=[
+      '<b>'+label+' · '+h(meta.score)+'/100</b>',
+      meta.error_fragment_ru?'<br><b>Где ошибка:</b> '+h(meta.error_fragment_ru):"",
+      meta.explanation_ru?'<br><b>Объяснение:</b> '+h(meta.explanation_ru):"",
+      meta.corrected?'<br><b>Как правильно / естественнее:</b> '+h(meta.corrected):"",
+      meta.score_reason_ru?'<br><b>Почему такая оценка:</b> '+h(meta.score_reason_ru):"",
+      !good?'<br><small>Попробуй ещё раз — сцена не засчитана.</small>':""
+    ];
+    return '<div class="feedback '+(good?"good":"bad")+' nora-check-v822" role="status">'+parts.join("")+'</div>';
+  }
   function v7ChatMessages(){
     const hist=state.chatHistory||[];
     if(!hist.length)return '<div class="chat-welcome-v7"><span class="nora-avatar-v7 large"></span><div><small>Nora · norsk samtalepartner</small><h2>'+(state.noraMemory?.introduced?"Продолжим разговор?":"Hei! La oss snakke norsk!")+'</h2><p>Нора учитывает выбранную тему и твой уровень. Можно ответить голосом или текстом.</p><button class="cta-v7 small" onclick="v7StartChat()">Начать разговор →</button></div></div>';
@@ -222,6 +236,7 @@
       if(m.role==="user")return '<div class="chat-row-v7 user"><div class="bubble-v7 user">'+h(m.text)+'</div></div>';
       const meta=m.meta||{};
       return '<div class="chat-row-v7 nora"><span class="nora-avatar-v7 mini"></span><div><small class="speaker-v7">Nora</small><div class="bubble-v7 nora">'+h(m.text)+'</div>'+
+        v7NoraFeedback(meta)+
         '<div class="support-v7"><button onclick="speakText(\''+js(m.text)+'\')">🔊 Слушать</button>'+(meta.translation_ru?'<button onclick="v7Toggle(\'tr'+i+'\')">文 Перевод</button>':'')+'<button onclick="v7Toggle(\'hint'+i+'\')">💡 Подсказка</button></div>'+
         (meta.translation_ru?'<div id="tr'+i+'" class="helper-v7" hidden>'+h(meta.translation_ru)+'</div>':'')+
         '<div id="hint'+i+'" class="helper-v7" hidden>'+(meta.corrected?'<b>Лучше:</b> '+h(meta.corrected):'Ответь своими словами. Для A1 достаточно одного короткого предложения.')+'</div>'+

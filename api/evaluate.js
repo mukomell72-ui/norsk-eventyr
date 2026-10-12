@@ -1,4 +1,5 @@
 import {guard} from "./_guard.js";
+import {normalizeAssessment} from "./_feedback.js";
 
 function parseJson(text){
   const clean=String(text||"").replace(/^\x60\x60\x60json\s*/i,"").replace(/\x60\x60\x60\s*$/,"").trim();
@@ -82,13 +83,18 @@ export default async function handler(req,res){
     "Цель задания: "+(goal||question),
     "Ответ ученика:",answer,"",
     "Оцени только качество норвежского языка и выполнение коммуникативной задачи. Не оценивай знания о теме.",
-    "Учитывай естественные эквивалентные ответы: не требуй совпадения с образцом.",
+    "Учитывай естественные эквивалентные ответы: не требуй совпадения с образцом. Правильный нестандартный вариант не наказывай только за отличие от шаблона.",
+    "Определи, является ли задание ответом на реплику, переводом русского предложения на Bokmål или свободным письмом: проверяй именно требуемое действие.",
+    "Не принимай набор бессмысленных слов за уместный ответ: отклоняй ответы, которые не выполняют смысловую цель даже при наличии норвежских слов.",
+    "Каждое снижение score ниже 100 должно иметь КОНКРЕТНУЮ причину: процитируй ошибочный фрагмент, укажи исправление и объясни, за что снижены баллы. Если объективных недостатков нет, ставь 100.",
     "Если ученик вставил русское слово или фрагмент внутрь норвежской фразы, считай это лексическим пробелом: сохрани понятный смысл, замени русский фрагмент естественным Bokmål в corrected и используй error_tag=vocabulary. Не приписывай незнание уже правильно использованного норвежского слова.",
     "Для устной речи оценивай текст распознанной речи; не делай выводов о произношении, которого ты не слышишь.",
     "Для экзамена это только тренировочная оценка, не официальный результат Norskprøven.","",
     "Верни только один JSON-объект:",
-    '{"accepted":true,"score":0,"cefr_estimate":"'+target+'","breakdown":{"meaning":0,"grammar":0,"vocabulary":0,"coherence":0},"corrected":"","explanation_ru":"","strengths_ru":[""],"improvements_ru":[""],"error_tag":"","micro_rule_ru":"","retry_prompt_no":"","next_action_ru":""}',"",
-    "score и breakdown: целые 0–100.",
+    '{"accepted":true,"score":0,"cefr_estimate":"'+target+'","breakdown":{"meaning":0,"grammar":0,"vocabulary":0,"coherence":0},"corrected":"","explanation_ru":"","strengths_ru":[""],"improvements_ru":[""],"error_tag":"","error_fragment_ru":"","score_reason_ru":"","micro_rule_ru":"","retry_prompt_no":"","next_action_ru":""}',"",
+    "score и breakdown: целые 0–100. score_reason_ru: почему именно столько баллов, включая конкретный штраф (например, минус 5 за пропуск i в i like måte). Нельзя снижать балл без объяснения.",
+    "error_fragment_ru: точный короткий фрагмент ответа ученика, в котором обнаружена ошибка; если ошибки нет, оставь пустым.",
+    "Проверка контекста обязательна: грамматика, лексика, орфография, естественность и уместность в диалоге. Отличай неправильную реплику от правильной, но менее естественной.",
     "accepted=true, если ответ выполняет задачу и в целом понятен на целевом уровне; мелкие ошибки не должны автоматически давать отказ.",
     "corrected: естественный улучшенный вариант на норвежском.",
     "explanation_ru: 1–3 коротких конкретных предложения.",
@@ -113,7 +119,7 @@ export default async function handler(req,res){
     parsed.strengths_ru=Array.isArray(parsed.strengths_ru)?parsed.strengths_ru.slice(0,2):[];
     parsed.improvements_ru=Array.isArray(parsed.improvements_ru)?parsed.improvements_ru.slice(0,2):[];
     parsed.error_tag=String(parsed.error_tag||"").slice(0,50);parsed.micro_rule_ru=String(parsed.micro_rule_ru||"").slice(0,500);parsed.retry_prompt_no=String(parsed.retry_prompt_no||"").slice(0,500);parsed.next_action_ru=String(parsed.next_action_ru||"").slice(0,500);
-    return res.status(200).json(parsed);
+    return res.status(200).json(normalizeAssessment(parsed));
   }catch(e){
     return res.status(502).json({error:"AI_EVALUATE_FAILED",code:e?.code||"AI_EVALUATE_FAILED"});
   }

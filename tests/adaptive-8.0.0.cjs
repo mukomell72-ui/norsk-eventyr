@@ -92,7 +92,7 @@ A.recordAttempt(reviewState,{level:'A2',skill:'listening',score:95,moduleId:revi
 assert(!A.dueReviews(reviewState).some(x=>x.key===reviewMission.reviewKey),'completed cross-module review remained permanently overdue');
 
 const health=read('api/health.js');
-assert(health.includes('version:"8.2.1"'),'health endpoint version must match 8.0.0');
+assert(health.includes('version:"8.2.2"'),'health endpoint version must match 8.0.0');
 assert(!health.includes('version:"7.3.0"'),'health endpoint must not expose stale 7.3.0 version');
 
 const app=read('app.js'),adaptive=read('adaptive-teacher.js'),access=read('access.js'),sw=read('sw.js'),generate=read('api/generate.js'),evaluate=read('api/evaluate.js'),uiV7=read('ui-v7.js'),elite=read('elite.js'),v8css=read('v8.css');
@@ -106,7 +106,7 @@ assert(app.includes('previousLevel:state.level')&&!app.includes('function startT
 assert(app.includes('level:testSession.level,skill'),'diagnostic evidence must be written to the tested CEFR level');
 assert(app.includes('reviewKey:l?._adaptive?.reviewKey||""'),'adaptive attempts must preserve the originating spaced-review key');
 assert(access.includes("'curriculum-v8.js'")&&access.includes("'adaptive-teacher.js'"),'adaptive scripts not loaded');
-assert(sw.includes('/curriculum-v8.js?v=8.2.1')&&sw.includes('/adaptive-teacher.js?v=8.2.1'),'adaptive assets not cached at current revision');
+assert(sw.includes('/curriculum-v8.js?v=8.2.2')&&sw.includes('/adaptive-teacher.js?v=8.2.2'),'adaptive assets not cached at current revision');
 assert(generate.includes('teacherMode')&&generate.includes('Can-do цели'),'objective-driven generator prompt missing');
 assert(generate.includes('listeningAudio')&&generate.includes('listeningQ')&&generate.includes('listeningOpts'),'adaptive lesson generator must create comprehension listening');
 assert(generate.includes('смысловыми перефразами')&&generate.includes('не копиями фразы из текста'),'reading/listening distractors must test meaning rather than surface matching');
@@ -123,7 +123,7 @@ assert(app.includes('Эту ошибку Нора вернёт позже'),'rep
 assert(app.includes('slice(0,3)'),'adaptive lesson must retrieve multiple vocabulary items, not only one');
 assert(evaluate.includes('retry_prompt_no')&&evaluate.includes('micro_rule_ru'),'teacher feedback schema missing');
 const chat=read('api/chat.js'),v3=read('v3.js');
-assert(chat.includes('score_valid=Number.isFinite(rawScore)'),'chat score validation marker missing');
+assert(chat.includes('normalizeAssessment(out)')&&chat.includes('out.score_valid=false'),'chat score validation marker missing');
 assert(v3.includes('mastery,errorPatterns,learnerContext:noraLearningContext(),teacherMode:true'),'conversation must receive mastery, error patterns and personal learning context');
 assert(v3.includes('d.score_valid===true')&&v3.includes('source:"conversation"'),'conversation evidence is not guarded by a valid score');
 assert(!v3.includes('startTest=async function(level){\n    touchStudy();state.level=level'),'active v3 diagnostics must not switch the course level on start');
@@ -165,7 +165,7 @@ assert(speech.includes('const speed=1;'),'Nora TTS generation must stay at natur
 assert(v3.includes('high.type="highpass"')&&v3.includes('high.frequency.value=90')&&v3.includes('low.type="lowpass"')&&v3.includes('low.frequency.value=9500'),'Nora playback must filter low hum and high hiss');
 assert(v8css.includes('button.speech-loading')&&v8css.includes('button.speech-playing'),'Nora speech button state styling missing');
 assert(!uiV7.includes('Math.max(3000,requested)'),'manual lesson continuation must not slow unrelated automatic transitions');
-assert(access.includes("ASSET_REV='8.2.1'")&&sw.includes('norsk-eventyr-v8-2-1'),'manual continuation fix must bypass stale PWA assets');
+assert(access.includes("ASSET_REV='8.2.2'")&&sw.includes('norsk-eventyr-v8-2-2'),'manual continuation fix must bypass stale PWA assets');
 assert(app.includes('trackLessonScore')&&!app.includes('function lessonNext(xp=0){state.xp+=xp'),'lesson XP must be awarded from session quality rather than fixed step farming');
 assert(!/state\.xp\s*\+=/.test(app)&&app.includes('state.xp=before+earned'),'all XP gains must go through the anti-farm lesson award path');
 assert(!/state\.xp\s*\+=/.test(v3)&&!v3.includes('state.xp=(state.xp||0)+')&&!elite.includes('state.xp=(state.xp||0)+'),'legacy lessons, chat, reviews, exams and activity tracking must not bypass XP anti-farm');
@@ -174,7 +174,7 @@ assert(elite.includes('m.gamification.lessonAwards={}')&&elite.includes('Math.ma
 assert(adaptive.includes('xpScores:[]'),'adaptive lessons must start a fresh XP scoring session');
 assert(uiV7.includes('XP · награды Норы')&&uiV7.includes('Языковые уровни по-прежнему открываются только знаниями'),'XP UI must keep CEFR progression separate from rewards');
 assert(uiV7.includes('function v7XpMission')&&uiV7.includes("XP-миссия Норы"),'unlocked XP milestones must launch distinct Nora bonus missions');
-assert(chat.includes('max_output_tokens:chatMode==="explain"?800:500'),'normal Nora replies must use the lower latency output budget');
+assert(chat.includes('max_output_tokens:chatMode==="explain"?800:1100'),'Nora must have room for a complete scored explanation without truncation');
 assert(uiV7.includes('state.story.selectedLevel=picked.level'),'Fjordvik must store its own practice level');
 assert(!uiV7.includes('if(picked?.level&&picked.level!==state.level){state.level=picked.level'),'Fjordvik season selection must not switch the course');
 console.log('Norsk Eventyr adaptive teacher 8.0 foundation checks: PASS');
