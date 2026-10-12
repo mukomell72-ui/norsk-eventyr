@@ -10,7 +10,7 @@ function boot(){
  return ctx;
 }
 let c=boot();
-assert.equal(vm.runInContext('APP_VERSION',c),'8.2.5');
+assert.equal(vm.runInContext('APP_VERSION',c),'8.2.6');
 vm.runInContext('state.noraMemory={introduced:true,conversationCount:2};saveState();startLesson("a1-1")',c);
 assert.equal(vm.runInContext('lessonSession.introReview',c),true);
 const first=vm.runInContext('currentDialogueTurn(lessonSession.lesson).phrase',c);
@@ -31,5 +31,5 @@ assert(teacher.includes("if(foundation&&revision===0&&mission.kind!=='review')")
 assert(teacher.includes('Повторять прежние вопросы не буду'),'AI generation failure must be explicit');
 assert(ui.includes('Дополнительное занятие с Норой'),'daily route must offer new optional mission');
 assert(!ui.includes('8.1 · тест')&&!read('ui-v8.js').includes('8.2 · тест'),'production UI must not display a test label');
-assert(sw.includes('norsk-eventyr-v8-2-5')&&read('access.js').includes("ASSET_REV='8.2.5'"),'installed users must receive fresh cache');
-console.log('PASS Norsk Eventyr 8.2.5 repeat-learning regression: Nora memory, checkpoints, nonrepeat fallback, PWA');
+assert(sw.includes('norsk-eventyr-v8-2-6')&&read('access.js').includes("ASSET_REV='8.2.6'"),'installed users must receive fresh cache');
+console.log('PASS Norsk Eventyr 8.2.6 repeat-learning regression: Nora memory, checkpoints, nonrepeat fallback, PWA');

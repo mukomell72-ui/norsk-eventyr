@@ -132,13 +132,17 @@
     return r.ok?{ok:true,data:r.data}:{ok:false,error:r.error};
   };
 
-  // Shared speech engine for placement, lessons, chat, dictionary and exams.
-  // A Norwegian device voice starts without network latency. AI MP3 is used
-  // when a matching device voice is unavailable; network waits are bounded.
-  const SPEECH_WAIT_MS=4000,SPEECH_RETRY_COOLDOWN_MS=20000;
-  let speechPrimeTimer=null,speechPlaybackTimer=null,speechFallbackUntil=0;
+  // Universal speech engine: AI audio is primary, with audio context unlocked
+  // during the original tap. Never treat a browser voice as proof of sound.
+  const SPEECH_WAIT_MS=18500,SPEECH_RETRY_COOLDOWN_MS=0;
+  let speechPrimeTimer=null,speechPlaybackTimer=null,speechFallbackUntil=0,speechAudioReady=null;
   function norwegianVoice(){
-    try{const voices=window.speechSynthesis?.getVoices?.()||[];return voices.find(v=>/^nb([-_]|$)/i.test(v.lang||""))||voices.find(v=>/^no([-_]|$)/i.test(v.lang||""))||voices.find(v=>/^nn([-_]|$)/i.test(v.lang||""))||null}catch{return null}
+    try{
+      const voices=window.speechSynthesis?.getVoices?.()||[];
+      return voices.find(v=>/^nb([-_]|$)/i.test(v.lang||""))||
+        voices.find(v=>/^no([-_]|$)/i.test(v.lang||""))||
+        voices.find(v=>/^nn([-_]|$)/i.test(v.lang||""))||null;
+    }catch{return null}
   }
   function restoreSpeechButton(btn){
     if(!btn)return;
@@ -155,11 +159,32 @@
     if(stateName==="playing"){btn.classList.add("speech-playing");btn.innerHTML=btn.classList.contains("mini-audio")?"🔊":"🔊 Нора говорит…";btn.disabled=true}
     speechActiveButton=btn;
   }
+  function reportSpeechFailure(btn,request){
+    if(request!==speechRequest)return {source:"cancelled"};
+    restoreSpeechButton(btn);
+    if(btn){
+      btn.innerHTML=btn.classList.contains("mini-audio")?"⚠":"⚠ Звук недоступен · повторить";
+      // Failure must be visible instead of falsely claiming voice is playing.
+      setTimeout(()=>{if(request===speechRequest&&btn.isConnected!==false)restoreSpeechButton(btn)},5000);
+    }
+    return {source:"unavailable"};
+  }
   function stopSpeechPlayback(){
     clearTimeout(speechPlaybackTimer);
-    if(speechAudio){speechAudio.pause();speechAudio.onended=null;speechAudio.onerror=null;speechAudio=null}
+    if(speechAudio){try{speechAudio.pause()}catch{};speechAudio=null}
     try{window.speechSynthesis?.cancel()}catch{}
     restoreSpeechButton(speechActiveButton);
+  }
+  function unlockAudioContext(){
+    // Must be invoked synchronously during tap, before first await.
+    try{
+      const AC=window.AudioContext||window.webkitAudioContext;
+      if(!AC)return;
+      speechAudioContext=speechAudioContext||new AC();
+      speechAudioReady=speechAudioContext.state==="running"?
+        Promise.resolve():speechAudioContext.resume();
+      speechAudioReady?.catch?.(()=>{});
+    }catch{speechAudioReady=null}
   }
   function speechKey(text,level,voice="marin"){return String(level||"A1")+"\n"+String(voice||"marin")+"\n"+String(text||"").trim()}
   function trimSpeechCache(){
@@ -197,45 +222,66 @@
   }
   function primeSpeech(text,level=(lessonSession?.lesson?.level)||state.level||"A1"){
     clearTimeout(speechPrimeTimer);
-    if(!String(text||"").trim()||window.NEHumanVoice?.has?.(text)||norwegianVoice()||Date.now()<speechFallbackUntil)return;
-    // Defer to reading time; do not launch requests for skipped screens.
+    if(!String(text||"").trim()||window.NEHumanVoice?.has?.(text)||Date.now()<speechFallbackUntil)return;
     speechPrimeTimer=setTimeout(()=>{if(document.visibilityState!=="hidden")getSpeechAudio(text,level).catch(()=>{})},350);
   }
   function fallbackSpeech(text,rate=.9,btn=null,request=speechRequest){
-    if(!window.speechSynthesis||typeof window.SpeechSynthesisUtterance!=="function"){
-      restoreSpeechButton(btn);return {source:"unavailable"};
-    }
+    const voice=norwegianVoice(),synth=window.speechSynthesis;
+    if(!voice||!synth||typeof window.SpeechSynthesisUtterance!=="function")return reportSpeechFailure(btn,request);
     try{
-      const synth=window.speechSynthesis,voice=norwegianVoice(),u=new SpeechSynthesisUtterance(text);
-      u.lang="nb-NO";if(voice)u.voice=voice;
-      u.rate=Math.max(.75,Math.min(1.15,Number(rate)||.9));
-      let started=false;
+      const u=new SpeechSynthesisUtterance(text);
+      u.lang="nb-NO";u.voice=voice;u.rate=Math.max(.75,Math.min(1.15,Number(rate)||.9));
+      let started=false,completed=false;
       u.onstart=()=>{
         if(request!==speechRequest)return;
         started=true;setSpeechButton(btn,"playing");
       };
-      const end=()=>{if(request===speechRequest){clearTimeout(speechPlaybackTimer);restoreSpeechButton(btn)}};
-      u.onend=end;u.onerror=end;
-      synth.cancel();
-      setSpeechButton(btn,"loading");
-      synth.speak(u);
-      // Some mobile TTS implementations never fire start/end: reset the UI.
-      speechPlaybackTimer=setTimeout(()=>{
+      u.onend=()=>{
         if(request!==speechRequest)return;
+        completed=true;clearTimeout(speechPlaybackTimer);restoreSpeechButton(btn);
+      };
+      u.onerror=()=>{if(request===speechRequest&&!completed){completed=true;clearTimeout(speechPlaybackTimer);reportSpeechFailure(btn,request)}};
+      synth.cancel();setSpeechButton(btn,"loading");synth.speak(u);
+      speechPlaybackTimer=setTimeout(()=>{
+        if(request!==speechRequest||completed)return;
         try{synth.cancel()}catch{}
-        restoreSpeechButton(btn);
-      },Math.min(120000,Math.max(10000,String(text).length*125)));
-      // Distinguish an unavailable TTS service from a long utterance.
-      setTimeout(()=>{if(request===speechRequest&&!started&&speechActiveButton===btn){try{synth.resume()}catch{}}},1200);
-      return {source:voice?"device":"browser"};
-    }catch{
-      restoreSpeechButton(btn);return {source:"unavailable"};
-    }
+        reportSpeechFailure(btn,request);
+      },Math.max(5000,Math.min(90000,String(text).length*130)));
+      setTimeout(()=>{if(request===speechRequest&&!started){try{synth.resume()}catch{}}},600);
+      return {source:"device"};
+    }catch{return reportSpeechFailure(btn,request)}
   }
   async function playSpeechAudio(item,text,rate,btn,request){
+    const ctx=speechAudioContext;
+    const playRate=Math.max(.75,Math.min(1.25,Number(rate)/.9||1));
+    // Use Web Audio: unlike HTMLAudioElement.play(), playback after async
+    // generation does not lose mobile browser user activation when context
+    // was resumed in the original click.
+    if(ctx&&typeof ctx.decodeAudioData==="function"&&typeof ctx.createBufferSource==="function"){
+      try{
+        if(speechAudioReady)await Promise.race([speechAudioReady,new Promise((_,reject)=>setTimeout(()=>reject(new Error("AUDIO_RESUME_TIMEOUT")),2500))]);
+        if(ctx.state!=="running")throw new Error("AUDIO_CONTEXT_SUSPENDED");
+        const arrayBuffer=await (await fetch(item.url)).arrayBuffer();
+        const buffer=await ctx.decodeAudioData(arrayBuffer);
+        if(request!==speechRequest)return {source:"cancelled"};
+        const node=ctx.createBufferSource();node.buffer=buffer;node.playbackRate.value=playRate;
+        node.connect(ctx.destination);
+        speechAudio={pause:()=>{node.onended=null;try{node.stop()}catch{};try{node.disconnect()}catch{}}};
+        node.onended=()=>{
+          if(request===speechRequest){speechAudio=null;restoreSpeechButton(btn)}
+          try{node.disconnect()}catch{}
+        };
+        node.start(0);
+        setSpeechButton(btn,"playing");
+        return {source:"ai"};
+      }catch{
+        if(request!==speechRequest)return {source:"cancelled"};
+        // Decoding or resuming can fail on older phones; try MediaElement.
+      }
+    }
     const a=new Audio(item.url);
-    speechAudio=a;a.preload="auto";a.volume=1;
-    a.playbackRate=Math.max(.75,Math.min(1.25,Number(rate)/.9||1));
+    a.preload="auto";a.volume=1;a.playbackRate=playRate;
+    speechAudio={pause:()=>{a.onended=null;a.onerror=null;a.pause()}};
     let recovered=false;
     const recover=()=>{
       if(recovered||request!==speechRequest)return {source:"cancelled"};
@@ -247,48 +293,34 @@
     a.onerror=()=>{recover()};
     let playTimer;
     try{
-      await Promise.race([a.play(),new Promise((_,reject)=>{playTimer=setTimeout(()=>reject(new Error("AUDIO_START_TIMEOUT")),2500)})]);
+      await Promise.race([a.play(),new Promise((_,reject)=>{playTimer=setTimeout(()=>reject(new Error("MEDIA_PLAY_TIMEOUT")),3000)})]);
       if(request!==speechRequest){a.pause();return {source:"cancelled"}}
       return {source:"ai"};
-    }catch{
-      a.pause();
-      return recover();
-    }finally{clearTimeout(playTimer)}
+    }catch{a.pause();return recover()}
+    finally{clearTimeout(playTimer)}
   }
   speakText=async function(text,rate=.9,btn=null,voice="marin"){
     text=String(text||"").trim();
     if(!text)return {source:"unavailable"};
     btn=btn||(document.activeElement?.tagName==="BUTTON"?document.activeElement:null);
     const request=++speechRequest;
-    stopSpeechPlayback();
-    clearTimeout(speechPrimeTimer);
-    // Exact licensed human recordings take priority if registered.
+    stopSpeechPlayback();clearTimeout(speechPrimeTimer);
+    unlockAudioContext();
+    // AI remains primary on all devices: installed Android voice listings are
+    // not proof that synthesized speech actually makes sound.
     if(window.NEHumanVoice?.has?.(text)){
       try{
         setSpeechButton(btn,"loading");
-        const played=await window.NEHumanVoice.play(text,rate);
-        if(request!==speechRequest)return {source:"cancelled"};
-        if(played){
+        if(await window.NEHumanVoice.play(text,rate)){
+          if(request!==speechRequest)return {source:"cancelled"};
           setSpeechButton(btn,"playing");
-          speechPlaybackTimer=setTimeout(()=>{if(request===speechRequest)restoreSpeechButton(btn)},Math.max(1800,text.length*110));
-          return {source:"human",speaker:window.NEHumanVoice.speaker};
+          speechPlaybackTimer=setTimeout(()=>{if(request===speechRequest)restoreSpeechButton(btn)},Math.max(1500,text.length*105));
+          return {source:"human"};
         }
       }catch{}
     }
-    const level=(lessonSession?.lesson?.level)||state.level||"A1",cached=speechCache.get(speechKey(text,level,voice));
-    if(cached?.url){
-      setSpeechButton(btn,"loading");
-      return playSpeechAudio(cached,text,rate,btn,request);
-    }
-    // On Android with a Norwegian system voice, speak on the original tap.
-    // This also works offline and avoids paid AI requests.
-    if(norwegianVoice())return fallbackSpeech(text,rate,btn,request);
+    const level=(lessonSession?.lesson?.level)||state.level||"A1";
     setSpeechButton(btn,"loading");
-    try{
-      // Resume Web Audio in the original gesture, before the network await.
-      const AC=window.AudioContext||window.webkitAudioContext;
-      if(AC){speechAudioContext=speechAudioContext||new AC();if(speechAudioContext.state==="suspended")speechAudioContext.resume().catch(()=>{})}
-    }catch{}
     try{
       const item=await getSpeechAudio(text,level,voice);
       if(request!==speechRequest)return {source:"cancelled"};
