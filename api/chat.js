@@ -120,7 +120,18 @@ export default async function handler(req,res){
     out.translation_ru=String(out.translation_ru||"").slice(0,1800);
     out.corrected=String(out.corrected||"").slice(0,1200);
     out.explanation_ru=String(out.explanation_ru||"").slice(0,chatMode==="explain"?3000:1000);
-    if(!start){
+    if(chatMode==="explain"){
+      // Explanations and word translations are not learner answers. They have no
+      // accepted/score fields, so applying assessment normalization would erase
+      // the useful explanation and misleadingly ask the learner to repeat.
+      const explanation=String(out.explanation_ru||out.translation_ru||out.reply_no||"").trim();
+      if(!explanation)return res.status(502).json({error:"AI_EXPLANATION_EMPTY",code:"AI_EXPLANATION_EMPTY"});
+      out.explanation_ru=explanation.slice(0,3000);
+      out.score_valid=false;
+      out.feedback_status="not_assessed";
+      out.accepted=false;
+      delete out.score;
+    }else if(!start){
       const checked=normalizeAssessment(out);
       Object.assign(out,checked);
       // Do not treat missing validation as a pass or give evidence for CEFR progression.
