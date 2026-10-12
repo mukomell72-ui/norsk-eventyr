@@ -119,6 +119,32 @@ const server=http.createServer(async(req,res)=>{
   await page.locator('#wordTranslationV7 button[aria-label="Закрыть перевод"]').click();
   await page.evaluate(()=>{window.neSpeakWord=window.__speakWordOriginal;delete window.__speakWordOriginal});
   console.log('PASS word translation automatically plays tapped word and repeats on demand');
+  // The user must be able to say "I don't know" without guessing or being
+  // shown a correct answer. The next question should become easier.
+  const unknownFlow=await page.evaluate(()=>{
+    const oldXp=state.xp;
+    state.placement={level:'B1',recommendedStart:'B1',scope:'receptive_screening',productive:{status:'complete',results:[],nextIndex:3}};
+    state.completed['a1-1']=true;
+    startPlacement();
+    const firstB1=placementSession.qs.findIndex(q=>q.level==='B1');
+    [placementSession.qs[0],placementSession.qs[firstB1]]=[placementSession.qs[firstB1],placementSession.qs[0]];
+    renderPlacementQ();
+    const visible=!!document.querySelector('#placementUnknown');
+    answerPlacement(-1);
+    const nextLevel=placementSession.qs[placementSession.i].level;
+    const counted=placementSession.byLevel.B1.slice();
+    const unknown=placementSession.unknown.length;
+    for(let i=1;i<20;i++)answerPlacement(-1);
+    return {visible,nextLevel,counted,unknown,recorded:state.placement.unknownCount,level:state.placement.recommendedStart,progress:state.completed['a1-1'],xpUnchanged:state.xp===oldXp};
+  });
+  assert(unknownFlow.visible,'Diagnostic must offer an explicit I-dont-know button');
+  assert.equal(unknownFlow.nextLevel,'A2','Skipping B1 must choose an easier next question');
+  assert.deepEqual(unknownFlow.counted,[0,1],'I-dont-know must count as incorrect knowledge evidence, not a guess');
+  assert.equal(unknownFlow.unknown,1);
+  assert.equal(unknownFlow.recorded,20);
+  assert.equal(unknownFlow.level,'A1','No demonstrated knowledge must not certify B1');
+  assert(unknownFlow.progress&&unknownFlow.xpUnchanged,'Assessment skip must preserve XP and completed lessons');
+  console.log('PASS diagnostic unknown-answer skip, B1-to-A2 adjustment, conservative result, preserved progress');
   // B1 retake must use a new question pool, keep history and preserve lessons.
   const originalRetake=await page.evaluate(()=>{
     state.level='B1';
@@ -151,7 +177,7 @@ const server=http.createServer(async(req,res)=>{
   await page.evaluate(()=>{state.placement={level:'B1',recommendedStart:'B1',scope:'receptive_screening',attemptNumber:2};navigate('calibration')});
   assert((await page.locator('#app main').innerText()).includes('изменить рабочий график'),'New B1 writing task should differ');
   console.log('PASS B1 retake: 20 new tasks, level weighting, assessment history, preserved lesson progress');
-  const placementResult=await page.evaluate(()=>{state.level='A1';state.learningV8={};state.placement=null;saveState();startPlacement();[0,0,0,1,0,1,2,1,1,1,1,1,0,1,1,1,1,0,1,2].forEach(a=>answerPlacement(a));return{level:state.level,placement:state.placement,b2:state.learningV8?.levelSkills?.B2,text:document.querySelector('#app main')?.innerText||''}});
+  const placementResult=await page.evaluate(()=>{state.level='A1';state.learningV8={};state.placement=null;saveState();startPlacement();for(let i=0;i<20;i++)answerPlacement(placementSession.qs[placementSession.i].correct);return{level:state.level,placement:state.placement,b2:state.learningV8?.levelSkills?.B2,text:document.querySelector('#app main')?.innerText||''}});
   assert.equal(placementResult.level,'B2');assert.equal(placementResult.placement?.scope,'receptive_screening');assert.equal(placementResult.b2?.writing,35);assert.equal(placementResult.b2?.speaking,35);assert(placementResult.b2?.reading<=70);assert(placementResult.text.includes('не означает, что уровень B2 подтверждён'));console.log('PASS perfect placement recommends B2 material without certifying productive B2');
   await page.evaluate(()=>navigate('course','A1'));const courseText=(await page.locator('#app main').innerText());assert(courseText.includes('8 модулей A1'));assert(courseText.includes('Старт и выживание'));assert(courseText.includes('A1: реальные ситуации'));console.log('PASS active course shows the A1 mastery curriculum');
   await page.evaluate(()=>teacherStartModule('a1-home'));await page.waitForTimeout(120);assert((await page.locator('#app main').innerText()).includes('Сначала закрепи предыдущий модуль'));console.log('PASS future curriculum module is gated by prior mastery');
