@@ -353,6 +353,13 @@
     for(let i=0;i<len;i++){let s=0;for(let c=0;c<channels;c++)s+=data[c][i];s=Math.max(-1,Math.min(1,s/channels));v.setInt16(o,s<0?s*0x8000:s*0x7fff,true);o+=2}
     await ac.close();let bin="",u=new Uint8Array(out);for(let i=0;i<u.length;i+=0x8000)bin+=String.fromCharCode(...u.subarray(i,i+0x8000));return btoa(bin);
   }
+  // A tap with no meaningful speaking time must never be transcribed.
+  function micRecordingProblem(bytes,durationMs,nearlySilent,target){
+    const minimumMs=target==="pronText"?650:1200;
+    if(!Number.isFinite(durationMs)||durationMs<minimumMs||bytes<900)return "TOO_SHORT";
+    if(nearlySilent)return "SILENT";
+    return "";
+  }
   // Track near-silent microphone input before sending audio to the AI.
   // A low-level meter is deliberately conservative: if audio inspection is
   // unavailable or uncertain, keep the recording rather than reject quiet speech.
@@ -430,8 +437,14 @@
         const blob=new Blob(chunks,{type:(recorder.mimeType||"audio/webm").split(";")[0]});
         parkMicStream();mediaRecorder=null;
         const durationMs=Date.now()-recordStartedAt;recordStartedAt=0;
-        if(blob.size<900||durationMs<650){if(btn)btn.textContent="🎤 Говорить";alert("Запись слишком короткая. Нажми микрофон, начни говорить и останови запись после фразы.");return}
-        if(silentAudio){if(btn)btn.textContent="🎤 Говорить";alert("В записи не обнаружен звук речи. Попробуй ещё раз — Нора не будет угадывать ответ по тишине.");return}
+        const recordingProblem=micRecordingProblem(blob.size,durationMs,silentAudio,target);
+        if(recordingProblem){
+          if(btn)btn.textContent="🎤 Говорить";
+          alert(recordingProblem==="SILENT"?
+            "В записи не обнаружен звук речи. Попробуй ещё раз — Нора не будет угадывать ответ по тишине.":
+            "Запись слишком короткая. Нажми микрофон, произнеси ответ и затем останови запись.");
+          return;
+        }
         const b64=await blobToBase64(blob);
         const transcribePromise=apiPost("/api/transcribe",{audioBase64:b64,mime:blob.type,expected,context});
         const pronouncePromise=expected?blobToWavBase64(blob).then(wav=>apiPost("/api/pronounce",{audioBase64:wav,expected})).catch(()=>null):Promise.resolve(null);
