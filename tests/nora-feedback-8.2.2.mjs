@@ -31,10 +31,11 @@ process.env.OPENAI_API_KEY="qa-local-dummy";
 process.env.NE_SESSION_SECRET="qa-session-signing-secret-32-characters";
 async function query(handler,pathname,body,llm){
  let upstreamPrompt="";
- globalThis.fetch=async url=>{
+ globalThis.fetch=async (url,opts)=>{
   if(url.includes("/auth/v1/user"))return {ok:true,json:async()=>({email_confirmed_at:"2026-01-01"})};
   if(url.includes("/rpc/ne_access_status"))return {ok:true,json:async()=>({status:"free",access_granted:true})};
   if(url.includes("/rpc/ne_device_authorize"))return {ok:true,json:async()=>({allowed:true,max_devices:2})};
+  upstreamPrompt=JSON.parse(opts.body).input;
   return {ok:true,json:async()=>({output:[{content:[{type:"output_text",text:JSON.stringify(llm)}]}]})};
  };
  const req={method:"POST",url:pathname,headers:{cookie:"ne_access=qa",host:"localhost","x-forwarded-for":pathname+Math.random(),"x-ne-device-id":"device_qa_nora_feedback_123456","x-ne-device-name":"QA"},body};
@@ -53,6 +54,17 @@ assert(!cafe.response.reply_no.includes("Neste spørsmål"),"Do not advance cafe
 const ok=await query(chat,"/api/chat",{message:"Jeg vil ha en kopp espresso.",level:"A1",mode:"roleplay",scenario:"XP-миссия Норы. Кафе Fjordvik."},{reply_no:"Ja, vil du ha noe mer?",translation_ru:"Да, ещё что-нибудь?",accepted:true,score:100,explanation_ru:"Уместный заказ."});
 assert.equal(ok.response.feedback_status,"correct");
 assert.equal(ok.response.score,100);
+const voice=await query(chat,"/api/chat",{message:"Jeg har femti to stjørelse",inputSource:"voice_transcript",level:"A1",mode:"roleplay",scenario:"Klesbutikk"},{reply_no:"Hvilken størrelse trenger du?",translation_ru:"Какой размер вам нужен?",accepted:true,score:82,explanation_ru:"Возможно, запись распознана неверно.",corrected:"Jeg skal ha størrelse femtito.",error_tag:"word_order",score_reason_ru:"Грамматика по расшифровке."});
+assert.equal(voice.status,200);
+assert.equal(voice.response.assessment_source,"voice_transcript");
+assert.match(voice.upstreamPrompt,/автоматическая расшифровка его ГОЛОСОВОГО ответа/);
+assert.match(voice.upstreamPrompt,/не оценивай акцент/);
+assert.equal(ok.response.assessment_source,"typed_text");
+const voiceUi=fs.readFileSync(new URL("../ui-v7.js",import.meta.url),"utf8");
+const voiceClient=fs.readFileSync(new URL("../v3.js",import.meta.url),"utf8");
+assert.match(voiceUi,/Предварительная оценка смысла распознанной речи/);
+assert.match(voiceClient,/inputSource:wasVoice\?"voice_transcript":"typed_text"/);
+assert.match(voiceClient,/\["true","recognition"\]/);
 const evalFail=await query(evaluate,"/api/evaluate",{answer:"Lotten! Takk",question:"Bestill kaffe",goal:"Закажи кофе по-норвежски",level:"A1",mode:"dialogue"},{accepted:false,score:91,explanation_ru:"Непонятно, что вы хотите заказать.",corrected:"Jeg vil ha en kaffe.",error_tag:"task"});
 assert.equal(evalFail.status,200);assert.equal(evalFail.response.accepted,false);assert.equal(evalFail.response.score,49);
 const ui=fs.readFileSync(new URL("../ui-v7.js",import.meta.url),"utf8");
