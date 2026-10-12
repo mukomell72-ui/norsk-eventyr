@@ -134,7 +134,7 @@
 
   // Universal speech engine: AI audio is primary, with audio context unlocked
   // during the original tap. Never treat a browser voice as proof of sound.
-  const SPEECH_WAIT_MS=14000,SPEECH_RETRY_COOLDOWN_MS=1500;
+  const SPEECH_WAIT_MS=18500,SPEECH_RETRY_COOLDOWN_MS=0;
   let speechPrimeTimer=null,speechPlaybackTimer=null,speechFallbackUntil=0,speechAudioReady=null;
   function norwegianVoice(){
     try{
