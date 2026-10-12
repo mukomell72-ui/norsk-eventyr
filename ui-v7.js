@@ -422,11 +422,24 @@
   async function translateWordV7(word,sentence){
     document.getElementById('wordTranslationV7')?.remove();
     const panel=document.createElement('dialog');panel.id='wordTranslationV7';panel.className='word-translation-panel-v7';
-    panel.innerHTML='<button class="btn ghost" aria-label="Закрыть перевод">Закрыть ×</button><h2>'+h(word)+'</h2><p class="word-translation-result-v7" aria-live="polite">Перевожу…</p><button class="btn secondary word-listen-v7">🔊 Произношение</button>';
-    panel.querySelector('button').onclick=()=>panel.remove();panel.querySelector('.word-listen-v7').onclick=()=>speakText(word);
+    panel.innerHTML='<button class="btn ghost" aria-label="Закрыть перевод">Закрыть ×</button><h2>'+h(word)+'</h2><p class="word-translation-result-v7" aria-live="polite">Перевожу…</p><button type="button" class="btn secondary word-listen-v7">🔊 Произношение</button><p class="word-play-status-v7" aria-live="polite"></p>';
+    const playWord=()=>{
+      const button=panel.querySelector('.word-listen-v7'),status=panel.querySelector('.word-play-status-v7');
+      status.textContent="Загружаю произношение…";
+      try{
+        const playback=window.neSpeakWord?window.neSpeakWord(word,button):speakText(word,.9,button);
+        Promise.resolve(playback).then(result=>{
+          if(!panel.isConnected)return;
+          status.textContent=result?.source==="unavailable"?"Не удалось озвучить слово. Проверь звук на телефоне.":"Для повторения нажми «Произношение».";
+        }).catch(()=>{if(panel.isConnected)status.textContent="Звук недоступен. Нажми «Произношение» ещё раз."});
+      }catch{status.textContent="Звук недоступен. Попробуй ещё раз."}
+    };
+    panel.querySelector('button').onclick=()=>panel.remove();
+    panel.querySelector('.word-listen-v7').onclick=playWord;
     panel.addEventListener('cancel',event=>{event.preventDefault();panel.remove()});
     panel.addEventListener('click',event=>{if(event.target===panel){const rect=panel.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)panel.remove()}});
     document.body.append(panel);panel.showModal();
+    playWord(); // Immediate sound on the original word tap, without waiting for translation.
     const key=word.toLocaleLowerCase('nb')+'|'+sentence,result=panel.querySelector('.word-translation-result-v7');
     if(wordTranslationsV7.has(key)){result.textContent=wordTranslationsV7.get(key);return}
     try{
