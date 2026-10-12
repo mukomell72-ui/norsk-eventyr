@@ -643,16 +643,29 @@
   }
   function startPlacement(){
     const previous=state.placement,qs=previous?placementRetakeQuestions(previous):PLACEMENT_BANK.map((q,i)=>({...q,id:"base-"+i}));
-    placementSession={qs,previous,i:0,byLevel:{A1:[0,0],A2:[0,0],B1:[0,0],B2:[0,0]},bySkill:{},byLevelSkill:{A1:{},A2:{},B1:{},B2:{}}};renderPlacementQ();
+    placementSession={qs,previous,i:0,unknown:[],byLevel:{A1:[0,0],A2:[0,0],B1:[0,0],B2:[0,0]},bySkill:{},byLevelSkill:{A1:{},A2:{},B1:{},B2:{}}};renderPlacementQ();
   }
   function renderPlacementQ(){
     const s=placementSession,q=s.qs[s.i];if(!q)return finishPlacement();
-    shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Диагностика</div><h2 style="margin:0">Задание '+(s.i+1)+'/'+s.qs.length+'</h2></div></div><div class="progress"><i style="width:'+pct(s.i,s.qs.length)+'%"></i></div><section class="exercise"><article class="card">'+(q.context?'<div class="translation">'+esc(q.context)+'</div><br>':"")+(q.audio?'<button class="btn" onclick="speakText(\''+escJs(q.audio)+'\',.9,this)">▶ Прослушать</button><br><br>':"")+'<div class="prompt">'+esc(q.q)+'</div><div class="choice-list">'+q.opts.map((x,i)=>'<button class="choice" onclick="answerPlacement('+i+')">'+esc(x)+'</button>').join("")+'</div></article></section>',"home");
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Диагностика</div><h2 style="margin:0">Задание '+(s.i+1)+'/'+s.qs.length+'</h2></div></div><div class="progress"><i style="width:'+pct(s.i,s.qs.length)+'%"></i></div><section class="exercise"><article class="card">'+(q.context?'<div class="translation">'+esc(q.context)+'</div><br>':"")+(q.audio?'<button class="btn" onclick="speakText(\''+escJs(q.audio)+'\',.9,this)">▶ Прослушать</button><br><br>':"")+'<div class="prompt">'+esc(q.q)+'</div><div class="choice-list">'+q.opts.map((x,i)=>'<button class="choice" onclick="answerPlacement('+i+')">'+esc(x)+'</button>').join("")+'</div><div class="row" style="margin-top:16px"><button id="placementUnknown" type="button" class="btn ghost" onclick="answerPlacement(-1)">Не знаю — следующий вопрос →</button></div><p class="muted">Если не знаешь, не угадывай. Этот ответ будет учтён как пробел в знаниях.</p></article></section>',"home");
+  }
+  // Select an unanswered question at a neighboring level after each response.
+  // Changing the order never reveals the right answer or overwrites attempts.
+  function prioritizePlacementNext(s,level,correct){
+    const rank=LEVELS.indexOf(level),target=LEVELS[Math.max(0,Math.min(3,rank+(correct?1:-1)))];
+    const next=s.i+1;let found=s.qs.findIndex((q,index)=>index>=next&&q.level===target);
+    if(found<0)found=s.qs.findIndex((q,index)=>index>=next&&q.level===level);
+    if(found>next)[s.qs[next],s.qs[found]]=[s.qs[found],s.qs[next]];
   }
   function answerPlacement(i){
-    const s=placementSession,q=s.qs[s.i],ok=i===q.correct;s.byLevel[q.level][1]++;if(ok)s.byLevel[q.level][0]++;
+    const s=placementSession,q=s?.qs?.[s.i];
+    if(!q||!Number.isInteger(i)||(i!==-1&&(i<0||i>=q.opts.length)))return;
+    const unknown=i===-1,ok=!unknown&&i===q.correct;
+    s.byLevel[q.level][1]++;if(ok)s.byLevel[q.level][0]++;
+    if(unknown)s.unknown.push({id:q.id,level:q.level,skill:q.skill});
     s.bySkill[q.skill]=s.bySkill[q.skill]||[0,0];s.bySkill[q.skill][1]++;if(ok)s.bySkill[q.skill][0]++;
     const cell=s.byLevelSkill[q.level][q.skill]||(s.byLevelSkill[q.level][q.skill]=[0,0]);cell[1]++;if(ok)cell[0]++;
+    prioritizePlacementNext(s,q.level,ok);
     s.i++;renderPlacementQ();
   }
   function finishPlacement(){
@@ -674,8 +687,8 @@
     }
     state.level=rec;if(state.chatPrefs)state.chatPrefs.level=rec;if(window.NEAdaptive){const p=NEAdaptive.ensure(state);p.startLevel=rec}
     if(s.previous)state.placementHistory=[...(Array.isArray(state.placementHistory)?state.placementHistory:[]),{level:s.previous.recommendedStart||s.previous.level,date:s.previous.date||"",byLevel:s.previous.byLevel||{}}].slice(-10);
-    state.placement={level:rec,recommendedStart:rec,scope:"receptive_screening",byLevel:rat,byLevelSkill:s.byLevelSkill,date:new Date().toISOString(),attemptNumber:(Number(s.previous?.attemptNumber)||(s.previous?1:0))+1,questionIds:s.qs.map(q=>q.id)};saveState();
-    shell('<section class="card" style="max-width:720px;margin:35px auto;text-align:center"><div class="eyebrow">Результат входного скрининга</div><h1>Начать материалы с '+rec+'</h1><p class="muted">A1 '+Math.round(rat.A1*100)+'% · A2 '+Math.round(rat.A2*100)+'% · B1 '+Math.round(rat.B1*100)+'% · B2 '+Math.round(rat.B2*100)+'%</p><div class="notice"><b>Это не означает, что уровень '+rec+' подтверждён.</b> Скрининг не проверял письмо и речь. Нора начнёт с '+rec+' и уточнит профиль по реальным ответам; при пробелах автоматически вернёт нужный материал.</div><br><button class="btn" onclick="navigate(\'calibration\')">Проверить письмо и речь</button><button class="btn secondary" onclick="NECalibration.postpone()">Продолжить обучение</button></section>',"home");
+    state.placement={level:rec,recommendedStart:rec,scope:"receptive_screening",byLevel:rat,byLevelSkill:s.byLevelSkill,date:new Date().toISOString(),attemptNumber:(Number(s.previous?.attemptNumber)||(s.previous?1:0))+1,questionIds:s.qs.map(q=>q.id),unknownCount:s.unknown.length,unknownBySkill:s.unknown.reduce((out,q)=>(out[q.skill]=(out[q.skill]||0)+1,out),{})};saveState();
+    shell('<section class="card" style="max-width:720px;margin:35px auto;text-align:center"><div class="eyebrow">Результат входного скрининга</div><h1>Начать материалы с '+rec+'</h1><p class="muted">A1 '+Math.round(rat.A1*100)+'% · A2 '+Math.round(rat.A2*100)+'% · B1 '+Math.round(rat.B1*100)+'% · B2 '+Math.round(rat.B2*100)+'%</p><p class="muted">Ответов «Не знаю»: '+s.unknown.length+' из '+s.qs.length+'. Они учтены как пробелы в знаниях.</p><div class="notice"><b>Это не означает, что уровень '+rec+' подтверждён.</b> Скрининг не проверял письмо и речь. Нора начнёт с '+rec+' и уточнит профиль по реальным ответам; при пробелах автоматически вернёт нужный материал.</div><br><button class="btn" onclick="navigate(\'calibration\')">Проверить письмо и речь</button><button class="btn secondary" onclick="NECalibration.postpone()">Продолжить обучение</button></section>',"home");
   }
 
   renderTests=function(){
