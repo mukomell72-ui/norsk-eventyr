@@ -103,7 +103,13 @@
     const history=box._helpHistory||[];
     button.disabled=true;box.textContent="Нора объясняет…";
     try{
-      const r=await neApiPost("/api/chat",{mode:"explain",message:question,context,level:state.level,history});
+      // During the placement assessment, help may clarify instructions but
+      // must not reveal the answer or become unearned evidence of proficiency.
+      const inPlacement=!!main.querySelector("#placementUnknown");
+      const request=inPlacement
+        ?"Это диагностический тест. Объясни ученику по-русски только смысл формулировки и что от него требуется. Не называй правильный вариант, не переводи варианты ответов, не решай задание и не выдавай подсказок, раскрывающих решение. Если ученик не знает ответ, предложи нажать «Не знаю». Вопрос ученика: "+question
+        :question;
+      const r=await neApiPost("/api/chat",{mode:"explain",message:request,context,level:state.level,history});
       if(!box.isConnected)return;
       const explanation=r.ok?String(r.data?.explanation_ru||r.data?.translation_ru||""):"";
       if(!explanation){box.textContent="Объяснение сейчас недоступно. Вопрос сохранён — попробуй ещё раз.";return;}
