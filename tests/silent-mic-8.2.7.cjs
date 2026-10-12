@@ -7,10 +7,22 @@ const app=fs.readFileSync(path.join(__dirname,"../app.js"),"utf8");
 const start=js.indexOf("  function monitorMicActivity(stream){");
 const end=js.indexOf("  toggleMic=async function(",start);
 assert(start>0&&end>start,"microphone silence monitor must exist");
-assert(js.includes("if(silentAudio){"),"silent audio must be rejected before upload");
-assert(js.indexOf("if(silentAudio){")<js.indexOf('apiPost("/api/transcribe",{audioBase64:b64'),"guard must run before transcription");
+assert(js.includes("micRecordingProblem(blob.size,durationMs,silentAudio,target)"),"silent/short audio must be rejected before upload");
+assert(js.indexOf("micRecordingProblem(blob.size,durationMs,silentAudio,target)")<js.indexOf('apiPost("/api/transcribe",{audioBase64:b64'),"guard must run before transcription");
 assert(js.includes("if(e.results[i].isFinal)t+="),"interim speech recognition is not stable enough to insert");
 assert(app.includes('id="freeAnswer" class="input" autocomplete="off"'),"speaking field should not inherit earlier browser autocomplete");
+const micGuardStart=js.indexOf("  function micRecordingProblem(");
+const micGuardEnd=js.indexOf("  // Track near-silent microphone input",micGuardStart);
+assert(micGuardStart>0&&micGuardEnd>micGuardStart,"minimum recording gate must exist");
+const recordingProblem=vm.runInNewContext("("+js.slice(micGuardStart,micGuardEnd).trim()+")");
+assert.equal(recordingProblem(2000,150,false,"freeAnswer"),"TOO_SHORT","rapid stop must not be sent for transcription");
+assert.equal(recordingProblem(2000,850,false,"freeAnswer"),"TOO_SHORT","brief nonspeech noise must not reach AI");
+assert.equal(recordingProblem(2000,1199,false,"freeAnswer"),"TOO_SHORT");
+assert.equal(recordingProblem(2000,1200,false,"freeAnswer"),"","normal speaking duration must pass");
+assert.equal(recordingProblem(2000,1400,true,"freeAnswer"),"SILENT","near-digital silence must be suppressed");
+assert.equal(recordingProblem(2000,700,false,"pronText"),"","short isolated pronunciation may pass");
+assert.equal(recordingProblem(200,1500,false,"freeAnswer"),"TOO_SHORT");
+assert(js.indexOf("micRecordingProblem(blob.size,durationMs,silentAudio,target)")<js.indexOf('apiPost("/api/transcribe",{audioBase64:b64'),"early mic gate must precede network");
 async function test(amplitude,expected){
  let sampling=0,closed=0;
  class Context{
