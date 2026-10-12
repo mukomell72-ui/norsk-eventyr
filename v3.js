@@ -187,6 +187,15 @@
   speakText=async function(text,rate=.9,btn=null,voice="marin"){
     btn=btn||(document.activeElement?.tagName==="BUTTON"?document.activeElement:null);
     const request=++speechRequest;stopSpeechPlayback();setSpeechButton(btn,"loading");
+    // Unlock Web Audio during the original user gesture. Mobile browsers can block
+    // playback if an AudioContext is first resumed after an async TTS request.
+    try{
+      const AC=window.AudioContext||window.webkitAudioContext;
+      if(AC){
+        speechAudioContext=speechAudioContext||new AC();
+        if(speechAudioContext.state==="suspended")speechAudioContext.resume().catch(()=>{});
+      }
+    }catch{}
     // Prefer a licensed real-human Nora recording when an exact clip exists.
     try{
       if(window.NEHumanVoice?.has?.(text)){
@@ -221,6 +230,27 @@
       fallbackSpeech(text,rate,btn);return {source:"browser"};
     }
   };
+  // For individual dictionary words, use an installed Norwegian device voice
+  // immediately (while the tap gesture is active). Otherwise use Nora's AI TTS.
+  function speakWord(text,btn=null){
+    const word=String(text||"").trim();
+    if(!word)return Promise.resolve({source:"unavailable"});
+    const speech=window.speechSynthesis;
+    const voice=speech?.getVoices?.().find(v=>/^(nb|nn|no)(-|_|$)/i.test(v.lang||""));
+    if(voice&&typeof window.SpeechSynthesisUtterance==="function"){
+      const request=++speechRequest;
+      stopSpeechPlayback();
+      const u=new SpeechSynthesisUtterance(word);
+      u.lang="nb-NO";u.voice=voice;u.rate=.9;
+      u.onstart=()=>{if(request===speechRequest)setSpeechButton(btn,"playing")};
+      u.onend=()=>{if(request===speechRequest)restoreSpeechButton(btn)};
+      u.onerror=()=>{if(request===speechRequest)speakText(word,.9,btn)};
+      try{setSpeechButton(btn,"loading");speech.speak(u);return Promise.resolve({source:"device"})}
+      catch{restoreSpeechButton(btn)}
+    }
+    return speakText(word,.9,btn);
+  }
+  window.neSpeakWord=speakWord;
   window.nePrimeSpeech=primeSpeech;
 
   function normSpeech(s){return String(s||"").toLowerCase().normalize("NFKD").replace(/[^\p{L}\p{N}\s]/gu,"").replace(/\s+/g," ").trim()}
