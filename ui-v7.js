@@ -221,6 +221,7 @@
     const good=meta.feedback_status!=="incorrect";
     const parts=[
       '<b>'+label+' · '+h(meta.score)+'/100</b>',
+      meta.assessment_source==="voice_transcript"?'<br><small>Предварительная оценка смысла распознанной речи, не произношения. Распознавание слов может ошибаться.</small>':"",
       meta.error_fragment_ru?'<br><b>Где ошибка:</b> '+h(meta.error_fragment_ru):"",
       meta.explanation_ru?'<br><b>Объяснение:</b> '+h(meta.explanation_ru):"",
       meta.corrected?'<br><b>Как правильно / естественнее:</b> '+h(meta.corrected):"",
