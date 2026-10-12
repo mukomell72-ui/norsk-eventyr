@@ -236,18 +236,23 @@
     const a=new Audio(item.url);
     speechAudio=a;a.preload="auto";a.volume=1;
     a.playbackRate=Math.max(.75,Math.min(1.25,Number(rate)/.9||1));
+    let recovered=false;
+    const recover=()=>{
+      if(recovered||request!==speechRequest)return {source:"cancelled"};
+      recovered=true;speechAudio=null;a.onended=null;a.onerror=null;
+      return fallbackSpeech(text,rate,btn,request);
+    };
     a.onplaying=()=>{if(request===speechRequest)setSpeechButton(btn,"playing")};
     a.onended=()=>{if(request===speechRequest){speechAudio=null;restoreSpeechButton(btn)}};
-    a.onerror=()=>{if(request===speechRequest){speechAudio=null;fallbackSpeech(text,rate,btn,request)}};
+    a.onerror=()=>{recover()};
     let playTimer;
     try{
       await Promise.race([a.play(),new Promise((_,reject)=>{playTimer=setTimeout(()=>reject(new Error("AUDIO_START_TIMEOUT")),2500)})]);
       if(request!==speechRequest){a.pause();return {source:"cancelled"}}
       return {source:"ai"};
     }catch{
-      a.pause();if(speechAudio===a)speechAudio=null;
-      if(request!==speechRequest)return {source:"cancelled"};
-      return fallbackSpeech(text,rate,btn,request);
+      a.pause();
+      return recover();
     }finally{clearTimeout(playTimer)}
   }
   speakText=async function(text,rate=.9,btn=null,voice="marin"){
