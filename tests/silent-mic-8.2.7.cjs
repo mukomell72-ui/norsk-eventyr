@@ -10,6 +10,8 @@ assert(start>0&&end>start,"microphone silence monitor must exist");
 assert(js.includes("micRecordingProblem(blob.size,durationMs,silentAudio,target)"),"silent/short audio must be rejected before upload");
 assert(js.indexOf("micRecordingProblem(blob.size,durationMs,silentAudio,target)")<js.indexOf('apiPost("/api/transcribe",{audioBase64:b64'),"guard must run before transcription");
 assert(js.includes("if(e.results[i].isFinal)t+="),"interim speech recognition is not stable enough to insert");
+assert(js.includes("Date.now()-recognitionStartedAt>=1200"),"fast-stopped Web Speech recognition must be rejected too");
+assert(js.includes("if(enoughSpeechTime&&finalTranscript&&f?.isConnected)"),"browser ASR may insert only validated final transcript");
 assert(app.includes('id="freeAnswer" class="input" autocomplete="off"'),"speaking field should not inherit earlier browser autocomplete");
 const micGuardStart=js.indexOf("  function micRecordingProblem(");
 const micGuardEnd=js.indexOf("  // Track near-silent microphone input",micGuardStart);
