@@ -23,7 +23,7 @@ function rig({norwegian=false,api}={}){
     speechSynthesis:synth,SpeechSynthesisUtterance:TTS,
     document:{activeElement:null,visibilityState:"visible"},Audio:AudioMock,AbortController,
     URL:{createObjectURL:()=>("blob:mock-"+Math.random()),revokeObjectURL:()=>{}},
-    setTimeout:(fn,ms)=>setTimeout(fn,ms===4000?18:ms===350?8:ms===1200?40:ms>=10000?90:ms),
+    setTimeout:(fn,ms)=>setTimeout(fn,ms===4000?120:ms===350?8:ms===1200?40:ms>=10000?90:ms),
     clearTimeout,Date,Map,console
   };
   context.apiPost=async (route,payload,opt)=>{
