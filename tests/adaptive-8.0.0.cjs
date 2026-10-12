@@ -162,7 +162,7 @@ assert(app.includes('window.nePrimeSpeech?.(speechText,l.level)'),'lesson speech
 assert(speech.includes('response_format:"mp3"')&&speech.includes('background noise')&&speech.includes('Start immediately with speech'),'Nora TTS must request compact clean studio audio');
 assert(speech.includes('voice)?voice:"marin"'),'Nora TTS must default to the recommended Marin voice');
 assert(speech.includes('const speed=1;'),'Nora TTS generation must stay at natural speed so learner pacing is applied only once');
-assert(v3.includes('a.playbackRate=')&&v3.includes('SPEECH_WAIT_MS=18500')&&v3.includes('return recover();'),'Nora playback must apply rate once, cap network waits and recover from audio errors');
+assert(v3.includes('a.playbackRate=')&&v3.includes('SPEECH_WAIT_MS=18500')&&v3.includes('unlockAudioContext();')&&v3.includes('ctx.createBufferSource()')&&v3.includes('reportSpeechFailure(btn,request)'),'Nora playback must apply rate once, cap network waits and recover from audio errors');
 assert(v8css.includes('button.speech-loading')&&v8css.includes('button.speech-playing'),'Nora speech button state styling missing');
 assert(!uiV7.includes('Math.max(3000,requested)'),'manual lesson continuation must not slow unrelated automatic transitions');
 assert(access.includes("ASSET_REV='8.2.6'")&&sw.includes('norsk-eventyr-v8-2-6'),'manual continuation fix must bypass stale PWA assets');
