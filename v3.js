@@ -643,11 +643,18 @@
   }
   function startPlacement(){
     const previous=state.placement,qs=previous?placementRetakeQuestions(previous):PLACEMENT_BANK.map((q,i)=>({...q,id:"base-"+i}));
+    // A repeat test starts at the previously estimated difficulty; subsequent
+    // questions are adjusted by the learner's actual answers.
+    if(previous){
+      const target=previous.recommendedStart||previous.level;
+      const position=qs.findIndex(q=>q.level===target);
+      if(position>0)[qs[0],qs[position]]=[qs[position],qs[0]];
+    }
     placementSession={qs,previous,i:0,unknown:[],byLevel:{A1:[0,0],A2:[0,0],B1:[0,0],B2:[0,0]},bySkill:{},byLevelSkill:{A1:{},A2:{},B1:{},B2:{}}};renderPlacementQ();
   }
   function renderPlacementQ(){
     const s=placementSession,q=s.qs[s.i];if(!q)return finishPlacement();
-    shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Диагностика</div><h2 style="margin:0">Задание '+(s.i+1)+'/'+s.qs.length+'</h2></div></div><div class="progress"><i style="width:'+pct(s.i,s.qs.length)+'%"></i></div><section class="exercise"><article class="card">'+(q.context?'<div class="translation">'+esc(q.context)+'</div><br>':"")+(q.audio?'<button class="btn" onclick="speakText(\''+escJs(q.audio)+'\',.9,this)">▶ Прослушать</button><br><br>':"")+'<div class="prompt">'+esc(q.q)+'</div><div class="choice-list">'+q.opts.map((x,i)=>'<button class="choice" onclick="answerPlacement('+i+')">'+esc(x)+'</button>').join("")+'</div><div class="row" style="margin-top:16px"><button id="placementUnknown" type="button" class="btn ghost" onclick="answerPlacement(-1)">Не знаю — следующий вопрос →</button></div><p class="muted">Если не знаешь, не угадывай. Этот ответ будет учтён как пробел в знаниях.</p></article></section>',"home");
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Диагностика</div><h2 style="margin:0">Задание '+(s.i+1)+'/'+s.qs.length+'</h2></div></div><div class="progress"><i style="width:'+pct(s.i,s.qs.length)+'%"></i></div><section class="exercise"><article class="card">'+(q.context?'<div class="translation">'+esc(q.context)+'</div><br>':"")+(q.audio?'<button class="btn" onclick="speakText(\''+escJs(q.audio)+'\',.9,this)">▶ Прослушать</button><br><br>':"")+'<div id="placementQuestionLevel" class="eyebrow" data-level="'+esc(q.level)+'">Уровень задания: '+esc(q.level)+'</div><div class="prompt">'+esc(q.q)+'</div><div class="choice-list">'+q.opts.map((x,i)=>'<button class="choice" onclick="answerPlacement('+i+')">'+esc(x)+'</button>').join("")+'</div><div class="row" style="margin-top:16px"><button id="placementUnknown" type="button" class="btn ghost" onclick="answerPlacement(-1)">Не знаю — следующий вопрос →</button></div><p class="muted">Если не знаешь, не угадывай. Этот ответ будет учтён как пробел в знаниях.</p></article></section>',"home");
   }
   // Select an unanswered question at a neighboring level after each response.
   // Changing the order never reveals the right answer or overwrites attempts.
