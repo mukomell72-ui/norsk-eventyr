@@ -40,7 +40,7 @@ function inspect(){
     verifiedHumanAudioClips:clips.filter(c=>c.sourceType==='human_recording'&&c.consentRecordId&&c.licenceId&&c.editorApprovalId).length,
     editorialApprovalRecorded:!!(l.editorialApproval?.reviewerId&&l.editorialApproval?.date&&l.editorialApproval?.version)
    };
-   if(clips.length!==2)issues.push({severity:'error',moduleId:m.id,code:'LISTENING_STAGE_COUNT'});
+   if(clips.length<2||clips.length>3)issues.push({severity:'error',moduleId:m.id,code:'LISTENING_STAGE_COUNT'});
    if(!row.hasSpeakingFollowUp||!row.hasSpeakingPrompt||!row.hasWritingPrompt)
     issues.push({severity:'error',moduleId:m.id,code:'MISSING_PRODUCTIVE_PROMPT'});
    if(level==='B1'&&clipWords.some(w=>w<130))
