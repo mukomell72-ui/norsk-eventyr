@@ -62,6 +62,37 @@ const server=http.createServer(async(req,res)=>{
  await calibrationPage.close();
  console.log('PASS 8.2 real Chromium flow: beginner choice, B2 two-stage writing/voice, typed rejection, mobile layout');
 
+  // Release regression: the visible A1 task must be Norwegian only until requested,
+  // and expanding/collapsing its translation must not lose an unsent answer.
+  await page.evaluate(()=>{
+    const l={...NECurated.get('a1-home'),id:'adaptive-a1-home-saved-qa',level:'A1',
+      _adaptive:{moduleId:'a1-home',kind:'learn',skill:'speaking'},
+      speaking:'Spør hvor nøkkelen ligger, og forklar hvor du har lett.'};
+    const previous=lessonSession;
+    lessonSession={lesson:l,speakingFollowup:false,locked:false,step:6};
+    const html=freeEx(l,'speaking');
+    lessonSession=previous;
+    const host=document.createElement('section');host.id='qa-on-demand-translation';
+    host.innerHTML=html;document.body.append(host);
+  });
+  const taskHost=page.locator('#qa-on-demand-translation');
+  const disclosure=taskHost.locator('details.a1-task-support');
+  assert.equal(await disclosure.count(),1,'A1 key task must support on-demand translation');
+  assert.equal(await disclosure.evaluate(el=>el.open),false,'Russian translation starts closed');
+  assert.equal(await taskHost.locator('.prompt').innerText(),'Spør hvor nøkkelen er. Si hvor du leter etter den.');
+  assert.equal(await taskHost.locator('.a1-task-support .notice').isVisible(),false,'No Russian task translation before request');
+  assert.equal(await taskHost.locator('summary').innerText(),'Перевести задание');
+  await taskHost.locator('summary').click();
+  assert.equal(await disclosure.evaluate(el=>el.open),true,'Learner can request translation');
+  assert.equal(await taskHost.locator('.a1-task-support .notice').isVisible(),true);
+  assert((await taskHost.locator('.a1-task-support .notice').innerText()).includes('Спроси, где находится ключ'));
+  await taskHost.locator('#freeAnswer').fill('Jeg leter etter nøkkelen på kjøkkenet.');
+  await taskHost.locator('summary').click();
+  assert.equal(await taskHost.locator('#freeAnswer').inputValue(),'Jeg leter etter nøkkelen på kjøkkenet.','Toggling translation must not erase learner answer');
+  assert.equal(await disclosure.evaluate(el=>el.open),false,'Translation is closable');
+  await page.evaluate(()=>document.getElementById('qa-on-demand-translation').remove());
+  console.log('PASS real browser opt-in task translation: hidden by default, reversible and unsent answer preserved');
+
   await page.evaluate(()=>{state.level='A1';navigate('teacher')});assert((await page.locator('#app main').innerText()).includes('Нора ведёт занятие'));
   await page.evaluate(()=>teacherStartMission());await page.waitForTimeout(500);const adaptiveDebug=await page.evaluate(()=>({moduleId:lessonSession?.lesson?._adaptive?.moduleId,title:lessonSession?.lesson?.title,text:document.querySelector('#app main')?.innerText||''}));assert(adaptiveDebug.moduleId==='a1-foundation',JSON.stringify(adaptiveDebug));assert(adaptiveDebug.text.toLowerCase().includes('знакомство без шаблона')||adaptiveDebug.text.toLowerCase().includes('qa adaptive lesson'),JSON.stringify(adaptiveDebug));console.log('PASS adaptive teacher opens a mastery lesson with curated foundation');
   await page.locator('#dialogAnswer').fill('Jeg heter Ola.');await page.evaluate(()=>checkDialogue());await page.waitForTimeout(260);assert.equal(await page.evaluate(()=>lessonSession.step),0);assert.equal(await page.evaluate(()=>state.learningV8.attempts.at(-1)?.skill),'writing','typed dialogue must never prove oral proficiency');assert.equal(await page.locator('.lesson-next-v8').innerText(),'Дальше →');await page.locator('.lesson-next-v8').click();await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>lessonSession.step),1);console.log('PASS dialogue feedback waits for explicit Next');
