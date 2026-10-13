@@ -10,6 +10,30 @@ const server=http.createServer(async(req,res)=>{
  for(const route of ['home','course','chat','story','hub','dictionary','daily','review','tests','exam','progress','plan','dictation','grammarlab','pronunciation','listeninglab','cloud','settings','storyjournal','storyside','teacher']){await page.evaluate(route=>navigate(route),route);await page.waitForTimeout(160);assert(await page.locator('#app main').innerText(),route);assert(!await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),route+' overflow')}
  console.log('PASS 21 routes including adaptive teacher');
 
+ // 8.3: real Chromium DOM test for third authored listening stage and
+ // post-answer transcript. Use a separate page to leave route QA isolated.
+ const listeningQA=await browser.newPage({viewport:{width:390,height:844},serviceWorkers:'block'});
+ await listeningQA.goto('http://127.0.0.1:'+server.address().port);
+ await listeningQA.waitForFunction(()=>window.NEAccess?.ready()&&typeof state!=='undefined'&&window.NECurated?.get);
+ const correctIndex=await listeningQA.evaluate(()=>{
+  const base=NECurated.get('a1-home');
+  if(base.listeningSets.length!==3)throw Error('Missing independently authored audio situation');
+  lessonSession={lesson:{...base,id:'adaptive-a1-home-quality-test',level:'A1',_adaptive:{moduleId:'a1-home',kind:'learn'}},step:3,locked:false,listeningIndex:2};
+  renderLesson();
+  return base.listeningSets[2].correct;
+ });
+ assert((await listeningQA.locator('#app main').innerText()).includes('часть 3/3'),'Third listening stage should be shown in the mobile UI');
+ assert.equal(await listeningQA.locator('.listening-transcript-v8').count(),0,'Norwegian transcript may not be visible before an attempt');
+ await listeningQA.locator('.choice').nth(correctIndex).click();
+ assert.equal(await listeningQA.locator('.listening-transcript-v8').count(),1,'After answering, learner can consult transcript');
+ assert.equal(await listeningQA.locator('.listening-transcript-v8 p').isVisible(),false,'Transcript must initially be collapsed');
+ await listeningQA.locator('.listening-transcript-v8 summary').click();
+ assert.equal(await listeningQA.locator('.listening-transcript-v8 p').isVisible(),true,'Learner should be able to reveal complete Norwegian text');
+ assert((await listeningQA.locator('.listening-transcript-v8 p').innerText()).includes('søsteren min'));
+ await listeningQA.close();
+ console.log('PASS new listening stage 3/3 and after-answer Norwegian transcript in mobile Chromium');
+
+
  // 8.2 end-to-end calibration, isolated from the remainder of the learning QA.
  const calibrationPage=await browser.newPage({viewport:{width:360,height:780},serviceWorkers:'block'});
  const calibrationErrors=[];calibrationPage.on('pageerror',e=>calibrationErrors.push(e.message));
