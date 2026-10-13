@@ -1,4 +1,4 @@
-const APP_VERSION="8.2.7";
+const APP_VERSION="8.2.8";
 const DEFAULT_STATE={level:"A1",xp:0,completed:{},testHistory:[],examHistory:[],streak:1,lastStudy:null};
 let state=loadState(),lessonSession=null,testSession=null,examSession=null,speechRec=null,timerHandle=null;
 
@@ -293,17 +293,38 @@ function continueSpeakingFollowup(){
  if(!session?.speakingFollowup||!session.locked)return;
  session.locked=false;persistLessonCheckpoint();renderLesson();
 }
-function freeEx(l,mode){
- const sp=mode==="speaking",rem=l?._adaptive&&lessonSession.remediation?.mode===mode?lessonSession.remediation:null,p=rem?.prompt||(sp?(lessonSession.speakingFollowup&&l.speakingFollowUp?l.speakingFollowUp:l.speaking):l.writing);
- return `<article class="card"><div class="eyebrow">${sp?"Устная речь":"Письмо"} · ${rem?"перенос исправления":"AI"}</div>${rem?'<div class="notice"><b>Новая ситуация.</b> Примени исправление сам, без копирования готового ответа.'+(rem.rule?'<br><small>'+esc(rem.rule)+'</small>':'')+'</div><br>':""}<div class="prompt">${esc(clearerTaskPrompt(p))}</div>${sp?'<div class="notice">Нажми микрофон и говори по-норвежски. Текстовый ответ проверяется как письмо, а не как устная речь.</div>':""}<textarea id="freeAnswer" class="input" autocomplete="off" placeholder="Ответ по-норвежски…" oninput="this.dataset.fromVoice='false'"></textarea><div class="row" style="margin-top:10px">${sp?'<button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>':""}<button class="btn" onclick="checkFree('${mode}')">🧠 Проверить AI</button></div><div id="freeFb"></div></article>`
+function lessonFreeTask(l,mode,rem,followup=false){
+ const task=rem?.prompt||(mode==="speaking"?(followup&&l.speakingFollowUp?l.speakingFollowUp:l.speaking):l.writing);
+ // Keep an in-progress curated A1 lesson consistent after an app update,
+ // even when its older wording was saved in the learner's progress.
+ const oldKeyTask="Spør hvor nøkkelen ligger, og forklar hvor du har lett.";
+ if(mode==="speaking"&&!rem&&!followup&&l.level==="A1"&&
+   (l.id==="a1-home"||l._adaptive?.moduleId==="a1-home")&&task===oldKeyTask){
+  return window.NECurated?.get?.("a1-home")?.speaking||"Spør hvor nøkkelen er. Si hvor du leter etter den.";
+ }
+ return task;
 }
+function speakingTaskHelp(l,mode,rem,followup,task){
+ if(mode!=="speaking"||rem||followup||l.level!=="A1"||
+   !(l.id==="a1-home"||l._adaptive?.moduleId==="a1-home"))return null;
+ const curated=window.NECurated?.get?.("a1-home");
+ if(task!==curated?.speaking)return null;
+ return curated.speakingSupport||l.speakingSupport||null;
+}
+function freeEx(l,mode){
+ const sp=mode==="speaking",rem=l?._adaptive&&lessonSession.remediation?.mode===mode?lessonSession.remediation:null,
+  followup=lessonSession.speakingFollowup===true,p=lessonFreeTask(l,mode,rem,followup),
+  support=speakingTaskHelp(l,mode,rem,followup,p);
+ return `<article class="card"><div class="eyebrow">${sp?"Устная речь":"Письмо"} · ${rem?"перенос исправления":"AI"}</div>${rem?'<div class="notice"><b>Новая ситуация.</b> Примени исправление сам, без копирования готового ответа.'+(rem.rule?'<br><small>'+esc(rem.rule)+'</small>':'')+'</div><br>':""}<div class="prompt">${esc(clearerTaskPrompt(p))}</div>${support?'<div class="notice a1-task-support"><b>Перевод задания:</b> '+esc(support.ru)+'<br><small>'+esc(support.hint)+'</small></div>':""}${sp?'<div class="notice">Нажми микрофон и говори по-норвежски. Текстовый ответ проверяется как письмо, а не как устная речь.</div>':""}<textarea id="freeAnswer" class="input" autocomplete="off" placeholder="Ответ по-норвежски…" oninput="this.dataset.fromVoice='false'"></textarea><div class="row" style="margin-top:10px">${sp?'<button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>':""}<button class="btn" onclick="checkFree('${mode}')">🧠 Проверить AI</button></div><div id="freeFb"></div></article>`
+}
+
 function openFreeTransfer(){if(lessonSession?.remediation){lessonSession.locked=false;renderLesson()}}
 function deferFreeRemediation(){
  if(!lessonSession)return;lessonSession.remediation=null;lessonSession.locked=false;lessonNext(4);
 }
 async function checkFree(mode){
  const s=lessonSession,input=document.getElementById("freeAnswer"),a=input?.value.trim();if(!a||!s||s.locked)return;
- const l=s.lesson,rem=l?._adaptive&&s.remediation?.mode===mode?s.remediation:null,p=rem?.prompt||(mode==="speaking"?(s.speakingFollowup&&l.speakingFollowUp?l.speakingFollowUp:l.speaking):l.writing),b=document.getElementById("freeFb"),spoken=mode==="speaking"&&input.dataset.fromVoice==="true";
+ const l=s.lesson,rem=l?._adaptive&&s.remediation?.mode===mode?s.remediation:null,p=lessonFreeTask(l,mode,rem,s.speakingFollowup===true),b=document.getElementById("freeFb"),spoken=mode==="speaking"&&input.dataset.fromVoice==="true";
  s.locked=true;b.innerHTML='<div class="feedback">Проверяю…</div>';
  const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode:rem?(spoken?"speaking_transfer":"writing_transfer"):(spoken?"speaking":"writing")});
  if(!b.isConnected||lessonSession!==s){s.locked=false;return}
