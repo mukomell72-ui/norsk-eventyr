@@ -1,0 +1,22 @@
+// Staging preflight is an offline structural check, not a license, GDPR or CEFR certification.
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const {checkSource}=require('../tools/prepare-staging-release.cjs');
+const check=checkSource();
+assert.equal(check.version,'8.3.0');
+assert.equal(check.modules,32);
+assert.equal(check.authoredListeningScripts,72);
+assert.equal(check.productionPublishedByThisScript,false);
+assert.equal(typeof check.humanRecordingsVerifiedInMetadata,'number');
+assert.equal(typeof check.editorialApprovalsRecordedInMetadata,'number');
+const pkg=JSON.parse(fs.readFileSync(path.join(root,'tests/package.json'),'utf8'));
+assert(pkg.scripts.test.includes('staging-preflight-8.3.cjs'),'Staging gate not mandatory');
+const note=fs.readFileSync(path.join(root,'RELEASE_8_3_0_STAGING.md'),'utf8');
+assert(note.includes('NO-GO'),'Missing honest go/no-go risks');
+assert(note.includes('PR #33'),'Divergent old draft must be reviewed rather than merged blindly');
+assert(note.includes('PR #41'),'Unrelated app must remain outside the bundle');
+assert(note.includes('72'),'Prepared material count missing');
+assert(note.includes('НЕ ОПУБЛИКОВАНА'),'Must not describe staging as production');
+console.log('PASS 8.3 release staging: synced version, 32 modules, 72 authored scripts, documented scope and publication blockers');
