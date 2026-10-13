@@ -589,7 +589,7 @@
   };
   checkFree=async function(mode){
     if(lessonSession?.lesson?._adaptive&&typeof adaptiveCheckFree==="function")return adaptiveCheckFree(mode);
-    const s=lessonSession,a=document.getElementById("freeAnswer")?.value.trim();if(!a||!s||s.locked)return;s.locked=true;const b=document.getElementById("freeFb"),l=s.lesson,p=mode==="speaking"?l.speaking:l.writing;
+    const s=lessonSession,a=document.getElementById("freeAnswer")?.value.trim();if(!a||!s||s.locked)return;s.locked=true;const b=document.getElementById("freeFb"),l=s.lesson,p=typeof lessonFreeTask==="function"?lessonFreeTask(l,mode,null,s.speakingFollowup===true):(mode==="speaking"?l.speaking:l.writing);
     b.innerHTML='<div class="feedback">Проверяю…</div>';const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode});
     if(!b.isConnected||lessonSession!==s){s.locked=false;return}
     if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
