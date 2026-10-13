@@ -72,7 +72,7 @@ for(const level of levels){
    assert(typeof lesson[field]==='string'&&lesson[field].trim().length>=5,module.id+': missing '+field);
   }
   assert(Array.isArray(lesson.vocab)&&lesson.vocab.length>=4,module.id+': inadequate vocabulary');
-  assert(Array.isArray(lesson.listeningSets)&&lesson.listeningSets.length===2,module.id+': lost staged audio');
+  assert(Array.isArray(lesson.listeningSets)&&[2,3].includes(lesson.listeningSets.length),module.id+': lost staged audio');
   for(const round of [0,1,2,3,6]){
    const variant=bank.variant(module.id,round);
    assert(variant,module.id+': missing variation '+round);
@@ -83,7 +83,7 @@ for(const level of levels){
     assert(Number.isInteger(variant[index])&&variant[index]>=0&&variant[index]<4,module.id+': invalid answer index');
     assert.equal(choices[variant[index]],lesson[answers][lesson[index]],module.id+': '+answers+' correct answer changed');
    }
-   for(let step=0;step<2;step++){
+   for(let step=0;step<lesson.listeningSets.length;step++){
     const options=variant.listeningSets[step],baseline=lesson.listeningSets[step];
     assert(options.opts.length===4&&Number.isInteger(options.correct),module.id+': bad stage '+step);
     assert.equal(options.opts[options.correct],baseline.opts[baseline.correct],module.id+': lost staged-audio answer '+step);
