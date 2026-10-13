@@ -10,4 +10,104 @@
    speakingFollowUp:x.speakingFollowUp,readAdd:x.readAdd
   };
  }
+
+ // Independent third listening contexts: authored practice scripts for TTS,
+ // NOT licensed human recordings or externally reviewed CEFR material.
+ const extraListening=[
+  {
+    "id": "a1-home",
+    "audio": "Jeg bor i en liten leilighet sammen med søsteren min. På kjøkkenet står et bord ved vinduet. I dag finner jeg ikke nøkkelen min. Jeg ser først på bordet og så i gangen. Søsteren min spør om nøkkelen ligger i jakken min. Jeg sjekker lommen, og der er den. Nå kan vi gå til butikken.",
+    "q": "Где в итоге нашёлся ключ?",
+    "opts": [
+      "В кармане куртки.",
+      "На кухонном столе.",
+      "В прихожей.",
+      "В сумке сестры."
+    ]
+  },
+  {
+    "id": "a1-shopping",
+    "audio": "Anna skal lage middag til to personer. Hun går til butikken etter jobb. Hun trenger poteter, gulrøtter og fisk. Først finner hun grønnsakene, men fisken er utsolgt. En ansatt sier at det kommer ny fisk i morgen. Anna kjøper egg i stedet. Hun betaler med kort og går hjem for å lage middag.",
+    "q": "Что Анна купила вместо рыбы?",
+    "opts": [
+      "Яйца.",
+      "Куриное мясо.",
+      "Хлеб.",
+      "Молоко."
+    ]
+  },
+  {
+    "id": "a2-work",
+    "audio": "På mandag får Amir en melding fra lederen sin. Han skal egentlig begynne klokka åtte på tirsdag, men en kollega er syk. Lederen spør om Amir kan komme klokka sju og avslutte en time tidligere. Amir må levere barnet sitt i barnehagen, så han kan ikke starte før halv åtte. Han foreslår å jobbe til vanlig tid i stedet. Lederen svarer at det går fint, og ber ham gi beskjed til kollegaen som skal overta ved lunsj. Amir bekrefter den nye avtalen skriftlig.",
+    "q": "На какое изменение договорился Амир?",
+    "opts": [
+      "Начать в половине восьмого и закончить в обычное время.",
+      "Начать ровно в семь и закончить раньше.",
+      "Взять весь вторник выходным.",
+      "Прийти после обеда."
+    ]
+  },
+  {
+    "id": "a2-health",
+    "audio": "Kari har bestilt time hos fastlegen på torsdag klokka ti. Onsdag kveld får hun en SMS om at legen er syk. Legekontoret tilbyr en ny time fredag klokka elleve eller en telefonsamtale med en annen lege torsdag ettermiddag. Kari trenger å snakke om medisinen sin, men hun har ingen akutte symptomer. Hun ringer kontoret neste morgen for å spørre om telefonsamtalen er tilstrekkelig. Sekretæren sier at legen først må vurdere saken. Kari velger derfor timen fredag og får en bekreftelse på SMS.",
+    "q": "Почему Кари в итоге выбрала приём в пятницу?",
+    "opts": [
+      "Достаточность телефонной консультации не могли подтвердить заранее.",
+      "Телефонные консультации были полностью отменены.",
+      "У неё появились острые симптомы.",
+      "В четверг кабинет был закрыт весь день."
+    ]
+  },
+  {
+    "id": "b1-work",
+    "audio": "I verkstedet har de ansatte fått beskjed om at et nytt digitalt system skal tas i bruk neste uke. Lederen understreker at systemet skal gjøre det lettere å registrere oppgaver, men flere medarbeidere er bekymret fordi opplæringen bare er satt opp til én time. Samir foreslår at de prøver løsningen i én avdeling først, og at erfarne kolleger hjelper andre underveis. Lederen er positiv til forslaget, men minner om at rapporteringen må fungere fra første dag. Etter møtet sender Samir en kort oppsummering: Avdelingen skal teste systemet i tre dager, feil meldes til en kontaktperson, og alle får en ekstra gjennomgang før hele verkstedet går over. Det er ennå ikke bestemt om den opprinnelige fristen kan flyttes.",
+    "q": "Что уже согласовано, а что ещё не решено?",
+    "opts": [
+      "Согласован пробный запуск, но перенос общей даты пока не решён.",
+      "Все сотрудники переходят на систему немедленно без обучения.",
+      "Отказались от новой системы после встречи.",
+      "Срок окончательно перенесён на месяц."
+    ]
+  },
+  {
+    "id": "b1-news",
+    "audio": "Lokalavisen skriver at kommunen vurderer å endre rutene til to busslinjer. Ifølge forslaget skal flere avganger gå forbi sykehuset, mens noen turer gjennom boligområdet kan bli færre. Kommunen mener dette vil hjelpe pasienter og ansatte som reiser tidlig, men en beboerforening er bekymret for eldre som bruker holdeplassen nær butikken. Journalisten viser til foreløpige beregninger, ikke til et endelig vedtak. Innbyggerne har fire uker på å sende inn synspunkter, og transportselskapet skal undersøke hvilke avganger som faktisk blir brukt. I et intervju presiserer prosjektlederen at antall busser totalt ikke nødvendigvis øker. Planen handler først og fremst om å fordele kapasiteten på en annen måte. Endringer kan tidligst tre i kraft etter vinteren.",
+    "q": "Какой вывод подтверждается сообщением?",
+    "opts": [
+      "Речь идёт о предложении перераспределить рейсы, окончательное решение ещё не принято.",
+      "Коммуна уже увеличила количество автобусов.",
+      "Автобусы через жилой район отменят завтра.",
+      "Жители больше не могут подать замечания."
+    ]
+  },
+  {
+    "id": "b2-listening",
+    "audio": "Under et åpent møte om helsetjenestene legger kommunen fram et forslag om flere digitale konsultasjoner. Administrasjonen framhever at reisetid kan reduseres, og at leger får større fleksibilitet i timeplanen. Representanten for pasientutvalget er enig i at dette kan være en fordel, men etterlyser tall som viser hvem som faktisk vil benytte tilbudet. Hun mener dessuten at tilgangen til fysisk undersøkelse ikke må svekkes for personer med sammensatte behov. Kommunedirektøren svarer at digitale konsultasjoner er tenkt som et supplement, ikke som en erstatning. Likevel erkjenner han at dagens budsjettutkast ikke inkluderer opplæring av ansatte eller veiledning til innbyggere som sliter med digitale løsninger. Møtelederen ber derfor administrasjonen legge fram en revidert kostnadsberegning før politikerne tar stilling. I referatet står det at begge parter støtter bedre tilgjengelighet, men at de er uenige om hvorvidt gevinstene kan dokumenteres allerede nå. Neste møte skal behandle både utgiftene og en ordning for å evaluere pasientenes erfaringer.",
+    "q": "Почему участники отложили решение?",
+    "opts": [
+      "Потому что не были подсчитаны некоторые затраты и не было достаточно данных об эффекте.",
+      "Потому что все участники отказались от цифровых консультаций.",
+      "Потому что физические приёмы уже запретили.",
+      "Потому что решение было принято ранее без обсуждения."
+    ]
+  },
+  {
+    "id": "b2-argument",
+    "audio": "I et radioprogram diskuterer to forskere om kommunene bør innføre gratis kollektivtransport for unge voksne. Den første viser til undersøkelser som antyder at lavere billettpris kan få flere til å velge buss framfor bil. Hun understreker imidlertid at effekten avhenger av hyppige avganger og gode forbindelser; et gratis, men sjeldent tilbud løser ikke transportbehovet. Den andre forskeren mener at universell gratisordning kan bli kostbar og i noen områder først og fremst hjelpe dem som allerede bruker kollektivtransport. Han foretrekker målrettede rabatter kombinert med investeringer i rutetilbudet. Programlederen spør om de to egentlig er uenige om målet. Begge svarer at målet er lavere utslipp og mer tilgjengelig mobilitet, men de trekker ulike konklusjoner om hvilket virkemiddel som bør prioriteres. Mot slutten påpeker den første forskeren at kostnader bør vurderes opp mot langsiktige fordeler, mens den andre etterlyser forsøk i flere typer kommuner før en landsdekkende modell anbefales. Ingen av dem hevder at eksisterende studier gir et entydig svar for alle steder.",
+    "q": "В чём заключается основное расхождение позиций?",
+    "opts": [
+      "Оба поддерживают экологичные поездки, но расходятся в выборе универсальных или адресных мер.",
+      "Один поддерживает транспорт, другой хочет полностью отменить автобусные маршруты.",
+      "Оба считают, что стоимость билета не влияет на поведение.",
+      "Исследования уже доказали одинаковый результат во всех коммунах."
+    ]
+  }
+];
+ for(const item of extraListening){
+  const prior=window.NEFoundationExtensions[item.id]||{};
+  window.NEFoundationExtensions[item.id]={
+   ...prior,
+   independentListening:{audio:item.audio,q:item.q,opts:item.opts,correct:0,sourceType:'synthetic_tts_script',editorStatus:'draft'}
+  };
+ }
 })();
