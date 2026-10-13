@@ -32,4 +32,5 @@ context.lessonSession.speakingFollowup=true;
 const html2=context.freeEx(saved,"speaking");
 assert(!html2.includes("Перевод задания:"),"No first-task hint on second question");
 assert(app.includes("p=lessonFreeTask(l,mode,rem,s.speakingFollowup===true)"),"AI evaluation must match displayed canonical A1 task");
+assert(read("v3.js").includes('lessonFreeTask(l,mode,null,s.speakingFollowup===true)'),"Legacy speech evaluation must also match displayed A1 task");
 console.log("PASS A1 key: natural present tense, helpful translation, migrated progress, no leaked answer, aligned AI scoring");
