@@ -19,7 +19,8 @@ for(const m of all){
  assert.equal(lesson.listeningSets.length,length,m.id+' unexpected listening stage count');
  texts+=length;
  if(!enhanced.has(m.id))continue;
- const extra=lesson.listeningSets[2],minimum={A1:45,A2:75,B1:110,B2:140}[m.level];
+ const extra=lesson.listeningSets[2],minimum={A1:45,A2:75,B1:110,B2:120}[m.level];
+ assert(extra.audio.length<=900,m.id+': TTS currently accepts at most 900 characters');
  assert(extra.audio.trim().split(/\s+/).length>=minimum,m.id+': additional story too short');
  assert.equal(extra.sourceType,'synthetic_tts_script');
  assert.equal(extra.editorStatus,'draft','Do not claim human-expert verification');
