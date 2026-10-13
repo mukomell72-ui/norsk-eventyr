@@ -22,7 +22,17 @@ const server=http.createServer(async(req,res)=>{
   renderLesson();
   return base.listeningSets[2].correct;
  });
- assert((await listeningQA.locator('#app main').innerText()).includes('часть 3/3'),'Third listening stage should be shown in the mobile UI');
+ const listeningSnapshot=await listeningQA.evaluate(()=>({
+  markup:document.querySelector('#app main')?.innerText.slice(0,500),
+  stage:document.querySelector('.lesson-exercise-v6')?.innerText.slice(0,300),
+  step:lessonSession?.step,
+  stages:lessonSession?.lesson?.listeningSets?.length,
+  index:lessonSession?.listeningIndex,
+  grammarOpts:lessonSession?.lesson?.grammarOpts?.length,
+  hasAdaptive:!!lessonSession?.lesson?._adaptive
+ }));
+ assert(String(listeningSnapshot.stage||listeningSnapshot.markup||'').includes('3/3'),
+  'Third listening stage should be shown in the mobile UI: '+JSON.stringify(listeningSnapshot));
  assert.equal(await listeningQA.locator('.listening-transcript-v8').count(),0,'Norwegian transcript may not be visible before an attempt');
  await listeningQA.locator('.choice').nth(correctIndex).click();
  assert.equal(await listeningQA.locator('.listening-transcript-v8').count(),1,'After answering, learner can consult transcript');
