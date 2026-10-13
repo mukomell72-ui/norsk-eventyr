@@ -23,11 +23,15 @@
   let data=lessons[key]||window.NEAdvancedBank?.[key];
   if(!data)return null;
   const ext=window.NEFoundationExtensions?.[key];
-  if(ext){
+  if(ext?.listeningFollowUp){
    const initial={audio:data.listeningAudio,q:data.listeningQ,opts:data.listeningOpts,correct:data.listeningCorrect};
    data={...data,read:data.read+' '+ext.readAdd,speakingFollowUp:ext.speakingFollowUp,
     listeningSets:[initial,ext.listeningFollowUp]};
   }
+  // Extra independent situation follows the two existing listening stages.
+  // A saved older lesson remains valid because no original question or key is changed.
+  if(ext?.independentListening&&Array.isArray(data.listeningSets))
+   data={...data,listeningSets:[...data.listeningSets,ext.independentListening]};
   return JSON.parse(JSON.stringify(data));
  }
  // Keep answer positions different across topics and practice sessions, without
