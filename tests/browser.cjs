@@ -312,7 +312,7 @@ const server=http.createServer(async(req,res)=>{
  });
  assert.equal(staged.part,0);
  assert.equal(staged.hasFollowup,true);
- assert((await page.locator('#app main').textContent()).includes('часть 1/2'),'first listening recording must be visible');
+ assert((await page.locator('#app main').textContent()).includes('часть 1/3'),'first listening recording must be visible');
  await page.evaluate(()=>{
    const c=lessonSession.lesson.listeningSets[0].correct;
    lessonChoice(document.querySelectorAll('.choice')[c],c,c,'Первый этап','listening');
@@ -321,7 +321,16 @@ const server=http.createServer(async(req,res)=>{
  await page.locator('#fb .lesson-next-v8').click();
  assert.equal(await page.evaluate(()=>lessonSession.listeningIndex),1,'second listening part should start');
  assert.equal(await page.evaluate(()=>state.activeLesson?.listeningIndex),1,'multi-part checkpoint must persist');
- assert((await page.locator('#app main').textContent()).includes('часть 2/2'));
+ assert((await page.locator('#app main').textContent()).includes('часть 2/3'));
+ await page.evaluate(()=>{
+   const c=lessonSession.lesson.listeningSets[1].correct;
+   lessonChoice(document.querySelectorAll('.choice')[c],c,c,'Второй этап','listening');
+ });
+ await page.locator('#fb .lesson-next-v8').click();
+ assert.equal(await page.evaluate(()=>lessonSession.listeningIndex),2,'Third listening situation must open');
+ assert.equal(await page.evaluate(()=>state.activeLesson?.listeningIndex),2,'Third situation checkpoint must survive reload');
+ assert((await page.locator('#app main').textContent()).includes('часть 3/3'),'Third independent B2 recording must appear');
+
  await page.evaluate(()=>{
    lessonSession.step=6;lessonSession.speakingFollowup=true;persistLessonCheckpoint();renderLesson();
  });
