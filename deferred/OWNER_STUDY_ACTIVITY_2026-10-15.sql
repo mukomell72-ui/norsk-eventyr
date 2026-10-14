@@ -6,6 +6,7 @@
 create table if not exists public.norsk_eventyr_study_presence (
  user_id uuid primary key references auth.users(id) on delete cascade,
  last_heartbeat_at timestamptz not null default now(),
+ tracking_enabled boolean not null default true,
  last_active_at timestamptz
 );
 create table if not exists public.norsk_eventyr_study_daily (
@@ -49,7 +50,7 @@ begin
  accepted := least(p_seconds,30,
    greatest(0,floor(extract(epoch from (now()-previous_at)))::integer));
  update public.norsk_eventyr_study_presence
- set last_heartbeat_at=now(),
+ set last_heartbeat_at=now(),tracking_enabled=true,
      last_active_at=case when accepted>0 then now() else last_active_at end
  where user_id=uid;
  if accepted>0 then
@@ -78,6 +79,7 @@ begin
   'user_id',u.id,'email',u.email,'display_name',coalesce(a.display_name,''),
   'registered_at',u.created_at,
   'last_active_at',pr.last_active_at,'last_heartbeat_at',pr.last_heartbeat_at,
+  'tracking_opted_out',pr.tracking_enabled=false,
   'legacy_last_activity_date',en.last_activity_date,
   'today_seconds',coalesce(s.today_seconds,0),
   'week_seconds',coalesce(s.week_seconds,0),
@@ -125,13 +127,33 @@ begin
 end;
 $$;
 
+-- On opt-out erase the stored daily totals and old activity timestamps,
+-- retaining only a boolean preference so the owner never labels an opted-out
+-- user as passive merely because legacy activity has aged out.
+create or replace function public.ne_study_opt_out()
+returns jsonb language plpgsql security definer set search_path = ''
+as $
+declare uid uuid := auth.uid();
+begin
+ if uid is null or not public.ne_is_norsk_eventyr_user(uid) then
+  raise exception 'LOGIN_REQUIRED';
+ end if;
+ delete from public.norsk_eventyr_study_daily where user_id=uid;
+ insert into public.norsk_eventyr_study_presence(user_id,last_heartbeat_at,tracking_enabled,last_active_at)
+ values(uid,now(),false,null)
+ on conflict(user_id) do update set last_heartbeat_at=now(),tracking_enabled=false,last_active_at=null;
+ return jsonb_build_object('ok',true);
+end;
+$;
+
 revoke all on function public.ne_study_heartbeat(integer) from public,anon,authenticated;
+revoke all on function public.ne_study_opt_out() from public,anon,authenticated;
 revoke all on function public.ne_owner_study_activity() from public,anon,authenticated;
 revoke all on function public.ne_owner_study_activity_days(uuid) from public,anon,authenticated;
 grant execute on function public.ne_study_heartbeat(integer) to authenticated;
+grant execute on function public.ne_study_opt_out() to authenticated;
 grant execute on function public.ne_owner_study_activity() to authenticated;
 grant execute on function public.ne_owner_study_activity_days(uuid) to authenticated;
 
--- Retention: the 90-day purge must be installed as an approved scheduled
--- maintenance task before public release; owner dashboard uses only 30 days.
--- DROP/DELETE of existing app tables is intentionally absent.
+-- Install daily 90-day retention using the companion cron migration before release.
+-- No existing application table is deleted.
