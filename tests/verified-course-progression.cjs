@@ -11,6 +11,14 @@ const learner={level:'A1',skills:{},learningV8:{startLevel:'A1',modules:{[id]:{
  skills:Object.fromEntries(all.map(s=>[s,92])),mastery:92,courseV2:{startedOn:new Date().toLocaleDateString('sv-SE'),passedStages:[]}
 }}}};
 A.ensure(learner);
+// A fresh learner cannot shortcut all four stages via ordinary practice,
+// even if every quiz skill eventually reaches a high numeric mastery.
+const fresh={level:'A1',skills:{},learningV8:{startLevel:'A1',modules:{}}};
+A.ensure(fresh);
+for(let round=0;round<20;round++)for(const skill of all)
+ A.recordAttempt(fresh,{level:'A1',moduleId:id,skill,score:100,source:'lesson_choice'});
+assert.equal(fresh.learningV8.modules[id].courseV2.passedStages.length,0);
+assert.equal(A.moduleMastery(fresh,id),77,'Fresh quiz-only mastery must remain blocked until four stage passes');
 const chapterProgress=learner.learningV8.modules[id];
 assert.equal(A.moduleMastery(learner,id),77,'High quiz scores alone must not unlock an unfinished teaching chapter');
 function attempt(skill,score=95,transfer=false,source='lesson_free'){
@@ -41,7 +49,13 @@ assert.equal(M.modulePlan(chapter,learner).stageKey,'transfer');
 learner.learningV8.attempts=[];
 attempt('writing',95,true);attempt('speaking',92,true,'dialogue_voice');
 outcome=run('transfer');assert.equal(outcome.advanced,false,'Same-day transfer is insufficient delayed evidence');
+// Merely starting the course long ago must NOT count as later-day transfer:
 chapterProgress.courseV2.startedOn='2000-01-01';
+learner.learningV8.attempts=[];
+attempt('writing',95,true);attempt('speaking',92,true,'dialogue_voice');
+outcome=run('transfer');assert.equal(outcome.advanced,false,'Old course start is not proof of delayed production recall');
+// In real use this timestamp is written by verifyStage on the preceding pass.
+chapterProgress.courseV2.lastPassedAt='2000-01-01T12:00:00.000Z';
 learner.learningV8.attempts=[];
 attempt('writing',95,true);attempt('speaking',92,true,'dialogue_voice');
 outcome=run('transfer');assert.equal(outcome.advanced,true);

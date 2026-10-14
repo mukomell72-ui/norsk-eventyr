@@ -59,6 +59,20 @@ function verifyStage(state,moduleId,meta,sessionScore){
  const passed=(skill,min=65,transfer=false)=>attempts.some(a=>a.skill===skill&&a.score>=min&&(!transfer||a.transfer===true)&&(skill!=='speaking'||voiceSources.has(a.source)));
  const skills=new Set(attempts.filter(a=>a.score>=55).map(a=>a.skill));
  const today=new Date().toLocaleDateString('sv-SE');
+ // The transfer check must happen on a later calendar day than the
+ // *previously passed production phase*, not merely after module enrolment.
+ // Existing courseV2 records are kept intact. For older records missing
+ // a reliable pass timestamp, start a new waiting period on first transfer.
+ const passedDay=value=>typeof value==='string'&&Number.isFinite(Date.parse(value))
+  ?new Date(value).toLocaleDateString('sv-SE'):'';
+ let transferAfterDay='';
+ if(stage.key==='transfer'){
+  const recordedPass=passedDay(c.lastPassedAt);
+  const legacyPass=c.lastFeedback?.passed===true&&c.lastFeedback?.stage==='produce'
+   ?passedDay(c.lastFeedback.at):'';
+  if(!recordedPass&&!legacyPass&&!c.transferBaselineOn)c.transferBaselineOn=today;
+  transferAfterDay=recordedPass||legacyPass||c.transferBaselineOn||'';
+ }
  let ok=false,why='';
  if(!validStart||meta.courseStage!==stage.key)why='Этап не подтверждён: нет достоверных ответов текущего занятия.';
  else if(!Number.isFinite(score)||score<75)why='Средняя оценка занятия должна быть не ниже 75/100.';
@@ -72,10 +86,13 @@ function verifyStage(state,moduleId,meta,sessionScore){
   ok=passed('writing',70)&&passed('speaking',70);
   if(!ok)why='Для перехода нужны проверенные письмо и речь через микрофон (не менее 70/100 каждое).';
  }else if(stage.key==='transfer'){
-  ok=score>=80&&c.startedOn<today&&passed('writing',75,true)&&passed('speaking',75,true);
+  ok=score>=80&&transferAfterDay<today&&!!transferAfterDay&&passed('writing',75,true)&&passed('speaking',75,true);
   if(!ok)why='Нужны новые устный и письменный ответы от 75/100 после паузы хотя бы в один день, а также 80/100 за занятие.';
  }
- if(ok)c.passedStages.push(stage.key);
+ if(ok){
+  c.passedStages.push(stage.key);
+  c.lastPassedAt=new Date().toISOString();
+ }
  c.lastFeedback={stage:stage.key,passed:ok,reason:ok?'Этап освоен и подтверждён практикой.':why,at:new Date().toISOString()};
  return{advanced:ok,reason:c.lastFeedback.reason,completedPhases:c.passedStages.length,totalPhases:STAGES.length};
 }
