@@ -1,31 +1,41 @@
-// Foreground study-time estimate: only after a human interaction within 90 s.
-// No answer text, transcripts, clicks, URLs or IP addresses are collected here.
+// Foreground study-time estimate. Only with the learner's explicit opt-in.
+// No lesson answers, audio, transcripts, navigation paths or IP are logged.
 (() => {
  'use strict';
  const ENDPOINT='/api/session',WINDOW_MS=90000;
- let lastHuman=0,pending=0,ownerId='',initialized=false,posting=false;
+ let lastHuman=0,pending=0,userId='',initialized=false,posting=false,ephemeralConsent=null;
  const access=()=>window.NEAccess;
- const eligible=()=>{
-  const a=access(),info=a?.info?.();
-  return !document.hidden&&!document.getElementById('app')?.hidden&&
-   a?.allowed?.()===true&&info?.owner!==true&&!!info?.user_id;
- };
+ const info=()=>access()?.info?.();
+ const consentKey=()=> 'ne_activity_consent_v1:'+String(info()?.user_id||'');
+ function consent(){
+  if(ephemeralConsent!==null)return ephemeralConsent;
+  try{return localStorage.getItem(consentKey())||''}catch{return ''}
+ }
+ function setConsent(enabled){
+  const choice=enabled?'yes':'no';ephemeralConsent=choice;
+  try{localStorage.setItem(consentKey(),choice)}catch{}
+  document.getElementById('neStudyActivityNotice')?.remove();
+  if(!enabled){lastHuman=0;pending=0;initialized=false}
+  else humanActivity();
+ }
+ window.NEStudyActivity={consent,setConsent};
+ const canShow=()=>!document.hidden&&!document.getElementById('app')?.hidden&&
+  access()?.allowed?.()===true&&info()?.owner!==true&&!!info()?.user_id;
+ const eligible=()=>canShow()&&consent()==='yes';
  function headers(){return {'Content-Type':'application/json',...(access()?.headers?.()||{})}}
  async function send(seconds){
-  if(posting||!ownerId)return;
+  if(posting||!userId)return;
   posting=true;
-  try {
-   const r=await fetch(ENDPOINT,{method:'POST',credentials:'same-origin',cache:'no-store',
+  try{
+   await fetch(ENDPOINT,{method:'POST',credentials:'same-origin',cache:'no-store',
     headers:headers(),body:JSON.stringify({action:'study_heartbeat',seconds}),
     keepalive:true});
-   // Monitoring is optional. A missing migration must never block study.
-   if(!r.ok&&r.status!==404&&r.status!==400&&r.status!==503)console.warn('Study time not recorded');
-  } catch {} finally {posting=false}
+  }catch{}finally{posting=false}
  }
  function maybeStart(){
   if(!eligible())return false;
-  const id=String(access().info()?.user_id||'');
-  if(id!==ownerId){ownerId=id;pending=0;initialized=false;lastHuman=0}
+  const id=String(info()?.user_id||'');
+  if(id!==userId){userId=id;pending=0;initialized=false;lastHuman=0}
   if(!initialized){initialized=true;send(0)}
   return true;
  }
@@ -33,12 +43,27 @@
   if(!maybeStart())return;
   lastHuman=Date.now();
  }
+ function showNotice(){
+  if(!canShow()||consent()||document.getElementById('neStudyActivityNotice'))return;
+  const box=document.createElement('aside');
+  box.id='neStudyActivityNotice';box.className='ne-study-notice';
+  box.setAttribute('role','region');box.setAttribute('aria-label','Учёт активности');
+  const title=document.createElement('strong');title.textContent='Статистика времени занятий';
+  const text=document.createElement('p');
+  text.textContent='Владелец программы сможет видеть, когда вы занимались и приблизительное время активной работы за день. Тексты и записи ответов не передаются в эту статистику. Учёт работает только при открытом приложении и ваших действиях. Выбор можно изменить в личном кабинете.';
+  const controls=document.createElement('div');controls.className='row';
+  const yes=document.createElement('button');yes.className='btn';yes.textContent='Разрешить';
+  const no=document.createElement('button');no.className='btn secondary';no.textContent='Не учитывать';
+  yes.onclick=()=>setConsent(true);no.onclick=()=>setConsent(false);
+  controls.append(yes,no);box.append(title,text,controls);document.body.append(box);
+ }
  document.addEventListener('pointerdown',humanActivity,{passive:true,capture:true});
  document.addEventListener('keydown',humanActivity,{passive:true,capture:true});
  document.addEventListener('touchstart',humanActivity,{passive:true,capture:true});
  document.addEventListener('wheel',humanActivity,{passive:true,capture:true});
  let ticks=0;
  setInterval(()=>{
+  showNotice();
   if(!eligible()){if(pending){const n=pending;pending=0;send(n)}return}
   if(maybeStart()&&lastHuman&&Date.now()-lastHuman<=WINDOW_MS)pending=Math.min(60,pending+1);
   ticks++;
