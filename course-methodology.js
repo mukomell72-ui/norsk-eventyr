@@ -55,7 +55,8 @@ function verifyStage(state,moduleId,meta,sessionScore){
  const score=Number(sessionScore),start=meta?.startedAt;
  const validStart=typeof start==='string'&&Number.isFinite(Date.parse(start));
  const attempts=validStart?(p.attempts||[]).filter(a=>a.moduleId===moduleId&&!a.diagnostic&&a.date>=start):[];
- const passed=(skill,min=65,transfer=false)=>attempts.some(a=>a.skill===skill&&a.score>=min&&(!transfer||a.transfer===true));
+ const voiceSources=new Set(['dialogue_voice','lesson_free','lesson_free_transfer']);
+ const passed=(skill,min=65,transfer=false)=>attempts.some(a=>a.skill===skill&&a.score>=min&&(!transfer||a.transfer===true)&&(skill!=='speaking'||voiceSources.has(a.source)));
  const skills=new Set(attempts.filter(a=>a.score>=55).map(a=>a.skill));
  const today=new Date().toLocaleDateString('sv-SE');
  let ok=false,why='';
