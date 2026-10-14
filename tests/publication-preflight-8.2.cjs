@@ -32,7 +32,7 @@ for(const action of ['create','pull','push','delete']){
  assert(cutover.includes('public.norsk_eventyr_sync_'+action),'old anonymous sync '+action+' must be disabled at cutover');
 }
 assert(android.includes('Production is forbidden'),'private debug APK must not point to Production');
-const rcPreview='https://norsk-eventyr-mvp-git-release-820-rc-20261010-fffff19.vercel.app/';
+const rcPreview='https://norsk-eventyr-no7xsypvy-fffff19.vercel.app/';
 assert(android.includes(rcPreview),'Android debug build must be restricted to exact RC Preview URL');
 assert(apkWorkflow.includes(rcPreview),'Android CI must build the verified RC Preview target');
 assert(!android.includes('feature-820-placement-calibration'),'old preview must not leak into RC APK');
