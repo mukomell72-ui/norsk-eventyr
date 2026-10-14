@@ -21,8 +21,8 @@ assert.equal(revision,v,'Access bootstrap must fetch the published revision');
 const baseCache='norsk-eventyr-v'+v.replaceAll('.','-');
 const actualCache=(sw.match(/^const CACHE="([^"]+)";/m)||[])[1];
 const assetRevision=actualCache?.startsWith(baseCache)?actualCache.slice(baseCache.length):null;
-assert(assetRevision!==null&&(/^(?:-(?:ui|auth)[1-9][0-9]*)?$/).test(assetRevision),
-  'PWA cache must match the release version or a numbered authenticated UI revision');
+assert(assetRevision!==null&&(/^(?:-(?:ui|auth|lesson)[1-9][0-9]*)?$/).test(assetRevision),
+  'PWA cache must match the release version or a numbered patch revision');
 assert(index.includes('<title>Norsk Eventyr '+v),'Page must show exact application version');
 assert(health.includes('version:"'+v+'"'),'Health endpoint must report the deployed version');
 const assetsLiteral=(sw.match(/^const ASSETS=(\[[^\n]+\]);/m)||[])[1];
@@ -35,7 +35,9 @@ for(const asset of assets){
  const [pathname,query]=asset.split('?');
  if(asset!=='/')assert(exists(pathname.replace(/^\//,'')),'PWA update will fail: missing '+asset);
  if(query&&pathname!=='/manifest.json'){
-  const expected='v='+v+(['/v8.css',...(assetRevision?.startsWith('-auth')?['/access.js','/access.css']:[])].includes(pathname)?assetRevision:'');
+  const patched=assetRevision?.startsWith('-lesson')?['/v8.css','/access.js','/access.css','/app.js','/v3.js']:
+   assetRevision?.startsWith('-auth')?['/v8.css','/access.js','/access.css']:['/v8.css'];
+  const expected='v='+v+(patched.includes(pathname)?assetRevision:'');
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
 }
 }
@@ -53,12 +55,23 @@ if(assetRevision?.startsWith('-auth')){
       'PWA precache must include fresh authentication bootstrap: '+asset);
   }
 }
+if(assetRevision?.startsWith('-lesson')){
+  assert(index.includes('src="/access.js?v='+v+assetRevision+'"'),
+    'Lesson patch must fetch fresh lesson bootstrap');
+  assert(assets.includes('/access.js?v='+v+assetRevision),
+    'PWA must precache updated lesson bootstrap');
+  assert(access.includes("LESSON_PATCH='"+assetRevision+"'"),
+    'Access bootstrap and offline cache must agree on lesson patch revision');
+}
 const assetSet=new Set(assets);
-const bootstrap=access.match(/const ASSET_REV='[^']+',scripts=(\[[^\]]+\]);/);
+const bootstrap=access.match(/const ASSET_REV='[^']+'(?:,LESSON_PATCH='[^']+')?,scripts=(\[[^\]]+\]);/);
 assert(bootstrap,'Dynamic asset dependency list must be declared');
 const scripts=[...bootstrap[1].matchAll(/'([^']+\.js)'/g)].map(m=>m[1]);
 assert(scripts.length>=15,'Critical dynamic scripts dropped');
-for(const filename of scripts)assert(assetSet.has('/'+filename+'?v='+v),'PWA must cache bootstrapped script '+filename);
+for(const filename of scripts){
+ const patch=assetRevision?.startsWith('-lesson')&&['app.js','v3.js'].includes(filename)?assetRevision:'';
+ assert(assetSet.has('/'+filename+'?v='+v+patch),'PWA must cache bootstrapped script '+filename);
+}
 for(const m of index.matchAll(/\b(?:src|href)="(\/[^"]+)"/g)){
  const url=m[1];
  if(url.includes('?v='))assert(assetSet.has(url),'PWA must cache HTML dependency '+url);

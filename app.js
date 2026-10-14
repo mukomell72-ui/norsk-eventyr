@@ -199,13 +199,53 @@ const INTRODUCTION_RETURN_DIALOGUES=[
   {phrase:"Still meg et spørsmål om planene mine.",ru:"Задай мне вопрос о моих планах.",goal:"Задай вопрос без подсказки."}
  ]
 ];
+// Every phrase requires a real interlocutor, scene and answer task.
+// Old generated lessons without these fields are upgraded at render time.
+function situatedDialogueTurn(l){
+ const phrase=String(l.phrase||"").trim();
+ if(/^Hyggelig å møte deg[.!?]?$/i.test(phrase)){
+  return {
+   phrase,ru:l.ru||"Приятно познакомиться!",
+   scene:"Первый день на работе. Ты знакомишься с новой коллегой Ингрид.",
+   speaker:"Ингрид · новая коллега",lead:"Hei! Jeg heter Ingrid.",
+   task:"Ответь Ингрид по-норвежски: скажи, что тебе тоже приятно познакомиться, и назови своё имя.",
+   goal:"В реальном знакомстве ответь Ингрид: вырази взаимную радость и представься. Не ограничивайся безадресным повторением фразы.",
+   dialogueLabel:"Первый день на работе · знакомство",
+   vocab:[["hyggelig","приятно"],["å møte","встретить"],["deg","тебя"],["også","тоже"],["jeg heter","меня зовут"],["en kollega","коллега"]]
+  };
+ }
+ const scene=String(l.dialogueScene||"").trim()||("Практическая ситуация: "+String(l.title||"общение по-норвежски"));
+ const speaker=String(l.dialogueSpeaker||"").trim()||"Нора · собеседница";
+ const task=String(l.dialogueTask||"").trim()||String(l.speaking||"").trim()||
+  "Объясни собеседнице своими словами по-норвежски, как эта фраза относится к тебе.";
+ const lead=String(l.dialogueIntro||"").trim();
+ return {phrase,ru:l.ru,scene,speaker,lead,task,goal:task,dialogueLabel:"Разговор в ситуации"};
+}
 function currentDialogueTurn(l){
- if(l.id!=="a1-1")return {phrase:l.phrase,ru:l.ru,goal:"Естественно ответить собеседнику своими словами по-норвежски."};
+ if(l.id!=="a1-1")return situatedDialogueTurn(l);
  const i=lessonSession.dialogueIndex||0,returnVisit=lessonSession.introReview===true;
  const turns=returnVisit?INTRODUCTION_RETURN_DIALOGUES[(lessonSession.introReviewVariant||0)%INTRODUCTION_RETURN_DIALOGUES.length]:INTRODUCTION_DIALOGUE;
- return {...turns[i],...(!returnVisit&&i===0?{phrase:INTRODUCTION_OPENERS[(state.introVariant||0)%INTRODUCTION_OPENERS.length]}:{}),dialogueLabel:(returnVisit?"Практика с Норой":"Знакомство с Норой")+" · "+(i+1)+"/"+turns.length};
+ return {...turns[i],...(!returnVisit&&i===0?{phrase:INTRODUCTION_OPENERS[(state.introVariant||0)%INTRODUCTION_OPENERS.length]}:{}),dialogueLabel:(returnVisit?"Практика с Норой":"Знакомство с Норой")+" · "+(i+1)+"/"+turns.length,scene:"Ты разговариваешь с Норой. Она знакомится с тобой и задаёт вопросы.",speaker:"Нора · собеседница",task:turns[i].goal};
 }
-function lessonIntro(l){const turn=currentDialogueTurn(l);const shown={...l,...turn};l=shown;return `<article class="card lesson-intro-v6"><div class="phrase-v6"><small>${l.dialogueLabel||"Фраза"}</small><div class="prompt">${esc(l.phrase)}</div><div class="phrase-actions-v6"><button onclick="speakText('${escJs(l.phrase)}',.82,this)">🔊 Фраза</button><button onclick="toggle('tr')">RU Перевод</button></div><div id="tr" class="translation compact-translation-v6" style="display:none">${esc(l.ru)}</div></div><div class="lesson-words-v6">${l.vocab.map(v=>`<span><b>${esc(v[0])}</b><small>${esc(v[1])}</small></span>`).join("")}</div><div class="answer-label-v6"><b>Твой ответ</b><span>текстом или голосом</span></div><textarea id="dialogAnswer" class="input lesson-answer-v6" rows="2" placeholder="Напиши по-норвежски…" oninput="this.dataset.fromVoice='false'"></textarea><div class="lesson-actions-v6"><button id="micBtn" class="btn secondary" onclick="toggleMic('dialogAnswer','','${escJs(l.phrase)}')">🎤 Сказать</button><button class="btn" onclick="checkDialogue()">✓ Проверить</button></div><div id="dialogFb"></div><details class="grammar-fold-v6"><summary>Грамматика</summary><p>${esc(l.grammar)}</p></details></article>`}
+function lessonIntro(l){
+ const turn=currentDialogueTurn(l),shown={...l,...turn};
+ const words=turn.vocab||l.vocab||[];
+ const scene=turn.scene||"Ты беседуешь с Норой.";
+ const speaker=turn.speaker||"Нора · собеседница";
+ const task=turn.task||turn.goal||"Ответь на реплику собеседницы по-норвежски.";
+ const lead=turn.lead?'<div class="dialogue-lead-v83">'+esc(turn.lead)+'</div>':"";
+ return `<article class="card lesson-intro-v6">
+ <div class="dialogue-scene-v83"><small>СИТУАЦИЯ · ${esc(l.level)}</small><p>${esc(scene)}</p><b>${esc(speaker)}</b></div>
+ <div class="phrase-v6"><small>${esc(turn.dialogueLabel||"Реплика собеседника")}</small>${lead}<div class="prompt" lang="nb">${esc(shown.phrase)}</div>
+ <div class="phrase-actions-v6"><button onclick="speakText('${escJs(shown.phrase)}',.82,this)">🔊 Прослушать</button><button onclick="toggle('tr')">RU Перевод</button></div>
+ <div id="tr" class="translation compact-translation-v6" style="display:none">${esc(shown.ru)}</div></div>
+ <div class="dialogue-task-v83"><b>Твоё задание</b><p>${esc(task)}</p></div>
+ <div class="lesson-words-v6">${words.slice(0,8).map(v=>`<span><b>${esc(v[0])}</b><small>${esc(v[1])}</small></span>`).join("")}</div>
+ <div class="answer-label-v6"><b>Твой ответ</b><span>текстом или голосом</span></div>
+ <textarea id="dialogAnswer" class="input lesson-answer-v6" rows="2" placeholder="Ответь собеседнику по-норвежски…" oninput="this.dataset.fromVoice='false'"></textarea>
+ <div class="lesson-actions-v6"><button id="micBtn" class="btn secondary" onclick="toggleMic('dialogAnswer','','${escJs(shown.phrase)}')">🎤 Сказать</button><button class="btn" onclick="checkDialogue()">✓ Проверить</button></div>
+ <div id="dialogFb"></div><details class="grammar-fold-v6"><summary>Грамматика</summary><p>${esc(l.grammar)}</p></details></article>`;
+}
 function continueCheckedDialogue(){
  const s=lessonSession,l=s?.lesson;if(!s||!l)return;
  if(l.id==="a1-1"&&(s.dialogueIndex||0)<INTRODUCTION_DIALOGUE.length-1){
@@ -221,7 +261,7 @@ async function checkDialogue(){
  const s=lessonSession,input=document.getElementById("dialogAnswer"),a=input?.value.trim();if(!a||s.locked)return;
  const l=s.lesson,turn=currentDialogueTurn(l),b=document.getElementById("dialogFb"),spoken=input.dataset.fromVoice==="true";s.locked=true;
  b.innerHTML='<div class="feedback">Проверяю…</div>';
- const r=await aiEvaluate({answer:a,question:turn.phrase,goal:turn.goal,level:l.level,mode:"dialogue"});
+ const r=await aiEvaluate({answer:a,question:(turn.scene||"Ситуация знакомства")+". "+(turn.speaker||"Собеседница")+" говорит: "+(turn.lead?turn.lead+" ":"")+turn.phrase,goal:turn.goal||turn.task,level:l.level,mode:"dialogue"});
  if(!b.isConnected||lessonSession!==s){s.locked=false;return;}
  if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return;}
  const d=r.data,ok=d.accepted===true&&(d.score??70)>=55;trackLessonScore(d.score??(ok?70:40),{label:"Диалог",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});

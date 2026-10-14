@@ -176,6 +176,58 @@ const server=http.createServer(async(req,res)=>{
   await mobileSpeaking.close();
   console.log('PASS Pixel speaking layout: contrast >= 4.5, compact answer, both actions unobstructed');
 
+ // Screenshot-driven dialogue pedagogy: a greeting needs a named person,
+ // a realistic situation, clear role-play task and aligned vocabulary.
+ const dialogueQA=await browser.newPage({viewport:{width:390,height:844},serviceWorkers:'block'});
+ await dialogueQA.goto('http://127.0.0.1:'+server.address().port);
+ await dialogueQA.waitForFunction(()=>window.NEAccess?.ready()&&typeof window.lessonIntro==='function');
+ const caseQA=await dialogueQA.evaluate(()=>{
+  const generated={id:'gen-new-people',level:'A1',
+    title:'Nye mennesker på jobb og i byen',phrase:'Hyggelig å møte deg!',
+    ru:'Приятно познакомиться!',grammar:'Hyggelig å ...',
+    vocab:[['hei','привет'],['land','страна'],['adresse','адрес']],
+    speaking:'Расскажи о знакомстве'};
+  const contextual=situatedDialogueTurn(generated);
+  lessonSession={lesson:generated,step:0,locked:false};
+  renderLesson();
+  const root=document.querySelector('.lesson-intro-v6');
+  const words=[...root.querySelectorAll('.lesson-words-v6 b')].map(x=>x.innerText);
+  return {scene:root.querySelector('.dialogue-scene-v83')?.innerText,
+    task:root.querySelector('.dialogue-task-v83')?.innerText,
+    lead:root.querySelector('.dialogue-lead-v83')?.innerText,
+    speaker:contextual.speaker,goal:contextual.goal,words,
+    answerExists:!!root.querySelector('#dialogAnswer'),
+    audioButton:root.querySelector('.phrase-actions-v6 button')?.textContent};
+ });
+ assert(caseQA.scene.includes('Ингрид')&&caseQA.scene.includes('Первый день'),
+  'Greeting must have actual interlocutor and scene: '+JSON.stringify(caseQA));
+ assert(caseQA.lead.includes('Jeg heter Ingrid')&&caseQA.task.includes('Ответь Ингрид'));
+ assert(caseQA.goal.includes('представься')&&caseQA.words.includes('også')&&caseQA.words.includes('å møte'));
+ assert(!caseQA.words.includes('adresse'),'Unrelated default vocabulary must not replace relevant greeting expressions');
+ assert(caseQA.answerExists&&caseQA.audioButton.includes('Прослушать'));
+ const fallbackQA=await dialogueQA.evaluate(()=>{
+  const ordinary=COURSE.find(x=>x.id==='a1-2');
+  lessonSession={lesson:ordinary,step:0,locked:false};
+  renderLesson();
+  return {
+    scene:document.querySelector('.dialogue-scene-v83')?.innerText,
+    task:document.querySelector('.dialogue-task-v83')?.innerText
+  };
+ });
+ assert(fallbackQA.scene.includes('Нора')&&fallbackQA.scene.includes('Дом и семья'));
+ assert(fallbackQA.task.includes('Расскажи коротко о своём доме'));
+ const curatedQA=await dialogueQA.evaluate(()=>{
+  const l=window.NECurated.get('a1-home');
+  lessonSession={lesson:{...l,_adaptive:{moduleId:'a1-home',kind:'learn'}},step:0,locked:false};
+  renderLesson();
+  return document.querySelector('.dialogue-task-v83')?.textContent;
+ });
+ assert(curatedQA.includes('Spør')||curatedQA.includes('ключ')||curatedQA.includes('попрос'),
+  'Curated dialogue must give an actual task');
+ await dialogueQA.close();
+ console.log('PASS situated dialogue: named Ingrid, explicit answer task, relevant greeting words and existing-lesson fallback');
+
+
 
   await page.evaluate(()=>{state.level='A1';navigate('teacher')});assert((await page.locator('#app main').innerText()).includes('Нора ведёт занятие'));
   await page.evaluate(()=>teacherStartMission());await page.waitForTimeout(500);const adaptiveDebug=await page.evaluate(()=>({moduleId:lessonSession?.lesson?._adaptive?.moduleId,title:lessonSession?.lesson?.title,text:document.querySelector('#app main')?.innerText||''}));assert(adaptiveDebug.moduleId==='a1-foundation',JSON.stringify(adaptiveDebug));assert(adaptiveDebug.text.toLowerCase().includes('знакомство без шаблона')||adaptiveDebug.text.toLowerCase().includes('qa adaptive lesson'),JSON.stringify(adaptiveDebug));console.log('PASS adaptive teacher opens a mastery lesson with curated foundation');
