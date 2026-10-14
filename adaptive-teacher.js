@@ -202,13 +202,14 @@ function assessment(state,level,score,skillScores={}){
  for(const skill of CORE)recordAttempt(state,{level,skill,score:skillScores[skill]??s,moduleId:level+'-assessment',source:'level_test',transfer:true});
  p.assessments.push({date:new Date().toISOString(),level,score:s,skills:skillScores});p.assessments=p.assessments.slice(-50);
 }
-function completeLesson(state,lesson){
+function completeLesson(state,lesson,sessionScore){
  const p=ensure(state),id=lesson?._adaptive?.moduleId||lesson?.id||'lesson',m=moduleState(p,id);m.lastCompleted=dayKey();m.completions=(m.completions||0)+1;if(lesson?._adaptive)p.lastSessionDate=dayKey();
  if(lesson?._adaptive?.kind==='review'&&lesson._adaptive.reviewKey&&p.reviews[lesson._adaptive.reviewKey])p.reviews[lesson._adaptive.reviewKey].completedAt=new Date().toISOString();
  if(lesson?._adaptive?.kind==='remediation'){
   const gap=state.placement?.productive?.remediation?.[lesson._adaptive.skill];
   if(gap&&gap.level===lesson.level){gap.done=true;gap.completedAt=new Date().toISOString()}
  }
+ return window.NECourseMethod?.verifyStage(state,id,lesson?._adaptive,sessionScore)||null;
 }
 function errors(state,level=state.level){
  const p=ensure(state),scope=LEVEL_ORDER.includes(level)?level:state.level;
@@ -261,9 +262,11 @@ function moduleMission(state,moduleId){
 }
 async function runTeacherMission(mission){
  const m=mission?.module;if(!m)return;
+ const p=ensure(state);
+ if(mission.kind==='learn')activateCourse(p,m.id);
  const courseStep=window.NECourseMethod?.modulePlan(m,state);
  shell('<section class="card loading-card"><div class="spinner"></div><h2>Нора готовит занятие</h2><p class="muted">Цель — '+esc(m.canDo[0])+'. Задания будут подстроены под слабые места, а не случайно сгенерированы.</p></section>','home');
- const p=ensure(state),targetProfile=levelProfile(p,mission.level),
+ const targetProfile=levelProfile(p,mission.level),
  variations=['Другой собеседник, новый повод разговора.','Другая обстановка и непредвиденное уточнение.','Новая причина просьбы и ограничение по времени.','Та же цель, но другая последовательность действий.'],
  revision=(p.modules[m.id]?.completions||0)+(p.modules[m.id]?.attempts||0),
  payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...targetProfile},errorPatterns:errors(state,mission.level),targetErrorTag:mission.errorTag||'',weakSkills:ALL.filter(s=>targetProfile[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review',scenarioVariation:variations[revision%variations.length],courseStage:courseStep?.stageKey||'',courseStageTitle:courseStep?.stageTitle||'',courseObjective:courseStep?.objective||m.canDo[0],courseInstruction:courseStep?.stageInstruction||''};
@@ -278,11 +281,11 @@ async function runTeacherMission(mission){
    if(!r.ok||!r.data)throw new Error(r.error||'GENERATION');
    data=r.data;
   }
-  const lesson={...data,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,title:data.title||m.title,grammar:data.grammarRuleRu||m.grammar,_adaptive:{moduleId:m.id,skill:mission.skill,kind:mission.kind,reviewKey:mission.reviewKey||'',errorTag:mission.errorTag||'',canDo:m.canDo,transfer:mission.kind==='review'||mission.kind==='error_remediation'||/transfer|capstone/.test(m.id),courseStage:courseStep?.stageKey||'',origin:source}};
+  const lesson={...data,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,title:data.title||m.title,grammar:data.grammarRuleRu||m.grammar,_adaptive:{moduleId:m.id,skill:mission.skill,kind:mission.kind,reviewKey:mission.reviewKey||'',errorTag:mission.errorTag||'',canDo:m.canDo,transfer:courseStep?.stageKey==='transfer'||mission.kind==='review'||mission.kind==='error_remediation'||/transfer|capstone/.test(m.id),courseStage:courseStep?.stageKey||'',startedAt:new Date().toISOString(),origin:source}};
   state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;lessonSession={lesson,step:0,locked:false,xpScores:[]};persistLessonCheckpoint();renderLesson();
  }catch(e){
   if(foundation&&revision===0&&mission.kind!=='review'){
-   const lesson={...foundation,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,grammar:foundation.grammarRuleRu,_adaptive:{moduleId:m.id,skill:mission.skill,kind:'learn',reviewKey:'',errorTag:'',canDo:m.canDo,transfer:false,courseStage:courseStep?.stageKey||'',origin:'Резервная базовая практика'}};
+   const lesson={...foundation,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,grammar:foundation.grammarRuleRu,_adaptive:{moduleId:m.id,skill:mission.skill,kind:'learn',reviewKey:'',errorTag:'',canDo:m.canDo,transfer:courseStep?.stageKey==='transfer',courseStage:courseStep?.stageKey||'',startedAt:new Date().toISOString(),origin:'Резервная базовая практика'}};
    state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;lessonSession={lesson,step:0,locked:false,xpScores:[]};persistLessonCheckpoint();renderLesson();return;
   }
   shell('<section class="card"><h2>Не удалось создать новое задание</h2><p class="muted">Повторять прежние вопросы не буду. Проверь соединение и попробуй снова.</p><button class="btn" onclick="startAdaptiveTeacher()">Назад</button></section>','home');
