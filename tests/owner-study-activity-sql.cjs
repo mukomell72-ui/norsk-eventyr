@@ -52,6 +52,14 @@ const owner='11111111-1111-4111-8111-111111111111',student='22222222-2222-4222-8
  assert.equal(summary[0].email,'student@example.test');
  const breakdown=(await db.query("select public.ne_owner_study_activity_days('"+student+"') as data")).rows[0].data;
  assert.equal(breakdown.length,1);assert.equal(breakdown[0].seconds,30);
+ await db.exec("set request.jwt.sub = '"+student+"'");
+ const erased=(await db.query('select public.ne_study_opt_out() as data')).rows[0].data;
+ assert.equal(erased.ok,true);
+ const noRows=(await db.query('select count(*)::integer as count from public.norsk_eventyr_study_daily')).rows[0];
+ assert.equal(noRows.count,0);
+ const marker=(await db.query('select tracking_enabled,last_active_at from public.norsk_eventyr_study_presence')).rows[0];
+ assert.equal(marker.tracking_enabled,false);
+ assert.equal(marker.last_active_at,null);
  await db.close();
  console.log('PASS SQL: migration compiles, anon denied, ordinary owner queries denied, bounded heartbeat and owner-only summaries');
 })().catch(e=>{console.error(e);process.exitCode=1});
