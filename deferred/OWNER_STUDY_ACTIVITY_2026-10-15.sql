@@ -132,7 +132,7 @@ $$;
 -- user as passive merely because legacy activity has aged out.
 create or replace function public.ne_study_opt_out()
 returns jsonb language plpgsql security definer set search_path = ''
-as $
+as $study_opt_out$
 declare uid uuid := auth.uid();
 begin
  if uid is null or not public.ne_is_norsk_eventyr_user(uid) then
@@ -144,7 +144,7 @@ begin
  on conflict(user_id) do update set last_heartbeat_at=now(),tracking_enabled=false,last_active_at=null;
  return jsonb_build_object('ok',true);
 end;
-$;
+$study_opt_out$;
 
 revoke all on function public.ne_study_heartbeat(integer) from public,anon,authenticated;
 revoke all on function public.ne_study_opt_out() from public,anon,authenticated;
