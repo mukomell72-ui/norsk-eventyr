@@ -128,7 +128,11 @@ function evidenceMastery(m){
  const avg=clamp(vals.reduce((a,b)=>a+b,0)/vals.length);
  return Math.min(...vals)>=65?avg:Math.min(69,avg);
 }
-function moduleMastery(state,id){return evidenceMastery(ensure(state).modules[id])}
+function moduleMastery(state,id){
+ const module=ensure(state).modules[id],score=evidenceMastery(module);
+ const stages=module?.courseV2?.passedStages;
+ return Array.isArray(stages)&&stages.length<4?Math.min(77,score):score;
+}
 function levelModules(level){return window.NECurriculum?.modules(level)||[]}
 function levelGate(state,level){
  const p=ensure(state),profile=levelProfile(p,level),mods=levelModules(level),transfer=mods.at(-1),scores=CORE.map(s=>clamp(profile[s])),avg=scores.reduce((a,b)=>a+b,0)/scores.length;
