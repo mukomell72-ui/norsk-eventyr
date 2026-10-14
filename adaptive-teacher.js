@@ -125,6 +125,18 @@ function levelGate(state,level){
  return{pass,avg:clamp(avg),minCore:Math.min(...scores),mastered,total:mods.length,transferScore,delayed};
 }
 function weakestSkill(state,level=state.level){const p=ensure(state),profile=levelProfile(p,level);return ALL.slice().sort((a,b)=>profile[a]-profile[b])[0]}
+// Personalize among *comparably weak* skills using the number of actual
+// non-diagnostic attempts. Do not let a strong skill outrank a much weaker one,
+// or manufacture confidence from the placement score or starting defaults.
+function learningFocus(state,level=state.level){
+ const p=ensure(state),profile=levelProfile(p,level),scores=ALL.map(s=>clamp(profile[s]));
+ const minimum=Math.min(...scores),eligible=ALL.filter(s=>clamp(profile[s])<=minimum+8);
+ const attempts=Array.isArray(p.attempts)?p.attempts:[];
+ const observed=Object.fromEntries(ALL.map(skill=>[skill,attempts.filter(a=>a&&a.level===level&&a.skill===skill&&a.diagnostic!==true).length]));
+ eligible.sort((a,b)=>observed[a]-observed[b]||clamp(profile[a])-clamp(profile[b])||ALL.indexOf(a)-ALL.indexOf(b));
+ const skill=eligible[0]||weakestSkill(state,level);
+ return {skill,observations:observed[skill],score:clamp(profile[skill]),candidates:eligible.slice()};
+}
 function nextModule(state,level){
  const mods=levelModules(level);if(!mods.length)return null;
  return mods.find(m=>moduleMastery(state,m.id)<78)||mods.at(-1);
@@ -154,8 +166,11 @@ function nextMission(state){
   if(module)return{kind:'error_remediation',level,module,skill:ALL.includes(recurring.skill)?recurring.skill:skillForError(recurring.tag),errorTag:recurring.tag,
    reason:'Закрепляем повторяющуюся ошибку в новой ситуации: '+recurring.tag+'.'};
  }
- const skill=weakestSkill(state,level),module=nextModule(state,level);
- return{kind:'learn',level,module,skill,reason:level!==current?'Предыдущий уровень подтверждён. Начинаем следующий этап.':'Тренируем навык, которому нужна практика в новой ситуации.'};
+ const focus=learningFocus(state,level),skill=focus.skill,module=nextModule(state,level);
+ const reason=level!==current?'Предыдущий уровень подтверждён. Начинаем следующий этап.':
+  focus.observations===0?'В этом навыке пока нет проверенных практических попыток. Начинаем с новой ситуации.':
+  'Учитываем уровень навыка и число предыдущих попыток. Тренируем его в новой ситуации.';
+ return{kind:'learn',level,module,skill,reason};
 }
 function assessment(state,level,score,skillScores={}){
  const p=ensure(state),s=clamp(score);
@@ -262,6 +277,6 @@ async function teacherStartModule(moduleId){
  }
  const currentIndex=LEVEL_ORDER.indexOf(state.level),targetIndex=LEVEL_ORDER.indexOf(mission.level);if(targetIndex>=currentIndex)state.level=mission.level;saveState();return runTeacherMission(mission);
 }
-window.NEAdaptive={ensure,recordAttempt,assessment,completeLesson,dueReviews,nextMission,levelGate,moduleMastery,skillForStep,errors,moduleMission,highestUnlockedLevel};
+window.NEAdaptive={ensure,recordAttempt,assessment,completeLesson,dueReviews,nextMission,levelGate,moduleMastery,skillForStep,errors,moduleMission,highestUnlockedLevel,learningFocus};
 Object.assign(window,{startAdaptiveTeacher,teacherStartMission,teacherStartModule});
 })();

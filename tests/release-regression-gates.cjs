@@ -72,7 +72,7 @@ for(const level of levels){
    assert(typeof lesson[field]==='string'&&lesson[field].trim().length>=5,module.id+': missing '+field);
   }
   assert(Array.isArray(lesson.vocab)&&lesson.vocab.length>=4,module.id+': inadequate vocabulary');
-  assert(Array.isArray(lesson.listeningSets)&&lesson.listeningSets.length===2,module.id+': lost staged audio');
+  assert(Array.isArray(lesson.listeningSets)&&[2,3].includes(lesson.listeningSets.length),module.id+': lost staged audio');
   for(const round of [0,1,2,3,6]){
    const variant=bank.variant(module.id,round);
    assert(variant,module.id+': missing variation '+round);
@@ -83,7 +83,7 @@ for(const level of levels){
     assert(Number.isInteger(variant[index])&&variant[index]>=0&&variant[index]<4,module.id+': invalid answer index');
     assert.equal(choices[variant[index]],lesson[answers][lesson[index]],module.id+': '+answers+' correct answer changed');
    }
-   for(let step=0;step<2;step++){
+   for(let step=0;step<lesson.listeningSets.length;step++){
     const options=variant.listeningSets[step],baseline=lesson.listeningSets[step];
     assert(options.opts.length===4&&Number.isInteger(options.correct),module.id+': bad stage '+step);
     assert.equal(options.opts[options.correct],baseline.opts[baseline.correct],module.id+': lost staged-audio answer '+step);
@@ -111,6 +111,6 @@ assert(app.includes('data-translation="on-request"'),'Opt-in translation must be
 assert(app.includes('<summary>Перевести задание</summary>'),'Translation disclosure removed');
 assert(!app.includes('<details class="grammar-fold a1-task-support" open'),'Do not expose task translation automatically');
 const tests=JSON.parse(read('tests/package.json')).scripts.test;
-for(const name of ['a1-key-prompt-8.2.8.cjs','silent-mic-8.2.7.cjs','tts-audio-8.2.6.cjs','browser.cjs','mobile-mic-browser.cjs','updates.cjs','access-browser.cjs','release-regression-gates.cjs','premium-preparation.cjs'])
+for(const name of ['a1-key-prompt-8.2.8.cjs','silent-mic-8.2.7.cjs','tts-audio-8.2.6.cjs','browser.cjs','mobile-mic-browser.cjs','updates.cjs','access-browser.cjs','release-regression-gates.cjs','premium-preparation.cjs','deep-listening-adaptation-8.3.cjs','staging-preflight-8.3.cjs'])
  assert(tests.includes(name),'Mandatory test missing from premerge QA: '+name);
 console.log('PASS release gate: microphone, audio, opt-in translation, progress and QA coverage contracts');

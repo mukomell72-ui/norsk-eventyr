@@ -6,7 +6,7 @@
     <application
         android:allowBackup="false"
         android:fullBackupContent="false"
-        android:label="Norsk Eventyr (тест)"
+        android:label="Norsk Eventyr 8.3 (тест)"
         android:theme="@android:style/Theme.Material.Light.NoActionBar"
         android:usesCleartextTraffic="false">
         <activity

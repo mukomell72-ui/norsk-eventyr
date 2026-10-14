@@ -4,17 +4,17 @@ const baseline=require('../tools/learning-quality-baseline.cjs');
 const calibration=require('../tools/assessment-calibration.cjs');
 const b=baseline.inspect();
 assert.equal(b.totalModules,32);
-assert.equal(b.authoredListeningClips,64);
+assert.equal(b.authoredListeningClips,72);
 assert.equal(new Set(b.modules.map(m=>m.id)).size,32);
 for(const level of ['A1','A2','B1','B2']){
  assert.equal(b.byLevel[level].modules,8);
- assert.equal(b.byLevel[level].authoredListeningClips,16);
+ assert.equal(b.byLevel[level].authoredListeningClips,18);
  assert(b.byLevel[level].readingWords.min>0);
  assert(b.byLevel[level].listeningWords.min>0);
 }
 for(const m of b.modules){
- assert.equal(m.listeningClips,2,m.id);
- assert.equal(m.listeningWords.length,2,m.id);
+ assert([2,3].includes(m.listeningClips),m.id);
+ assert.equal(m.listeningWords.length,m.listeningClips,m.id);
  assert(m.objectives>0&&m.vocabEntries>0,m.id);
  assert(m.hasWritingPrompt&&m.hasSpeakingPrompt&&m.hasSpeakingFollowUp,m.id);
 }

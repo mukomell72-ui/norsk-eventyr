@@ -9,7 +9,7 @@ for(const level of ['A1','A2','B1','B2']){
  assert.equal(modules.length,8,level+' should have 8 independent goals');
  for(const m of modules){
   const lesson=b.get(m.id);assert(lesson,'Missing lesson '+m.id);
-  assert.equal(lesson.listeningSets?.length,2,m.id+' has to contain progressive listening');
+  assert([2,3].includes(lesson.listeningSets?.length),m.id+' has to contain progressive listening');
   assert(count(lesson.speakingFollowUp)>=4,m.id+' needs a second open oral question');
   assert(count(lesson.read)>=(level==='A1'?29:level==='A2'?60:90),m.id+' reading text too short');
   for(let round=0;round<5;round++){

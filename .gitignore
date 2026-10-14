@@ -1,0 +1,14 @@
+# Local-only release output: never commit generated source packages or QA exports.
+release-out/
+tests/artifacts/
+node_modules/
+tests/node_modules/
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+*.sqlite
+*.sqlite3
+*.db

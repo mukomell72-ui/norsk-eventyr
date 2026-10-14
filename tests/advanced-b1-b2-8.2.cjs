@@ -27,7 +27,7 @@ for(const m of all){
    assert.equal(v[choices][v[answer]],item[choices][item[answer]],m.id+' rotated wrong answer '+choices);
   }
   if(['B1','B2'].includes(m.level)){
-   assert.equal(v.listeningSets?.length,2,m.id+' must have a second listening situation');
+   assert([2,3].includes(v.listeningSets?.length),m.id+' needs progressive listening stages');
    for(let i=0;i<2;i++){
     assert.equal(v.listeningSets[i].opts[v.listeningSets[i].correct],item.listeningSets[i].opts[item.listeningSets[i].correct],m.id+' listening question '+i+' changed key');
    }
