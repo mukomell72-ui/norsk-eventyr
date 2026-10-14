@@ -255,6 +255,7 @@
   return h?(h+' ч '+m+' мин'):m?(m+' мин'):(n+' сек')
  }
  function activityKind(item,now=Date.now()){
+  if(item.tracking_opted_out===true)return 'optout';
   const exact=Date.parse(item.last_active_at||'');
   const approximate=item.legacy_last_activity_date?Date.parse(item.legacy_last_activity_date+'T12:00:00'):NaN;
   const when=Number.isFinite(exact)?exact:approximate;
@@ -271,7 +272,7 @@
   out.append(sectionTitle('Активность пользователей','Время только при открытом приложении и недавнем действии пользователя. Не равно подтверждённому времени обучения.'));
   const controls=el('div','admin-controls'),search=el('input','admin-search'),filter=el('select','admin-filter');
   search.type='search';search.placeholder='Найти человека по имени или email';search.setAttribute('aria-label','Поиск активности');
-  for(const [key,label] of [['all','Все'],['online','Сейчас активны'],['today','Были сегодня'],['recent','За последние 7 дней'],['passive','Пассивные 7+ дней'],['never','Нет измерений']]){
+  for(const [key,label] of [['all','Все'],['online','Сейчас активны'],['today','Были сегодня'],['recent','За последние 7 дней'],['passive','Пассивные 7+ дней'],['never','Нет измерений'],['optout','Учёт выключен']]){
    const o=el('option','',label);o.value=key;filter.append(o)
   }
   controls.append(search,filter);out.append(controls);
@@ -305,17 +306,17 @@
      return type===f
     });
     if(!found.length){list.append(empty('Пользователи не найдены','Проверь фильтр или строку поиска.'));return}
-    const priority={online:0,today:1,recent:2,passive:3,never:4};
+    const priority={online:0,today:1,recent:2,passive:3,never:4,optout:5};
     found.sort((a,b)=>priority[activityKind(a)]-priority[activityKind(b)]||(Date.parse(b.last_active_at||'')||0)-(Date.parse(a.last_active_at||'')||0));
     for(const item of found){
      const kind=activityKind(item),name=item.display_name||item.email||'Пользователь';
-     const labels={online:'Сейчас в приложении',today:'Сегодня',recent:'Недавно',passive:'Неактивен 7+ дней',never:'Нет измерений'};
+     const labels={online:'Сейчас в приложении',today:'Сегодня',recent:'Недавно',passive:'Неактивен 7+ дней',never:'Нет измерений',optout:'Учёт выключен'};
      const card=el('article','admin-user-row'),main=el('div','admin-user-main'),top=el('div','admin-user-title');
      top.append(el('strong','',name),el('span','admin-badge activity-'+kind,labels[kind]));
      main.append(top);
      if(item.display_name)main.append(el('small','admin-user-email',item.email||''));
      const facts=el('div','admin-user-facts');
-     const seen=item.last_active_at?'Последняя активность: '+dateText(item.last_active_at):item.legacy_last_activity_date?'Последний день по старой статистике: '+dateText(item.legacy_last_activity_date,false):'Ещё не заходил после включения учёта';
+     const seen=item.tracking_opted_out?'Пользователь отключил учёт времени':item.last_active_at?'Последняя активность: '+dateText(item.last_active_at):item.legacy_last_activity_date?'Последний день по старой статистике: '+dateText(item.legacy_last_activity_date,false):'Ещё не заходил после включения учёта';
      for(const text of [seen,'Сегодня: '+studyTime(item.today_seconds),'7 дней: '+studyTime(item.week_seconds),'30 дней: '+studyTime(item.month_seconds),'Дней активности за 30 дней: '+(item.active_days_30||0)])facts.append(el('span','',text));
      main.append(facts);card.append(main);
      const more=button('По дням','secondary');more.onclick=async()=>{
