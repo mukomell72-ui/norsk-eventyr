@@ -64,7 +64,7 @@ if(assetRevision?.startsWith('-lesson')){
     'Access bootstrap and offline cache must agree on lesson patch revision');
 }
 const assetSet=new Set(assets);
-const bootstrap=access.match(/const ASSET_REV='[^']+',scripts=(\[[^\]]+\]);/);
+const bootstrap=access.match(/const ASSET_REV='[^']+'(?:,LESSON_PATCH='[^']+')?,scripts=(\[[^\]]+\]);/);
 assert(bootstrap,'Dynamic asset dependency list must be declared');
 const scripts=[...bootstrap[1].matchAll(/'([^']+\.js)'/g)].map(m=>m[1]);
 assert(scripts.length>=15,'Critical dynamic scripts dropped');
