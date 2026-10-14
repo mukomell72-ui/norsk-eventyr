@@ -3,7 +3,7 @@
 (() => {
  'use strict';
  const ENDPOINT='/api/session',WINDOW_MS=90000;
- let lastHuman=0,pending=0,userId='',initialized=false,postingPromise=null,ephemeralConsent=null;
+ let lastHuman=0,pending=0,userId='',initialized=false,postingPromise=null,queuedSeconds=0,ephemeralConsent=null;
  const access=()=>window.NEAccess;
  const info=()=>access()?.info?.();
  const consentKey=()=> 'ne_activity_consent_v1:'+String(info()?.user_id||'');
@@ -24,10 +24,19 @@
  const eligible=()=>canShow()&&consent()==='yes';
  function headers(){return {'Content-Type':'application/json',...(access()?.headers?.()||{})}}
  async function send(seconds){
-  if(postingPromise||!userId)return;
+  if(!userId)return;
+  if(postingPromise){
+   queuedSeconds=Math.min(60,queuedSeconds+seconds);
+   return postingPromise;
+  }
   postingPromise=(async()=>{
-   try{await fetch(ENDPOINT,{method:'POST',credentials:'same-origin',cache:'no-store',
-    headers:headers(),body:JSON.stringify({action:'study_heartbeat',seconds}),keepalive:true})}catch{}
+   let amount=seconds;
+   do{
+    try{await fetch(ENDPOINT,{method:'POST',credentials:'same-origin',cache:'no-store',
+     headers:headers(),body:JSON.stringify({action:'study_heartbeat',seconds:amount}),keepalive:true})}catch{}
+    amount=queuedSeconds;
+    queuedSeconds=0;
+   }while(amount>0);
   })();
   try{await postingPromise}finally{postingPromise=null}
  }
