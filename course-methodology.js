@@ -47,6 +47,37 @@ function modulePlan(module,state){
   lessonNumber:completed+1,studyDaysGuide:base.daysPerModule,verifiedStages:Array.isArray(passed)?passed.length:null,graduated:Array.isArray(passed)&&passed.length===STAGES.length,
   grammar:module.grammar,lexicon:module.lexicon,canDo:module.canDo?.slice()||[]};
 }
+function verifyStage(state,moduleId,meta,sessionScore){
+ const p=state?.learningV8,m=p?.modules?.[moduleId],c=m?.courseV2;
+ if(!c||!Array.isArray(c.passedStages)||meta?.kind!=='learn')return null;
+ const stage=STAGES[c.passedStages.length];
+ if(!stage)return null;
+ const score=Number(sessionScore),start=meta?.startedAt;
+ const validStart=typeof start==='string'&&Number.isFinite(Date.parse(start));
+ const attempts=validStart?(p.attempts||[]).filter(a=>a.moduleId===moduleId&&!a.diagnostic&&a.date>=start):[];
+ const passed=(skill,min=65,transfer=false)=>attempts.some(a=>a.skill===skill&&a.score>=min&&(!transfer||a.transfer===true));
+ const skills=new Set(attempts.filter(a=>a.score>=55).map(a=>a.skill));
+ const today=new Date().toLocaleDateString('sv-SE');
+ let ok=false,why='';
+ if(!validStart||meta.courseStage!==stage.key)why='Этап не подтверждён: нет достоверных ответов текущего занятия.';
+ else if(!Number.isFinite(score)||score<75)why='Средняя оценка занятия должна быть не ниже 75/100.';
+ else if(stage.key==='introduce'){
+  ok=skills.size>=3;
+  if(!ok)why='Нужны проверенные ответы хотя бы по трём навыкам.';
+ }else if(stage.key==='understand'){
+  ok=passed('listening')&&passed('reading');
+  if(!ok)why='Нужно подтвердить аудирование и понимание текста.';
+ }else if(stage.key==='produce'){
+  ok=passed('writing',70)&&passed('speaking',70);
+  if(!ok)why='Для перехода нужны проверенные письмо и речь через микрофон (не менее 70/100 каждое).';
+ }else if(stage.key==='transfer'){
+  ok=score>=80&&c.startedOn<today&&passed('writing',75,true)&&passed('speaking',75,true);
+  if(!ok)why='Нужны новые устный и письменный ответы от 75/100 после паузы хотя бы в один день, а также 80/100 за занятие.';
+ }
+ if(ok)c.passedStages.push(stage.key);
+ c.lastFeedback={stage:stage.key,passed:ok,reason:ok?'Этап освоен и подтверждён практикой.':why,at:new Date().toISOString()};
+ return{advanced:ok,reason:c.lastFeedback.reason,completedPhases:c.passedStages.length,totalPhases:STAGES.length};
+}
 window.NECourseMethod=Object.freeze({source:'NTNU LearnNoW structure + HK-dir Læreplan + CEFR 2020; original authored activities',
- levelWeeks:LEVEL_WEEKS,levels:['A1','A2','B1','B2'],stages:STAGES,levelPlan,courseEstimate,dailyPlan,modulePlan});
+ levelWeeks:LEVEL_WEEKS,levels:['A1','A2','B1','B2'],stages:STAGES,levelPlan,courseEstimate,dailyPlan,modulePlan,verifyStage});
 })();
