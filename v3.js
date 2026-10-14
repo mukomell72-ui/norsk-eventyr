@@ -535,7 +535,7 @@
     if(r.ok){
       const d=r.data;
       if(d&&Array.isArray(d.vocab)&&Array.isArray(d.opts)){
-        lesson={id:"gen-"+id,topicId:id,level:topic.level,title:d.title||topic.title,icon:"✨",grammar:d.grammarTitle||topic.grammar,phrase:d.phrase,ru:d.ru,vocab:d.vocab,read:d.read,q:d.q,opts:d.opts,correct:Number(d.correct)||0,writing:d.writing,speaking:d.speaking,grammarData:d};
+        lesson={id:"gen-"+id,topicId:id,level:topic.level,title:d.title||topic.title,icon:"✨",grammar:d.grammarTitle||topic.grammar,phrase:d.phrase,ru:d.ru,dialogueScene:d.dialogueScene,dialogueSpeaker:d.dialogueSpeaker,dialogueIntro:d.dialogueIntro,dialogueTask:d.dialogueTask,vocab:d.vocab,read:d.read,q:d.q,opts:d.opts,correct:Number(d.correct)||0,writing:d.writing,speaking:d.speaking,grammarData:d};
         state.generatedLessons[id]=lesson;saveState();
       }
     }
