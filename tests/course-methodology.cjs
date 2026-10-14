@@ -50,8 +50,8 @@ for(const m of [20,30,45,60,75]){
 }
 assert.deepEqual(Array.from(M.dailyPlan(60).parts,x=>x.minutes),[10,15,15,15,5]);
 const access=read('access.js'),sw=read('sw.js'),adaptive=read('adaptive-teacher.js'),generate=read('api/generate.js'),coursePage=read('ui-v7.js'),settings=read('ui-v8.js');
-assert(access.includes("'curriculum-v8.js','course-methodology.js','practice-foundations.js'"),'Course plan must load after curriculum and before adaptive teacher');
-assert(sw.includes('/course-methodology.js?v=8.3.0-lesson5'),'PWA must pre-cache course plan');
+assert(access.includes("'curriculum-v8.js','course-methodology.js','verified-learning-resources.js','practice-foundations.js'"),'Course plan must load after curriculum and before adaptive teacher');
+assert(sw.includes('/course-methodology.js?v=8.3.0-lesson6'),'PWA must pre-cache course plan');
 assert(adaptive.includes('courseObjective:courseStep?.objective'),'Adaptive teacher must send stage objective to lesson generator');
 assert(generate.includes('teacherMode&&courseStage'),'AI should stay within instructor-ordered stage');
 assert(coursePage.includes('levelSchedule.weeks'),'Course overview must expose duration and ordering');
