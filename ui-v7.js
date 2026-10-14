@@ -8,7 +8,7 @@
   const LEVELS_V7=Array.isArray(window.LEVELS)?window.LEVELS:["A1","A2","B1","B2"];
   const PLACE_NAMES=["Вокзал","Кафе","Магазин","Автобус","Работа","Kommune"];
   const PLACE_ICONS=["🚉","☕","🛍","🚌","💼","🏛"];
-  const STEP_ICONS={teacher:"N",review:"↻",words:"📖",lesson:"🎓",story:"🎬",talk:"💬"};
+  const STEP_ICONS={teacher:"N",review:"↻",listen:"♫",words:"📖",lesson:"🎓",story:"🎬",talk:"💬"};
   const CHAT_TOPICS=[["💼","jobb","работа"],["⌂","hjem","дом"],["☁","vær","погода"],["◉","fritid","досуг"]];
 
   function h(v){
@@ -123,16 +123,24 @@
 
   function guidedV7(){
     const day=todayKeyV7(),wordDue=dueCountV7(),adaptiveDue=window.NEAdaptive?NEAdaptive.dueReviews(state).length:0,
- pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id]?state.generatedLessons[state.activeLesson.id]:null,
- teacherDone=state.learningV8?.lastSessionDate===day&&!pending,mission=window.NEAdaptive?NEAdaptive.nextMission(state):null;
-    const reviewRequired=wordDue>0||adaptiveDue>0,reviewDone=!reviewRequired;
-    const focus=pending?.title||mission?.module?.title||"Следующий шаг по слабому навыку";
+      activity=dayActivityV7(),
+      pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id]?state.generatedLessons[state.activeLesson.id]:null,
+      teacherDone=state.learningV8?.lastSessionDate===day&&!pending,
+      mission=window.NEAdaptive?NEAdaptive.nextMission(state):null;
+    const focus=pending?.title||mission?.module?.title||"Следующий модуль курса";
+    const plan=window.NECourseMethod?.dailyPlan(state.elite?.dailyMinutes||20);
+    const minutes=i=>plan?.parts?.[i]?.minutes||[10,15,15,15,5][i];
     const steps=[
-      {id:"teacher",title:pending?"Продолжить незаконченный урок":"Главное занятие с Норой",sub:focus,mins:Math.max(10,Math.min(25,Number(state.elite?.dailyMinutes)||20)),done:teacherDone,route:pending?"lesson":"teacher",data:pending?.id},
-      ...(reviewRequired?[{id:"review",title:"Повторение по памяти",sub:adaptiveDue?adaptiveDue+" адаптивных проверки":wordDue+" слов по интервалу",mins:5,done:reviewDone,route:adaptiveDue?"teacher":"review"}]:[])
+      {id:"teacher",title:pending?"Продолжить незаконченный урок":"Урок с Норой",sub:focus,mins:minutes(1),done:teacherDone,route:pending?"lesson":"teacher",data:pending?.id},
+      {id:"review",title:"Повторение через интервалы",sub:adaptiveDue?adaptiveDue+" проверок курса":wordDue?wordDue+" слов к повторению":"Всё запланированное повторено",mins:minutes(0),done:wordDue+adaptiveDue===0,route:adaptiveDue?"teacher":"review"},
+      {id:"listen",title:"Живая норвежская речь",sub:"Послушать запись и проверить понимание",mins:minutes(2),done:activity.listening===true,route:"listeninglab"},
+      {id:"talk",title:"Разговор с Норой",sub:"Самостоятельные ответы в жизненном диалоге",mins:minutes(3),done:activity.conversation===true,route:"chat"},
+      {id:"words",title:"Письмо и диктант",sub:"Закрепить слова в письменных заданиях",mins:minutes(4),done:activity.dictation===true,route:"dictation"}
     ];
-    const next=steps.find(x=>!x.done)||{title:"Дополнительное занятие с Норой",sub:"Сегодняшний план готов, можно продолжить с новым заданием",mins:0,route:"teacher"};
-    return {day,due:wordDue+adaptiveDue,story:storyForLevelV7().current,lesson:nextLessonV7(),steps,next,done:steps.filter(x=>x.done).length,total:steps.length,mins:steps.filter(x=>!x.done).reduce((a,x)=>a+x.mins,0)};
+    const next=steps.find(x=>!x.done)||{title:"Дополнительное занятие с Норой",sub:"Все блоки дневного маршрута выполнены",mins:0,route:"teacher"};
+    return {day,due:wordDue+adaptiveDue,story:storyForLevelV7().current,lesson:nextLessonV7(),steps,next,
+      done:steps.filter(x=>x.done).length,total:steps.length,planned:plan?.minutes||60,
+      mins:steps.filter(x=>!x.done).reduce((a,x)=>a+x.mins,0)};
   }
   function v7ContinueToday(){const x=guidedV7().next;navigate(x.route,x.data)}
   function v7Step(i){const x=guidedV7().steps[i];if(x)navigate(x.route,x.data)}
@@ -177,7 +185,7 @@
           '<button class="cta-v7" onclick="v7ContinueToday()">Продолжить день <b>→</b></button></div>'+
           '<div class="hero-note-v7">Små steg<br>store eventyr ♡</div>'+
         '</section>'+
-        '<section class="route-card-v7"><div class="section-head-v7"><div><small>Твой маршрут на сегодня</small><h2>'+(j.mins?"Ещё примерно "+j.mins+" минут":"Маршрут завершён")+'</h2></div><span>◷ '+(j.mins||0)+' мин</span></div><div class="route-steps-v7">'+route+'</div></section>'+
+        '<section class="route-card-v7"><div class="section-head-v7"><div><small>Твой маршрут на сегодня · 5 занятий</small><h2>'+(j.mins?"Осталось "+(j.total-j.done)+" из "+j.total+" блоков":"Маршрут завершён")+'</h2></div><span>План '+j.planned+' мин</span></div><p class="muted">Время на каждый блок — ориентир, а не измерение фактически потраченных минут.</p><div class="route-steps-v7">'+route+'</div></section>'+
         xpJourneyV7()+
         '<section class="words-card-v7 daily-focus-v81"><div class="section-head-v7"><div><small>Короткая ежедневная практика</small><h2>Слова для реальной жизни</h2><p>Попробуй вспомнить эти слова и составить собственную фразу.</p></div><button onclick="navigate(\'daily\')">Практика →</button></div><div class="daily-words-v81">'+words.slice(0,3).map(w=>'<div class="daily-word-v81"><b>'+h(w.lemma||w.word||"")+'</b><span>'+h(w.translation_ru||w.translation||"")+'</span></div>').join("")+'</div></section>'+
         '<section class="nora-note-v7"><span class="nora-avatar-v7"></span><div><small>Nora</small><p>«'+h(pending?"Продолжим с сохранённого этапа.":"Я подберу практику по твоим результатам. Говори своими словами.")+'»</p></div><button onclick="navigate(\'chat\')">Написать →</button></section>'+
@@ -200,7 +208,7 @@
     const list=modules.map((m,i)=>{
       const mastery=masteryOf(m),isDone=mastery>=78,isNext=next?.id===m.id,locked=!isDone&&!isNext;
       const syllabus=window.NECourseMethod?.modulePlan(m,state);
-      return '<button class="near-lesson-v7 '+(isDone?"done ":"")+(locked?"locked":"")+'" onclick="teacherStartModule(\''+js(m.id)+'\')"><span>'+(isDone?"✓":i+1)+'</span><div><b>'+h(m.title)+'</b><small>'+h(m.canDo?.[0]||"Практическая цель")+'</small>'+(syllabus?'<small>'+h(syllabus.stageTitle)+' · '+h(m.grammar)+'</small>':'')+'</div><em>'+mastery+'%</em></button>';
+      return '<button class="near-lesson-v7 '+(isDone?"done ":"")+(locked?"locked":"")+'" onclick="teacherStartModule(\''+js(m.id)+'\')"><span>'+(isDone?"✓":i+1)+'</span><div><b>'+h(m.title)+'</b><small>'+h(m.canDo?.[0]||"Практическая цель")+'</small>'+(syllabus?'<small>'+h(syllabus.stageTitle)+' · '+h(m.grammar)+'</small>'+(syllabus.verifiedStages!==null?'<small>Подтверждено этапов: '+syllabus.verifiedStages+'/4</small>':''):'')+'</div><em>'+mastery+'%</em></button>';
     }).join("");
     const levelSchedule=window.NECourseMethod?.levelPlan(courseLevel),daily=window.NECourseMethod?.dailyPlan(state.elite?.dailyMinutes||60);
     const legacy=coreLessonsV7(courseLevel),topics=(typeof TOPIC_CATALOG!=="undefined"?TOPIC_CATALOG:[]).filter(x=>x.level===courseLevel).slice(0,8);
@@ -219,6 +227,10 @@
           legacy.map(x=>'<button onclick="navigate(\'lesson\',\''+js(x.id)+'\')"><b>'+h(x.title)+'</b><small>'+h(x.grammar||"Закрепление")+'</small></button>').join("")+
           topics.map(t=>'<button onclick="navigate(\'topic\',\''+js(t.id)+'\')"><b>'+h(t.title)+'</b><small>'+h(t.goal||"")+'</small></button>').join("")+
         '</div></details>'+
+        '<section class="card" style="margin-top:14px"><div class="eyebrow">Проверенные внешние материалы · '+h(courseLevel)+'</div><h3>Учись также по университетским курсам</h3>'+
+          '<p class="muted">Эти материалы созданы внешними специалистами. Они открываются на сайте издателя и не заменяют оценки нашей программы.</p>'+
+          (window.NEResources?.byLevel(courseLevel,['course'])||[]).map(r=>'<p><a href="'+h(r.url)+'" target="_blank" rel="noopener noreferrer">'+h(r.name)+' ↗</a><br><small>'+h(r.note)+'</small></p>').join('')+
+          '<p><button class="btn secondary" onclick="navigate(\'listeninglab\')">Аудиокорпуса и критерии Norskprøven →</button></p></section>'+
         '</section>'+
       '</section>',
     "course");

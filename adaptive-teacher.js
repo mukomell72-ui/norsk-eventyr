@@ -57,6 +57,13 @@ function priorityError(state,level){
  return Object.values(p.patternStats).filter(e=>e&&e.level===level&&e.misses>=2&&e.severity>=35&&(!e.due||e.due<=today)).sort((a,b)=>b.severity-a.severity||b.misses-a.misses)[0]||null;
 }
 function moduleState(p,id){return p.modules[id]||(p.modules[id]={skills:{},attempts:0,mastery:0,lastSeen:null,transferPasses:0})}
+function activateCourse(p,id){
+ const m=moduleState(p,id);
+ if(!m.courseV2&&evidenceMastery(m)<78){
+  m.courseV2={passedStages:[],startedOn:dayKey(),lastFeedback:null};
+ }
+ return m;
+}
 function skillForStep(step,mode){
  if(mode==='writing'||mode==='speaking')return mode;
  return ({0:'speaking',1:'vocabulary',2:'listening',3:'reading',4:'writing',5:'speaking'})[Number(step)]||'vocabulary';
@@ -128,7 +135,11 @@ function evidenceMastery(m){
  const avg=clamp(vals.reduce((a,b)=>a+b,0)/vals.length);
  return Math.min(...vals)>=65?avg:Math.min(69,avg);
 }
-function moduleMastery(state,id){return evidenceMastery(ensure(state).modules[id])}
+function moduleMastery(state,id){
+ const module=ensure(state).modules[id],score=evidenceMastery(module);
+ const stages=module?.courseV2?.passedStages;
+ return Array.isArray(stages)&&stages.length<4?Math.min(77,score):score;
+}
 function levelModules(level){return window.NECurriculum?.modules(level)||[]}
 function levelGate(state,level){
  const p=ensure(state),profile=levelProfile(p,level),mods=levelModules(level),transfer=mods.at(-1),scores=CORE.map(s=>clamp(profile[s])),avg=scores.reduce((a,b)=>a+b,0)/scores.length;
@@ -191,13 +202,14 @@ function assessment(state,level,score,skillScores={}){
  for(const skill of CORE)recordAttempt(state,{level,skill,score:skillScores[skill]??s,moduleId:level+'-assessment',source:'level_test',transfer:true});
  p.assessments.push({date:new Date().toISOString(),level,score:s,skills:skillScores});p.assessments=p.assessments.slice(-50);
 }
-function completeLesson(state,lesson){
+function completeLesson(state,lesson,sessionScore){
  const p=ensure(state),id=lesson?._adaptive?.moduleId||lesson?.id||'lesson',m=moduleState(p,id);m.lastCompleted=dayKey();m.completions=(m.completions||0)+1;if(lesson?._adaptive)p.lastSessionDate=dayKey();
  if(lesson?._adaptive?.kind==='review'&&lesson._adaptive.reviewKey&&p.reviews[lesson._adaptive.reviewKey])p.reviews[lesson._adaptive.reviewKey].completedAt=new Date().toISOString();
  if(lesson?._adaptive?.kind==='remediation'){
   const gap=state.placement?.productive?.remediation?.[lesson._adaptive.skill];
   if(gap&&gap.level===lesson.level){gap.done=true;gap.completedAt=new Date().toISOString()}
  }
+ return window.NECourseMethod?.verifyStage(state,id,lesson?._adaptive,sessionScore)||null;
 }
 function errors(state,level=state.level){
  const p=ensure(state),scope=LEVEL_ORDER.includes(level)?level:state.level;
@@ -250,9 +262,11 @@ function moduleMission(state,moduleId){
 }
 async function runTeacherMission(mission){
  const m=mission?.module;if(!m)return;
+ const p=ensure(state);
+ if(mission.kind==='learn')activateCourse(p,m.id);
  const courseStep=window.NECourseMethod?.modulePlan(m,state);
  shell('<section class="card loading-card"><div class="spinner"></div><h2>Нора готовит занятие</h2><p class="muted">Цель — '+esc(m.canDo[0])+'. Задания будут подстроены под слабые места, а не случайно сгенерированы.</p></section>','home');
- const p=ensure(state),targetProfile=levelProfile(p,mission.level),
+ const targetProfile=levelProfile(p,mission.level),
  variations=['Другой собеседник, новый повод разговора.','Другая обстановка и непредвиденное уточнение.','Новая причина просьбы и ограничение по времени.','Та же цель, но другая последовательность действий.'],
  revision=(p.modules[m.id]?.completions||0)+(p.modules[m.id]?.attempts||0),
  payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...targetProfile},errorPatterns:errors(state,mission.level),targetErrorTag:mission.errorTag||'',weakSkills:ALL.filter(s=>targetProfile[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review',scenarioVariation:variations[revision%variations.length],courseStage:courseStep?.stageKey||'',courseStageTitle:courseStep?.stageTitle||'',courseObjective:courseStep?.objective||m.canDo[0],courseInstruction:courseStep?.stageInstruction||''};
@@ -267,11 +281,11 @@ async function runTeacherMission(mission){
    if(!r.ok||!r.data)throw new Error(r.error||'GENERATION');
    data=r.data;
   }
-  const lesson={...data,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,title:data.title||m.title,grammar:data.grammarRuleRu||m.grammar,_adaptive:{moduleId:m.id,skill:mission.skill,kind:mission.kind,reviewKey:mission.reviewKey||'',errorTag:mission.errorTag||'',canDo:m.canDo,transfer:mission.kind==='review'||mission.kind==='error_remediation'||/transfer|capstone/.test(m.id),courseStage:courseStep?.stageKey||'',origin:source}};
+  const lesson={...data,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,title:data.title||m.title,grammar:data.grammarRuleRu||m.grammar,_adaptive:{moduleId:m.id,skill:mission.skill,kind:mission.kind,reviewKey:mission.reviewKey||'',errorTag:mission.errorTag||'',canDo:m.canDo,transfer:courseStep?.stageKey==='transfer'||mission.kind==='review'||mission.kind==='error_remediation'||/transfer|capstone/.test(m.id),courseStage:courseStep?.stageKey||'',startedAt:new Date().toISOString(),origin:source}};
   state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;lessonSession={lesson,step:0,locked:false,xpScores:[]};persistLessonCheckpoint();renderLesson();
  }catch(e){
   if(foundation&&revision===0&&mission.kind!=='review'){
-   const lesson={...foundation,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,grammar:foundation.grammarRuleRu,_adaptive:{moduleId:m.id,skill:mission.skill,kind:'learn',reviewKey:'',errorTag:'',canDo:m.canDo,transfer:false,courseStage:courseStep?.stageKey||'',origin:'Резервная базовая практика'}};
+   const lesson={...foundation,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,grammar:foundation.grammarRuleRu,_adaptive:{moduleId:m.id,skill:mission.skill,kind:'learn',reviewKey:'',errorTag:'',canDo:m.canDo,transfer:courseStep?.stageKey==='transfer',courseStage:courseStep?.stageKey||'',startedAt:new Date().toISOString(),origin:'Резервная базовая практика'}};
    state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;lessonSession={lesson,step:0,locked:false,xpScores:[]};persistLessonCheckpoint();renderLesson();return;
   }
   shell('<section class="card"><h2>Не удалось создать новое задание</h2><p class="muted">Повторять прежние вопросы не буду. Проверь соединение и попробуй снова.</p><button class="btn" onclick="startAdaptiveTeacher()">Назад</button></section>','home');
