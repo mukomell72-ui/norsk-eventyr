@@ -62,3 +62,9 @@
  pointer-events:none;
 }
 @media(max-width:620px){#neAccessTemporaryWarning{font-size:13px;bottom:calc(90px + env(safe-area-inset-bottom))}}
+
+/* Explicit opt-in for approximate owner-visible study time. */
+.ne-study-notice{position:fixed;z-index:60;left:12px;right:12px;bottom:calc(14px + env(safe-area-inset-bottom));max-width:560px;margin:0 auto;padding:18px;border:1px solid #40627a;border-radius:18px;background:#0c2534;color:#f0f7fa;box-shadow:0 12px 45px #0009}
+.ne-study-notice p{font-size:13px;line-height:1.5;color:#c5d8e4;margin:9px 0 12px}
+.ne-study-notice .row{display:flex;gap:8px;flex-wrap:wrap}
+.ne-study-notice .btn{min-height:42px}
