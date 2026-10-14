@@ -92,10 +92,24 @@ function recordAttempt(state,input={}){
  return profile[skill];
 }
 function advanceReview(r,score,level){
- if(score<60)r.stage=0;else if(score>=85)r.stage=Math.min(REVIEW_STEPS.length-1,(r.stage||0)+1);
- else r.stage=Math.max(0,r.stage||0);
- const wait=score<60?1:REVIEW_STEPS[r.stage]||7;
- r.lastScore=score;r.lastAttemptAt=new Date().toISOString();r.due=addDays(dayKey(),wait);
+ // Strengthen spaced repetition: multiple same-day successes are practice,
+ // not independent evidence of memory after an interval.
+ const today=dayKey();
+ const previouslySeen=r.lastScore!==null&&r.lastScore!==undefined;
+ const due=previouslySeen&&typeof r.due==='string'&&r.due<=today;
+ r.stage=Math.max(0,Math.min(REVIEW_STEPS.length-1,Number(r.stage)||0));
+ if(score<60){
+  r.stage=0;
+  r.due=addDays(today,1);
+ }else if(due){
+  if(score>=85)r.stage=Math.min(REVIEW_STEPS.length-1,r.stage+1);
+  r.due=addDays(today,REVIEW_STEPS[r.stage]||7);
+ }else if(!r.due||r.due<=today){
+  // First success schedules the first delayed check for tomorrow.
+  r.due=addDays(today,REVIEW_STEPS[0]);
+ }
+ // Keep an existing future due date when an answer is repeated early.
+ r.lastScore=score;r.lastAttemptAt=new Date().toISOString();
  if(['A1','A2','B1','B2'].includes(level))r.level=level;
  return r;
 }
