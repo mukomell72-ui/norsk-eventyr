@@ -57,6 +57,13 @@ function priorityError(state,level){
  return Object.values(p.patternStats).filter(e=>e&&e.level===level&&e.misses>=2&&e.severity>=35&&(!e.due||e.due<=today)).sort((a,b)=>b.severity-a.severity||b.misses-a.misses)[0]||null;
 }
 function moduleState(p,id){return p.modules[id]||(p.modules[id]={skills:{},attempts:0,mastery:0,lastSeen:null,transferPasses:0})}
+function activateCourse(p,id){
+ const m=moduleState(p,id);
+ if(!m.courseV2&&evidenceMastery(m)<78){
+  m.courseV2={passedStages:[],startedOn:dayKey(),lastFeedback:null};
+ }
+ return m;
+}
 function skillForStep(step,mode){
  if(mode==='writing'||mode==='speaking')return mode;
  return ({0:'speaking',1:'vocabulary',2:'listening',3:'reading',4:'writing',5:'speaking'})[Number(step)]||'vocabulary';
