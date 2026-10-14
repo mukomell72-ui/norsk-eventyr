@@ -271,7 +271,7 @@
   out.append(sectionTitle('Активность пользователей','Время только при открытом приложении и недавнем действии пользователя. Не равно подтверждённому времени обучения.'));
   const controls=el('div','admin-controls'),search=el('input','admin-search'),filter=el('select','admin-filter');
   search.type='search';search.placeholder='Найти человека по имени или email';search.setAttribute('aria-label','Поиск активности');
-  for(const [key,label] of [['all','Все'],['online','Сейчас активны'],['today','Были сегодня'],['recent','За последние 7 дней'],['passive','Пассивные 7+ дней'],['never','Нет активности']]){
+  for(const [key,label] of [['all','Все'],['online','Сейчас активны'],['today','Были сегодня'],['recent','За последние 7 дней'],['passive','Пассивные 7+ дней'],['never','Нет измерений']]){
    const o=el('option','',label);o.value=key;filter.append(o)
   }
   controls.append(search,filter);out.append(controls);
@@ -287,7 +287,7 @@
     const type=activityKind(item,now);
     if(type==='online')counts.online++;
     if(type==='online'||type==='today')counts.today++;
-    if(type==='passive'||type==='never')counts.passive++;
+    if(type==='passive')counts.passive++;
    }
    for(const [label,value,key] of [['Сейчас активны',counts.online,'online'],['Сегодня',counts.today,'today'],['Пассивные 7+ дней',counts.passive,'passive'],['Всего пользователей',items.length,'all']]){
     const card=metric(label,value,key,'activity');card.onclick=()=>{filter.value=key;render()};stats.append(card)
@@ -301,7 +301,7 @@
      if(f==='all')return true;
      if(f==='today')return type==='today'||type==='online';
      if(f==='recent')return type==='recent'||type==='today'||type==='online';
-     if(f==='passive')return type==='passive'||type==='never';
+     if(f==='passive')return type==='passive';
      return type===f
     });
     if(!found.length){list.append(empty('Пользователи не найдены','Проверь фильтр или строку поиска.'));return}
