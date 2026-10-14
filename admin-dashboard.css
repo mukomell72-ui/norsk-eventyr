@@ -30,3 +30,18 @@
 .admin-promo-form{display:grid;grid-template-columns:1.2fr .65fr .65fr .9fr 1.2fr auto;gap:8px;align-items:center}
 @media(max-width:860px){.admin-promo-form{grid-template-columns:1fr 1fr}.admin-promo-form .btn{grid-column:1/-1}}
 @media(max-width:520px){.admin-promo-form{grid-template-columns:1fr}.admin-promo-form .btn{grid-column:auto}}
+
+/* Owner-only learning activity: six tabs + readable per-day details. */
+.admin-nav{grid-template-columns:repeat(6,minmax(0,1fr))}
+.admin-badge.activity-online{background:#12392e;border-color:#2d705a}
+.admin-badge.activity-passive,.admin-badge.activity-never{background:#3a2c2a;border-color:#81584d}
+.admin-badge.activity-today{background:#143449;border-color:#37779a}
+.admin-study-days{flex:1 0 100%;width:100%;display:grid;gap:8px;border-top:1px solid #29495b;padding-top:12px}
+.admin-study-day{display:grid;grid-template-columns:120px 95px minmax(0,1fr);gap:10px;align-items:center;padding:9px 12px;border:1px solid #29495b;border-radius:10px;font-size:12px}
+.admin-study-day small{color:#a6c1ce;overflow-wrap:anywhere}
+@media(max-width:420px){
+ .admin-nav{display:flex;overflow-x:auto;justify-content:space-between;gap:1px;scrollbar-width:thin}
+ .admin-nav-item{flex:0 0 auto;white-space:nowrap;padding:10px 5px;font-size:10px}
+ .admin-study-day{grid-template-columns:1fr auto}
+ .admin-study-day small{grid-column:1/-1}
+}

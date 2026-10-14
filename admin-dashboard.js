@@ -250,6 +250,96 @@
   if(item.failure_message)lines.push('Причина: '+String(item.failure_message));
   for(const line of lines)card.append(el('p','',line));return card
  }
+ function studyTime(seconds){
+  const n=Math.max(0,Math.floor(Number(seconds)||0)),h=Math.floor(n/3600),m=Math.floor((n%3600)/60);
+  return h?(h+' ч '+m+' мин'):m?(m+' мин'):(n+' сек')
+ }
+ function activityKind(item,now=Date.now()){
+  if(item.tracking_opted_out===true)return 'optout';
+  const exact=Date.parse(item.last_active_at||'');
+  const approximate=item.legacy_last_activity_date?Date.parse(item.legacy_last_activity_date+'T12:00:00'):NaN;
+  const when=Number.isFinite(exact)?exact:approximate;
+  if(Number.isFinite(exact)&&now-exact<=120000&&now>=exact)return 'online';
+  if(!Number.isFinite(when))return 'never';
+  if(now-when>=7*86400000)return 'passive';
+  const day=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Oslo'}).format(new Date(when));
+  const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Europe/Oslo'}).format(new Date(now));
+  if(day===today)return 'today';
+  return 'recent'
+ }
+ async function activity(){
+  const out=body();out.replaceChildren();
+  out.append(sectionTitle('Активность пользователей','Время только при открытом приложении и недавнем действии пользователя. Не равно подтверждённому времени обучения.'));
+  const controls=el('div','admin-controls'),search=el('input','admin-search'),filter=el('select','admin-filter');
+  search.type='search';search.placeholder='Найти человека по имени или email';search.setAttribute('aria-label','Поиск активности');
+  for(const [key,label] of [['all','Все'],['online','Сейчас активны'],['today','Были сегодня'],['recent','За последние 7 дней'],['passive','Пассивные 7+ дней'],['never','Нет измерений'],['optout','Учёт выключен']]){
+   const o=el('option','',label);o.value=key;filter.append(o)
+  }
+  controls.append(search,filter);out.append(controls);
+  const stats=el('div','admin-metric-grid'),list=el('div','admin-user-list');
+  list.append(el('p','admin-muted','Загрузка активности…'));out.append(stats,list);
+  const reload=button('Обновить данные','secondary');reload.onclick=()=>show('activity');out.insertBefore(reload,controls);
+  out.append(el('p','admin-muted','Время приблизительное: паузы, отсутствие действий, сон телефона и сбои сети не засчитываются. До включения счётчика длительность прошлых занятий неизвестна. Обновление по кнопке.'));
+  try{
+   const result=await call('owner_study_activity'),items=Array.isArray(result.users)?result.users:[];
+   if(!out.isConnected)return;
+   const now=Date.now(),counts={online:0,today:0,passive:0};
+   for(const item of items){
+    const type=activityKind(item,now);
+    if(type==='online')counts.online++;
+    if(type==='online'||type==='today')counts.today++;
+    if(type==='passive')counts.passive++;
+   }
+   for(const [label,value,key] of [['Сейчас активны',counts.online,'online'],['Сегодня',counts.today,'today'],['Пассивные 7+ дней',counts.passive,'passive'],['Всего пользователей',items.length,'all']]){
+    const card=metric(label,value,key,'activity');card.onclick=()=>{filter.value=key;render()};stats.append(card)
+   }
+   const render=()=>{
+    list.replaceChildren();
+    const q=search.value.trim().toLowerCase(),f=filter.value;
+    const found=items.filter(item=>{
+     if(q&&!String(item.email||'').toLowerCase().includes(q)&&!String(item.display_name||'').toLowerCase().includes(q))return false;
+     const type=activityKind(item);
+     if(f==='all')return true;
+     if(f==='today')return type==='today'||type==='online';
+     if(f==='recent')return type==='recent'||type==='today'||type==='online';
+     if(f==='passive')return type==='passive';
+     return type===f
+    });
+    if(!found.length){list.append(empty('Пользователи не найдены','Проверь фильтр или строку поиска.'));return}
+    const priority={online:0,today:1,recent:2,passive:3,never:4,optout:5};
+    found.sort((a,b)=>priority[activityKind(a)]-priority[activityKind(b)]||(Date.parse(b.last_active_at||'')||0)-(Date.parse(a.last_active_at||'')||0));
+    for(const item of found){
+     const kind=activityKind(item),name=item.display_name||item.email||'Пользователь';
+     const labels={online:'Сейчас в приложении',today:'Сегодня',recent:'Недавно',passive:'Неактивен 7+ дней',never:'Нет измерений',optout:'Учёт выключен'};
+     const card=el('article','admin-user-row'),main=el('div','admin-user-main'),top=el('div','admin-user-title');
+     top.append(el('strong','',name),el('span','admin-badge activity-'+kind,labels[kind]));
+     main.append(top);
+     if(item.display_name)main.append(el('small','admin-user-email',item.email||''));
+     const facts=el('div','admin-user-facts');
+     const seen=item.tracking_opted_out?'Пользователь отключил учёт времени':item.last_active_at?'Последняя активность: '+dateText(item.last_active_at):item.legacy_last_activity_date?'Последний день по старой статистике: '+dateText(item.legacy_last_activity_date,false):'Ещё не заходил после включения учёта';
+     for(const text of [seen,'Сегодня: '+studyTime(item.today_seconds),'7 дней: '+studyTime(item.week_seconds),'30 дней: '+studyTime(item.month_seconds),'Дней активности за 30 дней: '+(item.active_days_30||0)])facts.append(el('span','',text));
+     main.append(facts);card.append(main);
+     const more=button('По дням','secondary');more.onclick=async()=>{
+      more.disabled=true;let details=card.querySelector('.admin-study-days');
+      if(details){details.remove();more.disabled=false;return}
+      details=el('div','admin-study-days');details.append(el('p','admin-muted','Загрузка дней…'));card.append(details);
+      try{
+       const response=await call('owner_study_activity_days',{user_id:item.user_id}),days=Array.isArray(response.days)?response.days:[];
+       if(!details.isConnected)return;
+       details.replaceChildren(sectionTitle('По дням · последние 30 дней','Измеренное время присутствия при активном взаимодействии.'));
+       if(!days.length)details.append(empty('Пока нет данных','Точный учёт начинается после запуска обновления.'));
+       for(const row of days){
+        const line=el('div','admin-study-day');
+        line.append(el('strong','',dateText(row.day,false)),el('span','',studyTime(row.seconds)),el('small','',dateText(row.first_activity_at)+' — '+dateText(row.last_activity_at)));details.append(line)
+       }
+      }catch(e){details.replaceChildren(empty('Данные недоступны',e.message))}
+      finally{more.disabled=false}
+     };card.append(more);list.append(card)
+    }
+   };
+   search.addEventListener('input',render);filter.addEventListener('change',render);render()
+  }catch(e){list.replaceChildren(empty('Не удалось загрузить активность',e.message))}
+ }
  async function payments(){
   const out=body();out.replaceChildren();out.append(sectionTitle('Платежи','Платные периоды подтверждаются только владельцем или доверенным платёжным провайдером. Пользователь не может назначить себе оплату.'));
   const list=el('div','admin-payment-list');list.append(el('p','admin-muted','Загрузка…'));out.append(list);
@@ -294,7 +384,7 @@
    }catch(e){errorsBox.replaceChildren(empty('Не удалось загрузить ошибки',e.message))}
  }
  async function show(tab,option=''){
-  const available=['overview','users','payments','events','service'];
+  const available=['overview','users','activity','payments','events','service'];
   const host=root?.querySelector('#adminView');
   if(!host||!available.includes(tab))return;
   activeTab=tab;
@@ -311,6 +401,7 @@
   setMessage('');
   if(tab==='overview')return overview();
   if(tab==='users')return users(option);
+  if(tab==='activity')return activity();
   if(tab==='payments')return payments();
   if(tab==='events')return events();
   return service(option)
@@ -319,13 +410,13 @@
   root=container;opts=options;root.replaceChildren();
   const shell=el('div','admin-shell');
   const top=el('header','admin-topbar');
-  const title=el('div','admin-brand');title.append(el('span','admin-kicker','Norsk Eventyr'),el('h1','','Admin Dashboard'),el('small','','Версия 8.0.1'));
+  const title=el('div','admin-brand');title.append(el('span','admin-kicker','Norsk Eventyr'),el('h1','','Admin Dashboard'),el('small','','Версия 8.3.0'));
   const topActions=el('div','admin-top-actions'),back=button('К обучению','secondary'),logout=button('Выйти','ghost');
   back.onclick=()=>opts.onBack?.();logout.onclick=()=>opts.onLogout?.();topActions.append(back,logout);top.append(title,topActions);
   const main=el('main','admin-main'),view=el('section','admin-view');view.id='adminView';view.setAttribute('role','tabpanel');view.tabIndex=0;main.append(view);
   const message=el('p','admin-message');message.id='adminMessage';
   const nav=el('nav','admin-nav');nav.setAttribute('role','tablist');nav.setAttribute('aria-label','Разделы админ-панели');
-  const tabs=[['overview','Главная'],['users','Пользователи'],['payments','Платежи'],['events','События'],['service','Ещё']];
+  const tabs=[['overview','Главная'],['users','Пользователи'],['activity','Активность'],['payments','Платежи'],['events','События'],['service','Ещё']];
   for(const [key,text] of tabs){
    const b=el('button','admin-nav-item',text);b.type='button';
    b.id='admin-tab-'+key;b.dataset.adminTab=key;
