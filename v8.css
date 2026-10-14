@@ -153,3 +153,67 @@ button.speech-playing{transform:translateY(1px) scale(.985);box-shadow:0 0 0 3px
 #placementEntryCard .btn{min-height:44px}
 #placementEntryCard small{color:#aac8d5}
 @media(max-width:620px){#placementEntryCard{padding:17px 16px;margin:12px 0}#placementEntryCard h3{font-size:19px}#placementEntryCard .row .btn{flex:1 1 150px}}
+
+/* 8.3.0 mobile speaking UI — live Pixel screenshot follow-up.
+   A1 translation is nested in <details>: .card > .notice didn't match it,
+   so the inherited pale-yellow dark-theme text was unreadable on white.
+   Keep all lesson logic and evaluation untouched. */
+.lesson-exercise-v6 .a1-task-support .notice{
+ background:#eaf3f8;
+ color:#213b4c!important;
+ border:1px solid #bed2df;
+ border-radius:12px;
+}
+.lesson-exercise-v6 .a1-task-support .notice b{
+ color:#173346!important;
+}
+.lesson-exercise-v6 .a1-task-support .notice small{
+ color:#405f73!important;
+ opacity:1;
+}
+.lesson-exercise-v6 .a1-task-support>summary{
+ color:#20526a;
+ font-weight:800;
+ cursor:pointer;
+}
+.lesson-exercise-v6 #freeAnswer{
+ box-sizing:border-box;
+ height:106px;
+ min-height:88px;
+ max-height:220px;
+ resize:vertical;
+}
+.lesson-exercise-v6 .speech-actions-v831{
+ display:grid;
+ grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);
+ gap:10px;
+}
+.lesson-exercise-v6 .speech-actions-v831>.btn{
+ min-width:0;
+ min-height:48px;
+ width:100%;
+ padding:10px 8px;
+}
+@media(max-width:620px){
+ .main-v7:has(.lesson-exercise-v6){
+  padding-bottom:calc(154px + env(safe-area-inset-bottom));
+ }
+ .lesson-exercise-v6 #freeAnswer{
+  height:92px;
+  min-height:84px;
+  max-height:180px;
+ }
+ .lesson-exercise-v6 .speech-actions-v831{
+  gap:8px;
+ }
+ .lesson-exercise-v6 .speech-actions-v831>.btn{
+  font-size:clamp(13px,3.8vw,16px);
+  line-height:1.25;
+  white-space:normal;
+ }
+ .lesson-exercise-v6 .card>.prompt{
+  font-size:clamp(22px,5.7vw,28px);
+  line-height:1.28;
+  overflow-wrap:anywhere;
+ }
+}

@@ -18,7 +18,11 @@ const v=(app.match(/const APP_VERSION="([^"]+)"/)||[])[1];
 assert.match(v||'',/^\d+\.\d+\.\d+$/,'APP_VERSION missing');
 const revision=(access.match(/const ASSET_REV='([^']+)'/)||[])[1];
 assert.equal(revision,v,'Access bootstrap must fetch the published revision');
-assert(sw.includes('const CACHE="norsk-eventyr-v'+v.replaceAll('.','-')+'"'),'PWA cache must change with release');
+const baseCache='norsk-eventyr-v'+v.replaceAll('.','-');
+const actualCache=(sw.match(/^const CACHE="([^"]+)";/m)||[])[1];
+const uiRevision=actualCache?.startsWith(baseCache)?actualCache.slice(baseCache.length):null;
+assert(uiRevision!==null&&(/^(?:-ui[1-9][0-9]*)?$/).test(uiRevision),
+  'PWA cache must match the release version or a numbered UI-only revision');
 assert(index.includes('<title>Norsk Eventyr '+v),'Page must show exact application version');
 assert(health.includes('version:"'+v+'"'),'Health endpoint must report the deployed version');
 const assetsLiteral=(sw.match(/^const ASSETS=(\[[^\n]+\]);/m)||[])[1];
@@ -30,7 +34,16 @@ for(const asset of assets){
  assert(asset==='/'||asset.startsWith('/'),'Only same-origin paths can be precached: '+asset);
  const [pathname,query]=asset.split('?');
  if(asset!=='/')assert(exists(pathname.replace(/^\//,'')),'PWA update will fail: missing '+asset);
- if(query&&pathname!=='/manifest.json')assert.equal(query,'v='+v,'Mixed asset revision in service worker: '+asset);
+ if(query&&pathname!=='/manifest.json'){
+  const expected='v='+v+(pathname==='/v8.css'?uiRevision:'');
+  assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
+}
+}
+if(uiRevision){
+  assert(index.includes('href="/v8.css?v='+v+uiRevision+'"'),
+    'UI patch must force the same fresh stylesheet on the page');
+  assert(assets.includes('/v8.css?v='+v+uiRevision),
+    'UI patch stylesheet must be available offline');
 }
 const assetSet=new Set(assets);
 const bootstrap=access.match(/const ASSET_REV='[^']+',scripts=(\[[^\]]+\]);/);
