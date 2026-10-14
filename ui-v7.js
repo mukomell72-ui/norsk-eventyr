@@ -137,7 +137,7 @@
       {id:"talk",title:"Разговор с Норой",sub:"Самостоятельные ответы в жизненном диалоге",mins:minutes(3),done:activity.conversation===true,route:"chat"},
       {id:"words",title:"Письмо и диктант",sub:"Закрепить слова в письменных заданиях",mins:minutes(4),done:activity.dictation===true,route:"dictation"}
     ];
-    const next=steps.find(x=>!x.done)||{title:"Дополнительная практика",sub:"Все блоки дневного маршрута выполнены",mins:0,route:"teacher"};
+    const next=steps.find(x=>!x.done)||{title:"Дополнительное занятие с Норой",sub:"Все блоки дневного маршрута выполнены",mins:0,route:"teacher"};
     return {day,due:wordDue+adaptiveDue,story:storyForLevelV7().current,lesson:nextLessonV7(),steps,next,
       done:steps.filter(x=>x.done).length,total:steps.length,planned:plan?.minutes||60,
       mins:steps.filter(x=>!x.done).reduce((a,x)=>a+x.mins,0)};
