@@ -65,9 +65,11 @@ const controls=notice.children[2];
 controls.children[0].onclick();
 assert.equal(win.NEStudyActivity.consent(),'yes');
 async function finish(){
- await Promise.resolve();await Promise.resolve();await Promise.resolve();
+ // The simulated timer runs synchronously, so let both the baseline
+ // heartbeat and the queued batch drain through asynchronous fetch.
+ for(let i=0;i<12;i++)await Promise.resolve();
  for(let i=0;i<30;i++)tick();
- await Promise.resolve();await Promise.resolve();
+ for(let i=0;i<12;i++)await Promise.resolve();
  assert(requests.some(x=>x.body.action==='study_heartbeat'&&x.body.seconds===0),'Initial server-side timestamp missing');
  assert(requests.some(x=>x.body.action==='study_heartbeat'&&x.body.seconds>0),'Active seconds not recorded');
  const previous=requests.length;
