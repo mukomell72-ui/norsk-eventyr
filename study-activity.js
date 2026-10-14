@@ -3,7 +3,7 @@
 (() => {
  'use strict';
  const ENDPOINT='/api/session',WINDOW_MS=90000;
- let lastHuman=0,pending=0,userId='',initialized=false,posting=false,ephemeralConsent=null;
+ let lastHuman=0,pending=0,userId='',initialized=false,postingPromise=null,ephemeralConsent=null;
  const access=()=>window.NEAccess;
  const info=()=>access()?.info?.();
  const consentKey=()=> 'ne_activity_consent_v1:'+String(info()?.user_id||'');
@@ -15,7 +15,7 @@
   const choice=enabled?'yes':'no';ephemeralConsent=choice;
   try{localStorage.setItem(consentKey(),choice)}catch{}
   document.getElementById('neStudyActivityNotice')?.remove();
-  if(!enabled){lastHuman=0;pending=0;initialized=false}
+  if(!enabled){lastHuman=0;pending=0;initialized=false;eraseStudyHistory()}
   else humanActivity();
  }
  window.NEStudyActivity={consent,setConsent};
@@ -24,13 +24,19 @@
  const eligible=()=>canShow()&&consent()==='yes';
  function headers(){return {'Content-Type':'application/json',...(access()?.headers?.()||{})}}
  async function send(seconds){
-  if(posting||!userId)return;
-  posting=true;
-  try{
-   await fetch(ENDPOINT,{method:'POST',credentials:'same-origin',cache:'no-store',
-    headers:headers(),body:JSON.stringify({action:'study_heartbeat',seconds}),
-    keepalive:true});
-  }catch{}finally{posting=false}
+  if(postingPromise||!userId)return;
+  postingPromise=(async()=>{
+   try{await fetch(ENDPOINT,{method:'POST',credentials:'same-origin',cache:'no-store',
+    headers:headers(),body:JSON.stringify({action:'study_heartbeat',seconds}),keepalive:true})}catch{}
+  })();
+  try{await postingPromise}finally{postingPromise=null}
+ }
+ async function eraseStudyHistory(){
+  // Finish any in-flight heartbeat before requesting deletion, so a delayed
+  // heartbeat cannot resurrect an opted-out learner's activity records.
+  if(postingPromise)await postingPromise;
+  try{await fetch(ENDPOINT,{method:'POST',credentials:'same-origin',cache:'no-store',
+   headers:headers(),body:JSON.stringify({action:'study_opt_out'})})}catch{}
  }
  function maybeStart(){
   if(!eligible())return false;
