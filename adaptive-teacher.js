@@ -56,7 +56,16 @@ function priorityError(state,level){
  const p=ensure(state),today=dayKey();
  return Object.values(p.patternStats).filter(e=>e&&e.level===level&&e.misses>=2&&e.severity>=35&&(!e.due||e.due<=today)).sort((a,b)=>b.severity-a.severity||b.misses-a.misses)[0]||null;
 }
-function moduleState(p,id){return p.modules[id]||(p.modules[id]={skills:{},attempts:0,mastery:0,lastSeen:null,transferPasses:0})}
+function moduleState(p,id){
+ if(p.modules[id])return p.modules[id];
+ // Mark every newly observed curriculum chapter as a course chapter on its
+ // first practice answer. High quiz scores must never become legacy mastery.
+ // Existing saved modules are left untouched to preserve historical progress.
+ const curricular=!!window.NECurriculum?.moduleById(id);
+ const m={skills:{},attempts:0,mastery:0,lastSeen:null,transferPasses:0};
+ if(curricular)m.courseV2={passedStages:[],startedOn:dayKey(),lastFeedback:null};
+ return p.modules[id]=m;
+}
 function activateCourse(p,id){
  const m=moduleState(p,id);
  if(!m.courseV2&&evidenceMastery(m)<78){
