@@ -21,6 +21,10 @@ assert(sql.includes('auth.uid()'),'Heartbeat must bind identity to authenticated
 assert(sql.includes('least(p_seconds,30'),'Heartbeat server duration must be bounded');
 assert(sql.includes("time zone 'Europe/Oslo'"),'Daily grouping must use a defined time zone');
 assert(handler.includes("action==='study_heartbeat'"),'Tracker endpoint missing');
+assert(handler.includes("action==='study_opt_out'"),'Revocation endpoint missing');
+assert(src.includes("action:'study_opt_out'"),'Opt-out must request deletion');
+assert(sql.includes('create or replace function public.ne_study_opt_out()'),'Database-side opt-out missing');
+assert(read('deferred/OWNER_STUDY_ACTIVITY_RETENTION_2026-10-15.sql').includes("cron.schedule('norsk-eventyr-study-retention-90d'"),'Retention schedule missing');
 assert(handler.includes("identity.access.access_granted!==true"),'Tracker endpoint must enforce valid app access');
 assert(handler.includes("action==='owner_study_activity'"),'Owner summary endpoint missing');
 assert(handler.includes("action==='owner_study_activity_days'"),'Owner daily endpoint missing');
@@ -69,11 +73,13 @@ async function finish(){
  const previous=requests.length;
  win.NEStudyActivity.setConsent(false);
  for(let i=0;i<60;i++)tick();
- assert.equal(requests.length,previous,'Opt-out must immediately stop future analytics');
+ await Promise.resolve();await Promise.resolve();await Promise.resolve();
+ assert(requests.some(x=>x.body.action==='study_opt_out'),'Opt-out must erase server-side history');
+ assert(requests.filter(x=>x.body.action==='study_heartbeat').length===previous,'Opt-out must immediately stop future heartbeat');
  hidden=true;
  subs.visibilitychange?.();
  for(let i=0;i<40;i++)tick();
- assert.equal(requests.length,previous,'Hidden app must not continue counting');
+ assert.equal(requests.filter(x=>x.body.action==='study_heartbeat').length,previous,'Hidden app must not continue counting');
  console.log('PASS owner study activity: owner-only RPC permissions, verified-user heartbeat, opt-in/out, hidden-tab behavior and PWA assets');
 }
 finish().catch(e=>{console.error(e);process.exitCode=1});
