@@ -37,11 +37,15 @@ function modulePlan(module,state){
  if(!module||!LEVEL_WEEKS[module.level])return null;
  const base=levelPlan(module.level);
  const completed=Math.max(0,Number(state?.learningV8?.modules?.[module.id]?.completions)||0);
- const stageIndex=Math.min(STAGES.length-1,Math.floor(completed/Math.max(1,Math.ceil(base.daysPerModule/STAGES.length))));
+ const passed=state?.learningV8?.modules?.[module.id]?.courseV2?.passedStages;
+ // Modern courses advance on verified learning stages; completion counts are
+ // retained as a read-only compatibility path for legacy learners only.
+ const stageIndex=Array.isArray(passed)?Math.min(STAGES.length-1,passed.length):Math.min(STAGES.length-1,Math.floor(completed/Math.max(1,Math.ceil(base.daysPerModule/STAGES.length))));
  const stage=STAGES[stageIndex];
  const objective=stageIndex===0?module.canDo?.[0]:stageIndex===1?module.canDo?.[1]:stageIndex===2?module.canDo?.[2]:module.canDo?.[0];
  return {id:module.id,level:module.level,stageKey:stage.key,stageIndex,stageTitle:stage.title,stageInstruction:stage.instruction,objective:objective||module.title,
-  lessonNumber:completed+1,studyDaysGuide:base.daysPerModule,grammar:module.grammar,lexicon:module.lexicon,canDo:module.canDo?.slice()||[]};
+  lessonNumber:completed+1,studyDaysGuide:base.daysPerModule,verifiedStages:Array.isArray(passed)?passed.length:null,graduated:Array.isArray(passed)&&passed.length===STAGES.length,
+  grammar:module.grammar,lexicon:module.lexicon,canDo:module.canDo?.slice()||[]};
 }
 window.NECourseMethod=Object.freeze({source:'NTNU LearnNoW structure + HK-dir Læreplan + CEFR 2020; original authored activities',
  levelWeeks:LEVEL_WEEKS,levels:['A1','A2','B1','B2'],stages:STAGES,levelPlan,courseEstimate,dailyPlan,modulePlan});
