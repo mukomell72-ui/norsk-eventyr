@@ -24,6 +24,7 @@ for(const level of expectedLevels){
 }
 assert.equal(library.byLevel('B1',['speech_corpus']).length,3);
 assert(library.byLevel('B2',['speech_corpus']).some(r=>r.id==='nb-samtale'));
+assert.equal(library.entries.find(r=>r.id==='nb-parliament').url,'https://www.nb.no/sprakbanken/ressurskatalog/en/oai-nb-no-sbr-84/','Use corrected and reviewed corpus release');
 const access=read('access.js'),sw=read('sw.js'),elite=read('elite.js'),map=read('ui-v7.js');
 assert(access.includes("'course-methodology.js','verified-learning-resources.js','practice-foundations.js'"),'Catalogue must load before course and listening pages');
 assert(sw.includes('/verified-learning-resources.js?v=8.3.0-lesson6'),'Catalogue must be in offline PWA cache');
@@ -31,4 +32,4 @@ assert(elite.includes("window.NEResources?.byLevel(state.level"),'Listening Lab 
 assert(elite.includes('CC0-корпуса Språkbanken')&&elite.includes('ещё не встроены в наш плеер'),'Listening Lab must disclose that archives are not yet playable in-app');
 assert(map.includes("window.NEResources?.byLevel(courseLevel,['course'])"),'Course map must include professional learning links');
 assert(!read('verified-learning-resources.js').includes('sourceType:\'human_recording\''),'A corpus catalogue is not reviewed/approved in-app recordings');
-console.log('PASS verified external Norwegian resources: 12 traceable institutional sources, explicit licensing and integrated level-filtered UI');
+console.log('PASS verified external Norwegian resources: 13 traceable institutional sources, explicit licensing and integrated level-filtered UI');
