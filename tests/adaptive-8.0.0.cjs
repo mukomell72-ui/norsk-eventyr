@@ -71,9 +71,19 @@ A.recordAttempt(retentionState,{level:'A1',skill:'reading',score:100,moduleId:'a
 A.recordAttempt(retentionState,{level:'A1',skill:'reading',score:100,moduleId:'a1-foundation',source:'qa'});
 const sameDayReview=retentionState.learningV8.reviews['a1-foundation:reading'];
 assert(!(sameDayReview.delayedPasses>0),'ordinary repeated answers must not create delayed retention evidence');
+assert(sameDayReview.stage===0,'same-day perfect scores must not advance spaced-review intervals');
+const scheduledTomorrow=sameDayReview.due;
+A.recordAttempt(retentionState,{level:'A1',skill:'reading',score:100,moduleId:'a1-foundation',source:'qa_extra'});
+assert(sameDayReview.stage===0&&sameDayReview.due===scheduledTomorrow,'same-day retries must preserve the first delayed review date');
 sameDayReview.due='2000-01-01';
 A.recordAttempt(retentionState,{level:'A1',skill:'reading',score:95,moduleId:'a1-foundation',source:'qa_review',reviewKey:'a1-foundation:reading'});
 assert(sameDayReview.delayedPasses===1&&sameDayReview.lastDelayedScore===95,'a genuinely due review must create delayed retention evidence');
+assert(sameDayReview.stage===1,'a high score on a genuinely due review should advance by one interval');
+const futureReviewDue=sameDayReview.due;
+A.recordAttempt(retentionState,{level:'A1',skill:'reading',score:95,moduleId:'a1-foundation',source:'qa_early'});
+assert(sameDayReview.stage===1&&sameDayReview.due===futureReviewDue,'an early extra attempt must not push the next review further away');
+A.recordAttempt(retentionState,{level:'A1',skill:'reading',score:30,moduleId:'a1-foundation',source:'qa_fail'});
+assert(sameDayReview.stage===0&&sameDayReview.due<futureReviewDue,'an early failure should bring the review forward and reset the stage');
 
 // An assessment for another level must update that level only.
 const a1WritingBefore=p.levelSkills.A1.writing,a2WritingBefore=p.levelSkills.A2.writing;

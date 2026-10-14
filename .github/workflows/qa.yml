@@ -50,6 +50,19 @@ jobs:
           path: release-out/*
           retention-days: 14
           if-no-files-found: error
+      - name: Bundle the integrated 8.3.0 source for local testing
+        if: success() && github.event_name == 'pull_request' && github.head_ref == 'integration/norsk-eventyr-8-3-course-retention-20261014'
+        env:
+          NE_RELEASE_REF: ${{ github.event.pull_request.head.sha }}
+        run: node tools/prepare-staging-release.cjs --ref "$NE_RELEASE_REF"
+      - name: Upload integrated local source with checksum
+        if: success() && github.event_name == 'pull_request' && github.head_ref == 'integration/norsk-eventyr-8-3-course-retention-20261014'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Norsk-Eventyr-8.3.0-course-retention-local
+          path: release-out/*
+          retention-days: 14
+          if-no-files-found: error
       - name: Store screenshots for manual visual QA
         if: always()
         uses: actions/upload-artifact@v4

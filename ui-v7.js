@@ -199,14 +199,17 @@
     }).join("");
     const list=modules.map((m,i)=>{
       const mastery=masteryOf(m),isDone=mastery>=78,isNext=next?.id===m.id,locked=!isDone&&!isNext;
-      return '<button class="near-lesson-v7 '+(isDone?"done ":"")+(locked?"locked":"")+'" onclick="teacherStartModule(\''+js(m.id)+'\')"><span>'+(isDone?"✓":i+1)+'</span><div><b>'+h(m.title)+'</b><small>'+h(m.canDo?.[0]||"Практическая цель")+'</small></div><em>'+mastery+'%</em></button>';
+      const syllabus=window.NECourseMethod?.modulePlan(m,state);
+      return '<button class="near-lesson-v7 '+(isDone?"done ":"")+(locked?"locked":"")+'" onclick="teacherStartModule(\''+js(m.id)+'\')"><span>'+(isDone?"✓":i+1)+'</span><div><b>'+h(m.title)+'</b><small>'+h(m.canDo?.[0]||"Практическая цель")+'</small>'+(syllabus?'<small>'+h(syllabus.stageTitle)+' · '+h(m.grammar)+'</small>':'')+'</div><em>'+mastery+'%</em></button>';
     }).join("");
+    const levelSchedule=window.NECourseMethod?.levelPlan(courseLevel),daily=window.NECourseMethod?.dailyPlan(state.elite?.dailyMinutes||60);
     const legacy=coreLessonsV7(courseLevel),topics=(typeof TOPIC_CATALOG!=="undefined"?TOPIC_CATALOG:[]).filter(x=>x.level===courseLevel).slice(0,8);
     shell(
       '<section class="course-v7">'+
         '<section class="course-hero-v7"><div class="course-copy-v7"><small>Адаптивный путь Bokmål · A1–B2</small><h1>Курс '+h(courseLevel)+'</h1><p>Каждый модуль закрывается только после доказательств по навыкам, а не после просмотра урока.</p></div><div class="level-tabs-v7">'+LEVELS_V7.map(l=>'<button class="'+(l===courseLevel?"active":"")+'" onclick="renderCourse(\''+l+'\')">'+l+'</button>').join("")+'</div>'+
         '<div class="progress-card-v7"><div><b>'+h(courseLevel)+'</b><small>'+done+' из '+modules.length+' модулей освоено</small></div><i><em style="width:'+routeProgress+'%"></em></i><strong>'+routeProgress+'%</strong></div>'+
-        '<div class="notice" style="margin-top:12px"><b>Профиль навыков: '+profile+'%</b> · '+(gate?.pass?"уровень подтверждён внутренними критериями":"уровень ещё не подтверждён")+'. Маршрут и профиль — разные показатели.</div></section>'+
+        '<div class="notice" style="margin-top:12px"><b>Профиль навыков: '+profile+'%</b> · '+(gate?.pass?"уровень подтверждён внутренними критериями":"уровень ещё не подтверждён")+'. Маршрут и профиль — разные показатели.</div>'+
+        (levelSchedule?'<div class="notice" style="margin-top:10px"><b>Учебная программа, не разрозненные уроки.</b> 8 модулей по порядку; каждый включает ситуацию, разбор, аудирование, речевую практику и перенос навыка. Ориентир '+levelSchedule.weeks+' недель при занятиях по 60 мин × 6 дней. Твой дневной план: '+daily.minutes+' минут. Сроки ориентировочные, переход только по навыкам.</div>':'')+'</section>'+
         '<section class="course-map-v7"><div class="map-shade-v7"></div><div class="map-title-v7"><small>32-модульный маршрут</small><b>'+h(courseLevel)+' · '+h(next?.title||"Повторение")+'</b></div>'+nodes+
           (next?'<button class="map-continue-v7" onclick="teacherStartModule(\''+js(next.id)+'\')">Продолжить с Норой →</button>':'')+
         '</section>'+

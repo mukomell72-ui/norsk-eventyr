@@ -16,13 +16,14 @@ export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY"});
   if(!await guard(req,res,{limit:24}))return;
   if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED"});
-  const {kind="lesson",level="A1",topic="",goal="",weakSkills=[],reviewWords=[],moduleId="",skillFocus="",canDo=[],grammarFocus="",lexiconFocus="",mastery={},errorPatterns=[],targetErrorTag="",teacherMode=false,reviewMode=false,scenarioVariation=""}=req.body||{};
+  const {kind="lesson",level="A1",topic="",goal="",weakSkills=[],reviewWords=[],moduleId="",skillFocus="",canDo=[],grammarFocus="",lexiconFocus="",mastery={},errorPatterns=[],targetErrorTag="",teacherMode=false,reviewMode=false,scenarioVariation="",courseStage="",courseStageTitle="",courseObjective="",courseInstruction=""}=req.body||{};
   if(!["A1","A2","B1","B2"].includes(level))return res.status(400).json({error:"BAD_LEVEL"});
   const reinforcement=Array.isArray(reviewWords)?reviewWords.slice(0,15).map(x=>String(x).slice(0,100)).filter(Boolean):[];
   const common=[
     "Ты создаёшь оригинальные задания по норвежскому Bokmål для взрослого русскоязычного ученика.",
     "Уровень CEFR: "+level+". Модуль: "+String(moduleId).slice(0,90)+". Тема: "+String(topic).slice(0,220)+". Цель: "+String(goal).slice(0,500)+".",
     "Can-do цели: "+(Array.isArray(canDo)?canDo.slice(0,6).map(x=>String(x).slice(0,180)).join("; "):"")+".",
+    teacherMode&&courseStage?"СТРОГОЕ МЕСТО В УЧЕБНОМ КУРСЕ: этап "+String(courseStage).slice(0,30)+" ("+String(courseStageTitle).slice(0,100)+"). Ближайшая коммуникативная задача: "+String(courseObjective).slice(0,190)+". Принцип занятия: "+String(courseInstruction).slice(0,300)+". Новые слова, грамматика, диалог и вопросы обязаны работать на одну задачу этого модуля. Не переключайся на произвольную тему.": "",
     "Главный навык занятия: "+String(skillFocus).slice(0,40)+". Грамматика: "+String(grammarFocus).slice(0,220)+". Лексическое поле: "+String(lexiconFocus).slice(0,220)+".",
     "Текущий профиль мастерства 0–100: "+JSON.stringify(mastery||{}).slice(0,500)+". Повторяющиеся ошибки: "+(Array.isArray(errorPatterns)?errorPatterns.slice(0,8).join(", "):"")+".",
     targetErrorTag?"Целевая повторяющаяся ошибка: "+String(targetErrorTag).slice(0,50)+". Дай минимум две естественные возможности самостоятельно исправить её в новых обстоятельствах, не показывая правильный ответ заранее.":"",
@@ -54,6 +55,7 @@ export default async function handler(req,res){
     const reviewPrompt=[
       "Ты старший преподаватель и методист норвежского как второго языка. Проверь JSON учебного материала уровня "+level+" на реальную учебную ценность.",
       "Проверь соответствие can-do цели, естественность Bokmål, возрастающую когнитивную нагрузку, отсутствие подсказки в самом вопросе и возможность переноса навыка в новую ситуацию.",
+      teacherMode&&courseStage?"Проверь, что все задания опираются на текущий этап курса "+String(courseStage).slice(0,30)+" и коммуникативную задачу "+String(courseObjective).slice(0,190)+". Убери случайные, не связанные с модулем темы.":"",
       "Для B1-B2 отдельно проверь чтение и аудирование: правильный ответ должен требовать понимания смысла/позиции/причины/вывода, а не простого совпадения слов; дистракторы должны быть правдоподобными.",
       "Исправь только реальные проблемы: неестественный Bokmål, неверную грамматику, неоднозначные варианты, несоответствие уровню, плохие переводы, слишком искусственные фразы.",
       "Проверь, что dialogueScene, dialogueSpeaker, dialogueIntro, phrase и dialogueTask согласованы: кто говорит, кому, зачем и какой осмысленный ответ ждём. Словарь должен поддерживать эту ситуацию, особенно для «Hyggelig å møte deg!».",
