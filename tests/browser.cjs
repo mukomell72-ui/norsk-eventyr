@@ -145,7 +145,7 @@ const server=http.createServer(async(req,res)=>{
     const answer=document.querySelector('#freeAnswer');
     const row=document.querySelector('.speech-actions-v831');
     const dock=document.querySelector('.dock-v7');
-    const rgb=v=>String(v).match(/\\d+(?:\\.\\d+)?/g).slice(0,3).map(Number);
+    const rgb=v=>String(v).match(/[0-9]+(?:[.][0-9]+)?/g).slice(0,3).map(Number);
     const luminance=v=>rgb(v).map(x=>x/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4).reduce((sum,x,i)=>sum+x*[.2126,.7152,.0722][i],0);
     const contrast=(a,b)=>{const v=[luminance(a),luminance(b)].sort((x,y)=>x-y);return (v[1]+.05)/(v[0]+.05)};
     const bg=getComputedStyle(help).backgroundColor;
