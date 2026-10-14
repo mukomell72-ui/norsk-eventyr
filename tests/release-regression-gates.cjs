@@ -20,9 +20,9 @@ const revision=(access.match(/const ASSET_REV='([^']+)'/)||[])[1];
 assert.equal(revision,v,'Access bootstrap must fetch the published revision');
 const baseCache='norsk-eventyr-v'+v.replaceAll('.','-');
 const actualCache=(sw.match(/^const CACHE="([^"]+)";/m)||[])[1];
-const uiRevision=actualCache?.startsWith(baseCache)?actualCache.slice(baseCache.length):null;
-assert(uiRevision!==null&&(/^(?:-ui[1-9][0-9]*)?$/).test(uiRevision),
-  'PWA cache must match the release version or a numbered UI-only revision');
+const assetRevision=actualCache?.startsWith(baseCache)?actualCache.slice(baseCache.length):null;
+assert(assetRevision!==null&&(/^(?:-(?:ui|auth)[1-9][0-9]*)?$/).test(assetRevision),
+  'PWA cache must match the release version or a numbered authenticated UI revision');
 assert(index.includes('<title>Norsk Eventyr '+v),'Page must show exact application version');
 assert(health.includes('version:"'+v+'"'),'Health endpoint must report the deployed version');
 const assetsLiteral=(sw.match(/^const ASSETS=(\[[^\n]+\]);/m)||[])[1];
@@ -35,15 +35,23 @@ for(const asset of assets){
  const [pathname,query]=asset.split('?');
  if(asset!=='/')assert(exists(pathname.replace(/^\//,'')),'PWA update will fail: missing '+asset);
  if(query&&pathname!=='/manifest.json'){
-  const expected='v='+v+(pathname==='/v8.css'?uiRevision:'');
+  const expected='v='+v+(['/v8.css',...(assetRevision?.startsWith('-auth')?['/access.js','/access.css']:[])].includes(pathname)?assetRevision:'');
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
 }
 }
-if(uiRevision){
-  assert(index.includes('href="/v8.css?v='+v+uiRevision+'"'),
+if(assetRevision){
+  assert(index.includes('href="/v8.css?v='+v+assetRevision+'"'),
     'UI patch must force the same fresh stylesheet on the page');
-  assert(assets.includes('/v8.css?v='+v+uiRevision),
+  assert(assets.includes('/v8.css?v='+v+assetRevision),
     'UI patch stylesheet must be available offline');
+}
+if(assetRevision?.startsWith('-auth')){
+  for(const [tag,asset] of [['src','access.js'],['href','access.css']]){
+    const expected=tag+'="/'+asset+'?v='+v+assetRevision+'"';
+    assert(index.includes(expected),'Page must load fresh authentication bootstrap: '+expected);
+    assert(assets.includes('/'+asset+'?v='+v+assetRevision),
+      'PWA precache must include fresh authentication bootstrap: '+asset);
+  }
 }
 const assetSet=new Set(assets);
 const bootstrap=access.match(/const ASSET_REV='[^']+',scripts=(\[[^\]]+\]);/);

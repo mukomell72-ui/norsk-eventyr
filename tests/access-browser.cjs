@@ -189,6 +189,61 @@ const server=http.createServer(async(req,res)=>{
 
  await admin.getByRole('tab',{name:'Пользователи',exact:true}).click();await admin.waitForSelector('.admin-user-row');await admin.getByRole('button',{name:'Открыть',exact:true}).click();await admin.getByRole('button',{name:'Одобрить аккаунт',exact:true}).click();await admin.waitForFunction(()=>document.body.textContent.includes('Одобрен'));await page.locator('#accessCheck').click();await page.waitForFunction(()=>window.NEAccess?.ready());assert.equal(await page.evaluate(()=>state.xp),77);
 
+
+ // A status 503 should not eject an already verified learner or lose an
+ // unsent response. These tests do not change real accounts or backend data.
+ await page.evaluate(()=>{
+   navigate('home');
+   const input=document.createElement('textarea');
+   input.id='qa-unsubmitted-answer';
+   input.value='Jeg leter etter nøkkelen på kjøkkenet.';
+   document.querySelector('#app main').append(input);
+ });
+ const outageRoute=async route=>{
+   if(route.request().postDataJSON()?.action==='status')
+     await route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({error:'ACCESS_UNAVAILABLE'})});
+   else await route.continue();
+ };
+ await page.route('**/api/session',outageRoute);
+ assert.equal(await page.evaluate(()=>NEAccess.status()),false);
+ assert.equal(await page.locator('#app').isVisible(),true,'Transient server failure must keep lesson displayed');
+ assert.equal(await page.locator('#neAccessTemporaryWarning').count(),1);
+ assert.equal(await page.locator('#qa-unsubmitted-answer').inputValue(),'Jeg leter etter nøkkelen på kjøkkenet.');
+ assert.equal(await page.evaluate(()=>NEAccess.allowed()),true,'Short grace preserves previously verified local work');
+
+ // Duration-bound permission: never grant indefinite offline access.
+ await page.evaluate(()=>{
+   window.__qaDateNow=Date.now;
+   const initial=Date.now();
+   Date.now=()=>initial+91000;
+ });
+ assert.equal(await page.evaluate(()=>NEAccess.status()),false);
+ assert.equal(await page.locator('#app').isVisible(),false,'Outage beyond 90s must block the display');
+ assert.equal(await page.evaluate(()=>NEAccess.allowed()),false);
+ assert.equal(await page.locator('#qa-unsubmitted-answer').inputValue(),'Jeg leter etter nøkkelen på kjøkkenet.','Hidden draft remains intact');
+ await page.evaluate(()=>{Date.now=window.__qaDateNow;delete window.__qaDateNow});
+ await page.unroute('**/api/session',outageRoute);
+ assert.equal(await page.evaluate(()=>NEAccess.status()),true);
+ assert.equal(await page.locator('#app').isVisible(),true,'Valid session should resume without reload');
+ assert.equal(await page.locator('#neAccessTemporaryWarning').count(),0);
+ assert.equal(await page.locator('#qa-unsubmitted-answer').inputValue(),'Jeg leter etter nøkkelen på kjøkkenet.');
+
+ // Explicitly invalid session never receives a grace period.
+ const deniedRoute=async route=>{
+   if(route.request().postDataJSON()?.action==='status')
+     await route.fulfill({status:401,contentType:'application/json',body:JSON.stringify({error:'LOGIN_REQUIRED'})});
+   else await route.continue();
+ };
+ await page.route('**/api/session',deniedRoute);
+ await page.evaluate(()=>NEAccess.status());
+ assert.equal(await page.locator('#app').isVisible(),false,'Explicit 401 must lock immediately');
+ assert.equal(await page.locator('#accessLogin').count(),1);
+ assert.equal(await page.evaluate(()=>NEAccess.allowed()),false);
+ await page.unroute('**/api/session',deniedRoute);
+ assert.equal(await page.evaluate(()=>NEAccess.status()),true);
+ assert.equal(await page.locator('#app').isVisible(),true);
+ console.log('PASS transient auth failure: 503 keeps draft, grace expires safely, valid session restores, 401 blocks');
+ 
  for(const target of [page,admin])assert(!await target.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2));
  assert.deepEqual(errors,[]);
  await browser.close();server.close();

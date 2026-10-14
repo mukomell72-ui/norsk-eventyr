@@ -4,6 +4,10 @@
  const ASSET_REV='8.3.0',scripts=['data.js','curriculum-v8.js','practice-foundations.js','foundation-extensions.js','advanced-b1.js','advanced-b2.js','adaptive-teacher.js','app.js','voice-pack.js','v3.js','lexicon.js','elite.js','story-data.js','story.js','ui-v6.js','ui-v7.js','ui-v8.js','placement-calibration.js','updates.js','feedback.js'];
  const app=document.getElementById('app'),gate=document.createElement('main');gate.id='accessGate';gate.className='access-gate';document.body.append(gate);
  let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false,confirmationEmail=null,installSeenSent=false,errorReportBusy=false,growthActivityDateSent='',panelOpen=false,panelEpoch=0;
+ // Keep a verified in-progress lesson open during short upstream 503 / connectivity hiccups.
+ // Once the bounded grace period ends, fail closed until status is verified again.
+ const ACCESS_GRACE_MS=90000,ACCESS_RETRY_MS=12000;
+ let accessFailureAt=0,accessRetryTimer=null;
  const safe=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  function deviceId(){
   const key='ne_device_id_v1';
@@ -249,6 +253,28 @@
   if(isInstalled())markInstalled('standalone');
   markGrowthActivity();
  }
+ function clearAccessRetry(){
+  if(accessRetryTimer!==null){clearTimeout(accessRetryTimer);accessRetryTimer=null}
+ }
+ function clearAccessWarning(){document.getElementById('neAccessTemporaryWarning')?.remove()}
+ function clearAccessInterruption(){
+  accessFailureAt=0;clearAccessRetry();clearAccessWarning();
+ }
+ function showAccessWarning(){
+  if(document.getElementById('neAccessTemporaryWarning'))return;
+  const notice=document.createElement('aside');
+  notice.id='neAccessTemporaryWarning';
+  notice.setAttribute('role','status');
+  notice.textContent='Связь с сервером временно прервалась. Урок сохранён на экране; автоматически пробуем подключиться снова.';
+  document.body.append(notice);
+ }
+ function scheduleAccessRetry(){
+  if(accessRetryTimer!==null)return;
+  accessRetryTimer=setTimeout(()=>{
+   accessRetryTimer=null;
+   if(loaded&&!document.hidden&&!panelOpen&&!checking)status();
+  },ACCESS_RETRY_MS);
+ }
  async function status(){
   if(checking)return checking;
   const requestPanelEpoch=panelEpoch;
@@ -257,12 +283,42 @@
     const nextIdentity=await call('status');
     // An in-flight check must not replace an admin panel opened after the request began.
     if(panelOpen&&requestPanelEpoch!==panelEpoch)return true;
+    clearAccessInterruption();
     identity=nextIdentity;
     if(identity.status==='terms_required'||(!identity.owner&&identity.accepted_privacy_version&&identity.accepted_privacy_version!==PRIVACY_VERSION)){terms();return false}
     clearPendingReferral();
     if(identity.access_granted===true){await load();return true}
     waiting();return false;
-   }catch(e){if(panelOpen&&requestPanelEpoch!==panelEpoch)return false;identity=null;if(e.code==='LOGIN_REQUIRED')login();else if(['DEVICE_LIMIT','CONCURRENT_DEVICE','DEVICE_REQUIRED'].includes(e.code)){view('<h1>Доступ с этого устройства ограничен</h1><p>'+safe(e.message)+'</p><div class="row"><button class="btn" id="accessRetry">Проверить снова</button><button class="btn ghost" id="accessLogout">Выйти</button></div>');document.getElementById('accessRetry').onclick=()=>act(status);document.getElementById('accessLogout').onclick=logout}else{view('<h1>Проверка доступа недоступна</h1><p>Для проверки доступа нужно подключение к интернету.</p><button class="btn" id="accessRetry">Повторить</button>');message(e.message);document.getElementById('accessRetry').onclick=()=>act(status)}return false}
+   }catch(e){
+    if(panelOpen&&requestPanelEpoch!==panelEpoch)return false;
+    // A network timeout / 503 / 429 is NOT a revoked account. Preserve the
+    // mounted learning DOM and unsent answers for up to 90 seconds.
+    // The server continues to enforce authentication on every API request.
+    const transient=!e.code||['ACCESS_UNAVAILABLE','RATE_LIMIT','SESSION_UNAVAILABLE'].includes(e.code);
+    if(transient&&loaded&&identity?.access_granted===true){
+     if(!accessFailureAt)accessFailureAt=Date.now();
+     if(Date.now()-accessFailureAt<ACCESS_GRACE_MS){
+      showAccessWarning();
+      scheduleAccessRetry();
+      return false;
+     }
+    }
+    // Explicit LOGIN_REQUIRED, revocation/device restrictions and exhausted
+    // transient grace always block. Previously mounted progress stays in DOM.
+    clearAccessInterruption();
+    identity=null;
+    if(e.code==='LOGIN_REQUIRED')login();
+    else if(['DEVICE_LIMIT','CONCURRENT_DEVICE','DEVICE_REQUIRED'].includes(e.code)){
+     view('<h1>Доступ с этого устройства ограничен</h1><p>'+safe(e.message)+'</p><div class="row"><button class="btn" id="accessRetry">Проверить снова</button><button class="btn ghost" id="accessLogout">Выйти</button></div>');
+     document.getElementById('accessRetry').onclick=()=>act(status);
+     document.getElementById('accessLogout').onclick=logout;
+    }else{
+     view('<h1>Проверка доступа недоступна</h1><p>Сервер временно не отвечает. Это не обязательно проблема с интернетом. Открытый урок и введённый ответ сохраняются.</p><button class="btn" id="accessRetry">Повторить проверку</button>');
+     message(e.message);
+     document.getElementById('accessRetry').onclick=()=>act(status);
+    }
+    return false;
+   }
   })();try{return await checking}finally{checking=null}
  }
  async function logout(){await act(async()=>{if(loaded&&typeof saveState==='function')saveState();await call('logout');location.reload()})}
@@ -309,6 +365,10 @@
  window.addEventListener('unhandledrejection',event=>{reportClientError('UNHANDLED_REJECTION',event.reason)});
  window.addEventListener('focus',()=>{if(loaded&&!panelOpen&&!gate.querySelector('#accessList')){markGrowthActivity();status()}});
  setInterval(()=>{if(loaded&&!panelOpen&&!document.hidden&&!busy&&!checking&&!gate.querySelector('#accessList'))status()},60000);
+ window.addEventListener('online',()=>{if(loaded&&!checking&&!panelOpen)status()});
+ document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden&&accessFailureAt&&loaded&&!checking&&!panelOpen)status();
+ });
  view('<h1>Проверяем доступ…</h1>');
  (async()=>{
   const params=new URLSearchParams(location.search),hashParams=new URLSearchParams(location.hash.replace(/^#/,''));

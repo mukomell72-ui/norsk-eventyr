@@ -50,3 +50,15 @@
 .access-legal-info summary{cursor:pointer;font-weight:700}
 .access-legal-info[open] summary{margin-bottom:8px}
 .access-legal-info p{margin:7px 0}
+
+/* Temporary server-check outage: never cover a working lesson during grace. */
+#neAccessTemporaryWarning{
+ position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));
+ transform:translateX(-50%);z-index:180;
+ width:min(680px,calc(100% - 28px));box-sizing:border-box;
+ padding:12px 16px;border-radius:15px;
+ border:1px solid #efcd74;background:#173348;color:#fff5d8;
+ box-shadow:0 9px 30px #0009;font-size:14px;line-height:1.4;
+ pointer-events:none;
+}
+@media(max-width:620px){#neAccessTemporaryWarning{font-size:13px;bottom:calc(90px + env(safe-area-inset-bottom))}}
