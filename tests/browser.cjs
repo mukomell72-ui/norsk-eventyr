@@ -127,6 +127,56 @@ const server=http.createServer(async(req,res)=>{
   await page.evaluate(()=>document.getElementById('qa-on-demand-translation').remove());
   console.log('PASS real browser opt-in task translation: hidden by default, reversible and unsent answer preserved');
 
+  // Live Pixel 8.3 screenshot regression: nested Russian help must use dark
+  // ink on a light surface. Both speaking controls must be reachable above dock.
+  const mobileSpeaking=await browser.newPage({viewport:{width:390,height:844},serviceWorkers:'block'});
+  await mobileSpeaking.goto('http://127.0.0.1:'+server.address().port);
+  await mobileSpeaking.waitForFunction(()=>window.NEAccess?.ready()&&window.NECurated?.get);
+  await mobileSpeaking.evaluate(()=>{
+    const l={...NECurated.get('a1-home'),id:'adaptive-a1-contrast-qa',level:'A1',
+      _adaptive:{moduleId:'a1-home',kind:'learn',skill:'speaking'}};
+    lessonSession={lesson:l,step:6,locked:false,speakingFollowup:false};
+    renderLesson();
+    document.querySelector('.a1-task-support summary').click();
+  });
+  const visual=await mobileSpeaking.evaluate(()=>{
+    const help=document.querySelector('.lesson-exercise-v6 .a1-task-support .notice');
+    const ink=help.querySelector('b'),hint=help.querySelector('small');
+    const answer=document.querySelector('#freeAnswer');
+    const row=document.querySelector('.speech-actions-v831');
+    const dock=document.querySelector('.dock-v7');
+    const rgb=v=>String(v).match(/\\d+(?:\\.\\d+)?/g).slice(0,3).map(Number);
+    const luminance=v=>rgb(v).map(x=>x/255).map(x=>x<=.04045?x/12.92:((x+.055)/1.055)**2.4).reduce((sum,x,i)=>sum+x*[.2126,.7152,.0722][i],0);
+    const contrast=(a,b)=>{const v=[luminance(a),luminance(b)].sort((x,y)=>x-y);return (v[1]+.05)/(v[0]+.05)};
+    const bg=getComputedStyle(help).backgroundColor;
+    return {bodyContrast:contrast(getComputedStyle(help).color,bg),
+      headingContrast:contrast(getComputedStyle(ink).color,bg),
+      hintContrast:contrast(getComputedStyle(hint).color,bg),
+      textareaHeight:answer.getBoundingClientRect().height,
+      grid:getComputedStyle(row).display,
+      dock:!!dock,
+      disclosureOpen:document.querySelector('.a1-task-support').open,
+      version:APP_VERSION};
+  });
+  assert(visual.bodyContrast>=4.5&&visual.headingContrast>=4.5&&visual.hintContrast>=4.5,
+    'Expanded Russian translation must be readable: '+JSON.stringify(visual));
+  assert(visual.textareaHeight<=115,'Phone speaking answer input must be compact: '+JSON.stringify(visual));
+  assert.equal(visual.grid,'grid');
+  assert(visual.disclosureOpen&&visual.dock);
+  for(const selector of ['#micBtn','.speech-actions-v831>.btn:last-child']){
+    await mobileSpeaking.locator(selector).evaluate(el=>el.scrollIntoView({block:'center',behavior:'instant'}));
+    const visibility=await mobileSpeaking.locator(selector).evaluate(el=>{
+      const r=el.getBoundingClientRect(),x=r.left+r.width/2,y=r.top+r.height/2;
+      const top=document.elementFromPoint(x,y);
+      return {onScreen:y>0&&y<innerHeight,clickable:top===el||el.contains(top),y,windowHeight:innerHeight};
+    });
+    assert(visibility.onScreen&&visibility.clickable,
+      selector+' is obstructed by fixed navigation after scroll: '+JSON.stringify(visibility));
+  }
+  await mobileSpeaking.close();
+  console.log('PASS Pixel speaking layout: contrast >= 4.5, compact answer, both actions unobstructed');
+
+
   await page.evaluate(()=>{state.level='A1';navigate('teacher')});assert((await page.locator('#app main').innerText()).includes('Нора ведёт занятие'));
   await page.evaluate(()=>teacherStartMission());await page.waitForTimeout(500);const adaptiveDebug=await page.evaluate(()=>({moduleId:lessonSession?.lesson?._adaptive?.moduleId,title:lessonSession?.lesson?.title,text:document.querySelector('#app main')?.innerText||''}));assert(adaptiveDebug.moduleId==='a1-foundation',JSON.stringify(adaptiveDebug));assert(adaptiveDebug.text.toLowerCase().includes('знакомство без шаблона')||adaptiveDebug.text.toLowerCase().includes('qa adaptive lesson'),JSON.stringify(adaptiveDebug));console.log('PASS adaptive teacher opens a mastery lesson with curated foundation');
   await page.locator('#dialogAnswer').fill('Jeg heter Ola.');await page.evaluate(()=>checkDialogue());await page.waitForTimeout(260);assert.equal(await page.evaluate(()=>lessonSession.step),0);assert.equal(await page.evaluate(()=>state.learningV8.attempts.at(-1)?.skill),'writing','typed dialogue must never prove oral proficiency');assert.equal(await page.locator('.lesson-next-v8').innerText(),'Дальше →');await page.locator('.lesson-next-v8').click();await page.waitForTimeout(100);assert.equal(await page.evaluate(()=>lessonSession.step),1);console.log('PASS dialogue feedback waits for explicit Next');
