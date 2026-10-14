@@ -63,6 +63,19 @@ jobs:
           path: release-out/*
           retention-days: 14
           if-no-files-found: error
+      - name: Bundle lesson6 release candidate after successful QA
+        if: success() && github.event_name == 'pull_request' && github.head_ref == 'feature/verified-course-progression-20261014'
+        env:
+          NE_RELEASE_REF: ${{ github.event.pull_request.head.sha }}
+        run: node tools/prepare-staging-release.cjs --ref "$NE_RELEASE_REF"
+      - name: Upload pinned lesson6 release candidate
+        if: success() && github.event_name == 'pull_request' && github.head_ref == 'feature/verified-course-progression-20261014'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Norsk-Eventyr-8.3.0-lesson6-release-candidate
+          path: release-out/*
+          retention-days: 14
+          if-no-files-found: error
       - name: Store screenshots for manual visual QA
         if: always()
         uses: actions/upload-artifact@v4
