@@ -181,12 +181,14 @@
     ["NRK Oppdatert","Ежедневный норвежский подкаст о текущих темах — для B1–B2.","https://radio.nrk.no/podkast/oppdatert"],
     ["Klar Tale","Новости на более доступном норвежском.","https://www.klartale.no/"]
   ];
+  // Completing actual playback marks listening practice, not comprehension or CEFR mastery.
+  window.NEStudyMarkListening=()=>markActivity("listening");
   function renderListeningLab(){
     if(listeningSession){URL.revokeObjectURL(listeningSession.url);listeningSession=null}
     shell('<div class="screen-head"><button class="back" onclick="navigate(\'hub\')">←</button><div><div class="eyebrow">Настоящий норвежский</div><h2 style="margin:0">Listening Lab</h2></div></div>'+
     '<div class="notice"><b>Живые голоса:</b> ниже встроены реальные записи норвежской речи из Norwegian Headstart. Материал распространяется как public domain; запись не является AI-озвучкой.</div>'+
     '<div class="section-title"><h2>Живой курс · 8 ситуаций</h2><span class="tag">FSI / DLI</span></div>'+
-    '<section class="fsi-audio-list-v63">'+FSI_HUMAN_AUDIO.map((x,i)=>'<article class="fsi-audio-card-v63"><div><small>Unit '+(i+1)+'</small><b>'+esc(x[0])+'</b><span>'+esc(x[1])+'</span></div><audio controls preload="none" src="'+x[2]+'"></audio></article>').join("")+'</section>'+
+    '<section class="fsi-audio-list-v63">'+FSI_HUMAN_AUDIO.map((x,i)=>'<article class="fsi-audio-card-v63"><div><small>Unit '+(i+1)+'</small><b>'+esc(x[0])+'</b><span>'+esc(x[1])+'</span></div><audio controls preload="none" onended="NEStudyMarkListening()" src="'+x[2]+'"></audio></article>').join("")+'</section>'+
     '<div class="fsi-license-v63"><b>Источник:</b> Norwegian Headstart, U.S. government language material. Записи публично распространяются как public domain. Курс 1981 года, поэтому отдельные формы обращения могут быть устаревшими; современную норму приложение продолжает проверять отдельно.</div>'+
     '<div class="section-title"><h2>Современные источники</h2></div><section class="grid">'+AUTH_RESOURCES.map(x=>'<article class="card"><h3>'+esc(x[0])+'</h3><p class="muted">'+esc(x[1])+'</p><a class="btn secondary link-btn" href="'+x[2]+'" target="_blank" rel="noopener">Открыть источник ↗</a></article>').join("")+'</section>'+
     '<div class="section-title"><h2>Разобрать своё аудио</h2></div><section class="card"><p class="muted">Выбери короткий норвежский аудиофайл до 6 МБ. Мы сделаем транскрипцию и 5 вопросов на понимание.</p><input id="listenFile" type="file" accept="audio/*" class="input"><button class="btn" style="margin-top:10px" onclick="analyzeListeningFile()">Анализировать</button><div id="listenLabBox"></div></section>',"home");
