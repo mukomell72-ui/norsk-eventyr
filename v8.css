@@ -217,3 +217,34 @@ button.speech-playing{transform:translateY(1px) scale(.985);box-shadow:0 0 0 3px
   overflow-wrap:anywhere;
  }
 }
+
+/* 8.3 contextual dialogue: make speaker, real situation and task unmistakable. */
+.lesson-intro-v6 .dialogue-scene-v83{
+ background:#e7f2f7;border:1px solid #c0d4e1;border-radius:14px;
+ padding:14px 15px;margin-bottom:13px;color:#213a4b;
+}
+.lesson-intro-v6 .dialogue-scene-v83 small{
+ display:block;color:#33596c;font-size:12px;font-weight:850;letter-spacing:.06em;
+}
+.lesson-intro-v6 .dialogue-scene-v83 p{
+ font-size:16px;line-height:1.43;margin:7px 0 10px;
+}
+.lesson-intro-v6 .dialogue-scene-v83 b{font-size:14px;color:#1a4258;}
+.lesson-intro-v6 .dialogue-lead-v83{
+ padding:8px 11px;margin:7px 0 10px;background:#eef5f8;
+ color:#25475a;border-left:3px solid #4a91bd;border-radius:9px;font-size:16px;
+}
+.lesson-intro-v6 .dialogue-task-v83{
+ color:#15374a;background:#e5f5eb;border:1px solid #a7d6bd;
+ padding:13px 15px;margin:13px 0 15px;border-radius:12px;
+}
+.lesson-intro-v6 .dialogue-task-v83 b{font-size:15px;color:#154a36;}
+.lesson-intro-v6 .dialogue-task-v83 p{
+ font-size:16px;line-height:1.45;margin:6px 0 0;
+}
+.lesson-intro-v6 .lesson-words-v6{margin-top:15px;}
+@media(max-width:620px){
+ .lesson-intro-v6 .dialogue-scene-v83 p,.lesson-intro-v6 .dialogue-task-v83 p{font-size:15px}
+ .lesson-intro-v6 .dialogue-scene-v83{padding:12px}
+ .lesson-intro-v6 .dialogue-task-v83{padding:12px}
+}
