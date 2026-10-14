@@ -227,6 +227,10 @@
           legacy.map(x=>'<button onclick="navigate(\'lesson\',\''+js(x.id)+'\')"><b>'+h(x.title)+'</b><small>'+h(x.grammar||"Закрепление")+'</small></button>').join("")+
           topics.map(t=>'<button onclick="navigate(\'topic\',\''+js(t.id)+'\')"><b>'+h(t.title)+'</b><small>'+h(t.goal||"")+'</small></button>').join("")+
         '</div></details>'+
+        '<section class="card" style="margin-top:14px"><div class="eyebrow">Проверенные внешние материалы · '+h(courseLevel)+'</div><h3>Учись также по университетским курсам</h3>'+
+          '<p class="muted">Эти материалы созданы внешними специалистами. Они открываются на сайте издателя и не заменяют оценки нашей программы.</p>'+
+          (window.NEResources?.byLevel(courseLevel,['course'])||[]).map(r=>'<p><a href="'+h(r.url)+'" target="_blank" rel="noopener noreferrer">'+h(r.name)+' ↗</a><br><small>'+h(r.note)+'</small></p>').join('')+
+          '<p><button class="btn secondary" onclick="navigate(\'listeninglab\')">Аудиокорпуса и критерии Norskprøven →</button></p></section>'+
         '</section>'+
       '</section>',
     "course");
