@@ -41,7 +41,13 @@ assert.equal(M.modulePlan(chapter,learner).stageKey,'transfer');
 learner.learningV8.attempts=[];
 attempt('writing',95,true);attempt('speaking',92,true,'dialogue_voice');
 outcome=run('transfer');assert.equal(outcome.advanced,false,'Same-day transfer is insufficient delayed evidence');
+// Merely starting the course long ago must NOT count as later-day transfer:
 chapterProgress.courseV2.startedOn='2000-01-01';
+learner.learningV8.attempts=[];
+attempt('writing',95,true);attempt('speaking',92,true,'dialogue_voice');
+outcome=run('transfer');assert.equal(outcome.advanced,false,'Old course start is not proof of delayed production recall');
+// In real use this timestamp is written by verifyStage on the preceding pass.
+chapterProgress.courseV2.lastPassedAt='2000-01-01T12:00:00.000Z';
 learner.learningV8.attempts=[];
 attempt('writing',95,true);attempt('speaking',92,true,'dialogue_voice');
 outcome=run('transfer');assert.equal(outcome.advanced,true);
