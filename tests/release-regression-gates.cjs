@@ -35,7 +35,7 @@ for(const asset of assets){
  const [pathname,query]=asset.split('?');
  if(asset!=='/')assert(exists(pathname.replace(/^\//,'')),'PWA update will fail: missing '+asset);
  if(query&&pathname!=='/manifest.json'){
-  const patched=assetRevision?.startsWith('-lesson')?['/v8.css','/access.js','/app.js','/v3.js']:
+  const patched=assetRevision?.startsWith('-lesson')?['/v8.css','/access.js','/access.css','/app.js','/v3.js']:
    assetRevision?.startsWith('-auth')?['/v8.css','/access.js','/access.css']:['/v8.css'];
   const expected='v='+v+(patched.includes(pathname)?assetRevision:'');
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
