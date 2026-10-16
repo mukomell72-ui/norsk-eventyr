@@ -1,0 +1,18 @@
+/* Interactive "Personkort" embedded into the A1 writing lesson only. */
+.ne-lesson-personal-card{max-width:780px}
+.ne-lesson-personal-card .ne-card-title{font-size:clamp(22px,5vw,30px);margin:10px 0 3px;color:#163c52;letter-spacing:.075em}
+.ne-lesson-personal-card .ne-card-subtitle{color:#4c7689;margin:0 0 14px;font-size:14px}
+.ne-lesson-personal-card .ne-card-instruction{font-size:clamp(17px,3.2vw,23px);line-height:1.45;margin:13px 0}
+.ne-lesson-personal-card .ne-card-notice{padding:12px 14px;margin:12px 0 16px;background:#e9f5fb;border-left:4px solid #358ed0;color:#24556e;border-radius:9px;font-size:14px;line-height:1.55}
+.ne-lesson-personal-card .ne-card-paper{border:1px solid #b9cdd9;border-radius:16px;padding:18px;background:#fff;box-shadow:0 4px 20px #16364a0b}
+.ne-lesson-personal-card .ne-card-field+.ne-card-field{border-top:1px solid #e1eaf0;padding-top:15px;margin-top:15px}
+.ne-lesson-personal-card .ne-card-field label{display:block;color:#15384e;font-weight:760;font-size:16px;line-height:1.35;margin-bottom:7px}
+.ne-lesson-personal-card .ne-card-stem{margin:0 0 7px;color:#456f83;font-size:14px}
+.ne-lesson-personal-card .ne-card-stem span{font-weight:700}
+.ne-lesson-personal-card textarea.ne-card-input{display:block;box-sizing:border-box;width:100%;min-height:68px;padding:13px;border:1px solid #a6c1ce;border-radius:11px;font-size:16px;color:#193b50;background:#fff;resize:vertical}
+.ne-lesson-personal-card textarea.ne-card-input:focus-visible{outline:3px solid #4aacf4;outline-offset:2px}
+.ne-lesson-personal-card .ne-card-field small{display:block;margin:6px 0 0;color:#5a788a}
+.ne-lesson-personal-card textarea.ne-card-composed{display:none}
+.ne-lesson-personal-card .ne-card-validation{color:#9b3d25;font-size:14px;font-weight:700;min-height:0;margin-top:12px}
+.ne-lesson-personal-card .ne-card-validation:empty{display:none}
+@media(max-width:520px){.ne-lesson-personal-card .ne-card-paper{padding:14px}.ne-lesson-personal-card .ne-card-instruction{font-size:18px}.ne-lesson-personal-card .ne-card-field label{font-size:15px}}
