@@ -4,7 +4,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
 const s={level:'A1',learningV8:{},dailyDictionary:{},srs:{},dailyPacks:{}};
 let date='2026-10-16',begins=0,saves=0,voiceText='',heard=0,recognizedLang='';
-const views=[],input={livingTranslate:{value:''},livingCloze:{value:''},livingWrite:{value:'Jeg lærer norsk på skolen.'}};
+const views=[],input={livingTranslate:{value:''},livingFormAnswer:{value:''},livingCloze:{value:''},livingWrite:{value:'Jeg lærer norsk på skolen.'}};
 const vocab=Array.from({length:10},(_,i)=>['ord'+i,'значение'+i]);
 const lesson={vocab};
 const w={
@@ -29,9 +29,27 @@ class SR{
 w.SpeechRecognition=SR;
 const document={getElementById:id=>input[id]||null};
 const ctx={window:w,document,Date,Math,Array,String,Number,Object,JSON,Set,Intl};
+vm.runInNewContext(read('card-form-practice.js'),ctx);
 vm.runInNewContext(read('living-words.js'),ctx);
 const D=w.NELivingWords;
 (async()=>{
+ async function finishCard(word,method='written'){
+  assert.equal(D.nextCard(),false,'Cannot skip form practice even after correct translation');
+  assert.equal(D.beginCardPractice(),true,'Practice required for each word');
+  const p=D.ensure().formPractice;
+  assert(p.task&&p.started);
+  const answer=p.task.kind==='form'?p.task.answer:'Jeg bruker '+word.word+' i dag.';
+  if(method==='voice'){
+   voiceText=answer;
+   assert.equal(D.recordForm(),true);
+   assert.equal(recognizedLang,'nb-NO','Norwegian grammar is pronounced in nb-NO');
+   assert.equal(p.draft,answer);
+  }
+  input.livingFormAnswer.value=answer;
+  assert.equal(await D.checkForm(),true);
+  assert.equal(p.done,true);
+  assert.equal(D.nextCard(),true);
+ }
  let session=D.ensure();
  assert(session&&session.newWords.length===5,'A learner receives five new words when the bank permits');
  assert.equal(session.active.length,5);
@@ -52,7 +70,7 @@ const D=w.NELivingWords;
  assert.equal(s.dailyDictionary[missedKey].wrong,1);
  assert(s.wordPracticeQueue[missedKey],'Mistake must remain due for later spaced practice');
  assert.equal(session.cardsSeen,0,'Card must not advance before review feedback');
- assert.equal(D.nextCard(),true);
+ await finishCard(missed);
  assert.equal(session.cardQueue.length,6,'Missed word is automatically queued after regular cards');
  voiceText=session.active[1].translation;
  assert.equal(D.recordTranslation(),true);
@@ -61,19 +79,23 @@ const D=w.NELivingWords;
  input.livingTranslate.value=session.cardDraft;
  assert.equal(D.checkTranslation(),true);
  assert.equal(session.cardFeedback.correct,true);
- assert.equal(D.nextCard(),true);
+ await finishCard(session.active[1],'voice');
  assert.equal(session.cardsSeen,2);
  // Answer the rest of the original cards in writing.
  for(let n=2;n<5;n++){
   input.livingTranslate.value=session.active[n].translation;
   assert.equal(D.checkTranslation(),true,'Correct typed translation should be accepted');
-  assert.equal(D.nextCard(),true);
+  await finishCard(session.active[n]);
  }
  assert.equal(session.cardsSeen,5);
  assert.equal(session.stage,'cards','Missed first word must reappear before next exercise');
  assert(views.at(-1).includes(missed.word));
  // A failed retry can be deferred without losing it from the long-term queue.
  assert.equal(D.reveal(),true);
+ assert.equal(D.deferCard(),false,'Deferring cannot bypass practice');
+ assert.equal(D.beginCardPractice(),true);
+ input.livingFormAnswer.value='Jeg bruker '+missed.word+' i dag.';
+ assert.equal(await D.checkForm(),true);
  assert.equal(D.deferCard(),true);
  assert.equal(session.stage,'cloze');
  assert(s.wordPracticeQueue[missedKey],'Deferred mistake remains in spaced-review backlog');
@@ -110,5 +132,5 @@ const D=w.NELivingWords;
  assert(access.includes("'living-words.js'")&&sw.includes('/living-words.js?v=8.3.0-lesson19'));
  assert(teacher.includes('NELivingWords.isReady()'),'Main route must check whether warmup is complete');
  assert(lexicon.includes("livingVocabulary?.days?.[date]?.newWords"),'Separate optional daily section cannot award another five new words');
- console.log('PASS daily vocabulary: text/voice Russian translations, missed-word queues, 15 active, five new/day, cloze, writing and Norwegian speech');
+ console.log('PASS daily vocabulary: mandatory grammar on every word including retries, Russian and Norwegian voice, 15 active, five new/day, cloze and production');
 })().catch(err=>{console.error(err);process.exitCode=1});
