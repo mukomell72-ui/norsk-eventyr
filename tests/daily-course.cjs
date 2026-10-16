@@ -31,6 +31,11 @@ assert(s.planned>=45,'A configured short profile must still have 45+ minute core
 assert.equal(s.done,0);assert.equal(s.moduleId,'a1-foundation');
 assert.equal(s.total,5);
 assert(s.steps.every(x=>x.mins>0));
+assert.equal(s.steps.reduce((n,x)=>n+x.mins,0),s.planned,'All planned study minutes must be allocated');
+state.elite.dailyMinutes=90;
+assert.equal(D.summary().planned,s.planned,'A started study day must not change duration after settings edits');
+assert.equal(D.summary().steps.reduce((n,x)=>n+x.mins,0),s.planned);
+state.elite.dailyMinutes=20;
 assert(s.steps.slice(1).every(x=>x.locked));
 const startDay=state.learningV8.dailyCourse;
 const initialDate=startDay.date;
