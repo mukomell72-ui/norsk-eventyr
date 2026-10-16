@@ -318,6 +318,11 @@ async function checkForm(){
    p.note='В предложении не найдено изучаемое слово. Исправь ответ, затем получишь другое задание с этим же словом.';
    save();render();return false;
   }
+  if(p.answers.some(previous=>window.NECardFormPractice?.norm(previous)===window.NECardFormPractice?.norm(answer))){
+   p.misses++;p.hadMistake=true;p.needsAnother=true;markWrong(d,card);
+   p.note='Это предложение уже использовалось. Составь другое предложение с тем же словом.';
+   save();render();return false;
+  }
   formBusy=true;
   p.note='Нора проверяет предложение…';save();render();
   try{
