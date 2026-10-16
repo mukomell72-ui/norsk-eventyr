@@ -73,6 +73,11 @@ const {chromium}=require('playwright');
   await page.locator('#livingFormAnswer').fill(last);
   await page.getByRole('button',{name:'Проверить форму'}).click();
   await page.getByRole('button',{name:'Продолжить повтор'}).click();
+  assert((await page.locator('#app').innerText()).includes('Повторяем трудные слова'),
+   'After a second missed answer, the word must be repeated again');
+  await page.locator('#livingTranslate').fill('дома');
+  await page.getByRole('button',{name:'Проверить перевод'}).click();
+  await finishCard();
   assert((await page.locator('#app').innerText()).includes('Практическая грамматика')||
     (await page.locator('#app').innerText()).includes('Составь собственное предложение'),
     'After review the full Nora study day proceeds');
