@@ -59,7 +59,9 @@
   lastHuman=Date.now();
  }
  function showNotice(){
-  if(!canShow()||consent()||document.getElementById('neStudyActivityNotice'))return;
+  // A pending consent notice must never cover authentication, logout or access-revoked controls.
+  if(!canShow()){document.getElementById('neStudyActivityNotice')?.remove();return;}
+  if(consent()||document.getElementById('neStudyActivityNotice'))return;
   const box=document.createElement('aside');
   box.id='neStudyActivityNotice';box.className='ne-study-notice';
   box.setAttribute('role','region');box.setAttribute('aria-label','Учёт активности');
