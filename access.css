@@ -68,3 +68,7 @@
 .ne-study-notice p{font-size:13px;line-height:1.5;color:#c5d8e4;margin:9px 0 12px}
 .ne-study-notice .row{display:flex;gap:8px;flex-wrap:wrap}
 .ne-study-notice .btn{min-height:42px}
+
+/* Never let the study-time opt-in notice block login, logout or access-revoked actions.
+   The access gate is inserted before the study notice in document.body. */
+.access-gate:not([hidden]) ~ .ne-study-notice{display:none!important}
