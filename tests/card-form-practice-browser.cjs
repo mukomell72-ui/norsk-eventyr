@@ -18,7 +18,7 @@ const {chromium}=require('playwright');
    window.shell=html=>document.getElementById('app').innerHTML=html;
    window.speakText=()=>{};
    window.aiEvaluate=async payload=>({ok:true,data:{
-    accepted:payload.answer.includes('etter hvert'),score:90,explanation_ru:'Хорошее предложение'
+    accepted:payload.answer.toLocaleLowerCase('nb-NO').includes('etter hvert'),score:90,explanation_ru:'Хорошее предложение'
    }});
    window.recognizedLanguages=[];
    window.recognitionAnswer='';
