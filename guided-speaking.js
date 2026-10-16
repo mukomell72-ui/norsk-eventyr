@@ -130,7 +130,7 @@ const SCENES={
   ['Попроси перепроверить по имени или дате.','Вежливо предложить альтернативный способ проверки.','Nå fant jeg bestillingen!'],
   ['Уточни время и условия бронирования.','Уточнить практические детали и проверить понимание.','Timen er klokka elleve på fredag.']
  ]),
- 'b2-debate':make('Ты участвуешь в обсуждении городской политики.','Hanna · участница','Bør byen redusere biltrafikken i sentrum?',[
+ 'b2-listening':make('Ты участвуешь в обсуждении городской политики.','Hanna · участница','Bør byen redusere biltrafikken i sentrum?',[
   ['Сформулируй позицию с аргументом и примером.','Аргументировать позицию по вопросу автотрафика.','Det er et relevant poeng.'],
   ['Спроси собеседницу о последствиях для жителей.','Критически уточнить социальные последствия решения.','Noen kan få lengre reisevei.'],
   ['Ответь на возражение и предложи сбалансированный подход.','Взвесить противоположные аргументы и предложить компромисс.','Det virker som et gjennomtenkt forslag.']
@@ -140,7 +140,7 @@ const SCENES={
   ['Спроси о правовом основании или процедуре.','Вежливо уточнить основание либо процедуру принятия решения.','Begrunnelsen står i vedlegget til vedtaket.'],
   ['Уточни порядок дальнейшего обжалования или обращения.','Корректно запросить сведения о дальнейших действиях.','Du finner klageinformasjon nederst i brevet.']
  ]),
- 'b2-interview':make('Ты даёшь интервью о своём опыте.','Liv · журналистка','Hvordan har arbeidserfaringen din formet deg?',[
+ 'b2-presentation':make('Ты даёшь интервью о своём опыте.','Liv · журналистка','Hvordan har arbeidserfaringen din formet deg?',[
   ['Дай развёрнутый пример из профессиональной жизни.','Структурированно объяснить, как опыт повлиял на навыки.','Det var et konkret eksempel.'],
   ['Спроси, какую сторону темы журналистке стоит раскрыть подробнее.','Задать уточняющий вопрос о фокусе интервью.','Jeg vil gjerne høre om utfordringene du møtte.'],
   ['Объясни трудность и то, как ты с ней справился.','Связать проблему, действия, последствия и вывод.','Takk for et nyansert svar.']
@@ -150,22 +150,22 @@ const SCENES={
   ['Спроси, на каких данных основана позиция собеседницы.','Критически уточнить источник и надёжность доводов.','Jeg bygger på tallene fra kommunens rapport.'],
   ['Приведи контраргумент и сформулируй условный вывод.','Построить контраргумент, учитывая неопределённость.','Det var en god presisering.']
  ]),
- 'b2-work':make('Ты ведёшь совещание по изменению рабочего процесса.','Knut · коллега','Vi vurderer å endre rutinene neste måned.',[
+ 'b2-negotiation':make('Ты ведёшь совещание по изменению рабочего процесса.','Knut · коллега','Vi vurderer å endre rutinene neste måned.',[
   ['Уточни цель изменения и возможные последствия.','Выяснить цель изменений и влияние на команду.','Målet er å redusere ventetiden.'],
   ['Объясни риск и предложи способ его уменьшить.','Взвешенно назвать риск и меру снижения.','Det kan vi ta med i planen.'],
   ['Согласуй конкретный следующий шаг.','Добиться ясной договорённости о действии и сроках.','La oss teste løsningen neste uke.']
  ]),
- 'b2-culture':make('Ты обсуждаешь культурные различия.','Sigrid · знакомая','Hvordan opplever du forskjeller i arbeidskultur?',[
+ 'b2-range':make('Ты обсуждаешь культурные различия.','Sigrid · знакомая','Hvordan opplever du forskjeller i arbeidskultur?',[
   ['Опиши наблюдение без стереотипных обобщений.','Нюансированно описать культурные различия с примером.','Det er en interessant observasjon.'],
   ['Спроси о точке зрения собеседницы.','Попросить собеседницу поделиться личным опытом.','Jeg opplever at kommunikasjon ofte er ganske direkte.'],
   ['Сопоставь два подхода и сделай взвешенный вывод.','Сравнить подходы с уважением к нюансам.','Ja, konteksten betyr mye.']
  ]),
- 'b2-media':make('Ты проверяешь достоверность спорной новости.','Erik · коллега','Denne overskriften virker ganske dramatisk.',[
+ 'b2-synthesis':make('Ты проверяешь достоверность спорной новости.','Erik · коллега','Denne overskriften virker ganske dramatisk.',[
   ['Объясни, какая информация требует проверки.','Выделить проверяемые фактические утверждения.','Enig, vi bør undersøke kilden.'],
   ['Спроси, какой источник и данные использованы.','Уточнить происхождение источника и доказательств.','Artikkelen viser til en ny undersøkelse.'],
   ['Предложи критерии проверки, прежде чем делать вывод.','Предложить разумную процедуру проверки информации.','Det høres fornuftig ut.']
  ]),
- 'b2-transfer':make('Ты обсуждаешь сложную проблему обслуживания.','Ingrid · руководитель','Kunden er misfornøyd, og vi må finne en løsning.',[
+ 'b2-capstone':make('Ты обсуждаешь сложную проблему обслуживания.','Ingrid · руководитель','Kunden er misfornøyd, og vi må finne en løsning.',[
   ['Кратко уточни приоритет и ограничения ситуации.','Выяснить приоритеты и конкретные ограничения.','Vi må svare i dag, men budsjettet er stramt.'],
   ['Предложи решение и признай его недостаток.','Предложить сбалансированный вариант с признанием риска.','Det virker gjennomførbart.'],
   ['Спроси, как оценить результат через неделю.','Согласовать критерии оценки результата.','Vi kan måle svartid og kundetilfredshet.'],
@@ -184,7 +184,7 @@ function fallback(l){
 function definition(l){return SCENES[normalizeModule(l)]||fallback(l)}
 const nativeFree=window.freeEx,nativeCheck=window.checkFree;
 function ensure(l){
- const s=window.lessonSession;
+ const s=window.neLessonSession;
  if(!s)return null;
  const scene=definition(l),saved=s.guidedSpeech;
  if(!saved||saved.lessonId!==l.id||!Number.isInteger(saved.index)||saved.index<0||saved.index>=scene.steps.length||!Array.isArray(saved.turns)){
@@ -218,17 +218,17 @@ function freeExGuided(l){
  '<div id="freeFb" aria-live="polite"></div></article>';
 }
 window.freeEx=function(l,mode){
- if(mode==='speaking'&&l&&window.lessonSession&&!window.lessonSession.remediation&&!window.lessonSession.speakingFollowup)return freeExGuided(l);
+ if(mode==='speaking'&&l&&window.neLessonSession&&!window.neLessonSession.remediation&&!window.neLessonSession.speakingFollowup)return freeExGuided(l);
  return nativeFree(l,mode);
 };
 function neGuidedSpeak(index){
- const d=window.lessonSession&&ensure(window.lessonSession.lesson);
+ const d=window.neLessonSession&&ensure(window.neLessonSession.lesson);
  if(!d)return;
  const text=index===-1?d.scene.opening:d.scene.steps[index]?.reply;
  if(text&&typeof window.speakText==='function')window.speakText(text,.86);
 }
 async function guidedCheck(){
- const s=window.lessonSession,l=s?.lesson,d=l&&ensure(l),input=document.getElementById('freeAnswer'),a=input?.value.trim(),box=document.getElementById('freeFb');
+ const s=window.neLessonSession,l=s?.lesson,d=l&&ensure(l),input=document.getElementById('freeAnswer'),a=input?.value.trim(),box=document.getElementById('freeFb');
  if(!d||!input||!box||!a||s.locked)return;
  const {scene,progress}=d,step=scene.steps[progress.index],spoken=['true','recognition'].includes(String(input.dataset.fromVoice||'')),index=progress.index;
  s.locked=true;box.innerHTML='<div class="feedback">Нора проверяет реплику…</div>';
@@ -236,12 +236,12 @@ async function guidedCheck(){
  const question='Сцена: '+scene.scene+'. Собеседник '+scene.actor+' сказал: «'+context+'». Текущее действие ученика: '+step.task;
  const goal='Проверь только ЭТУ реплику ученика, не весь разговор. '+step.goal+' Следующие этапы пока НЕ обязательны; фразы не нужно повторять дословно.';
  const r=await window.aiEvaluate({answer:a,question,goal,level:l.level,mode:spoken?'speaking_dialogue':'writing_dialogue'});
- if(window.lessonSession!==s||!box.isConnected||progress.index!==index){s.locked=false;return}
+ if(window.neLessonSession!==s||!box.isConnected||progress.index!==index){s.locked=false;return}
  if(!r.ok){s.locked=false;box.innerHTML='<div class="feedback bad">Проверка сейчас недоступна. Реплика не засчитана. Попробуй ещё раз.</div>';return}
  const e=r.data||{},ok=e.accepted===true&&Number(e.score)>=55,score=Math.min(100,Math.max(0,Number(e.score)||0)),skill=spoken?'speaking':'writing', evidence=ok?score:Math.min(40,score);
  window.trackLessonScore(evidence,{label:spoken?'Реплика · речь':'Реплика · текст',strength:e.strengths_ru?.[0]||'',improvement:e.improvements_ru?.[0]||'',explanation:e.explanation_ru||'',corrected:e.corrected||'',rule:e.micro_rule_ru||'',scoreReason:e.score_reason_ru||''});
  if(window.NEAdaptive){
-  window.NEAdaptive.recordAttempt(window.state,{level:l.level,skill,score:evidence,moduleId:l?._adaptive?.moduleId||l.id,source:spoken?'lesson_free':'lesson_free_text',errorTag:e.error_tag||'',targetErrorTag:l?._adaptive?.errorTag||'',transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||''});
+  window.NEAdaptive.recordAttempt(window.neLearnerState,{level:l.level,skill,score:evidence,moduleId:l?._adaptive?.moduleId||l.id,source:spoken?'lesson_free':'lesson_free_text',errorTag:e.error_tag||'',targetErrorTag:l?._adaptive?.errorTag||'',transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||''});
   window.saveState();
  }
  if(!ok){
@@ -261,7 +261,7 @@ async function guidedCheck(){
  if(typeof window.speakText==='function'){try{window.speakText(reply,.86)}catch{}}
 }
 function neGuidedNext(){
- const s=window.lessonSession,d=s?.lesson&&ensure(s.lesson);
+ const s=window.neLessonSession,d=s?.lesson&&ensure(s.lesson);
  if(!d||!s.locked||!d.progress.pending)return;
  const p=d.progress,answer=p.pending.answer,spoken=p.pending.spoken;
  p.turns.push({answer:String(answer).slice(0,700),spoken});
@@ -274,7 +274,7 @@ function neGuidedNext(){
  window.persistLessonCheckpoint();window.renderLesson();
 }
 window.checkFree=function(mode){
- if(mode==='speaking'&&window.lessonSession&&!window.lessonSession.remediation&&!window.lessonSession.speakingFollowup)return guidedCheck();
+ if(mode==='speaking'&&window.neLessonSession&&!window.neLessonSession.remediation&&!window.neLessonSession.speakingFollowup)return guidedCheck();
  return nativeCheck(mode);
 };
 window.neGuidedNext=neGuidedNext;
