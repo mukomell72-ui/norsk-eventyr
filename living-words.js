@@ -304,7 +304,8 @@ async function checkForm(){
   correct=engine?.correct?.(p.task,answer,card.word)===true;
  }else{
   if(answer.length<12||answer.trim().split(/\s+/).length<3){
-   p.note='Напиши целое предложение на норвежском (не меньше трёх слов).';
+   p.misses++;p.hadMistake=true;p.needsAnother=true;markWrong(d,card);
+   p.note='Нужно полное предложение на норвежском (не меньше трёх слов). Исправь ответ, затем получишь другое задание с этим словом.';
    save();render();return false;
   }
   const lemma=window.NECardGrammar?.describe?.(card.word)?.lemma||card.word.word;
@@ -313,7 +314,8 @@ async function checkForm(){
   const normalized=answer.toLocaleLowerCase('nb-NO');
   const found=roots.some(w=>w.length>=3&&normalized.includes(w.slice(0,Math.max(3,Math.floor(w.length*.7)))));
   if(!found){
-   p.note='В предложении не найдено изучаемое слово. Примени его в подходящей форме.';
+   p.misses++;p.hadMistake=true;p.needsAnother=true;markWrong(d,card);
+   p.note='В предложении не найдено изучаемое слово. Исправь ответ, затем получишь другое задание с этим же словом.';
    save();render();return false;
   }
   formBusy=true;
