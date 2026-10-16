@@ -70,7 +70,7 @@ function choose(level,moduleId,date){
  const current=retained.reverse();
  const active=[...current,...newWords].slice(-MAX);
  const record={date,level,moduleId,newWords,active,cardsSeen:0,revealed:false,stage:'cards',
-  cardQueue:active.map((_,i)=>i),cardDraft:'',cardFeedback:null,cardAttempted:{},deferredWords:[],
+  cardQueue:active.map((_,i)=>i),cardDraft:'',cardFeedback:null,formPractice:null,cardAttempted:{},deferredWords:[],
   clozeIndex:0,clozeMisses:0,writingOK:false,speakingOK:false,ready:false,feedback:'',speechText:'',
   writingDraft:'',checkedCloze:[],completedAt:null};
  p.days[date]=record;p.active=active.map(x=>({word:x.word,translation:x.translation,key:key(x.word),pos:x.pos||'',gender:x.gender||''}));
@@ -141,8 +141,8 @@ function markWrong(d,card){
 function advanceCard(retry){
  const d=ensure(),card=d&&currentCard(d);
  if(!d||d.stage!=='cards'||!card||!d.cardFeedback)return false;
- if(retry&&!d.cardFeedback.correct)cardQueue(d).push(card.idx);
- d.cardsSeen++;d.cardFeedback=null;d.cardDraft='';d.revealed=false;d.feedback='';
+ if(retry&&(!d.cardFeedback.correct||d.formPractice?.hadMistake))cardQueue(d).push(card.idx);
+ d.cardsSeen++;d.cardFeedback=null;d.formPractice=null;d.cardDraft='';d.revealed=false;d.feedback='';
  save();render();return true;
 }
 function feedbackNote(record){
@@ -167,7 +167,7 @@ function render(){
   const rows=(grammar.forms||[]).map(row=>'<tr><td>'+esc(row.label)+'</td><td lang="nb"><b>'+esc(row.form)+'</b></td></tr>').join('');
   const dictLink='<a href="'+esc(grammar.url||'https://ordbokene.no/')+'" target="_blank" rel="noopener noreferrer">Проверить в Bokmålsordboka ↗</a>';
   // Grammar is initially collapsed to encourage recall; answer feedback opens it.
-  const morphology='<details class="card" style="margin-top:12px;padding:14px"'+(feedback?' open':'')+'>'+
+  const morphology='<details class="card" style="margin-top:12px;padding:14px"'+(feedback&&!d.formPractice?.started?' open':'')+'>'+
    '<summary style="cursor:pointer;font-weight:600">'+esc(grammar.typeRu)+' · Начальная форма и склонение / времена</summary>'+
    (rows?'<table class="forms-table" style="margin-top:10px;width:100%"><tbody>'+rows+'</tbody></table>':
     '<p class="muted">Подтверждённых форм пока нет. Не будем придумывать окончания.</p>')+
@@ -176,10 +176,28 @@ function render(){
   const result=feedback?'<div class="notice" role="status"><b>'+
    (feedback.correct?'Верно!':'Нужно повторить.')+'</b> Правильный перевод: '+esc(word.translation)+
    (feedback.correct?'':' · Слово сохранено в повторении.')+'</div>':'';
+  const practice=d.formPractice;
+  const practiceHtml=practice?.started&&!practice.done
+   ?'<div class="card" style="margin-top:14px;padding:16px">'+
+    '<div class="eyebrow">Обязательная практика этого слова</div>'+
+    '<p><b>'+esc(practice.task.prompt)+'</b></p>'+
+    (practice.task.kind==='form'?'<p class="muted">Напиши только нужную форму слова по-норвежски.</p>':
+      '<p class="muted">Напиши целое предложение. Можно использовать подходящую форму слова. Проверяет Нора.</p>')+
+    '<label class="field-label" for="livingFormAnswer">Твой ответ на норвежском</label>'+
+    '<input class="input" id="livingFormAnswer" lang="nb" maxlength="280" autocomplete="off" value="'+esc(practice.draft||'')+
+    '" placeholder="Введи ответ здесь" oninput="NELivingWords.draftForm(this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();NELivingWords.checkForm()}">'+
+    '<div class="row"><button class="btn" onclick="NELivingWords.checkForm()">Проверить форму</button>'+
+    '<button class="btn secondary" onclick="NELivingWords.recordForm()">🎤 Сказать по-норвежски</button></div>'+
+    (practice.note?'<div class="notice" role="status">'+esc(practice.note)+'</div>':'')+
+    (practice.misses>0?'<p class="muted">Подсказка доступна выше. Исправь ответ, чтобы продолжить.</p>':'')+
+    '</div>':'';
   const fields=feedback
-   ?'<button class="btn" onclick="NELivingWords.nextCard()">'+
-    (review?'Продолжить повтор →':'Следующая карточка →')+'</button>'+
-    (!feedback.correct?'<button class="btn secondary" onclick="NELivingWords.deferCard()">Отложить это слово до следующего занятия</button>':'')
+   ?(practice?.done
+     ?'<div class="notice" role="status">Форма слова закреплена. Можно продолжать.</div>'+
+       '<button class="btn" onclick="NELivingWords.nextCard()">'+(review?'Продолжить повтор →':'Следующая карточка →')+'</button>'
+     :practice?.started?practiceHtml:
+       '<p>Теперь примени это слово в одной из случайных грамматических форм.</p>'+
+       '<button class="btn" onclick="NELivingWords.beginCardPractice()">Задание с этим словом →</button>')
    :'<label class="field-label" for="livingTranslate">Переведи слово на русский</label>'+
     '<input id="livingTranslate" class="input" lang="ru" autocomplete="off" maxlength="200" value="'+esc(d.cardDraft||'')+
     '" placeholder="Напиши перевод здесь" oninput="NELivingWords.draftTranslation(this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();NELivingWords.checkTranslation()}">'+
@@ -243,12 +261,122 @@ function reveal(){
  markWrong(d,card);d.cardFeedback={correct:false,answer:'',revealed:true};
  save();render();return true;
 }
-function nextCard(){return advanceCard(true)}
+function nextCard(){
+ const d=ensure();if(!d||d.stage!=='cards'||!d.cardFeedback||!d.formPractice?.done)return false;
+ return advanceCard(true);
+}
 function deferCard(){
  const d=ensure(),card=d&&currentCard(d);
- if(!d||d.stage!=='cards'||!card||d.cardFeedback?.correct!==false)return false;
- // Wrong words stay due in SRS but do not trap the learner in an infinite loop.
+ if(!d||d.stage!=='cards'||!card||d.cardFeedback?.correct!==false||!d.formPractice?.done)return false;
+ // Learner may defer a difficult translation only after completing word-form practice.
  d.deferredWords.push(key(card.word.word));return advanceCard(false);
+}
+
+function beginCardPractice(){
+ const d=ensure(),card=d&&currentCard(d);
+ if(!d||d.stage!=='cards'||!card||!d.cardFeedback||d.formPractice?.started)return false;
+ const provider=window.NECardFormPractice;
+ if(!provider?.choose){
+  d.feedback='Модуль упражнений ещё загружается. Открой карточку повторно.';
+  save();render();return false;
+ }
+ d.formPractice={started:true,done:false,task:provider.choose(card.word),
+  draft:'',note:'',misses:0,hadMistake:false,needsAnother:false,answers:[],taskCount:1};
+ d.feedback='';save();render();return true;
+}
+function draftForm(value){
+ const d=ensure(),p=d?.formPractice;
+ if(d?.stage==='cards'&&p?.started&&!p.done){p.draft=String(value||'').slice(0,280);save()}
+}
+let formBusy=false;
+async function checkForm(){
+ const d=ensure(),card=d&&currentCard(d),p=d?.formPractice;
+ if(!d||d.stage!=='cards'||!card||!p?.started||p.done||formBusy)return false;
+ const answer=String(document.getElementById('livingFormAnswer')?.value||p.draft||'').trim();
+ if(!answer){
+  p.note='Введи форму слова или произнеси ответ по-норвежски.';
+  save();render();return false;
+ }
+ p.draft=answer;
+ const engine=window.NECardFormPractice;
+ let correct=false,explanation='';
+ if(p.task.kind==='form'){
+  correct=engine?.correct?.(p.task,answer,card.word)===true;
+ }else{
+  if(answer.length<12||answer.trim().split(/\s+/).length<3){
+   p.note='Напиши целое предложение на норвежском (не меньше трёх слов).';
+   save();render();return false;
+  }
+  const lemma=window.NECardGrammar?.describe?.(card.word)?.lemma||card.word.word;
+  const roots=String(lemma).toLocaleLowerCase('nb-NO').replace(/^å\s+/,'')
+   .split(/\s+/).filter(Boolean);
+  const normalized=answer.toLocaleLowerCase('nb-NO');
+  const found=roots.some(w=>w.length>=3&&normalized.includes(w.slice(0,Math.max(3,Math.floor(w.length*.7)))));
+  if(!found){
+   p.note='В предложении не найдено изучаемое слово. Примени его в подходящей форме.';
+   save();render();return false;
+  }
+  formBusy=true;
+  p.note='Нора проверяет предложение…';save();render();
+  try{
+   const topic=window.NELivingDay?.details?.().title||'Повседневная жизнь';
+   const r=typeof window.aiEvaluate==='function'?await window.aiEvaluate({
+    answer,question:'Составь предложение с изучаемым словом «'+String(card.word.word)+'».',
+    goal:'Проверь реальное осмысленное предложение на норвежском. Обязательно должно использоваться слово «'+
+      String(card.word.word)+'» в корректной форме. Уровень '+d.level+'. Тема: '+topic+
+      '. Оцени грамматику, смысл и правильность использования слова.',level:d.level,mode:'writing'
+   }):{ok:false};
+   if(ensure()!==d||d.formPractice!==p||d.stage!=='cards')return false;
+   if(!r.ok){
+    p.note='Проверка Норы сейчас недоступна. Ответ сохранён — повтори проверку позднее.';
+    save();render();return false;
+   }
+   const data=r.data||{};
+   correct=data.accepted===true&&Number(data.score)>=65;
+   explanation=String(data.explanation_ru||data.improvements_ru?.[0]||'Проверь грамматику предложения.').slice(0,380);
+  }catch{
+   p.note='Не удалось проверить предложение. Ответ сохранён, попробуй ещё раз.';
+   save();render();return false;
+  }finally{formBusy=false}
+ }
+ if(!correct){
+  p.misses++;p.hadMistake=true;p.needsAnother=true;
+  markWrong(d,card);
+  p.note='Пока неверно. '+(p.task.kind==='form'?engine.hint(p.task,p.misses):explanation+' '+engine.hint(p.task,p.misses));
+  save();render();return false;
+ }
+ p.answers.push(answer);
+ if(p.needsAnother){
+  p.task=engine.choose(card.word,p.task.index);
+  p.taskCount++;p.misses=0;p.draft='';p.needsAnother=false;
+  p.note='Теперь правильно! После ошибки попробуй другое случайное задание с этим же словом.';
+  save();render();return true;
+ }
+ p.done=true;p.note='Верно! Слово применено правильно.';
+ save();render();return true;
+}
+let formRecognition=null;
+function recordForm(){
+ const d=ensure(),card=d&&currentCard(d),p=d?.formPractice;
+ if(!d||d.stage!=='cards'||!card||!p?.started||p.done||formRecognition)return false;
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){p.note='Распознавание норвежской речи недоступно. Напиши ответ самостоятельно.';save();render();return false}
+ try{
+  const rec=new SR(),session=d,slot=d.cardsSeen,task=p.task;
+  rec.lang='nb-NO';rec.interimResults=false;rec.continuous=false;
+  formRecognition=rec;p.note='Слушаю ответ по-норвежски…';save();render();
+  rec.onresult=e=>{
+   if(ensure()!==session||session.stage!=='cards'||session.cardsSeen!==slot||session.formPractice!==p||p.task!==task)return;
+   const spoken=Array.from(e.results||[]).filter(x=>x.isFinal)
+    .map(x=>x?.[0]?.transcript||'').join(' ').trim();
+   if(spoken){p.draft=spoken.slice(0,280);p.note='Проверь распознанный текст и нажми «Проверить форму».';save()}
+  };
+  rec.onerror=()=>{
+   if(ensure()===session&&session.formPractice===p){p.note='Не удалось распознать речь. Попробуй ещё раз или напиши ответ.';save()}
+  };
+  rec.onend=()=>{formRecognition=null;if(ensure()===session&&session.formPractice===p)render()};
+  rec.start();return true;
+ }catch{formRecognition=null;p.note='Микрофон не запустился. Проверь разрешение браузера.';save();render();return false}
 }
 function listenCard(){const d=ensure(),card=d&&currentCard(d);if(card)window.speakText?.(window.NECardGrammar?.describe?.(card.word)?.headword||card.word.word,.9)}
 let translationRecognition=null;
@@ -344,5 +472,5 @@ function recordSpeech(){
  }catch{recognizing=false;d.feedback='Микрофон не запустился. Проверь разрешение браузера.';save();render();return false}
 }
 function checkSpeaking(){const d=ensure();return d?.speechText?assess('speaking',d.speechText):false}
-window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation});
+window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,checkForm,recordForm,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation});
 })();
