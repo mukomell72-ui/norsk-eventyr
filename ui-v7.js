@@ -218,7 +218,7 @@
       const syllabus=window.NECourseMethod?.modulePlan(m,state);
       return '<button class="near-lesson-v7 '+(isDone?"done ":"")+(locked?"locked":"")+'" onclick="teacherStartModule(\''+js(m.id)+'\')"><span>'+(isDone?"✓":i+1)+'</span><div><b>'+h(m.title)+'</b><small>'+h(m.canDo?.[0]||"Практическая цель")+'</small>'+(syllabus?'<small>'+h(syllabus.stageTitle)+' · '+h(m.grammar)+'</small>'+(syllabus.verifiedStages!==null?'<small>Подтверждено этапов: '+syllabus.verifiedStages+'/4</small>':''):'')+'</div><em>'+mastery+'%</em></button>';
     }).join("");
-    const levelSchedule=window.NECourseMethod?.levelPlan(courseLevel),daily=window.NECourseMethod?.dailyPlan(state.elite?.dailyMinutes||60);
+    const levelSchedule=window.NECourseMethod?.levelPlan(courseLevel),daily=window.NECourseMethod?.dailyPlan(Math.max(45,state.elite?.dailyMinutes||60));
     const legacy=coreLessonsV7(courseLevel),topics=(typeof TOPIC_CATALOG!=="undefined"?TOPIC_CATALOG:[]).filter(x=>x.level===courseLevel).slice(0,8);
     shell(
       '<section class="course-v7">'+
