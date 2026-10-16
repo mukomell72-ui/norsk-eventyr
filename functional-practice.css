@@ -1,0 +1,39 @@
+/* Scoped learning forms and cloze practice. Existing routes are unaffected. */
+.applied-practice{max-width:820px;margin:0 auto 90px;padding:10px 3px 26px;color:var(--text,#eef5ff)}
+.applied-practice .screen-head{margin-bottom:16px}
+.applied-practice .screen-head small{color:#92b8cf}
+.applied-tabs,.applied-levels,.applied-actions{display:flex;flex-wrap:wrap;gap:9px}
+.applied-tabs{margin:16px 0 10px}
+.applied-tabs button,.applied-levels button{background:#143047;color:#dceefa;border:1px solid #326078;padding:12px 14px;border-radius:12px;min-height:44px;cursor:pointer}
+.applied-tabs button.active,.applied-levels button.active{background:#2187dc;border-color:#74c1fc;color:white}
+.applied-levels{margin:16px 0}
+.applied-levels button{flex:1;min-width:58px}
+.applied-note{font-size:13px;line-height:1.5;color:#a8c0ce;margin:8px 0 20px}
+.applied-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.applied-tile{width:100%;border-radius:17px;background:#f6fafc;color:#163143;padding:19px;display:flex;gap:12px;align-items:center;justify-content:space-between;text-align:left;border:1px solid #dce9f1;min-height:98px;cursor:pointer}
+.applied-tile b,.applied-tile small{display:block}
+.applied-tile b{font-size:16px}
+.applied-tile small{font-size:12px;color:#607c8d;margin-top:6px}
+.applied-tile em{font-size:12px;color:#216ba4;font-style:normal;max-width:114px;text-align:right}
+.applied-sheet{color:#18364c;background:#f8fbfd;border-radius:20px;padding:23px;border:1px solid #d9e7f0;box-shadow:0 6px 24px #00192722}
+.applied-sheet h3{margin:8px 0 14px;font-size:22px;color:#10324b;line-height:1.3}
+.applied-sheet p{line-height:1.6}
+.applied-illustrative{font-size:11px;font-weight:700;letter-spacing:.1em;color:#4a768b;text-transform:uppercase}
+.applied-prompt{font-size:24px;line-height:1.6;font-weight:650;color:#103854;margin:24px 0}
+.applied-gap{border-bottom:2px solid #268fd9;color:#268fd9}
+.applied-field{margin:0 0 20px}
+.applied-field label,.applied-sheet label{display:block;font-size:14px;font-weight:700;margin-bottom:8px;color:#25485f}
+.applied-field label small{font-weight:400;color:#587b91}
+.applied-sheet input,.applied-sheet textarea{display:block;width:100%;box-sizing:border-box;min-height:48px;border:1px solid #a5c1d1;border-radius:10px;color:#153347;background:#fff;font:inherit;font-size:16px;padding:12px;outline-offset:3px}
+.applied-sheet textarea{resize:vertical}
+.applied-sheet input:focus-visible,.applied-sheet textarea:focus-visible{outline:3px solid #6cbcff}
+.applied-scenario{background:#e6f2fa;border-left:4px solid #2788c7;padding:14px;border-radius:8px;color:#24475d}
+.applied-fields{margin:20px 0}
+.applied-feedback{background:#eaf2f8;border-radius:10px;padding:12px;margin-top:10px;color:#244d67;font-size:14px;line-height:1.6}
+.applied-feedback.good{background:#e3f4eb;color:#15583d}
+.applied-feedback.bad{background:#fcecec;color:#843b37}
+.applied-feedback p{margin:4px 0 0}
+.applied-actions{margin:20px 0 0}
+.applied-practice .btn{min-height:46px}
+.applied-score{font-size:28px;font-weight:750;color:#176eab}
+@media(max-width:520px){.applied-sheet{padding:17px}.applied-prompt{font-size:20px}.applied-tabs button{flex:1;padding:10px 8px;font-size:13px}.applied-tile{padding:15px}}

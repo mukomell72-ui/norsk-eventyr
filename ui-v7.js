@@ -46,7 +46,7 @@
     if(["lesson","topic"].includes(g))g="course";
     if(["storyepisode","storyjournal"].includes(g))g="story";
     if(["daily","dailypractice","review","storyside","plan","teacher"].includes(g))g="home";
-    if(["tests","test","exam","examrun","exampart","progress","dictionary","dictation","grammarlab","pronunciation","listeninglab","settings","cloud","placement"].includes(g))g="hub";
+    if(["forms","cloze","tests","test","exam","examrun","exampart","progress","dictionary","dictation","grammarlab","pronunciation","listeninglab","settings","cloud","placement"].includes(g))g="hub";
     return g;
   }
   function iconV7(name){
@@ -187,6 +187,7 @@
         '</section>'+
         '<section class="route-card-v7"><div class="section-head-v7"><div><small>Твой маршрут на сегодня · 5 занятий</small><h2>'+(j.mins?"Осталось "+(j.total-j.done)+" из "+j.total+" блоков":"Маршрут завершён")+'</h2></div><span>План '+j.planned+' мин</span></div><p class="muted">Время на каждый блок — ориентир, а не измерение фактически потраченных минут.</p><div class="route-steps-v7">'+route+'</div></section>'+
         xpJourneyV7()+
+                '<section class="card applied-home-entry"><div class="section-head-v7"><div><small>Дополнительная практика · '+h(state.level)+'</small><h2>Норвежский для жизни</h2><p>Проверь формы слов и потренируйся заполнять документы.</p></div></div><div class="applied-actions"><button class="btn" onclick="navigate(\'cloze\')">Вставить слово</button><button class="btn secondary" onclick="navigate(\'forms\')">Анкеты и заявления</button></div></section>'+
         '<section class="words-card-v7 daily-focus-v81"><div class="section-head-v7"><div><small>Короткая ежедневная практика</small><h2>Слова для реальной жизни</h2><p>Попробуй вспомнить эти слова и составить собственную фразу.</p></div><button onclick="navigate(\'daily\')">Практика →</button></div><div class="daily-words-v81">'+words.slice(0,3).map(w=>'<div class="daily-word-v81"><b>'+h(w.lemma||w.word||"")+'</b><span>'+h(w.translation_ru||w.translation||"")+'</span></div>').join("")+'</div></section>'+
         '<section class="nora-note-v7"><span class="nora-avatar-v7"></span><div><small>Nora</small><p>«'+h(pending?"Продолжим с сохранённого этапа.":"Я подберу практику по твоим результатам. Говори своими словами.")+'»</p></div><button onclick="navigate(\'chat\')">Написать →</button></section>'+
       '</section>',
@@ -379,6 +380,8 @@
           hubTileV7("◉","Listening Lab","Живая норвежская речь","listeninglab")+
           hubTileV7("⌁","Произношение","Звуки и ритм","pronunciation")+
           hubTileV7("Aa","Грамматика","Слабые места","grammarlab")+
+          hubTileV7("▤","Анкеты и заявления","Учебные бланки · A1–B2","forms")+
+          hubTileV7("Aa","Вставить слово","Времена · число · порядок слов","cloze")+
           hubTileV7("✎","Диктант","Слух + письмо","dictation")+
           hubTileV7("↗","Прогресс","Навыки и результаты","progress")+
           hubTileV7("◆","Дневник Fjordvik","История решений","storyjournal")+
@@ -402,6 +405,7 @@
       else if(target==="chat")r=renderChatV7();
       else if(target==="story")r=renderStoryV7(data);
       else if(target==="hub")r=renderHubV7();
+      else if(target==="forms"||target==="cloze")r=window.NEFunctionalPractice?.open(target);
       else if(target==="learnedwords")r=window.renderLearnedWords();
       else r=baseNavigateV7(target,data);
       routeTopV7();
