@@ -46,7 +46,7 @@
     if(["lesson","topic"].includes(g))g="course";
     if(["storyepisode","storyjournal"].includes(g))g="story";
     if(["daily","dailypractice","review","storyside","plan","teacher"].includes(g))g="home";
-    if(["tests","test","exam","examrun","exampart","progress","dictionary","dictation","grammarlab","pronunciation","listeninglab","settings","cloud","placement"].includes(g))g="hub";
+    if(["forms","cloze","tests","test","exam","examrun","exampart","progress","dictionary","dictation","grammarlab","pronunciation","listeninglab","settings","cloud","placement"].includes(g))g="hub";
     return g;
   }
   function iconV7(name){
@@ -379,6 +379,8 @@
           hubTileV7("◉","Listening Lab","Живая норвежская речь","listeninglab")+
           hubTileV7("⌁","Произношение","Звуки и ритм","pronunciation")+
           hubTileV7("Aa","Грамматика","Слабые места","grammarlab")+
+          hubTileV7("▤","Анкеты и заявления","Учебные бланки · A1–B2","forms")+
+          hubTileV7("Aa","Вставить слово","Времена · число · порядок слов","cloze")+
           hubTileV7("✎","Диктант","Слух + письмо","dictation")+
           hubTileV7("↗","Прогресс","Навыки и результаты","progress")+
           hubTileV7("◆","Дневник Fjordvik","История решений","storyjournal")+
@@ -402,6 +404,7 @@
       else if(target==="chat")r=renderChatV7();
       else if(target==="story")r=renderStoryV7(data);
       else if(target==="hub")r=renderHubV7();
+      else if(target==="forms"||target==="cloze")r=window.NEFunctionalPractice?.open(target);
       else if(target==="learnedwords")r=window.renderLearnedWords();
       else r=baseNavigateV7(target,data);
       routeTopV7();
