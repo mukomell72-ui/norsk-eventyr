@@ -15,7 +15,7 @@ const SCENES={
  ]),
  'a1-home':make('Ты в гостях. Хозяин помогает найти нужную вещь.','Ingrid · хозяйка','Velkommen hjem til meg!',[
   ['Поздоровайся и спроси, где находится ключ.','Задать простой вопрос о местонахождении ключа.','Nøkkelen ligger på bordet.'],
-  ['Уточни, находится ли ключ рядом с дверью.','Задать понятный вопрос о местоположении ключа относительно двери.','Nei, bordet står ved vinduet.'],
+  ['Скажи, где ищешь ключ, и уточни, находится ли он у двери.','Сообщить, где ищешь ключ, и спросить, находится ли он у двери.','Nei, bordet står ved vinduet.'],
   ['Поблагодари хозяйку и скажи, что нашёл ключ.','Поблагодарить и сказать, что ключ найден.','Bare hyggelig!']
  ]),
  'a1-time':make('Ты договариваешься о встрече.','Ola · знакомый','Hei! Når passer det å møtes?',[
@@ -200,6 +200,11 @@ function actorMessage(actor,text,index){
 function freeExGuided(l){
  const d=ensure(l);if(!d)return nativeFree(l,'speaking');
  const {scene,progress}=d,step=scene.steps[progress.index];
+ const keyHome=normalizeModule(l)==='a1-home',curated=keyHome?window.NECurated?.get?.('a1-home'):null;
+ const support=keyHome?(curated?.speakingSupport||l.speakingSupport):null;
+ const translation=support?'<div class="prompt" lang="nb">'+esc(curated?.speaking||'Spør hvor nøkkelen er. Si hvor du leter etter den.')+'</div>'+
+  '<details class="grammar-fold a1-task-support" data-translation="on-request"><summary>Перевести задание</summary>'+
+  '<div class="notice"><b>Перевод задания:</b> '+esc(support.ru)+'<br><small>'+esc(support.hint)+'</small></div></details>':'';
  const transcript=['<div class="guided-chat-history">',actorMessage(scene.actor,scene.opening,-1)];
  for(let i=0;i<progress.turns.length;i++){
   const turn=progress.turns[i];
@@ -209,12 +214,13 @@ function freeExGuided(l){
  transcript.push('</div>');
  return '<article class="card guided-speaking"><div class="eyebrow">Устная речь · диалог с собеседником</div>'+
  '<div class="guided-scene">'+esc(scene.scene)+'</div>'+
+ translation+
  '<div class="guided-progress">Реплика '+(progress.index+1)+' из '+scene.steps.length+'</div>'+
  transcript.join('')+
  '<div class="guided-task"><b>Нора · твой следующий шаг</b><p>'+esc(step.task)+'</p></div>'+
  '<div class="guided-language">Говори по-норвежски. При ошибке Нора предложит исправление; собеседник ответит после правильной реплики.</div>'+
  '<textarea id="freeAnswer" class="input" rows="2" autocomplete="off" placeholder="Твой ответ по-норвежски…" oninput="this.dataset.fromVoice=\'false\'"></textarea>'+
- '<div class="row guided-controls"><button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>'+
+ '<div class="row guided-controls speech-actions-v831"><button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>'+
  '<button id="guidedSend" class="btn" onclick="checkFree(\'speaking\')">✓ Ответить</button></div>'+
  '<small class="muted">Текст можно использовать для тренировки, но он не засчитывается как подтверждение навыка устной речи. Проверяется смысл расшифровки, не произношение.</small>'+
  '<div id="freeFb" aria-live="polite"></div></article>';
