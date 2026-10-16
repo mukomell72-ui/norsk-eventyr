@@ -1,7 +1,7 @@
 // Access is established by the server before any learning screen is loaded.
 (() => {
  const TERMS_VERSION='2026-10-08-v2',PRIVACY_VERSION='2026-10-08-v4';
- const ASSET_REV='8.3.0',LESSON_PATCH='-lesson11',scripts=['data.js','curriculum-v8.js','course-methodology.js','verified-learning-resources.js','practice-foundations.js','foundation-extensions.js','advanced-b1.js','advanced-b2.js','adaptive-teacher.js','app.js','voice-pack.js','v3.js','guided-speaking.js','lexicon.js','elite.js','story-data.js','story.js','ui-v6.js','ui-v7.js','ui-v8.js','placement-calibration.js','updates.js','feedback.js'];
+ const ASSET_REV='8.3.0',LESSON_PATCH='-lesson12',scripts=['data.js','curriculum-v8.js','course-methodology.js','verified-learning-resources.js','practice-foundations.js','functional-practice.js','foundation-extensions.js','advanced-b1.js','advanced-b2.js','adaptive-teacher.js','app.js','voice-pack.js','v3.js','guided-speaking.js','lexicon.js','elite.js','story-data.js','story.js','ui-v6.js','ui-v7.js','ui-v8.js','placement-calibration.js','updates.js','feedback.js'];
  const app=document.getElementById('app'),gate=document.createElement('main');gate.id='accessGate';gate.className='access-gate';document.body.append(gate);
  let installPrompt=null,identity=null,loaded=false,loadedUser=null,loadedCount=0,busy=false,checking=null,register=false,confirmationEmail=null,installSeenSent=false,errorReportBusy=false,growthActivityDateSent='',panelOpen=false,panelEpoch=0;
  // Keep a verified in-progress lesson open during short upstream 503 / connectivity hiccups.
