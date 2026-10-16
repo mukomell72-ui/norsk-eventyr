@@ -3,8 +3,8 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
 const s={level:'A1',learningV8:{},dailyDictionary:{},srs:{},dailyPacks:{}};
-let date='2026-10-16',begins=0,saves=0,spoken='',heard=0;
-const views=[],input={livingCloze:{value:''},livingWrite:{value:'Jeg lærer norsk på skolen.'}};
+let date='2026-10-16',begins=0,saves=0,voiceText='',heard=0,recognizedLang='';
+const views=[],input={livingTranslate:{value:''},livingCloze:{value:''},livingWrite:{value:'Jeg lærer norsk på skolen.'}};
 const vocab=Array.from({length:10},(_,i)=>['ord'+i,'значение'+i]);
 const lesson={vocab};
 const w={
@@ -20,7 +20,11 @@ const w={
 };
 class SR{
  constructor(){this.lang='';this.interimResults=true}
- start(){this.onresult?.({results:[{isFinal:true,0:{transcript:'Jeg kan snakke norsk på jobben.'}}]});this.onend?.()}
+ start(){
+  recognizedLang=this.lang;
+  this.onresult?.({results:[{isFinal:true,0:{transcript:voiceText}}]});
+  this.onend?.()
+ }
 }
 w.SpeechRecognition=SR;
 const document={getElementById:id=>input[id]||null};
@@ -34,9 +38,46 @@ const D=w.NELivingWords;
  assert.equal(Object.keys(s.dailyDictionary).length,5,'New words are stored in existing learned vocabulary');
  assert.strictEqual(D.ensure(),session,'Same date must not create another five words');
  assert.equal(D.isReady(),false,'Cards and production cannot be skipped');
- assert.equal(D.nextCard(true),false,'Cards must first be revealed');
- D.render();assert(views.at(-1).includes('Карточка 1')&&views.at(-1).includes('Активных слов'));
- for(let n=0;n<5;n++){D.reveal();assert.equal(D.nextCard(true),true)}
+ assert.equal(D.nextCard(),false,'Cards require an actual answer, not self-marking');
+ assert.equal(D.acceptedTranslation('ЖИЛИЩЕ','дом / жилище'),true,'Explicit dictionary synonyms accepted');
+ assert.equal(D.acceptedTranslation('ЁЖ','еж'),true,'Russian ё/е normalization works');
+ assert.equal(D.acceptedTranslation('неверно','правильно'),false);
+ D.render();
+ assert(views.at(-1).includes('id="livingTranslate"')&&views.at(-1).includes('Ответить голосом'),
+  'Text field and microphone must be visible within each card');
+ const missed=session.active[0],missedKey=missed.key;
+ input.livingTranslate.value='другой перевод';
+ assert.equal(D.checkTranslation(),false);
+ assert.equal(session.cardFeedback.correct,false);
+ assert.equal(s.dailyDictionary[missedKey].wrong,1);
+ assert(s.wordPracticeQueue[missedKey],'Mistake must remain due for later spaced practice');
+ assert.equal(session.cardsSeen,0,'Card must not advance before review feedback');
+ assert.equal(D.nextCard(),true);
+ assert.equal(session.cardQueue.length,6,'Missed word is automatically queued after regular cards');
+ voiceText=session.active[1].translation;
+ assert.equal(D.recordTranslation(),true);
+ assert.equal(recognizedLang,'ru-RU','Card microphone must recognize Russian, not Norwegian');
+ assert.equal(session.cardDraft,voiceText,'Speech transcript must be placed in editable translation field');
+ input.livingTranslate.value=session.cardDraft;
+ assert.equal(D.checkTranslation(),true);
+ assert.equal(session.cardFeedback.correct,true);
+ assert.equal(D.nextCard(),true);
+ assert.equal(session.cardsSeen,2);
+ // Answer the rest of the original cards in writing.
+ for(let n=2;n<5;n++){
+  input.livingTranslate.value=session.active[n].translation;
+  assert.equal(D.checkTranslation(),true,'Correct typed translation should be accepted');
+  assert.equal(D.nextCard(),true);
+ }
+ assert.equal(session.cardsSeen,5);
+ assert.equal(session.stage,'cards','Missed first word must reappear before next exercise');
+ assert(views.at(-1).includes(missed.word));
+ // A failed retry can be deferred without losing it from the long-term queue.
+ assert.equal(D.reveal(),true);
+ assert.equal(D.deferCard(),true);
+ assert.equal(session.stage,'cloze');
+ assert(s.wordPracticeQueue[missedKey],'Deferred mistake remains in spaced-review backlog');
+ assert(session.deferredWords.includes(missedKey));
  assert.equal(session.stage,'cloze');
  assert.equal(D.checkCloze(),false,'Empty cloze answer must not advance');
  for(let n=0;n<3;n++){
@@ -65,8 +106,8 @@ const D=w.NELivingWords;
  assert.equal(Object.keys(s.dailyDictionary).length,20,'Older learned entries must remain archived');
  assert(saves>4);
  const access=read('access.js'),sw=read('sw.js'),lexicon=read('lexicon.js'),teacher=read('living-day.js');
- assert(access.includes("'living-words.js'")&&sw.includes('/living-words.js?v=8.3.0-lesson17'));
+ assert(access.includes("'living-words.js'")&&sw.includes('/living-words.js?v=8.3.0-lesson18'));
  assert(teacher.includes('NELivingWords.isReady()'),'Main route must check whether warmup is complete');
  assert(lexicon.includes("livingVocabulary?.days?.[date]?.newWords"),'Separate optional daily section cannot award another five new words');
- console.log('PASS daily vocabulary: learned-first cards, five per day, 15 active, archive, cloze, writing, recognized oral phrase');
+ console.log('PASS daily vocabulary: text/voice Russian translations, missed-word queues, 15 active, five new/day, cloze, writing and Norwegian speech');
 })().catch(err=>{console.error(err);process.exitCode=1});
