@@ -6,7 +6,7 @@ const path=require('node:path');
 const vm=require('node:vm');
 const root=path.resolve(__dirname,'..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
-const module={id:'a1-foundation',level:'A1',title:'Знакомство',grammar:'jeg/du; heter',canDo:['Представиться']};
+const chapter={id:'a1-foundation',level:'A1',title:'Знакомство',grammar:'jeg/du; heter',canDo:['Представиться']};
 const state={level:'A1',elite:{dailyMinutes:20},learningV8:{}};
 const events=[],visits=[];
 let mastery=35;
@@ -15,9 +15,9 @@ const bank={vocab:dictionary,grammarQ:'Velg riktig.',grammarOpts:['riktig','feil
  q:'Hvor?',read:'Jeg bor i Oslo.',opts:['Oslo','Bergen','Trondheim','Tromsø'],correct:0,
  listeningSets:[{audio:'Jeg heter Anna.',q:'Hva heter hun?',opts:['Anna','Sara','Kari','Eva'],correct:0},{audio:'Jeg bor her.',q:'Hvor?',opts:['Her','Der','Borte','Ute'],correct:0}]};
 const fakeA={ensure:s=>s.learningV8,highestUnlockedLevel:()=> 'A1',levelGate:()=>({pass:false}),moduleMastery:()=>mastery,
- moduleMission:()=>({kind:'learn',module}),recordAttempt:(_state,entry)=>events.push(entry)};
+ moduleMission:()=>({kind:'learn',chapter}),recordAttempt:(_state,entry)=>events.push(entry)};
 const w={
- neLearnerState:state,NEAdaptive:fakeA,NECurriculum:{moduleById:()=>module,modules:()=>[module]},
+ neLearnerState:state,NEAdaptive:fakeA,NECurriculum:{moduleById:()=>chapter,modules:()=>[chapter]},
  NECourseMethod:{modulePlan:()=>({stageKey:'introduce',objective:'Представиться'})},
  NECurated:{variant:()=>bank,get:()=>bank},saveState:()=>{},shell:html=>visits.push(html),
  speakText:t=>visits.push('speak:'+t),teacherStartDailyModule:(id,stage)=>visits.push('teacher:'+id+':'+stage)
@@ -25,7 +25,7 @@ const w={
 const context={window:w,state,Date,Math,Number,Object,Array,String,JSON,Set,Intl};
 vm.runInNewContext(read('daily-course.js'),context,{filename:'daily-course.js'});
 const D=w.NEDailyCourse;
-assert(D,'Daily module must be registered');
+assert(D,'Daily chapter must be registered');
 let s=D.summary();
 assert(s.planned>=45,'A configured short profile must still have 45+ minute core day');
 assert.equal(s.done,0);assert.equal(s.moduleId,'a1-foundation');
@@ -64,7 +64,7 @@ assert(visits.some(x=>x.includes('Аудирование')||x.includes('Слуш
 const teacher=read('adaptive-teacher.js'),ui=read('ui-v7.js'),app=read('app.js'),assets=read('sw.js'),boot=read('access.js');
 assert(ui.includes("return navigate('daycourse')"),'The continue button must open the full day route');
 assert(ui.includes('window.NEDailyCourse?.open?.()'),'Daily route must be dispatched');
-assert(teacher.includes('teacherStartDailyModule'),'Daily core cannot select an arbitrary future module');
+assert(teacher.includes('teacherStartDailyModule'),'Daily core cannot select an arbitrary future chapter');
 assert(app.includes('onLessonFinish?.(l,courseOutcome,reward.avg)'),'Daily completion must depend on teacher course evidence');
 assert(assets.includes('/daily-course.js?'),'Study day must work in installed PWA');
 assert(boot.includes("'daily-course.js'"),'Authenticated bootstrap must load the day controller');
