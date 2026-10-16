@@ -142,8 +142,8 @@
       done:steps.filter(x=>x.done).length,total:steps.length,planned:plan?.minutes||60,
       mins:steps.filter(x=>!x.done).reduce((a,x)=>a+x.mins,0)};
   }
-  function v7ContinueToday(){const x=guidedV7().next;navigate(x.route,x.data)}
-  function v7Step(i){const x=guidedV7().steps[i];if(x)navigate(x.route,x.data)}
+  function v7ContinueToday(){return navigate('livingday')}
+  function v7Step(i){return navigate('livingday')}
 
   function dailyWordsV7(){
     const list=Object.values(state.dailyDictionary||{}).sort((a,b)=>String(b.lastSeen||"").localeCompare(String(a.lastSeen||""))).slice(0,5);
@@ -162,11 +162,11 @@
   }
   function renderHomeV7(){
     currentRouteV7="home";
-    const j=guidedV7(),story=j.story,words=dailyWordsV7(),district=story?.district||"Fjordvik",
+    const j=guidedV7(),living=window.NELivingDay?.details?.()||null,story=j.story,words=dailyWordsV7(),district=story?.district||"Fjordvik",
       pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id],
       met=state.noraMemory?.introduced===true,
-      heroTitle=pending?"Продолжим?":j.mins===0?"До завтра!":met?"Идём дальше!":"Начнём вместе",
-      heroText=pending?"Мы сохранили твой урок. Продолжим с того места, где остановились.":
+      heroTitle=living?(living.finished?'На сегодня отлично!':pending?'Продолжим?':'Учим норвежский вместе'):pending?"Продолжим?":j.mins===0?"До завтра!":met?"Идём дальше!":"Начнём вместе",
+      heroText=living?(living.finished?'Тема закреплена. Твой следующий шаг подберётся по результатам.':'Нора продолжает одну тему в новых ситуациях. Ответы и учебный прогресс сохраняются.'):pending?"Мы сохранили твой урок. Продолжим с того места, где остановились.":
         j.mins===0?"Главная цель на сегодня выполнена. Дополнительная практика доступна по желанию.":
         met?"Новая задача и повторение слабых мест. Никакого знакомства заново.":
         "Первый шаг к настоящему разговору по-норвежски — в твоём темпе.";
@@ -181,11 +181,12 @@
       '<section class="home-v7">'+
         '<section class="hero-v7">'+
           '<div class="hero-overlay-v7"></div><div class="nora-cutout-v7" aria-hidden="true"></div>'+
-          '<div class="hero-copy-v7"><small>'+h(district)+' · '+daypart+'</small><h1>'+h(heroTitle)+'</h1><p>'+h(heroText)+'</p><div class="home-focus-v81"><span>Сегодня с Норой</span><strong>'+h(j.steps[0]?.sub||"Практика норвежского")+'</strong></div>'+
+          '<div class="hero-copy-v7"><small>'+h(district)+' · '+daypart+'</small><h1>'+h(heroTitle)+'</h1><p>'+h(heroText)+'</p><div class="home-focus-v81"><span>Сегодня с Норой</span><strong>'+h(living?.title||j.steps[0]?.sub||"Практика норвежского")+'</strong></div>'+
           '<button class="cta-v7" onclick="v7ContinueToday()">Продолжить день <b>→</b></button></div>'+
           '<div class="hero-note-v7">Små steg<br>store eventyr ♡</div>'+
         '</section>'+
-        '<section class="route-card-v7"><div class="section-head-v7"><div><small>Твой маршрут на сегодня · 5 занятий</small><h2>'+(j.mins?"Осталось "+(j.total-j.done)+" из "+j.total+" блоков":"Маршрут завершён")+'</h2></div><span>План '+j.planned+' мин</span></div><p class="muted">Время на каждый блок — ориентир, а не измерение фактически потраченных минут.</p><div class="route-steps-v7">'+route+'</div></section>'+
+        (living?'<section class="route-card-v7"><div class="section-head-v7"><div><small>Одна тема · несколько реальных ситуаций</small><h2>'+h(living.finished?'Учебный день завершён':living.title)+'</h2></div><span>План от 45 мин</span></div><p>'+h(living.objective)+'</p><p class="muted">Нора последовательно объясняет, даёт практику и возвращает ошибки. Пройдено ситуаций: '+living.scene+' из '+living.total+'. Это ориентир нагрузки, а не счётчик времени.</p><button class="btn secondary" onclick="v7ContinueToday()">'+h(living.finished?'Посмотреть результаты':'Вернуться к занятию')+' →</button></section>':
+        '<section class="route-card-v7"><div class="section-head-v7"><div><small>Твой маршрут на сегодня · 5 занятий</small><h2>'+(j.mins?"Осталось "+(j.total-j.done)+" из "+j.total+" блоков":"Маршрут завершён")+'</h2></div><span>План '+j.planned+' мин</span></div><p class="muted">Время на каждый блок — ориентир, а не измерение фактически потраченных минут.</p><div class="route-steps-v7">'+route+'</div></section>')+
         xpJourneyV7()+
                 '<section class="card applied-home-entry"><div class="section-head-v7"><div><small>Дополнительная практика · '+h(state.level)+'</small><h2>Норвежский для жизни</h2><p>Проверь формы слов и потренируйся заполнять документы.</p></div></div><div class="applied-actions"><button class="btn" onclick="navigate(\'cloze\')">Вставить слово</button><button class="btn secondary" onclick="navigate(\'forms\')">Анкеты и заявления</button></div></section>'+
         '<section class="words-card-v7 daily-focus-v81"><div class="section-head-v7"><div><small>Короткая ежедневная практика</small><h2>Слова для реальной жизни</h2><p>Попробуй вспомнить эти слова и составить собственную фразу.</p></div><button onclick="navigate(\'daily\')">Практика →</button></div><div class="daily-words-v81">'+words.slice(0,3).map(w=>'<div class="daily-word-v81"><b>'+h(w.lemma||w.word||"")+'</b><span>'+h(w.translation_ru||w.translation||"")+'</span></div>').join("")+'</div></section>'+
@@ -402,6 +403,7 @@
       let r;
       if(target==="home")r=renderHomeV7();
       else if(target==="course")r=renderCourseV7(data||state.level);
+      else if(target==="livingday")r=window.NELivingDay?.open?.();
       else if(target==="chat")r=renderChatV7();
       else if(target==="story")r=renderStoryV7(data);
       else if(target==="hub")r=renderHubV7();
