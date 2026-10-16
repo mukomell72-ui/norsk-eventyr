@@ -6,8 +6,8 @@ const BLOCKS=[
  {id:'vocab',title:'Вспоминаем нужные слова',description:'Слова текущей темы и употребление в контексте.',share:14,skill:'vocabulary'},
  {id:'grammar',title:'Разбираем грамматику',description:'Правило и проверка на практической фразе.',share:14,skill:'grammar'},
  {id:'listening',title:'Слушаем и понимаем',description:'Несколько коротких записей с вопросами по смыслу.',share:20,skill:'listening'},
- {id:'reading',title:'Читаем и проверяем смысл',description:'Текст текущей темы и самостоятельный ответ.',share:16,skill:'reading'},
- {id:'teacher',title:'Применяем с Норой',description:'Разговор, письмо, исправление ошибок и проверка этапа курса.',share:36,skill:'speaking'}
+ {id:'reading',title:'Читаем и проверяем смысл',description:'Текст текущей темы и самостоятельный ответ.',share:17,skill:'reading'},
+ {id:'teacher',title:'Применяем с Норой',description:'Разговор, письмо, исправление ошибок и проверка этапа курса.',share:35,skill:'speaking'}
 ];
 const clean=s=>typeof window.esc==='function'?window.esc(String(s??'')):String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const today=()=>new Date().toLocaleDateString('sv-SE');
@@ -17,8 +17,8 @@ function duration(){
  const raw=Number(learner().elite?.dailyMinutes)||60;
  return Math.min(90,Math.max(45,Math.round(raw)));
 }
-function minutes(){
- const total=duration(),parts=BLOCKS.map((x,i)=>i===4?0:Math.floor(total*x.share/100));
+function minutes(d){
+ const total=Math.max(45,Math.min(90,Number(d?.planned)||duration())),parts=BLOCKS.map((x,i)=>i===4?0:Math.floor(total*x.share/100));
  parts[4]=total-parts.slice(0,4).reduce((a,b)=>a+b,0);return parts;
 }
 function subject(){
@@ -72,7 +72,7 @@ function exercises(d){
 }
 function stageIndex(d){return Math.min(d.done.length,BLOCKS.length);}
 function summary(){
- const d=session(),m=minutes();
+ const d=session(),m=minutes(d);
  if(!d)return null;
  const complete=d.finished===true;
  const index=stageIndex(d);
@@ -83,7 +83,7 @@ function summary(){
 function view(){
  const d=session();if(!d)return;
  const s=learner(),module=window.NECurriculum?.moduleById(d.moduleId),plan=window.NECourseMethod?.modulePlan(module,s);
- const part=stageIndex(d),time=minutes(),lessons=exercises(d);
+ const part=stageIndex(d),time=minutes(d),lessons=exercises(d);
  const route=BLOCKS.map((block,i)=>{
   const done=i<part,active=i===part;
   return '<div class="metric" style="opacity:'+(i>part?'.65':'1')+';gap:10px"><span><b>'+(done?'✓ ':active?'→ ':'○ ')+clean(block.title)+'</b><small style="display:block">'+clean(block.description)+'</small></span><strong>'+time[i]+' мин</strong></div>';
