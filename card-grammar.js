@@ -114,14 +114,14 @@ function describe(entry){
  const gender=String(entry?.gender||'').toLowerCase();
  const article=/^(en|ei|et)\s/.exec(raw)?.[1];
  const url='https://ordbokene.no/bm/'+encodeURIComponent(mapped);
- if(noun[mapped]&&(article||pos==='noun'||!pos)){
+ if(Object.hasOwn(noun,mapped)&&(article||pos==='noun'||!pos)){
   const [art,sgDef,pl,plDef,no,ru]=noun[mapped];
   return {type:'noun',typeRu:'Существительное',headword:art+' '+mapped,lemma:mapped,
     forms:[form('Ед. число · неопределённая',art+' '+mapped),form('Ед. число · определённая',sgDef),
      form('Мн. число · неопределённая',pl),form('Мн. число · определённая',plDef)],
     example:{no,ru},verified:true,url,help:'Учи существительное сразу с артиклем; формы числа и определённости повторяй вслух.'};
  }
- if(verb[lemma]&&(raw.startsWith('å ')||pos==='verb'||pos==='modal'||!pos)){
+ if(Object.hasOwn(verb,lemma)&&(raw.startsWith('å ')||pos==='verb'||pos==='modal'||!pos)){
   const [pres,past,perfect,no,ru]=verb[lemma];
   return {type:'verb',typeRu:'Глагол',headword:'å '+lemma,lemma,
     forms:[form('Инфинитив','å '+lemma),form('Настоящее · presens',pres),
@@ -129,7 +129,7 @@ function describe(entry){
      form('Будущее · конструкция','skal '+lemma)],
     example:{no,ru},verified:true,url,help:'Запомни три разные формы: presens, preteritum и причастие после har. Будущее с skal — конструкция.'};
  }
- if(adjective[lemma]&&(pos==='adjective'||!pos)){
+ if(Object.hasOwn(adjective,lemma)&&(pos==='adjective'||!pos)){
   const [neuter,plural,comparative,superlative,no,ru]=adjective[lemma];
   return {type:'adjective',typeRu:'Прилагательное',headword:lemma,lemma,
     forms:[form('Общий род · en',lemma),form('Средний род · et',neuter),form('Мн. число / определённая форма',plural),
