@@ -7,7 +7,7 @@ const day=()=>new Date().toLocaleDateString('sv-SE');
 const getState=()=>window.neLearnerState;
 const save=()=>window.saveState?.();
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const key=x=>String(x||'').trim().normalize('NFC').toLocaleLowerCase('nb-NO').replace(/\s+/g,' ');
+const key=x=>String(x||'').trim().normalize('NFKC').toLocaleLowerCase('nb-NO').replace(/^å\s+/,'').replace(/[.,!?;:"'()[\]{}]/g,'').replace(/\s+/g,' ');
 const norm=x=>key(x).replace(/[.!?]+$/,'');
 function isWord(w){return !!(w&&typeof w.word==='string'&&w.word.trim()&&typeof w.translation==='string'&&w.translation.trim())}
 function snapshot(){
@@ -157,6 +157,10 @@ async function assess(mode,answer){
  const d=ensure();if(!d||busy)return false;
  if(mode==='writing'&&d.stage!=='writing'||mode==='speaking'&&d.stage!=='speaking')return false;
  const raw=String(answer||'').trim();
+ if(mode==='speaking'&&norm(raw)===norm(d.writingDraft)){
+  d.feedback='Скажи новое предложение — устная практика не должна повторять написанное дословно.';
+  save();render();return false;
+ }
  if(raw.length<9||!/[a-zæøå]/i.test(raw)){d.feedback='Составь самостоятельное предложение на норвежском.';save();render();return false}
  const level=d.level,topic=window.NELivingDay?.details?.().title||'Учебная ситуация';
  busy=true;
@@ -176,7 +180,7 @@ async function assess(mode,answer){
    save();render();return false;
   }
   const s=getState();
-  if(mode==='writing'){d.writingOK=true;d.stage='speaking'}
+  if(mode==='writing'){d.writingDraft=raw;d.writingOK=true;d.stage='speaking'}
   else {d.speakingOK=true;d.stage='ready';d.ready=true;d.completedAt=new Date().toISOString()}
   d.feedback='';save();
   if(d.ready)return window.NELivingDay?.begin?.();
