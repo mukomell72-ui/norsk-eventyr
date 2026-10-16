@@ -88,7 +88,11 @@ const {chromium}=require('playwright');
    await translate(word.translation);
    await solve();
    const done=await page.evaluate(()=>window.NELivingWords.ensure().formPractice.done);
-   assert(done,'One correct morphology or sentence assignment is enough for each word');
+   const debug=await page.evaluate(()=>{const d=window.NELivingWords.ensure();
+    return {card:d.active[d.cardQueue[d.cardsSeen]]?.word,task:d.formPractice?.task,
+      feedback:d.formPractice?.note,answers:d.formPractice?.answers,misses:d.formPractice?.misses,
+      needsAnother:d.formPractice?.needsAnother};});
+   assert(done,'One correct morphology or sentence assignment is enough for each word: '+JSON.stringify(debug));
    await page.getByRole('button',{name:/Следующая карточка|Продолжить повтор/}).click();
    checked++;
   }
