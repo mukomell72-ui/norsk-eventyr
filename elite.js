@@ -270,7 +270,14 @@
     m.lexicalCandidates={...(remote.lexicalCandidates||{})};for(const [k,v] of Object.entries(local.lexicalCandidates||{})){const r=m.lexicalCandidates[k];m.lexicalCandidates[k]=!r?v:{...r,...v,occurrences:Math.max(r.occurrences||0,v.occurrences||0),confidence:Math.max(r.confidence||0,v.confidence||0),firstSeen:[r.firstSeen,v.firstSeen].filter(Boolean).sort()[0],lastSeen:[r.lastSeen,v.lastSeen].filter(Boolean).sort().at(-1)}}
     m.lexicalCapture={...(remote.lexicalCapture||{}),...(local.lexicalCapture||{})};
     m.guidedJourney={...(remote.guidedJourney||{}),...(local.guidedJourney||{})};m.guidedJourney.lessonDates={...(remote.guidedJourney?.lessonDates||{}),...(local.guidedJourney?.lessonDates||{})};m.guidedJourney.reviewDates={...(remote.guidedJourney?.reviewDates||{}),...(local.guidedJourney?.reviewDates||{})};
-    m.learningV8={...(remote.learningV8||{}),...(local.learningV8||{})};m.learningV8.startLevel=resolveStartLevel(local,remote,m.placement);
+    m.learningV8={...(remote.learningV8||{}),...(local.learningV8||{})};
+    const ld=local.learningV8?.livingDay,rd=remote.learningV8?.livingDay;
+    if(ld&&rd&&ld.id===rd.id){
+      m.learningV8.livingDay=(rd.finished&&!ld.finished)||(rd.scene||0)>(ld.scene||0)?rd:ld;
+    }else if(ld&&rd){
+      m.learningV8.livingDay=String(ld.startedAt||'')>=String(rd.startedAt||'')?ld:rd;
+    }else m.learningV8.livingDay=ld||rd||null;
+    m.learningV8.startLevel=resolveStartLevel(local,remote,m.placement);
     m.learningV8.skills={...(remote.learningV8?.skills||{})};for(const [k,v] of Object.entries(local.learningV8?.skills||{}))m.learningV8.skills[k]=Math.max(m.learningV8.skills[k]||0,v||0);
     m.learningV8.levelSkills={};for(const level of ["A1","A2","B1","B2"]){m.learningV8.levelSkills[level]={...(remote.learningV8?.levelSkills?.[level]||{})};for(const [k,v] of Object.entries(local.learningV8?.levelSkills?.[level]||{}))m.learningV8.levelSkills[level][k]=Math.max(m.learningV8.levelSkills[level][k]||0,v||0)}
     m.learningV8.modules={...(remote.learningV8?.modules||{}),...(local.learningV8?.modules||{})};
