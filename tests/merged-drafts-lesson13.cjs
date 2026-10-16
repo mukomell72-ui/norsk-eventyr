@@ -75,8 +75,8 @@ assert(ctx.window.neLessonSession.remediation===null);
 const scripts=read('access.js'),cache=read('sw.js');
 for(const f of ['course-methodology.js','adaptive-teacher.js','inline-personal-form.js']){
  assert(scripts.includes("'"+f+"'"),'Missing script '+f);
- assert(cache.includes('/'+f+'?v=8.3.0'+(f==='inline-personal-form.js'?'':'-lesson18')),
+ assert(cache.includes('/'+f+'?v=8.3.0'+(f==='inline-personal-form.js'?'':'-lesson19')),
   'Missing cached script '+f);
 }
-assert(scripts.includes("LESSON_PATCH='-lesson18'"));
+assert(scripts.includes("LESSON_PATCH='-lesson19'"));
 console.log('PASS integrated old draft functionality #33/#58/#59 + live lesson13: no stale branch merge and all learning gates intact');
