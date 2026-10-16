@@ -250,7 +250,7 @@ function deferCard(){
  // Wrong words stay due in SRS but do not trap the learner in an infinite loop.
  d.deferredWords.push(key(card.word.word));return advanceCard(false);
 }
-function listenCard(){const d=ensure(),card=d&&currentCard(d);if(card)window.speakText?.(card.word.word,.9)}
+function listenCard(){const d=ensure(),card=d&&currentCard(d);if(card)window.speakText?.(window.NECardGrammar?.describe?.(card.word)?.headword||card.word.word,.9)}
 let translationRecognition=null;
 function recordTranslation(){
  const d=ensure(),card=d&&currentCard(d);
