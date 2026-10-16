@@ -58,7 +58,12 @@ const {chromium}=require('playwright');
     const lang=await page.evaluate(()=>window.recognizedLanguages.at(-1));
     assert.equal(lang,'nb-NO');
    }else await page.locator('#livingFormAnswer').fill(answer);
+   const previous=await page.evaluate(()=>window.NELivingWords.ensure().formPractice.answers.length);
    await page.getByRole('button',{name:'Проверить форму'}).click();
+   await page.waitForFunction(prev=>{
+    const p=window.NELivingWords.ensure().formPractice;
+    return p.answers.length>prev||p.note.startsWith('Пока неверно.')||p.note.startsWith('Проверка Норы сейчас недоступна');
+   },previous);
    return d;
   }
   await translate('идти');
