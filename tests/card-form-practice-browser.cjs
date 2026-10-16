@@ -49,8 +49,12 @@ const {chromium}=require('playwright');
     const s=window.NELivingWords.ensure(),p=s.formPractice;
     return {task:p.task,word:s.active[s.cardQueue[s.cardsSeen]]};
    });
-   const answer=d.task.kind==='form'?d.task.answer:
-    'Etter hvert lærer jeg mer norsk.';
+   const sentenceVariants=[
+    'Etter hvert lærer jeg mer norsk.',
+    'Jeg lærer flere ord etter hvert.',
+    'Etter hvert forstår jeg flere norske ord.'
+   ];
+   const answer=d.task.kind==='form'?d.task.answer:sentenceVariants[d.task.index];
    if(useVoice){
     await page.evaluate(a=>window.recognitionAnswer=a,answer);
     await page.getByRole('button',{name:'Сказать по-норвежски'}).click();
@@ -86,6 +90,16 @@ const {chromium}=require('playwright');
    if(++guard>12)throw Error('Card queue did not complete after valid answers');
    const word=await wordAt();
    await translate(word.translation);
+   if(word.word==='etter hvert'){
+    await page.locator('#livingFormAnswer').fill('Jeg bruker et ord i dag.');
+    await page.getByRole('button',{name:'Проверить форму'}).click();
+    assert((await page.locator('#app').innerText()).includes('не найдено изучаемое слово'));
+    assert.equal(await page.evaluate(()=>window.NELivingWords.ensure().formPractice.needsAnother),true);
+    const before=await page.evaluate(()=>window.NELivingWords.ensure().formPractice.task.index);
+    await solve();
+    assert.notEqual(await page.evaluate(()=>window.NELivingWords.ensure().formPractice.task.index),before,
+      'After a wrong contextual sentence, a second prompt is mandatory');
+   }
    await solve();
    const done=await page.evaluate(()=>window.NELivingWords.ensure().formPractice.done);
    const debug=await page.evaluate(()=>{const d=window.NELivingWords.ensure();
