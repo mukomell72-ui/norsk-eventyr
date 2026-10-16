@@ -172,6 +172,11 @@
   async function generateSmartDailyPack(){
     if(dailyGenerationBusy)return;
     const date=dateKey(),level=state.level||"A1";if(state.dailyPacks?.[date])return renderSmartDaily();
+    // A single five-word allocation for the calendar day: never award five
+    // extra 'new' words from the optional daily generator after Nora's lesson.
+    if(state.learningV8?.livingVocabulary?.days?.[date]?.newWords?.length){
+      return navigate('livingday');
+    }
     dailyGenerationBusy=true;try{
     shell('<section class="card loading-card"><div class="spinner"></div><h2>Собираю персональные 5 слов</h2><p class="muted">Сначала беру слова и конструкции, которых тебе реально не хватило в речи и письме. Остальное дополняю полезной лексикой уровня.</p></section>',"home");
     const revision=window.neScreenRevision;
