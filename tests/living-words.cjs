@@ -9,7 +9,7 @@ const vocab=Array.from({length:10},(_,i)=>['ord'+i,'значение'+i]);
 const lesson={vocab};
 const w={
  neLearnerState:s,saveState:()=>saves++,shell:markup=>views.push(markup),
- NECurated:{get:()=>lesson},NECurriculum:{modules:()=>Array.from({length:8},(_,i)=>({id:'a1-'+i}))},
+ NECurated:{get:id=>({vocab:Array.from({length:10},(_,i)=>['word-'+id+'-'+i,'значение '+id+' '+i])})},NECurriculum:{modules:()=>Array.from({length:8},(_,i)=>({id:'a1-'+i}))},
  NELivingDay:{details:()=>({moduleId:'a1-foundation',title:'Знакомство',level:'A1',date}),begin:()=>{begins++}},
  NEFunctionalPractice:{getCatalog:()=>({cloze:[
   {id:'p1',level:'A1',sentence:'Hver dag ___ jeg norsk.',answer:'lærer',rule:'Å lære'},
