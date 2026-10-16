@@ -5,13 +5,14 @@
 const make=(scene,actor,opening,steps)=>({scene,actor,opening,steps:steps.map(([task,goal,reply])=>({task,goal,reply}))});
 const SCENES={
  'a1-foundation':make('Ты подошёл к стойке сервисного центра. Познакомься с сотрудником.','Erik · сотрудник','Hei! Velkommen til servicekontoret.',[
-  ['Поздоровайся и представься.','Поздороваться и назвать своё имя на простом норвежском.','Hei! Hyggelig å hilse på deg.'],
-  ['Скажи, откуда ты и где сейчас живёшь.','Сообщить, откуда ученик родом и где сейчас живёт.','Takk, da vet jeg det.'],
+  ['Поздоровайся и представься.','Поздороваться и назвать своё имя на простом норвежском.','Hei! Velkommen. Hvor kommer du fra?'],
+  ['Скажи, откуда ты и где сейчас живёшь.','Сообщить, откуда ученик родом и где сейчас живёт.','Så hyggelig! Hvilke språk snakker du?'],
   ['Скажи, на каком языке ты говоришь.','Назвать хотя бы один язык, на котором говорит ученик.','Fint! Vi kan øve på norsk.'],
   ['Спроси сотрудника, как его зовут.','Задать прямой вопрос об имени собеседника (Hva heter du? или естественный эквивалент), а не просто назвать собственное имя.','Jeg heter Erik.'],
-  ['Теперь спроси, откуда он родом.','Спросить собеседника, откуда он родом (Hvor kommer du fra? или естественный эквивалент).','Jeg kommer fra Bergen.'],
+  ['Скажи Эрику, что тебе приятно познакомиться.','Ответить естественной вежливой фразой знакомства, например Hyggelig å møte deg (или Hyggelig å hilse på deg). Сейчас не требуется спрашивать о родном городе.','Hyggelig å møte deg også!'],
+  ['Теперь спроси, откуда Эрик родом.','Спросить собеседника, откуда он родом (Hvor kommer du fra? или естественный эквивалент).','Jeg kommer fra Bergen.'],
   ['Спроси, на каких языках он говорит.','Спросить о языках, на которых говорит собеседник (Hvilke språk snakker du? или естественный эквивалент).','Jeg snakker norsk og engelsk.'],
-  ['Заверши разговор вежливо: скажи, что было приятно познакомиться.','Уместно закончить знакомство выражением Hyggelig å møte deg или естественным аналогом.','Hyggelig å møte deg også!']
+  ['Поблагодари за разговор и попрощайся.','Естественно завершить беседу благодарностью и прощанием (например Takk for praten, ha det).','Bare hyggelig! Ha det bra!']
  ]),
  'a1-home':make('Ты в гостях. Хозяин помогает найти нужную вещь.','Ingrid · хозяйка','Velkommen hjem til meg!',[
   ['Поздоровайся и спроси, где находится ключ.','Задать простой вопрос о местонахождении ключа.','Nøkkelen ligger på bordet.'],
@@ -190,11 +191,18 @@ function ensure(l){
  if(!s)return null;
  const scene=definition(l),saved=s.guidedSpeech;
  if(!saved||saved.lessonId!==l.id||!Number.isInteger(saved.index)||saved.index<0||saved.index>=scene.steps.length||!Array.isArray(saved.turns)){
-  s.guidedSpeech={lessonId:l.id,index:0,turns:[]};
+  s.guidedSpeech={lessonId:l.id,index:0,turns:[],flowVersion:2};
+ }else if(normalizeModule(l)==='a1-foundation'&&saved.flowVersion!==2){
+  // Old seven-turn checkpoints need the added courtesy stage after "Jeg heter Erik".
+  // Retain all earlier turns instead of resetting the learner's progress.
+  if(saved.index>=4){saved.index=4;saved.turns=saved.turns.slice(0,4);saved.flowNotice=true;}
+  saved.flowVersion=2;
  }
  return {session:s,scene,progress:s.guidedSpeech};
 }
-function actorMessage(actor,text,index){
+function actorMessage(scene,text,index){
+ // A1 introduction: do not show the person's name before they actually say it.
+ const actor=scene===SCENES['a1-foundation']&&index<3?'Сотрудник':scene.actor;
  return '<div class="guided-bubble guided-bubble-actor"><small>'+esc(actor)+'</small><p lang="nb">'+esc(text)+'</p><button class="guided-audio" type="button" onclick="neGuidedSpeak('+index+')">🔊 Прослушать ответ</button></div>';
 }
 function freeExGuided(l){
@@ -205,11 +213,11 @@ function freeExGuided(l){
  const translation=support?'<div class="prompt" lang="nb">'+esc(curated?.speaking||'Spør hvor nøkkelen er. Si hvor du leter etter den.')+'</div>'+
   '<details class="grammar-fold a1-task-support" data-translation="on-request"><summary>Перевести задание</summary>'+
   '<div class="notice"><b>Перевод задания:</b> '+esc(support.ru)+'<br><small>'+esc(support.hint)+'</small></div></details>':'';
- const transcript=['<div class="guided-chat-history">',actorMessage(scene.actor,scene.opening,-1)];
+ const transcript=['<div class="guided-chat-history">',actorMessage(scene,scene.opening,-1)];
  for(let i=0;i<progress.turns.length;i++){
   const turn=progress.turns[i];
   transcript.push('<div class="guided-bubble guided-bubble-user"><small>Ты</small><p lang="nb">'+esc(turn.answer||'')+'</p></div>');
-  transcript.push(actorMessage(scene.actor,scene.steps[i].reply,i));
+  transcript.push(actorMessage(scene,scene.steps[i].reply,i));
  }
  transcript.push('</div>');
  return '<article class="card guided-speaking"><div class="eyebrow">Устная речь · диалог с собеседником</div>'+
@@ -217,6 +225,7 @@ function freeExGuided(l){
  translation+
  '<div class="guided-progress">Реплика '+(progress.index+1)+' из '+scene.steps.length+'</div>'+
  transcript.join('')+
+ (progress.flowNotice?'<div class="notice" role="status">Диалог обновлён: продолжим с вежливой фразы знакомства. Предыдущие реплики сохранены до этого шага.</div>':'')+
  '<div class="guided-task"><b>Нора · твой следующий шаг</b><p>'+esc(step.task)+'</p></div>'+
  '<div class="guided-language">Говори по-норвежски. При ошибке Нора предложит исправление; собеседник ответит после правильной реплики.</div>'+
  '<textarea id="freeAnswer" class="input" rows="2" autocomplete="off" placeholder="Твой ответ по-норвежски…" oninput="this.dataset.fromVoice=\'false\'"></textarea>'+
@@ -241,8 +250,16 @@ async function guidedCheck(){
  const {scene,progress}=d,step=scene.steps[progress.index],spoken=['true','recognition'].includes(String(input.dataset.fromVoice||'')),index=progress.index;
  s.locked=true;box.innerHTML='<div class="feedback">Нора проверяет реплику…</div>';
  const context=progress.index===0?scene.opening:scene.steps[progress.index-1].reply;
- const question='Сцена: '+scene.scene+'. Собеседник '+scene.actor+' сказал: «'+context+'». Текущее действие ученика: '+step.task;
- const goal='Проверь только ЭТУ реплику ученика, не весь разговор. '+step.goal+' Следующие этапы пока НЕ обязательны; фразы не нужно повторять дословно.';
+ const history=progress.turns.slice(-5).map((t,n,arr)=>{
+  const turnIndex=progress.turns.length-arr.length+n;
+  return 'Ученик: '+String(t.answer||'').slice(0,350)+'; '+scene.actor+': '+scene.steps[turnIndex].reply;
+ }).join(' | ');
+ const question='Сцена: '+scene.scene+'. '+(history?'Предыдущие реплики: '+history+'. ':'')+
+  'Собеседник '+scene.actor+' сказал: «'+context+'». Текущее действие ученика: '+step.task;
+ const goal='Проверь только ЭТУ реплику ученика, не весь разговор. '+step.goal+
+  ' Принимай естественные варианты с тем же смыслом, включая уместные формы вежливости. '+
+  'Одно приветствие не заменяет требуемый вопрос или ответ по теме. '+
+  'Не требуй дословного повторения и не оценивай будущие этапы.';
  const r=await window.aiEvaluate({answer:a,question,goal,level:l.level,mode:spoken?'speaking_dialogue':'writing_dialogue'});
  if(window.neLessonSession!==s||!box.isConnected||progress.index!==index){s.locked=false;return}
  if(!r.ok){s.locked=false;box.innerHTML='<div class="feedback bad">Проверка сейчас недоступна. Реплика не засчитана. Попробуй ещё раз.</div>';return}
@@ -264,7 +281,7 @@ async function guidedCheck(){
  const reply=step.reply;
  box.innerHTML='<div class="feedback good"><b>✓ '+(spoken?'Ответ голосом':'Текстовый ответ')+' принят</b>'+
   (e.explanation_ru?'<br>'+esc(e.explanation_ru):'')+'</div>'+
-  '<div class="guided-reply">'+actorMessage(scene.actor,reply,index)+'</div>'+
+  '<div class="guided-reply">'+actorMessage(scene,reply,index)+'</div>'+
   '<button class="btn lesson-next-v8" onclick="neGuidedNext()">'+(index===scene.steps.length-1?'Завершить разговор →':'Следующая реплика →')+'</button>';
  if(typeof window.speakText==='function'){try{window.speakText(reply,.86)}catch{}}
 }
@@ -273,7 +290,7 @@ function neGuidedNext(){
  if(!d||!s.locked||!d.progress.pending)return;
  const p=d.progress,answer=p.pending.answer,spoken=p.pending.spoken;
  p.turns.push({answer:String(answer).slice(0,700),spoken});
- p.index++;delete p.pending;s.locked=false;
+ p.index++;delete p.pending;delete p.flowNotice;s.locked=false;
  if(p.index>=d.scene.steps.length){
   p.index=d.scene.steps.length-1;
   window.lessonNext(20);
