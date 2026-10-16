@@ -22,7 +22,7 @@ const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
   assert(await page.getByRole('heading',{name:'PERSONKORT'}).isVisible(),'Form must replace textbox in A1 writing');
   assert.equal(await page.locator('textarea[data-ne-person-card]').count(),4,'Exactly four sentence fields');
   await page.getByRole('button',{name:'Проверить AI'}).click();
-  assert(await page.getByText('Заполни все 4 поля',{exact:false}).isVisible(),'Incomplete form must be blocked');
+  assert(await page.locator('#neCardValidation').getByText('Заполни все 4 поля',{exact:false}).isVisible(),'Incomplete form must be blocked');
   assert.equal(await page.evaluate(()=>window.lastAICheck),undefined,'Do not send incomplete form to AI');
   const lines=['Jeg heter Anna.','Jeg kommer fra Polen.','Jeg bor i Kongsberg.','Jeg snakker norsk.'];
   for(const [i,key] of ['name','country','city','language'].entries())await page.locator('#ne-card-'+key).fill(lines[i]);
