@@ -50,11 +50,27 @@ function choose(level,moduleId,date){
   for(const x of candidates(level,moduleId))if(!existing.has(x.key))add(x.word,x.translation);
  }
  // An exhausted curriculum does not imply that five new words were genuinely found.
- const old=p.active.length?p.active:fromDictionary(s,level).slice(0,MAX);
+ // Keep failed/due words in the active rotation before recent words.
+ const previous=p.active.length?p.active:fromDictionary(s,level).slice(0,MAX);
  const newKeys=new Set(newWords.map(x=>x.key));
- const current=old.filter(x=>!newKeys.has(key(x.word))).slice(-(MAX-newWords.length));
+ const due=fromDictionary(s,level).filter(w=>{
+  const k=key(w.word),stored=s.dailyDictionary?.[k],queued=s.wordPracticeQueue?.[k];
+  return !newKeys.has(k)&&((Number(stored?.nextDue)||Infinity)<=Date.now()||queued);
+ });
+ const weak=previous.filter(w=>s.wordPracticeQueue?.[key(w.word)]||
+  (Number(s.dailyDictionary?.[key(w.word)]?.wrong)||0)>0);
+ const candidatesOld=[...weak,...due,...previous.slice().reverse(),...fromDictionary(s,level)];
+ const used=new Set(),retained=[];
+ for(const w of candidatesOld){
+  const k=key(w.word);
+  if(!k||newKeys.has(k)||used.has(k))continue;
+  used.add(k);retained.push(w);
+  if(retained.length>=MAX-newWords.length)break;
+ }
+ const current=retained.reverse();
  const active=[...current,...newWords].slice(-MAX);
  const record={date,level,moduleId,newWords,active,cardsSeen:0,revealed:false,stage:'cards',
+  cardQueue:active.map((_,i)=>i),cardDraft:'',cardFeedback:null,cardAttempted:{},deferredWords:[],
   clozeIndex:0,clozeMisses:0,writingOK:false,speakingOK:false,ready:false,feedback:'',speechText:'',
   writingDraft:'',checkedCloze:[],completedAt:null};
  p.days[date]=record;p.active=active.map(x=>({word:x.word,translation:x.translation,key:key(x.word)}));
@@ -86,6 +102,49 @@ function clozeSet(level,date){
  const n=Number(String(date).replaceAll('-',''))||0,shift=n%all.length;
  return [0,1,2].map((_,i)=>all[(shift+i)%all.length]);
 }
+// Answers are checked against the supplied Russian translation and listed synonyms.
+// Arbitrary semantic synonyms need human review; never invent acceptance for them.
+function ruNorm(value){
+ return String(value||'').normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/ё/g,'е')
+  .replace(/[«»“”"'.!?]/g,' ').replace(/\s+/g,' ').trim();
+}
+function acceptedTranslation(answer,translation){
+ const value=ruNorm(answer);
+ if(!value)return false;
+ const expected=String(translation||'');
+ const variants=expected.split(/\s*(?:\/|;|\||,|\s+или\s+)\s*/i)
+  .map(s=>s.replace(/\s*\([^)]*\)\s*/g,' ').trim())
+  .filter(Boolean);
+ return variants.some(x=>ruNorm(x)===value);
+}
+function cardQueue(d){
+ if(!Array.isArray(d.cardQueue))d.cardQueue=d.active.map((_,i)=>i);
+ if(!Number.isInteger(d.cardsSeen)||d.cardsSeen<0)d.cardsSeen=0;
+ if(!d.cardAttempted||typeof d.cardAttempted!=='object')d.cardAttempted={};
+ if(!Array.isArray(d.deferredWords))d.deferredWords=[];
+ return d.cardQueue;
+}
+function currentCard(d){
+ const queue=cardQueue(d),idx=queue[d.cardsSeen];
+ return Number.isInteger(idx)?{idx,word:d.active[idx]}:null;
+}
+function markWrong(d,card){
+ const s=getState(),k=key(card.word.word),entry=s?.dailyDictionary?.[k],now=Date.now();
+ if(entry){entry.wrong=(Number(entry.wrong)||0)+1;entry.nextDue=now}
+ if(s){
+  s.wordPracticeQueue=s.wordPracticeQueue||{};
+  s.wordPracticeQueue[k]=now;
+  if(s.srs?.[k])s.srs[k].due=now;
+ }
+ d.cardAttempted[card.idx]=(Number(d.cardAttempted[card.idx])||0)+1;
+}
+function advanceCard(retry){
+ const d=ensure(),card=d&&currentCard(d);
+ if(!d||d.stage!=='cards'||!card||!d.cardFeedback)return false;
+ if(retry&&!d.cardFeedback.correct)cardQueue(d).push(card.idx);
+ d.cardsSeen++;d.cardFeedback=null;d.cardDraft='';d.revealed=false;d.feedback='';
+ save();render();return true;
+}
 function feedbackNote(record){
  return record.feedback?'<div class="notice" role="status">'+esc(record.feedback)+'</div>':'';
 }
@@ -101,14 +160,28 @@ function render(){
  const d=ensure();if(!d)return;
  if(d.ready)return window.NELivingDay?.open?.();
  if(d.stage==='cards'){
-  const index=d.cardsSeen,word=d.active[index];
-  if(!word){d.stage='cloze';d.feedback='';save();return render()}
-  return wrapper('<p class="muted">Карточка '+(index+1)+' из '+d.active.length+'. Попробуй вспомнить перевод до открытия.</p>'+
-   '<div class="card" style="text-align:center;padding:24px"><h2 lang="nb">'+esc(word.word)+'</h2>'+
-   (d.revealed?'<p>'+esc(word.translation)+'</p>':'<p class="muted">Что это означает?</p>')+
-   '<div class="row" style="justify-content:center"><button class="btn secondary" onclick="NELivingWords.listenCard()">▶ Послушать</button>'+
-   (d.revealed?'<button class="btn" onclick="NELivingWords.nextCard(true)">Помню →</button><button class="btn secondary" onclick="NELivingWords.nextCard(false)">Надо повторить →</button>':
-    '<button class="btn" onclick="NELivingWords.reveal()">Показать перевод</button>')+'</div></div>',d);
+  const queue=cardQueue(d),card=currentCard(d);
+  if(!card){d.stage='cloze';d.feedback='';save();return render()}
+  const word=card.word,feedback=d.cardFeedback,review=d.cardsSeen>=d.active.length;
+  const result=feedback?'<div class="notice" role="status"><b>'+
+   (feedback.correct?'Верно!':'Нужно повторить.')+'</b> Правильный перевод: '+esc(word.translation)+
+   (feedback.correct?'':' · Слово сохранено в повторении.')+'</div>':'';
+  const fields=feedback
+   ?'<button class="btn" onclick="NELivingWords.nextCard()">'+
+    (review?'Продолжить повтор →':'Следующая карточка →')+'</button>'+
+    (!feedback.correct?'<button class="btn secondary" onclick="NELivingWords.deferCard()">Отложить это слово до следующего занятия</button>':'')
+   :'<label class="field-label" for="livingTranslate">Переведи слово на русский</label>'+
+    '<input id="livingTranslate" class="input" lang="ru" autocomplete="off" maxlength="200" value="'+esc(d.cardDraft||'')+
+    '" placeholder="Напиши перевод здесь" oninput="NELivingWords.draftTranslation(this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();NELivingWords.checkTranslation()}">'+
+    '<div class="row"><button class="btn" onclick="NELivingWords.checkTranslation()">Проверить перевод</button>'+
+    '<button class="btn secondary" onclick="NELivingWords.recordTranslation()">🎤 Ответить голосом</button>'+
+    '<button class="btn ghost" onclick="NELivingWords.reveal()">Не знаю · показать</button></div>'+
+    '<p class="muted">После голосового ответа проверь распознанный текст в поле. При ошибке слово повторится позже.</p>';
+  return wrapper('<p class="muted">'+(review?'Повторяем трудные слова · ':'Карточки · ')+
+   (d.cardsSeen+1)+' из '+queue.length+'</p>'+
+   '<div class="card" style="padding:24px"><h2 lang="nb" style="text-align:center">'+esc(word.word)+'</h2>'+
+   '<button class="btn secondary" onclick="NELivingWords.listenCard()">▶ Послушать слово</button>'+
+   result+fields+'</div>',d);
  }
  if(d.stage==='cloze'){
   const tasks=clozeSet(d.level,d.date),task=tasks[d.clozeIndex];
@@ -134,14 +207,66 @@ function render(){
    '<button class="btn" '+(d.speechText?'':'disabled')+' onclick="NELivingWords.checkSpeaking()">Проверить устную речь</button>',d);
  }
 }
-function reveal(){const d=ensure();if(!d||d.stage!=='cards'||d.cardsSeen>=d.active.length)return;d.revealed=true;save();render()}
-function nextCard(known){
- const d=ensure();if(!d||d.stage!=='cards'||!d.revealed)return false;
- const word=d.active[d.cardsSeen],entry=getState()?.dailyDictionary?.[key(word.word)];
- if(entry){if(known)entry.correct=(Number(entry.correct)||0)+1;else{entry.wrong=(Number(entry.wrong)||0)+1;entry.nextDue=Date.now()}}
- d.cardsSeen++;d.revealed=false;d.feedback='';save();render();return true;
+function draftTranslation(value){
+ const d=ensure();if(!d||d.stage!=='cards'||d.cardFeedback)return;
+ d.cardDraft=String(value||'').slice(0,200);save();
 }
-function listenCard(){const d=ensure(),word=d?.stage==='cards'&&d.active[d.cardsSeen];if(word)window.speakText?.(word.word,.9)}
+function checkTranslation(){
+ const d=ensure(),card=d&&currentCard(d);
+ if(!d||d.stage!=='cards'||!card||d.cardFeedback)return false;
+ const answer=String(document.getElementById('livingTranslate')?.value||d.cardDraft||'').trim();
+ if(!answer){d.feedback='Напиши перевод или используй микрофон.';save();render();return false}
+ d.cardDraft=answer;
+ const correct=acceptedTranslation(answer,card.word.translation);
+ if(!correct)markWrong(d,card);
+ else{
+  const s=getState(),entry=s?.dailyDictionary?.[key(card.word.word)];
+  if(entry)entry.correct=(Number(entry.correct)||0)+1;
+ }
+ d.cardFeedback={correct,answer};
+ d.feedback='';save();render();return correct;
+}
+function reveal(){
+ const d=ensure(),card=d&&currentCard(d);
+ if(!d||d.stage!=='cards'||!card||d.cardFeedback)return false;
+ markWrong(d,card);d.cardFeedback={correct:false,answer:'',revealed:true};
+ save();render();return true;
+}
+function nextCard(){return advanceCard(true)}
+function deferCard(){
+ const d=ensure(),card=d&&currentCard(d);
+ if(!d||d.stage!=='cards'||!card||d.cardFeedback?.correct!==false)return false;
+ // Wrong words stay due in SRS but do not trap the learner in an infinite loop.
+ d.deferredWords.push(key(card.word.word));return advanceCard(false);
+}
+function listenCard(){const d=ensure(),card=d&&currentCard(d);if(card)window.speakText?.(card.word.word,.9)}
+let translationRecognition=null;
+function recordTranslation(){
+ const d=ensure(),card=d&&currentCard(d);
+ if(!d||d.stage!=='cards'||!card||d.cardFeedback)return false;
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){d.feedback='Голосовой ввод недоступен в этом браузере. Перевод можно написать в поле.';save();render();return false}
+ if(translationRecognition)return false;
+ try{
+  const rec=new SR(),session=d,cardIndex=d.cardsSeen;
+  rec.lang='ru-RU';rec.interimResults=false;rec.continuous=false;
+  translationRecognition=rec;d.feedback='Слушаю перевод по-русски…';save();render();
+  rec.onresult=e=>{
+   if(ensure()!==session||session.stage!=='cards'||session.cardsSeen!==cardIndex||session.cardFeedback)return;
+   const words=Array.from(e.results||[]).filter(x=>x.isFinal).map(x=>x?.[0]?.transcript||'').join(' ').trim();
+   if(words){
+    session.cardDraft=words.slice(0,200);
+    session.feedback='Проверь распознанный перевод и нажми «Проверить перевод».';
+    save();
+   }
+  };
+  rec.onerror=()=>{if(ensure()===session&&session.stage==='cards'&&session.cardsSeen===cardIndex){
+   session.feedback='Не удалось распознать голос. Попробуй ещё раз или введи перевод вручную.';save()}};
+  rec.onend=()=>{translationRecognition=null;
+   if(ensure()===session&&session.stage==='cards'&&session.cardsSeen===cardIndex)render()};
+  rec.start();return true;
+ }catch{translationRecognition=null;d.feedback='Микрофон не запустился. Проверь разрешения браузера.';save();render();return false}
+}
 function checkCloze(){
  const d=ensure();if(!d||d.stage!=='cloze')return false;
  const task=clozeSet(d.level,d.date)[d.clozeIndex],value=norm(document.getElementById('livingCloze')?.value||'');
@@ -208,5 +333,5 @@ function recordSpeech(){
  }catch{recognizing=false;d.feedback='Микрофон не запустился. Проверь разрешение браузера.';save();render();return false}
 }
 function checkSpeaking(){const d=ensure();return d?.speechText?assess('speaking',d.speechText):false}
-window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,listenCard,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet});
+window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation});
 })();

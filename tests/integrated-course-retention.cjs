@@ -28,7 +28,7 @@ assert.equal(r.due,deadline,'Early success cannot move a review date');
 assert.equal(A.levelGate(learner,'A1').pass,false,'One skill cannot award A1');
 const cache=read('sw.js'),bootstrap=read('access.js');
 for(const asset of ['adaptive-teacher.js','course-methodology.js'])
- assert(cache.includes('/'+asset+'?v=8.3.0-lesson17'),'Integration PWA cache mismatch: '+asset);
-assert(bootstrap.includes("LESSON_PATCH='-lesson17'"),'Integration PWA bootstrap mismatch');
+ assert(cache.includes('/'+asset+'?v=8.3.0-lesson18'),'Integration PWA cache mismatch: '+asset);
+assert(bootstrap.includes("LESSON_PATCH='-lesson18'"),'Integration PWA bootstrap mismatch');
 assert(bootstrap.includes("'course-methodology.js'"),'Course framework missing from bootstrap');
 console.log('PASS integration: course continuity + genuine spaced retention + synced local PWA assets');
