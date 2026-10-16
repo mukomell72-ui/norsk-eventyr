@@ -76,7 +76,7 @@ for(const m of index.matchAll(/\b(?:src|href)="(\/[^"]+)"/g)){
  const url=m[1];
  if(url.includes('?v='))assert(assetSet.has(url),'PWA must cache HTML dependency '+url);
 }
-const ordered=['data.js','curriculum-v8.js','course-methodology.js','verified-learning-resources.js','practice-foundations.js','foundation-extensions.js','advanced-b1.js','advanced-b2.js','adaptive-teacher.js','app.js','guided-speaking.js','voice-pack.js','v3.js','ui-v8.js'];
+const ordered=['data.js','curriculum-v8.js','course-methodology.js','verified-learning-resources.js','practice-foundations.js','foundation-extensions.js','advanced-b1.js','advanced-b2.js','adaptive-teacher.js','app.js','voice-pack.js','v3.js','guided-speaking.js','ui-v8.js'];
 for(let i=1;i<ordered.length;i++){
  assert(scripts.indexOf(ordered[i-1])>=0&&scripts.indexOf(ordered[i])>scripts.indexOf(ordered[i-1]),
   'Bootstrap dependency order changed: '+ordered[i-1]+' -> '+ordered[i]);
