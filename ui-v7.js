@@ -128,7 +128,7 @@
       teacherDone=state.learningV8?.lastSessionDate===day&&!pending,
       mission=window.NEAdaptive?NEAdaptive.nextMission(state):null;
     const focus=pending?.title||mission?.module?.title||"Следующий модуль курса";
-    const plan=window.NECourseMethod?.dailyPlan(Math.max(45,state.elite?.dailyMinutes||60));
+    const plan=window.NECourseMethod?.dailyPlan(state.elite?.dailyMinutes||20);
     const minutes=i=>plan?.parts?.[i]?.minutes||[10,15,15,15,5][i];
     const steps=[
       {id:"teacher",title:pending?"Продолжить незаконченный урок":"Урок с Норой",sub:focus,mins:minutes(1),done:teacherDone,route:pending?"lesson":"teacher",data:pending?.id},
@@ -137,20 +137,13 @@
       {id:"talk",title:"Разговор с Норой",sub:"Самостоятельные ответы в жизненном диалоге",mins:minutes(3),done:activity.conversation===true,route:"chat"},
       {id:"words",title:"Письмо и диктант",sub:"Закрепить слова в письменных заданиях",mins:minutes(4),done:activity.dictation===true,route:"dictation"}
     ];
-    const dailyView=window.NEDailyCourse?.summary?.();
-    if(dailyView){
-      const route=dailyView.steps.map(x=>({...x,route:'daycourse'}));
-      const next=route.find(x=>!x.done)||{title:'День завершён',sub:'Задания успешно пройдены',mins:0,route:'daycourse'};
-      return {day:dailyView.date,due:wordDue+adaptiveDue,story:storyForLevelV7().current,lesson:nextLessonV7(),steps:route,next,
-       done:dailyView.done,total:dailyView.total,planned:dailyView.planned,mins:dailyView.mins};
-    }
     const next=steps.find(x=>!x.done)||{title:"Дополнительное занятие с Норой",sub:"Все блоки дневного маршрута выполнены",mins:0,route:"teacher"};
     return {day,due:wordDue+adaptiveDue,story:storyForLevelV7().current,lesson:nextLessonV7(),steps,next,
       done:steps.filter(x=>x.done).length,total:steps.length,planned:plan?.minutes||60,
       mins:steps.filter(x=>!x.done).reduce((a,x)=>a+x.mins,0)};
   }
-  function v7ContinueToday(){return navigate('daycourse')}
-  function v7Step(i){return navigate('daycourse')}
+  function v7ContinueToday(){const x=guidedV7().next;navigate(x.route,x.data)}
+  function v7Step(i){const x=guidedV7().steps[i];if(x)navigate(x.route,x.data)}
 
   function dailyWordsV7(){
     const list=Object.values(state.dailyDictionary||{}).sort((a,b)=>String(b.lastSeen||"").localeCompare(String(a.lastSeen||""))).slice(0,5);
@@ -192,7 +185,7 @@
           '<button class="cta-v7" onclick="v7ContinueToday()">Продолжить день <b>→</b></button></div>'+
           '<div class="hero-note-v7">Små steg<br>store eventyr ♡</div>'+
         '</section>'+
-        '<section class="route-card-v7"><div class="section-head-v7"><div><small>Последовательный учебный день · 5 обязательных блоков</small><h2>'+(j.mins?"Осталось "+(j.total-j.done)+" из "+j.total+" блоков":"Маршрут завершён")+'</h2></div><span>План '+j.planned+' мин</span></div><p class="muted">Время на каждый блок — ориентир, а не измерение фактически потраченных минут.</p><div class="route-steps-v7">'+route+'</div></section>'+
+        '<section class="route-card-v7"><div class="section-head-v7"><div><small>Твой маршрут на сегодня · 5 занятий</small><h2>'+(j.mins?"Осталось "+(j.total-j.done)+" из "+j.total+" блоков":"Маршрут завершён")+'</h2></div><span>План '+j.planned+' мин</span></div><p class="muted">Время на каждый блок — ориентир, а не измерение фактически потраченных минут.</p><div class="route-steps-v7">'+route+'</div></section>'+
         xpJourneyV7()+
                 '<section class="card applied-home-entry"><div class="section-head-v7"><div><small>Дополнительная практика · '+h(state.level)+'</small><h2>Норвежский для жизни</h2><p>Проверь формы слов и потренируйся заполнять документы.</p></div></div><div class="applied-actions"><button class="btn" onclick="navigate(\'cloze\')">Вставить слово</button><button class="btn secondary" onclick="navigate(\'forms\')">Анкеты и заявления</button></div></section>'+
         '<section class="words-card-v7 daily-focus-v81"><div class="section-head-v7"><div><small>Короткая ежедневная практика</small><h2>Слова для реальной жизни</h2><p>Попробуй вспомнить эти слова и составить собственную фразу.</p></div><button onclick="navigate(\'daily\')">Практика →</button></div><div class="daily-words-v81">'+words.slice(0,3).map(w=>'<div class="daily-word-v81"><b>'+h(w.lemma||w.word||"")+'</b><span>'+h(w.translation_ru||w.translation||"")+'</span></div>').join("")+'</div></section>'+
@@ -218,7 +211,7 @@
       const syllabus=window.NECourseMethod?.modulePlan(m,state);
       return '<button class="near-lesson-v7 '+(isDone?"done ":"")+(locked?"locked":"")+'" onclick="teacherStartModule(\''+js(m.id)+'\')"><span>'+(isDone?"✓":i+1)+'</span><div><b>'+h(m.title)+'</b><small>'+h(m.canDo?.[0]||"Практическая цель")+'</small>'+(syllabus?'<small>'+h(syllabus.stageTitle)+' · '+h(m.grammar)+'</small>'+(syllabus.verifiedStages!==null?'<small>Подтверждено этапов: '+syllabus.verifiedStages+'/4</small>':''):'')+'</div><em>'+mastery+'%</em></button>';
     }).join("");
-    const levelSchedule=window.NECourseMethod?.levelPlan(courseLevel),daily=window.NECourseMethod?.dailyPlan(Math.max(45,state.elite?.dailyMinutes||60));
+    const levelSchedule=window.NECourseMethod?.levelPlan(courseLevel),daily=window.NECourseMethod?.dailyPlan(state.elite?.dailyMinutes||60);
     const legacy=coreLessonsV7(courseLevel),topics=(typeof TOPIC_CATALOG!=="undefined"?TOPIC_CATALOG:[]).filter(x=>x.level===courseLevel).slice(0,8);
     shell(
       '<section class="course-v7">'+
@@ -409,7 +402,6 @@
       let r;
       if(target==="home")r=renderHomeV7();
       else if(target==="course")r=renderCourseV7(data||state.level);
-      else if(target==="daycourse")r=window.NEDailyCourse?.open?.();
       else if(target==="chat")r=renderChatV7();
       else if(target==="story")r=renderStoryV7(data);
       else if(target==="hub")r=renderHubV7();

@@ -238,7 +238,7 @@ function learningBlocker(gate){
 }
 function startAdaptiveTeacher(){
  ensure(state);const mission=nextMission(state),gate=levelGate(state,state.level),p=state.learningV8,attempts=p.attempts.length;
- const m=mission.module,course=window.NECourseMethod,unit=course?.modulePlan(m,state),day=course?.dailyPlan(Math.max(45,state.elite?.dailyMinutes||60)),levelStudy=course?.levelPlan(state.level),pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id],reason=(pending?'Есть незавершённое занятие. Продолжим с места остановки. ':mission.reason)+(m?' Цель: '+m.canDo[0]+'.':'');
+ const m=mission.module,course=window.NECourseMethod,unit=course?.modulePlan(m,state),day=course?.dailyPlan(state.elite?.dailyMinutes||60),levelStudy=course?.levelPlan(state.level),pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id],reason=(pending?'Есть незавершённое занятие. Продолжим с места остановки. ':mission.reason)+(m?' Цель: '+m.canDo[0]+'.':'');
  shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Адаптивный преподаватель · '+esc(state.level)+'</div><h2 style="margin:0">Нора ведёт занятие</h2></div></div>'+
  '<section class="grid"><article class="card"><div class="eyebrow">Следующий шаг</div><h2>'+esc(pending?.title||m?.title||'Диагностика')+'</h2><p>'+esc(reason)+'</p><div class="row"><span class="tag">'+esc(LABEL[mission.skill]||mission.skill)+'</span><span class="tag">'+(pending?'Продолжение':mission.kind==='review'?'Повторение':'Новый материал')+'</span></div><br><button class="btn" onclick="teacherStartMission()">'+(pending?'Продолжить с места остановки':'Начать занятие')+'</button></article>'+
  '<article class="card"><div class="eyebrow">Допуск к '+esc(state.level)+'</div><h2>'+gate.avg+'% профиль</h2><p class="muted">'+esc(learningBlocker(gate))+' Для перехода нужны четыре навыка и отложенная проверка.</p><div class="metric"><span>Освоено модулей</span><strong>'+gate.mastered+'/'+gate.total+'</strong></div><div class="metric"><span>Отложенных подтверждений</span><strong>'+gate.delayed+'/4</strong></div><div class="metric"><span>Статус</span><strong>'+(gate.pass?'Пройден':'Есть работа')+'</strong></div></article></section>'+
@@ -317,16 +317,6 @@ async function teacherStartModule(moduleId){
  }
  const currentIndex=LEVEL_ORDER.indexOf(state.level),targetIndex=LEVEL_ORDER.indexOf(mission.level);if(targetIndex>=currentIndex)state.level=mission.level;saveState();return runTeacherMission(mission);
 }
-async function teacherStartDailyModule(moduleId,expectedStage){
- const s=state,mission=moduleMission(s,moduleId);
- if(!mission||mission.blocked)return false;
- const existing=s.activeLesson?.id&&s.generatedLessons?.[s.activeLesson.id];
- if(existing){if(existing._adaptive?.moduleId===moduleId)return startLesson(existing.id);return false}
- const step=window.NECourseMethod?.modulePlan(mission.module,s);
- if(!step||step.stageKey!==expectedStage||moduleMastery(s,moduleId)>=78)return false;
- return runTeacherMission({...mission,kind:'learn',reviewKey:'',reason:'Текущий обязательный этап учебного дня.'});
-}
-window.teacherStartDailyModule=teacherStartDailyModule;
 window.NEAdaptive={ensure,recordAttempt,assessment,completeLesson,dueReviews,nextMission,levelGate,moduleMastery,skillForStep,errors,moduleMission,highestUnlockedLevel,learningFocus};
 Object.assign(window,{startAdaptiveTeacher,teacherStartMission,teacherStartModule});
 })();

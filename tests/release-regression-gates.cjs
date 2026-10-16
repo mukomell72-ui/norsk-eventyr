@@ -35,7 +35,7 @@ for(const asset of assets){
  const [pathname,query]=asset.split('?');
  if(asset!=='/')assert(exists(pathname.replace(/^\//,'')),'PWA update will fail: missing '+asset);
  if(query&&pathname!=='/manifest.json'){
-  const patched=assetRevision?.startsWith('-lesson')?['/v8.css','/access.js','/access.css','/app.js','/guided-speaking.js','/v3.js','/adaptive-teacher.js','/course-methodology.js','/verified-learning-resources.js','/elite.js','/ui-v7.js','/daily-course.js','/admin-dashboard.js','/admin-dashboard.css','/study-activity.js']:
+  const patched=assetRevision?.startsWith('-lesson')?['/v8.css','/access.js','/access.css','/app.js','/guided-speaking.js','/v3.js','/adaptive-teacher.js','/course-methodology.js','/verified-learning-resources.js','/elite.js','/ui-v7.js','/admin-dashboard.js','/admin-dashboard.css','/study-activity.js']:
    assetRevision?.startsWith('-auth')?['/v8.css','/access.js','/access.css']:['/v8.css'];
   const expected='v='+v+(patched.includes(pathname)?assetRevision:'');
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
@@ -69,7 +69,7 @@ assert(bootstrap,'Dynamic asset dependency list must be declared');
 const scripts=[...bootstrap[1].matchAll(/'([^']+\.js)'/g)].map(m=>m[1]);
 assert(scripts.length>=15,'Critical dynamic scripts dropped');
 for(const filename of scripts){
- const patch=assetRevision?.startsWith('-lesson')&&['app.js','guided-speaking.js','v3.js','adaptive-teacher.js','course-methodology.js','verified-learning-resources.js','elite.js','ui-v7.js','daily-course.js'].includes(filename)?assetRevision:'';
+ const patch=assetRevision?.startsWith('-lesson')&&['app.js','guided-speaking.js','v3.js','adaptive-teacher.js','course-methodology.js','verified-learning-resources.js','elite.js','ui-v7.js'].includes(filename)?assetRevision:'';
  assert(assetSet.has('/'+filename+'?v='+v+patch),'PWA must cache bootstrapped script '+filename);
 }
 for(const m of index.matchAll(/\b(?:src|href)="(\/[^"]+)"/g)){
