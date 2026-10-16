@@ -52,6 +52,11 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  assert.match(start,/Реплика 1 из 7/);
  assert.match(start,/сервисного центра/);
  assert.doesNotMatch(start,/Jeg heter Erik\./,'name must not be revealed before learner asks it');
+ const keyHome={id:'adaptive-old-key',level:'A1',_adaptive:{moduleId:'a1-home'},speakingSupport:{ru:'Спроси, где находится ключ.',hint:'leter etter'}};
+ const keyMarkup=w.freeEx(keyHome,'speaking');
+ assert.match(keyMarkup,/details class="grammar-fold a1-task-support"/,'optional translated help must be preserved');
+ assert.match(keyMarkup,/Spør hvor nøkkelen er. Si hvor du leter etter den./,'natural A1 Norwegian task must be shown');
+ assert.match(keyMarkup,/speech-actions-v831/,'mobile voice action layout must survive');
  assert.equal(w.freeEx(lesson,'writing'),'<legacy>','writing must stay unchanged');
  await w.checkFree('speaking');
  assert.equal(session.guidedSpeech.index,0,'incorrect answer advanced dialogue');
