@@ -98,7 +98,7 @@ const {chromium}=require('playwright');
   }
   assert(checked>=5,'Every initial word and the missed word received practice');
   const state=await page.evaluate(()=>window.neLearnerState);
-  assert(state.wordPracticeQueue?.['å gå'],'Missed inflection remains due for later review');
+  assert(state.wordPracticeQueue?.['gå'],'Missed inflection remains due for later review');
   assert(state.learningV8.livingVocabulary.days['2026-10-17'].cardAttempted[0]>=1);
   assert.deepEqual(errors,[],'No uncaught JS errors');
   console.log('PASS mobile: mandatory randomized task for every word, correction before new form, voice, unknown fallback and spaced review');
