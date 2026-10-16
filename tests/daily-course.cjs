@@ -20,7 +20,7 @@ const w={
  neLearnerState:state,NEAdaptive:fakeA,NECurriculum:{moduleById:()=>chapter,modules:()=>[chapter]},
  NECourseMethod:{modulePlan:()=>({stageKey:'introduce',objective:'Представиться'})},
  NECurated:{variant:()=>bank,get:()=>bank},saveState:()=>{},shell:html=>visits.push(html),
- speakText:t=>visits.push('speak:'+t),teacherStartDailyModule:(id,stage)=>visits.push('teacher:'+id+':'+stage)
+ speakText:t=>visits.push('speak:'+t),teacherStartDailyModule:(id,stage)=>visits.push('teacher:'+id+':'+stage),startLesson:id=>visits.push('resume:'+id)
 };
 const context={window:w,state,Date,Math,Number,Object,Array,String,JSON,Set,Intl};
 vm.runInNewContext(read('daily-course.js'),context,{filename:'daily-course.js'});
@@ -33,6 +33,11 @@ assert.equal(s.total,5);
 assert(s.steps.every(x=>x.mins>0));
 assert(s.steps.slice(1).every(x=>x.locked));
 const startDay=state.learningV8.dailyCourse;
+const initialDate=startDay.date;
+startDay.date='2000-01-01';
+assert.equal(D.summary().date,'2000-01-01','Unfinished study day must survive midnight');
+assert.strictEqual(state.learningV8.dailyCourse,startDay);
+startDay.date=initialDate;
 assert.equal(D.answer(3),false,'Wrong vocabulary choice must not pass');
 assert.equal(D.summary().done,0);
 for(let i=0;i<3;i++){
@@ -49,6 +54,12 @@ assert.equal(D.answer(0),true);assert.equal(D.summary().done,4);
 assert.equal(D.answer(0),false,'Core lesson cannot be skipped via choice API');
 D.beginTeacher();
 assert(visits.some(x=>x==='teacher:a1-foundation:introduce'));
+state.generatedLessons={prior:{id:'prior',_adaptive:{moduleId:'a1-home'}}};
+state.activeLesson={id:'prior'};
+D.beginTeacher();
+assert(visits.includes('resume:prior'),'Old unfinished lesson must resume rather than be overwritten');
+assert.equal(D.summary().done,4,'Resuming old work must not skip the day');
+delete state.activeLesson;delete state.generatedLessons;
 D.onLessonFinish({_adaptive:{moduleId:'a1-foundation',courseStage:'introduce'}},{advanced:false,reason:'Требуется практика'},70);
 assert.equal(D.summary().done,4);
 assert(!state.learningV8.dailyCourse.finished);
