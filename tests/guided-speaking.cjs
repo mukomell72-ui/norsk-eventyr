@@ -80,8 +80,6 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  await w.checkFree('speaking');w.neGuidedNext();
  field.value='Hvilke språk snakker du?';
  await w.checkFree('speaking');w.neGuidedNext();
- field.value='Hvilke språk snakker du?';
- await w.checkFree('speaking');w.neGuidedNext();
  field.value='Hyggelig å møte deg!';
  field.dataset.fromVoice='false';
  await w.checkFree('speaking');
