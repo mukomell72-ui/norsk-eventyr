@@ -147,7 +147,12 @@ function beginTeacher(){
  const d=session(false),s=learner();if(!d||d.finished||stageIndex(d)!==4)return;
  const ongoing=s.activeLesson?.id&&s.generatedLessons?.[s.activeLesson.id];
  if(ongoing&&ongoing?._adaptive?.moduleId!==d.moduleId){
-  d.feedback='Сначала заверши ранее начатый урок, чтобы не потерять его прогресс.';learnerSave();view();return;
+  // A checkpoint from an older study route belongs to the learner and must
+  // never be overwritten by starting the new module.
+  d.feedback='Сначала заверши ранее начатый урок: он открыт для продолжения, а учебный день сохранён.';
+  learnerSave();
+  if(typeof window.startLesson==='function')return window.startLesson(ongoing.id);
+  view();return;
  }
  const mission=window.NEAdaptive?.moduleMission(s,d.moduleId);
  if(!mission||mission.blocked){d.feedback='Следующий модуль пока заблокирован предыдущими результатами.';learnerSave();view();return;}
