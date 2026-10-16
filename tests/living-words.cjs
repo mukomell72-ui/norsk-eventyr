@@ -91,6 +91,7 @@ const D=w.NELivingWords;
  assert.equal(session.stage,'writing');
  await D.checkWriting();assert.equal(session.stage,'speaking','Writing must be independently accepted');
  assert.equal(D.checkSpeaking(),false,'Typing cannot count as voice');
+ voiceText='Jeg kan snakke norsk på jobben.';
  assert.equal(D.recordSpeech(),true);assert(session.speechText.includes('Jeg kan snakke'));
  await D.checkSpeaking();assert.equal(D.isReady(),true);
  assert.equal(begins,1,'After one coherent warmup return to full Nora teacher');
