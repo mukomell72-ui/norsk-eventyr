@@ -85,12 +85,13 @@ const {chromium}=require('playwright');
   await solve(true);
   assert.equal(await page.evaluate(()=>window.NELivingWords.ensure().formPractice.done),true);
   await page.getByRole('button',{name:'Следующая карточка'}).click();
-  let guard=0,checked=1;
+  let guard=0,checked=1,phraseMistakeTried=false;
   while(await page.evaluate(()=>window.NELivingWords.ensure().stage)==='cards'){
    if(++guard>12)throw Error('Card queue did not complete after valid answers');
    const word=await wordAt();
    await translate(word.translation);
-   if(word.word==='etter hvert'){
+   if(word.word==='etter hvert'&&!phraseMistakeTried){
+    phraseMistakeTried=true;
     await page.locator('#livingFormAnswer').fill('Jeg bruker et ord i dag.');
     await page.getByRole('button',{name:'Проверить форму'}).click();
     assert((await page.locator('#app').innerText()).includes('не найдено изучаемое слово'));
