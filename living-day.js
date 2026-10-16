@@ -61,6 +61,7 @@ function lessonPending(s){
 function open(){
  const s=learner(),d=current();
  if(!d)return window.navigate?.('teacher');
+ if(!d.finished&&window.NELivingWords&&!window.NELivingWords.isReady())return window.NELivingWords.render();
  const info=details(),module=window.NECurriculum?.moduleById(d.moduleId);
  const pending=lessonPending(s);
  // One tap resumes the saved *same* lesson rather than creating another copy.
@@ -98,6 +99,7 @@ function resumeOlder(){
 function begin(){
  const s=learner(),d=current();
  if(!s||!d||d.finished||d.scene>=SCENES)return false;
+ if(window.NELivingWords&&!window.NELivingWords.isReady())return window.NELivingWords.render();
  const pending=lessonPending(s);
  if(pending){
   if(pending._adaptive?.livingDayId===d.id&&pending._adaptive?.livingScene===d.scene)
