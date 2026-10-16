@@ -20,7 +20,7 @@ function snapshot(){
  return p;
 }
 function candidates(level,moduleId){
- const out=[],seen=new Set(),add=(name,ru)=>{const k=key(name);if(!k||!ru||seen.has(k))return;seen.add(k);out.push({word:String(name).trim(),translation:String(ru).trim(),key:k})};
+ const out=[],seen=new Set(),add=(name,ru,metadata={})=>{const k=key(name);if(!k||!ru||seen.has(k))return;seen.add(k);out.push({word:String(name).trim(),translation:String(ru).trim(),key:k,...metadata})};
  const catalog=window.NECurated;
  const ids=[moduleId,...(window.NECurriculum?.modules(level)||[]).map(x=>x.id)];
  for(const id of [...new Set(ids.filter(Boolean))]){
@@ -30,7 +30,7 @@ function candidates(level,moduleId){
 }
 function fromDictionary(s,level){
  const entries=Object.values(s.dailyDictionary||{}).filter(x=>x&&(x.level===level||!x.level)&&((x.lemma||x.word)&&x.translation_ru)).map(x=>({
-  word:String(x.lemma||x.word),translation:String(x.translation_ru),key:key(x.lemma||x.word),
+  word:String(x.lemma||x.word),translation:String(x.translation_ru),key:key(x.lemma||x.word),pos:x.pos||'',gender:x.gender||'',
   seen:String(x.firstDate||''),due:Number(x.nextDue)||0,wrong:Number(x.wrong)||0
  }));
  entries.sort((a,b)=>(b.due>0&&b.due<=Date.now()?1:0)-(a.due>0&&a.due<=Date.now()?1:0)||b.wrong-a.wrong||String(a.seen).localeCompare(String(b.seen)));
@@ -42,12 +42,12 @@ function choose(level,moduleId,date){
  const existing=new Set([...p.active.map(x=>key(x.word)),...Object.values(s.dailyDictionary||{}).map(x=>key(x.lemma||x.word))]);
  const packed=(s.dailyPacks?.[date]?.words||[]).filter(x=>x&&(x.lemma||x.word)&&x.translation_ru);
  const newWords=[],added=new Set();
- const add=(word,translation)=>{const k=key(word);if(!k||!translation||added.has(k)||newWords.length>=PER_DAY)return;added.add(k);newWords.push({word:String(word),translation:String(translation),key:k,newToday:true})};
+ const add=(word,translation,metadata={})=>{const k=key(word);if(!k||!translation||added.has(k)||newWords.length>=PER_DAY)return;added.add(k);newWords.push({word:String(word),translation:String(translation),key:k,newToday:true,pos:metadata.pos||'',gender:metadata.gender||''})};
  if(packed.length){
   // Today's generated daily pack is the canonical five; never silently add another five.
-  for(const x of packed.slice(0,PER_DAY))add(x.lemma||x.word,x.translation_ru);
+  for(const x of packed.slice(0,PER_DAY))add(x.lemma||x.word,x.translation_ru,{pos:x.pos,gender:x.gender});
  }else {
-  for(const x of candidates(level,moduleId))if(!existing.has(x.key))add(x.word,x.translation);
+  for(const x of candidates(level,moduleId))if(!existing.has(x.key))add(x.word,x.translation,x);
  }
  // An exhausted curriculum does not imply that five new words were genuinely found.
  // Keep failed/due words in the active rotation before recent words.
@@ -73,11 +73,11 @@ function choose(level,moduleId,date){
   cardQueue:active.map((_,i)=>i),cardDraft:'',cardFeedback:null,cardAttempted:{},deferredWords:[],
   clozeIndex:0,clozeMisses:0,writingOK:false,speakingOK:false,ready:false,feedback:'',speechText:'',
   writingDraft:'',checkedCloze:[],completedAt:null};
- p.days[date]=record;p.active=active.map(x=>({word:x.word,translation:x.translation,key:key(x.word)}));
+ p.days[date]=record;p.active=active.map(x=>({word:x.word,translation:x.translation,key:key(x.word),pos:x.pos||'',gender:x.gender||''}));
  const now=Date.now();s.dailyDictionary=s.dailyDictionary||{};s.srs=s.srs||{};
  for(const w of newWords){
   const k=key(w.word),prior=s.dailyDictionary[k]||{};
-  s.dailyDictionary[k]={...prior,lemma:w.word,translation_ru:w.translation,level,firstDate:prior.firstDate||date,
+  s.dailyDictionary[k]={...prior,lemma:w.word,translation_ru:w.translation,level,pos:w.pos||prior.pos||'',gender:w.gender||prior.gender||'',firstDate:prior.firstDate||date,
    lastSeen:date,exposures:(Number(prior.exposures)||0)+1,strength:prior.strength??20,nextDue:prior.nextDue||now+86400000};
   if(!s.srs[k])s.srs[k]={word:w.word,translation:w.translation,level,stage:0,due:now+86400000,seen:0,correct:0};
  }
@@ -163,6 +163,16 @@ function render(){
   const queue=cardQueue(d),card=currentCard(d);
   if(!card){d.stage='cloze';d.feedback='';save();return render()}
   const word=card.word,feedback=d.cardFeedback,review=d.cardsSeen>=d.active.length;
+  const grammar=window.NECardGrammar?.describe?.(word)||{headword:word.word,typeRu:'Слово',forms:[],help:'Формы не определены.',verified:false};
+  const rows=(grammar.forms||[]).map(row=>'<tr><td>'+esc(row.label)+'</td><td lang="nb"><b>'+esc(row.form)+'</b></td></tr>').join('');
+  const dictLink='<a href="'+esc(grammar.url||'https://ordbokene.no/')+'" target="_blank" rel="noopener noreferrer">Проверить в Bokmålsordboka ↗</a>';
+  // Grammar is initially collapsed to encourage recall; answer feedback opens it.
+  const morphology='<details class="card" style="margin-top:12px;padding:14px"'+(feedback?' open':'')+'>'+
+   '<summary style="cursor:pointer;font-weight:600">'+esc(grammar.typeRu)+' · Начальная форма и склонение / времена</summary>'+
+   (rows?'<table class="forms-table" style="margin-top:10px;width:100%"><tbody>'+rows+'</tbody></table>':
+    '<p class="muted">Подтверждённых форм пока нет. Не будем придумывать окончания.</p>')+
+   (grammar.example?'<p><b>В речи:</b> <span lang="nb">'+esc(grammar.example.no)+'</span></p><p class="muted">'+esc(grammar.example.ru)+'</p>':'')+
+   '<p class="muted">'+esc(grammar.help||'')+'</p>'+dictLink+'</details>';
   const result=feedback?'<div class="notice" role="status"><b>'+
    (feedback.correct?'Верно!':'Нужно повторить.')+'</b> Правильный перевод: '+esc(word.translation)+
    (feedback.correct?'':' · Слово сохранено в повторении.')+'</div>':'';
@@ -179,9 +189,10 @@ function render(){
     '<p class="muted">После голосового ответа проверь распознанный текст в поле. При ошибке слово повторится позже.</p>';
   return wrapper('<p class="muted">'+(review?'Повторяем трудные слова · ':'Карточки · ')+
    (d.cardsSeen+1)+' из '+queue.length+'</p>'+
-   '<div class="card" style="padding:24px"><h2 lang="nb" style="text-align:center">'+esc(word.word)+'</h2>'+
+   '<div class="card" style="padding:24px"><div class="muted">'+esc(grammar.typeRu)+'</div>'+
+   '<h2 lang="nb" style="text-align:center">'+esc(grammar.headword)+'</h2>'+
    '<button class="btn secondary" onclick="NELivingWords.listenCard()">▶ Послушать слово</button>'+
-   result+fields+'</div>',d);
+   result+fields+morphology+'</div>',d);
  }
  if(d.stage==='cloze'){
   const tasks=clozeSet(d.level,d.date),task=tasks[d.clozeIndex];
