@@ -67,7 +67,7 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  await w.checkFree('speaking');
  assert.equal(session.locked,true);
  assert.match(feedback.innerHTML,/Следующая реплика/);
- assert.match(feedback.innerHTML,/Hyggelig å hilse på deg/);
+ assert.match(feedback.innerHTML,/Hvor kommer du fra/);
  w.neGuidedNext();
  assert.equal(session.guidedSpeech.index,1);
  assert.equal(session.guidedSpeech.turns.length,1);
