@@ -49,7 +49,7 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  const sandbox={window:w,document:{getElementById:id=>nodes[id]||null},esc:s=>String(s).replace(/</g,'&lt;')};
  vm.runInNewContext(speaking,sandbox,{filename:'guided-speaking.js'});
  const start=w.freeEx(lesson,'speaking');
- assert.match(start,/Реплика 1 из 5/);
+ assert.match(start,/Реплика 1 из 7/);
  assert.match(start,/сервисного центра/);
  assert.doesNotMatch(start,/Jeg heter Erik\./,'name must not be revealed before learner asks it');
  assert.equal(w.freeEx(lesson,'writing'),'<legacy>','writing must stay unchanged');
@@ -67,12 +67,18 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  assert.equal(session.guidedSpeech.turns.length,1);
  assert.equal(rerenders,1);
  assert.equal(checkpoints,1);
+ field.value='Jeg kommer fra Ukraina og bor i Oslo.';
+ await w.checkFree('speaking');w.neGuidedNext();
+ field.value='Jeg snakker ukrainsk.';
+ await w.checkFree('speaking');w.neGuidedNext();
  field.value='Hva heter du?';
  await w.checkFree('speaking');
  assert.match(feedback.innerHTML,/Jeg heter Erik\./);
  w.neGuidedNext();
- assert.equal(session.guidedSpeech.index,2);
+ assert.equal(session.guidedSpeech.index,4);
  field.value='Hvor kommer du fra?';
+ await w.checkFree('speaking');w.neGuidedNext();
+ field.value='Hvilke språk snakker du?';
  await w.checkFree('speaking');w.neGuidedNext();
  field.value='Hvilke språk snakker du?';
  await w.checkFree('speaking');w.neGuidedNext();
@@ -82,7 +88,7 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  assert.equal(attempts.at(-1).skill,'writing','typed answer must not count as speaking evidence');
  w.neGuidedNext();
  assert.equal(finishes,1,'finish only after all valid turns');
- assert.equal(scores.length,6,'each evaluated attempt should contribute evidence');
+ assert.equal(scores.length,8,'each evaluated attempt should contribute evidence');
  assert.equal(w.checkFree('writing'),'legacy','writing checker should be preserved');
- console.log('Guided speaking: 32 modules, 5 A1 turns, rejected retry, progress, voice evidence, typed fallback OK');
+ console.log('Guided speaking: 32 modules, 7 A1 turns, rejected retry, progress, voice evidence, typed fallback OK');
 })().catch(error=>{console.error(error);process.exitCode=1});
