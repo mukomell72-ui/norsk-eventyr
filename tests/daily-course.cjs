@@ -20,10 +20,11 @@ const w={
  neLearnerState:state,NEAdaptive:fakeA,NECurriculum:{moduleById:()=>chapter,modules:()=>[chapter]},
  NECourseMethod:{modulePlan:()=>({stageKey:'introduce',objective:'Представиться'})},
  NECurated:{variant:()=>bank,get:()=>bank},saveState:()=>{},shell:html=>visits.push(html),
- speakText:t=>visits.push('speak:'+t),teacherStartDailyModule:(id,stage)=>visits.push('teacher:'+id+':'+stage),startLesson:id=>visits.push('resume:'+id)
+ speakText:async t=>{visits.push('speak:'+t);return {source:'device'}},teacherStartDailyModule:(id,stage)=>visits.push('teacher:'+id+':'+stage),startLesson:id=>visits.push('resume:'+id)
 };
 const context={window:w,state,Date,Math,Number,Object,Array,String,JSON,Set,Intl};
 vm.runInNewContext(read('daily-course.js'),context,{filename:'daily-course.js'});
+(async()=>{
 const D=w.NEDailyCourse;
 assert(D,'Daily chapter must be registered');
 let s=D.summary();
@@ -53,7 +54,12 @@ for(let i=0;i<3;i++){
 assert.equal(D.summary().done,1);
 assert.equal(D.answer(3),false,'Grammar error must not pass');
 assert.equal(D.answer(0),true);assert.equal(D.summary().done,2);
+assert.equal(D.answer(0),false,'A listening answer cannot pass before playback starts');
+assert.equal(D.summary().done,2);
+assert.equal(await D.listen(),true,'Audio playback must start successfully');
 assert.equal(D.answer(0),true);assert.equal(D.summary().done,2,'All listening questions required');
+assert.equal(D.answer(0),false,'Each audio clip must be played separately');
+assert.equal(await D.listen(),true);
 assert.equal(D.answer(0),true);assert.equal(D.summary().done,3);
 assert.equal(D.answer(0),true);assert.equal(D.summary().done,4);
 assert.equal(D.answer(0),false,'Core lesson cannot be skipped via choice API');
@@ -85,3 +91,4 @@ assert(app.includes('onLessonFinish?.(l,courseOutcome,reward.avg)'),'Daily compl
 assert(assets.includes('/daily-course.js?'),'Study day must work in installed PWA');
 assert(boot.includes("'daily-course.js'"),'Authenticated bootstrap must load the day controller');
 console.log('PASS daily course: 45+ minute plan, sequential questions, no skipping, pending day, failed stage blocks, evidence unlock, PWA entry');
+})().catch(err=>{console.error(err);process.exitCode=1});

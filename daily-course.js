@@ -129,6 +129,10 @@ function answer(index){
  const phase=stageIndex(d);if(phase>=4)return false;
  const set=exercises(d),group=['words','grammar','listening','reading'][phase],items=set?.[group],item=items?.[d.item];
  if(!item||!Number.isInteger(index)||index<0||index>=item.opts.length)return false;
+ if(phase===2&&d.listenedIndex!==d.item){
+  d.feedback='Сначала включи прослушивание записи. Без доступного звука этот этап не засчитывается.';
+  learnerSave();view();return false;
+ }
  if(index!==item.correct){d.misses++;d.feedback='Ответ пока не принят. Разбери правило или текст и попробуй ещё раз.';learnerSave();view();return false}
  if(window.NEAdaptive){
   const score=d.misses?70:100,skill=BLOCKS[phase].skill;
@@ -138,10 +142,29 @@ function answer(index){
  if(d.item>=items.length){d.done.push(BLOCKS[phase].id);d.item=0;}
  learnerSave();view();return true;
 }
-function listen(){
- const d=session(false);if(!d||stageIndex(d)!==2)return;
- const item=exercises(d)?.listening?.[d.item];
- if(item?.audio&&typeof window.speakText==='function')window.speakText(item.audio,.85);
+async function listen(){
+ const d=session(false);if(!d||stageIndex(d)!==2)return false;
+ const index=d.item,item=exercises(d)?.listening?.[index];
+ if(!item?.audio||typeof window.speakText!=='function'){
+  d.feedback='Озвучивание сейчас недоступно: аудирование нельзя подтвердить.';
+  learnerSave();view();return false;
+ }
+ try{
+  // Only count a successful playback start, not a request or a missing audio source.
+  const result=await window.speakText(item.audio,.85);
+  if(session(false)!==d||stageIndex(d)!==2||d.item!==index)return false;
+  if(!['human','device','ai'].includes(result?.source)){
+   d.feedback='Запись не удалось воспроизвести. Повтори прослушивание.';
+   learnerSave();view();return false;
+  }
+  d.listenedIndex=index;d.feedback='';learnerSave();view();return true;
+ }catch{
+  if(session(false)===d&&stageIndex(d)===2&&d.item===index){
+   d.feedback='Не получилось включить запись. Попробуй ещё раз.';
+   learnerSave();view();
+  }
+  return false;
+ }
 }
 function beginTeacher(){
  const d=session(false),s=learner();if(!d||d.finished||stageIndex(d)!==4)return;
