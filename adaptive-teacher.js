@@ -238,7 +238,7 @@ function learningBlocker(gate){
 }
 function startAdaptiveTeacher(){
  ensure(state);const mission=nextMission(state),gate=levelGate(state,state.level),p=state.learningV8,attempts=p.attempts.length;
- const m=mission.module,course=window.NECourseMethod,unit=course?.modulePlan(m,state),day=course?.dailyPlan(state.elite?.dailyMinutes||60),levelStudy=course?.levelPlan(state.level),pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id],reason=(pending?'Есть незавершённое занятие. Продолжим с места остановки. ':mission.reason)+(m?' Цель: '+m.canDo[0]+'.':'');
+ const m=mission.module,course=window.NECourseMethod,unit=course?.modulePlan(m,state),day=course?.dailyPlan(Math.max(45,state.elite?.dailyMinutes||60)),levelStudy=course?.levelPlan(state.level),pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id],reason=(pending?'Есть незавершённое занятие. Продолжим с места остановки. ':mission.reason)+(m?' Цель: '+m.canDo[0]+'.':'');
  shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Адаптивный преподаватель · '+esc(state.level)+'</div><h2 style="margin:0">Нора ведёт занятие</h2></div></div>'+
  '<section class="grid"><article class="card"><div class="eyebrow">Следующий шаг</div><h2>'+esc(pending?.title||m?.title||'Диагностика')+'</h2><p>'+esc(reason)+'</p><div class="row"><span class="tag">'+esc(LABEL[mission.skill]||mission.skill)+'</span><span class="tag">'+(pending?'Продолжение':mission.kind==='review'?'Повторение':'Новый материал')+'</span></div><br><button class="btn" onclick="teacherStartMission()">'+(pending?'Продолжить с места остановки':'Начать занятие')+'</button></article>'+
  '<article class="card"><div class="eyebrow">Допуск к '+esc(state.level)+'</div><h2>'+gate.avg+'% профиль</h2><p class="muted">'+esc(learningBlocker(gate))+' Для перехода нужны четыре навыка и отложенная проверка.</p><div class="metric"><span>Освоено модулей</span><strong>'+gate.mastered+'/'+gate.total+'</strong></div><div class="metric"><span>Отложенных подтверждений</span><strong>'+gate.delayed+'/4</strong></div><div class="metric"><span>Статус</span><strong>'+(gate.pass?'Пройден':'Есть работа')+'</strong></div></article></section>'+
@@ -269,7 +269,7 @@ function moduleMission(state,moduleId){
  const due=dueReviews(state).find(x=>x.moduleId===m.id);
  return{kind:due?'review':mastery>=78?'review':'learn',level:m.level,module:m,skill:due?.skill||moduleFocusSkill(state,m),reason:due?'Пора подтвердить этот навык после паузы.':mastery>=78?'Повторяем освоенный модуль в новом контексте.':'Продолжаем текущий модуль до устойчивого результата.',reviewKey:due?.key||''};
 }
-async function runTeacherMission(mission){
+async function runTeacherMission(mission,living=null){
  const m=mission?.module;if(!m)return;
  const p=ensure(state);
  if(mission.kind==='learn')activateCourse(p,m.id);
@@ -278,7 +278,7 @@ async function runTeacherMission(mission){
  const targetProfile=levelProfile(p,mission.level),
  variations=['Другой собеседник, новый повод разговора.','Другая обстановка и непредвиденное уточнение.','Новая причина просьбы и ограничение по времени.','Та же цель, но другая последовательность действий.'],
  revision=(p.modules[m.id]?.completions||0)+(p.modules[m.id]?.attempts||0),
- payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...targetProfile},errorPatterns:errors(state,mission.level),targetErrorTag:mission.errorTag||'',weakSkills:ALL.filter(s=>targetProfile[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review',scenarioVariation:variations[revision%variations.length],courseStage:courseStep?.stageKey||'',courseStageTitle:courseStep?.stageTitle||'',courseObjective:courseStep?.objective||m.canDo[0],courseInstruction:courseStep?.stageInstruction||''};
+ payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...targetProfile},errorPatterns:errors(state,mission.level),targetErrorTag:mission.errorTag||'',weakSkills:ALL.filter(s=>targetProfile[s]<65),reviewWords:reviewWords(state),teacherMode:true,reviewMode:mission.kind==='review',scenarioVariation:living?(['Первая ситуация: введение и объяснение.','Новая ситуация с другим собеседником и реальным уточнением.','Незнакомая ситуация: ученик действует самостоятельно без копирования.'][living.scene]||variations[revision%variations.length]):variations[revision%variations.length],courseStage:courseStep?.stageKey||'',courseStageTitle:courseStep?.stageTitle||'',courseObjective:courseStep?.objective||m.canDo[0],courseInstruction:(courseStep?.stageInstruction||'')+(living?' Продолжай ту же тему занятия. Не начинай знакомство заново и не повторяй старый диалог дословно. Дай самостоятельный разговор, письмо, чтение и аудирование.':'')};
  const foundation=window.NECurated?.variant?.(m.id,revision)||window.NECurated?.get(m.id);
  const isFirstAttempt=revision===0&&(mission.kind==='learn'||mission.kind==='remediation');
  try{
@@ -290,11 +290,11 @@ async function runTeacherMission(mission){
    if(!r.ok||!r.data)throw new Error(r.error||'GENERATION');
    data=r.data;
   }
-  const lesson={...data,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,title:data.title||m.title,grammar:data.grammarRuleRu||m.grammar,_adaptive:{moduleId:m.id,skill:mission.skill,kind:mission.kind,reviewKey:mission.reviewKey||'',errorTag:mission.errorTag||'',canDo:m.canDo,transfer:courseStep?.stageKey==='transfer'||mission.kind==='review'||mission.kind==='error_remediation'||/transfer|capstone/.test(m.id),courseStage:courseStep?.stageKey||'',startedAt:new Date().toISOString(),origin:source}};
+  const lesson={...data,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,title:data.title||m.title,grammar:data.grammarRuleRu||m.grammar,_adaptive:{moduleId:m.id,skill:mission.skill,kind:mission.kind,reviewKey:mission.reviewKey||'',errorTag:mission.errorTag||'',canDo:m.canDo,transfer:courseStep?.stageKey==='transfer'||mission.kind==='review'||mission.kind==='error_remediation'||/transfer|capstone/.test(m.id),courseStage:courseStep?.stageKey||'',startedAt:new Date().toISOString(),origin:source,livingDayId:living?.id||'',livingScene:Number.isInteger(living?.scene)?living.scene:null}};
   state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;lessonSession={lesson,step:0,locked:false,xpScores:[]};persistLessonCheckpoint();renderLesson();
  }catch(e){
   if(foundation&&revision===0&&mission.kind!=='review'){
-   const lesson={...foundation,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,grammar:foundation.grammarRuleRu,_adaptive:{moduleId:m.id,skill:mission.skill,kind:'learn',reviewKey:'',errorTag:'',canDo:m.canDo,transfer:courseStep?.stageKey==='transfer',courseStage:courseStep?.stageKey||'',startedAt:new Date().toISOString(),origin:'Резервная базовая практика'}};
+   const lesson={...foundation,id:'adaptive-'+m.id+'-'+Date.now(),level:mission.level,grammar:foundation.grammarRuleRu,_adaptive:{moduleId:m.id,skill:mission.skill,kind:'learn',reviewKey:'',errorTag:'',canDo:m.canDo,transfer:courseStep?.stageKey==='transfer',courseStage:courseStep?.stageKey||'',startedAt:new Date().toISOString(),origin:'Резервная базовая практика',livingDayId:living?.id||'',livingScene:Number.isInteger(living?.scene)?living.scene:null}};
    state.generatedLessons=state.generatedLessons||{};state.generatedLessons[lesson.id]=lesson;lessonSession={lesson,step:0,locked:false,xpScores:[]};persistLessonCheckpoint();renderLesson();return;
   }
   shell('<section class="card"><h2>Не удалось создать новое задание</h2><p class="muted">Повторять прежние вопросы не буду. Проверь соединение и попробуй снова.</p><button class="btn" onclick="startAdaptiveTeacher()">Назад</button></section>','home');
@@ -317,6 +317,18 @@ async function teacherStartModule(moduleId){
  }
  const currentIndex=LEVEL_ORDER.indexOf(state.level),targetIndex=LEVEL_ORDER.indexOf(mission.level);if(targetIndex>=currentIndex)state.level=mission.level;saveState();return runTeacherMission(mission);
 }
+async function teacherStartLivingScene(moduleId,dayId,sceneIndex,stageKey){
+ const mission=moduleMission(state,moduleId);
+ if(!mission||mission.blocked||mission.module?.id!==moduleId||![0,1,2].includes(sceneIndex))return false;
+ const pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id];
+ if(pending)return startLesson(pending.id);
+ const actualStage=window.NECourseMethod?.modulePlan(mission.module,state)?.stageKey;
+ if(sceneIndex===0&&stageKey!==actualStage)return false;
+ const selected={...mission,kind:sceneIndex===0?'learn':'review',reviewKey:'',
+  reason:'Единый учебный день: новая жизненная ситуация без случайных тем.'};
+ return runTeacherMission(selected,{id:dayId,scene:sceneIndex});
+}
+window.teacherStartLivingScene=teacherStartLivingScene;
 window.NEAdaptive={ensure,recordAttempt,assessment,completeLesson,dueReviews,nextMission,levelGate,moduleMastery,skillForStep,errors,moduleMission,highestUnlockedLevel,learningFocus};
 Object.assign(window,{startAdaptiveTeacher,teacherStartMission,teacherStartModule});
 })();
