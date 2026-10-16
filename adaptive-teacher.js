@@ -317,6 +317,16 @@ async function teacherStartModule(moduleId){
  }
  const currentIndex=LEVEL_ORDER.indexOf(state.level),targetIndex=LEVEL_ORDER.indexOf(mission.level);if(targetIndex>=currentIndex)state.level=mission.level;saveState();return runTeacherMission(mission);
 }
+async function teacherStartDailyModule(moduleId,expectedStage){
+ const s=state,mission=moduleMission(s,moduleId);
+ if(!mission||mission.blocked)return false;
+ const existing=s.activeLesson?.id&&s.generatedLessons?.[s.activeLesson.id];
+ if(existing){if(existing._adaptive?.moduleId===moduleId)return startLesson(existing.id);return false}
+ const step=window.NECourseMethod?.modulePlan(mission.module,s);
+ if(!step||step.stageKey!==expectedStage||moduleMastery(s,moduleId)>=78)return false;
+ return runTeacherMission({...mission,kind:'learn',reviewKey:'',reason:'Текущий обязательный этап учебного дня.'});
+}
+window.teacherStartDailyModule=teacherStartDailyModule;
 window.NEAdaptive={ensure,recordAttempt,assessment,completeLesson,dueReviews,nextMission,levelGate,moduleMastery,skillForStep,errors,moduleMission,highestUnlockedLevel,learningFocus};
 Object.assign(window,{startAdaptiveTeacher,teacherStartMission,teacherStartModule});
 })();
