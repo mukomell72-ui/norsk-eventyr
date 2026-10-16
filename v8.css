@@ -248,3 +248,21 @@ button.speech-playing{transform:translateY(1px) scale(.985);box-shadow:0 0 0 3px
  .lesson-intro-v6 .dialogue-scene-v83{padding:12px}
  .lesson-intro-v6 .dialogue-task-v83{padding:12px}
 }
+
+/* Guided speaking: one communicative action per turn, readable on phones. */
+.guided-speaking .guided-scene{margin:12px 0;padding:13px 15px;border-radius:13px;background:rgba(76,149,180,.10);line-height:1.55;font-size:clamp(15px,3.8vw,18px)}
+.guided-progress{color:#287b65;font-size:13px;font-weight:800;letter-spacing:.03em;margin:14px 0}
+.guided-chat-history{display:flex;flex-direction:column;gap:10px;margin:14px 0;max-height:390px;overflow-y:auto;overscroll-behavior:contain}
+.guided-bubble{border-radius:16px;padding:12px 14px;max-width:90%;overflow-wrap:anywhere}
+.guided-bubble small{display:block;font-weight:800;opacity:.8;margin-bottom:4px;font-size:12px}
+.guided-bubble p{margin:0 0 6px;font-size:clamp(16px,4vw,19px);line-height:1.5}
+.guided-bubble-actor{align-self:flex-start;background:#edf3f5;border:1px solid #c3d5df;color:#203b4c}
+.guided-bubble-user{align-self:flex-end;background:#e9f5ef;color:#1d4536}
+.guided-audio{display:inline-flex;align-items:center;cursor:pointer;padding:5px 0;border:0;background:transparent;font-weight:700;font-size:13px;color:#216b86}
+.guided-task{margin:18px 0 12px;padding:16px;border-left:4px solid #55c6a0;border-radius:10px;background:#effbf5;color:#153c38}
+.guided-task b{font-size:13px}.guided-task p{font-size:clamp(18px,4.5vw,22px);font-weight:700;line-height:1.5;margin:8px 0 0}
+.guided-language{font-size:14px;line-height:1.45;margin:8px 0;color:#536a76}
+.guided-controls{display:flex;gap:10px;margin:12px 0;flex-wrap:wrap}
+.guided-controls .btn{flex:1 1 130px}
+.guided-reply{margin:12px 0}.guided-reply .guided-bubble{max-width:100%}
+@media(max-width:480px){.guided-chat-history{max-height:290px}.guided-bubble{max-width:97%}.guided-speaking{padding:18px!important}}
