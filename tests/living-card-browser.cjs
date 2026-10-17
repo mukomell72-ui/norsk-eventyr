@@ -33,19 +33,40 @@ const {chromium}=require('playwright');
   await page.addScriptTag({content:source});
   await page.evaluate(()=>window.NELivingWords.render());
   async function finishCard(){
+   assert((await page.locator('#app').innerText()).includes('ШАГ 2 ИЗ 2'));
    await page.getByRole('button',{name:'Задание с этим словом'}).click();
-   const answer=await page.evaluate(()=>{
-    const d=window.NELivingWords.ensure();
-    const task=d.formPractice.task;
+   const data=await page.evaluate(()=>{
+    const d=window.NELivingWords.ensure(),task=d.formPractice.task;
     const word=d.active[d.cardQueue[d.cardsSeen]];
-    return task.kind==='form'?task.answer:'Jeg bruker '+word.word+' i dag.';
+    return {task,word:word.word};
    });
+   const task=data.task;
+   let answer={
+    hjemme:'Jeg er hjemme nå.',
+    takk:'Jeg sier takk for hjelpen.',
+    hvor:'Hvor bor du i Norge?',
+    norsk:'Jeg lærer norsk hver dag.'
+   }[data.word];
+   if(data.word==='jobb'){
+    const form=task.requiredForm;
+    answer=[
+     'Jeg har '+form+'.',
+     'Jeg liker '+form+' min.',
+     'Jeg har to '+form+'.',
+     'Jeg kjenner '+form+' godt.'
+    ][task.index];
+   }
+   assert(answer,'Every word needs a full contextual sentence');
    await page.locator('#livingFormAnswer').fill(answer);
-   await page.getByRole('button',{name:'Проверить форму'}).click();
+   await page.getByRole('button',{name:'Проверить предложение'}).click();
+   await page.waitForFunction(()=>window.NELivingWords.ensure().formPractice.done);
    await page.getByRole('button',{name:/Следующая карточка|Продолжить повтор/}).click();
   }
   const field=page.locator('#livingTranslate');
   assert(await field.isVisible(),'Answer field is shown directly under Norwegian word');
+  assert((await page.locator('#app').innerText()).includes('ШАГ 1 ИЗ 2'));
+  assert.equal(await page.locator('#livingFormAnswer').count(),0,
+   'Before translation there must be no Norwegian assignment field');
   assert(await page.getByRole('button',{name:'Ответить голосом'}).isVisible(),'Voice button visible on mobile');
   await field.fill('другой ответ');
   await page.getByRole('button',{name:'Проверить перевод'}).click();
@@ -65,14 +86,7 @@ const {chromium}=require('playwright');
   assert((await page.locator('#app').innerText()).includes('Повторяем трудные слова'));
   assert((await page.locator('#app').innerText()).includes('hjemme'));
   await page.getByRole('button',{name:'Не знаю · показать'}).click();
-  await page.getByRole('button',{name:'Задание с этим словом'}).click();
-  const last=await page.evaluate(()=>{
-   const d=window.NELivingWords.ensure(),task=d.formPractice.task,word=d.active[d.cardQueue[d.cardsSeen]];
-   return task.kind==='form'?task.answer:'Jeg bruker '+word.word+' i dag.';
-  });
-  await page.locator('#livingFormAnswer').fill(last);
-  await page.getByRole('button',{name:'Проверить форму'}).click();
-  await page.getByRole('button',{name:'Продолжить повтор'}).click();
+  await finishCard();
   assert((await page.locator('#app').innerText()).includes('Повторяем трудные слова'),
    'After a second missed answer, the word must be repeated again');
   await page.locator('#livingTranslate').fill('дома');
