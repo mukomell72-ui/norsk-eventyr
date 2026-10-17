@@ -69,6 +69,7 @@ const id=W.journey(s,'B1').chapters[0].moduleId;
 assert(W.openChapter(id),'Future chapter can be previewed');
 assert(screens.at(-1).html.includes('станет доступна'));
 assert.equal(W.startChapter(id),false,'No playing of locked learning chapters');
+assert.equal(W.beginSignal('B1'),false,'A future CEFR-level radio quest is locked until the level gate passes');
 assert.equal(started.length,0);
 W.selectLevel('A1');
 assert(W.openChapter('a1-home'));
