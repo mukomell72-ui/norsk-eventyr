@@ -27,7 +27,7 @@ for(const [word,type,count,example] of [
   'Appropriate sentence must contain required morphological form for '+word);
  for(const task of tasks){
   assert(E.containsWord(task,'Jeg vil skrive: '+task.requiredForm+'.',entry),'Exact form in phrase detected: '+word);
-  assert(!E.containsWord(task,'Dette er et tilfeldig svar uten det riktige ordet.',entry),
+  assert(!E.containsWord(task,'Bordet ligger inne i skapet.',entry),
    'Unrelated text must be rejected: '+word);
   assert(E.hint(task,1).includes('форм'),'Targeted grammar hint: '+word);
   assert(E.hint(task,3).includes(task.requiredForm),'Reveal verified form after repeated errors');
