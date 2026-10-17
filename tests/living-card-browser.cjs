@@ -30,6 +30,7 @@ const {chromium}=require('playwright');
   const source=fs.readFileSync(path.join(__dirname,'..','living-words.js'),'utf8');
   await page.addScriptTag({content:fs.readFileSync(path.join(__dirname,'..','card-grammar.js'),'utf8')});
   await page.addScriptTag({content:fs.readFileSync(path.join(__dirname,'..','card-form-practice.js'),'utf8')});
+  await page.addScriptTag({content:fs.readFileSync(path.join(__dirname,'..','mini-path.js'),'utf8')});
   await page.addScriptTag({content:source});
   await page.evaluate(()=>window.NELivingWords.render());
   async function finishCard(){
@@ -83,6 +84,18 @@ const {chromium}=require('playwright');
    await page.getByRole('button',{name:'Проверить перевод'}).click();
    await finishCard();
   }
+  assert((await page.locator('#app').innerText()).includes('Быстрая проверка'));
+  while(await page.evaluate(()=>window.NELivingWords.ensure().miniRound?.phase)==='quiz'){
+   const index=await page.evaluate(()=>{
+    const m=window.NELivingWords.ensure().miniRound;
+    return m.questions[m.index].correct;
+   });
+   await page.locator('button[onclick^="NELivingWords.answerMini("]').nth(index).click();
+  }
+  assert((await page.locator('#app').innerText()).includes('Остановиться сейчас'));
+  const paused=await page.evaluate(()=>JSON.parse(JSON.stringify(window.NELivingWords.ensure().miniRound)));
+  assert.equal(paused.boundary,5,'Mini checkpoint is saved to learner session');
+  await page.getByRole('button',{name:/Повторить трудные слова|Перейти к следующим словам|Продолжить занятие/}).click();
   assert((await page.locator('#app').innerText()).includes('Повторяем трудные слова'));
   assert((await page.locator('#app').innerText()).includes('hjemme'));
   await page.getByRole('button',{name:'Не знаю · показать'}).click();
@@ -99,6 +112,6 @@ const {chromium}=require('playwright');
   assert(state.wordPracticeQueue?.hjemme,'Incorrect translation remains scheduled for review');
   assert(state.learningV8.livingVocabulary.days['2026-10-16'].cardAttempted[0]>=1);
   assert.deepEqual(errors,[],'No uncaught browser JS errors');
-  console.log('PASS mobile browser: typing Russian translation, voice recognition, wrong-word review and persisted mistakes');
+  console.log('PASS mobile browser: typed/voice translation, contextual use, short recognition quiz, saved checkpoint, due-word repetitions');
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});
