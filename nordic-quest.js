@@ -93,54 +93,166 @@ function signalBank(level,key){
  return catalog.map((_,i)=>catalog[(i+shift)%catalog.length]);
 }
 function signalKey(level){return date()+':'+safeLevel(level)}
+function play(){return window.NQQuestPlay}
+function signalMode(run){return play()?.mode?.(run?.index)||'dialogue'}
 function signalRun(s,level,create=false){
  const w=getWorldState(s,create);if(!w)return null;
  const k=signalKey(level);
  if(create&&!w.signalRuns[k]){
-  w.signalRuns[k]={version:1,level:safeLevel(level),date:date(),index:0,misses:0,
-   completed:false,reveal:false,feedback:'',checked:false};
+  w.signalRuns[k]={version:2,level:safeLevel(level),date:date(),index:0,misses:0,
+   completed:false,reveal:false,feedback:'',checked:false,tiles:[],choice:null,spoken:'',voiceNote:''};
   const keys=Object.keys(w.signalRuns).sort();
   for(const stale of keys.slice(0,Math.max(0,keys.length-90)))delete w.signalRuns[stale];
   persist();
  }
- return w.signalRuns[k]||null;
+ const r=w.signalRuns[k];
+ if(r&&create&&r.version===1&&!r.completed){
+  // Existing learners keep the current signal and their earlier answers.
+  r.version=2;r.tiles=[];r.choice=null;r.spoken='';r.voiceNote='';persist();
+ }
+ return r||null;
 }
-function beginSignal(level){const s=app();if(!s)return false;
+function beginSignal(level){
+ const s=app();if(!s||!play())return false;
  const l=safeLevel(level);signalRun(s,l,true);return renderSignal(l);
 }
 function isComplete(s,level){return signalRun(s,level)?.completed===true}
-function answerSignal(choice){
+function signalContext(){
  const s=app(),w=getWorldState(s),l=safeLevel(w?.viewLevel||s?.level);
- const r=signalRun(s,l);
- if(!r||r.completed||r.checked)return false;
- const tasks=signalBank(l,r.date),task=tasks[r.index];
- if(!task||!Number.isInteger(choice)||choice<0||choice>2)return false;
- const order=(r.index+1)%3; // variable location; cannot guess a fixed button number
- const correct=order;
- if(choice!==correct){
-  r.misses++;r.feedback=task.hint+' Попробуй другой ответ.';
-  persist();renderSignal(l);return false;
+ return {s,w,l,r:signalRun(s,l),tasks:signalBank(l)};
+}
+function soundEffect(kind){
+ const w=getWorldState(app());
+ return play()?.cue?.(w?.soundOn===true,kind);
+}
+function toggleSound(){
+ const s=app(),w=getWorldState(s,true);
+ if(!w)return false;
+ w.soundOn=w.soundOn!==true;
+ persist();return renderSignal(safeLevel(w.viewLevel||s.level));
+}
+function answerSignal(choice){
+ const {r,l,tasks}=signalContext();
+ if(!r||r.completed||r.checked||!['dialogue','listen'].includes(signalMode(r)))return false;
+ const task=tasks[signalMode(r)==='listen'?2:0];
+ if(!task||!Number.isInteger(choice)||choice<0||choice>=3)return false;
+ const position=(r.index+1)%3;
+ if(choice!==position){
+  r.misses++;r.feedback=play().feedback(signalMode(r),false)+' '+task.hint;
+  persist();soundEffect('wrong');renderSignal(l);return false;
  }
- r.checked=true;r.feedback='Верно! '+task.ru;
- persist();renderSignal(l);return true;
+ r.checked=true;r.feedback='Нора: '+play().feedback(signalMode(r),true)+' '+task.ru;
+ persist();soundEffect('correct');renderSignal(l);return true;
+}
+function tilesFor(r,tasks){
+ const task=tasks[1];
+ return task?play()?.shuffledTiles?.(task.no)||[]:[];
+}
+function selectTile(index){
+ const {r,l,tasks}=signalContext();
+ if(!r||r.completed||r.checked||signalMode(r)!=='assemble')return false;
+ const tiles=tilesFor(r,tasks);
+ if(!Number.isInteger(index)||index<0||index>=tiles.length)return false;
+ r.tiles=Array.isArray(r.tiles)?r.tiles:[];
+ const existing=r.tiles.indexOf(index);
+ if(existing>=0)r.tiles.splice(existing,1);
+ else if(r.tiles.length<tiles.length)r.tiles.push(index);
+ r.feedback='';persist();renderSignal(l);return true;
+}
+function clearTiles(){
+ const {r,l}=signalContext();
+ if(!r||signalMode(r)!=='assemble'||r.checked)return false;
+ r.tiles=[];r.feedback='';persist();return renderSignal(l);
+}
+function checkAssembly(){
+ const {r,l,tasks}=signalContext();
+ if(!r||r.completed||r.checked||signalMode(r)!=='assemble')return false;
+ const task=tasks[1];
+ if(!task||!r.tiles?.length)return false;
+ if(!play()?.validAssembly?.(task.no,r.tiles)){
+  r.misses++;r.feedback='Нора: '+play().feedback('assemble',false);
+  persist();soundEffect('wrong');renderSignal(l);return false;
+ }
+ r.checked=true;r.feedback='Нора: '+play().feedback('assemble',true)+' '+task.ru;
+ persist();soundEffect('correct');renderSignal(l);return true;
+}
+function chooseSignalEnding(choice){
+ const {r,l}=signalContext();
+ if(!r||r.completed||r.checked||signalMode(r)!=='decision')return false;
+ const branch=play()?.branches?.(l)?.[choice];
+ if(!branch||!Number.isInteger(choice))return false;
+ r.choice=branch.id;r.checked=true;
+ r.feedback='Нора: '+play().feedback('decision',true);
+ persist();soundEffect('correct');return renderSignal(l);
+}
+function journalEntries(state){
+ const w=getWorldState(state),entries=Array.isArray(w?.journal)?w.journal:[];
+ return entries.filter(x=>x&&typeof x.date==='string'&&typeof x.level==='string').slice(-25);
 }
 function nextSignal(){
- const s=app(),w=getWorldState(s),l=safeLevel(w?.viewLevel||s?.level),r=signalRun(s,l);
+ const {s,w,r,l}=signalContext();
  if(!r||!r.checked||r.completed)return false;
- r.index++;r.checked=false;r.reveal=false;r.feedback='';
- if(r.index>=signalBank(l,r.date).length){r.completed=true;r.finishedAt=new Date().toISOString();}
- persist();return renderSignal(l);
+ r.index++;r.checked=false;r.reveal=false;r.feedback='';r.tiles=[];r.voiceNote='';r.spoken='';
+ const length=r.version===1?3:4;
+ if(r.index>=length){
+  r.completed=true;r.finishedAt=new Date().toISOString();
+  if(r.version===2){
+   const branch=play()?.branches?.(l).find(x=>x.id===r.choice);
+   if(branch){
+    r.storyTitle=branch.title;r.storyResult=branch.story;
+    w.journal=Array.isArray(w.journal)?w.journal:[];
+    const key=signalKey(l);
+    if(!w.journal.some(entry=>entry.key===key)){
+     w.journal.push({key,date:date(),level:l,title:branch.title,
+      result:branch.story,misses:r.misses,choice:r.choice});
+     if(w.journal.length>90)w.journal=w.journal.slice(-90);
+    }
+   }
+  }
+ }
+ persist();if(r.completed)soundEffect('finish');
+ return renderSignal(l);
 }
 function hearSignal(){
- const s=app(),w=getWorldState(s),l=safeLevel(w?.viewLevel||s?.level),r=signalRun(s,l);
- const task=r&&signalBank(l,r.date)[r.index];
- if(!task||r.completed)return false;
+ const {r,l,tasks}=signalContext();
+ if(!r||r.completed||!['assemble','listen'].includes(signalMode(r)))return false;
+ const task=tasks[signalMode(r)==='listen'?2:1];
+ if(!task)return false;
  try{window.speakText?.(task.no,.88);return true}catch{return false}
 }
 function revealSignal(){
- const s=app(),w=getWorldState(s),l=safeLevel(w?.viewLevel||s?.level),r=signalRun(s,l);
- if(!r||r.completed)return false;
+ const {r,l}=signalContext();
+ if(!r||r.completed||signalMode(r)!=='listen')return false;
  r.reveal=true;persist();return renderSignal(l);
+}
+function tryPronunciation(){
+ const {r,l,tasks}=signalContext();
+ if(!r||r.completed||signalMode(r)!=='assemble'||!r.checked)return false;
+ const task=tasks[1],Speech=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!Speech){
+  r.voiceNote='На этом устройстве распознавание речи недоступно. Можно прослушать образец и повторить вслух.';
+  persist();renderSignal(l);return false;
+ }
+ try{
+  const rec=new Speech();rec.lang='nb-NO';rec.interimResults=false;rec.maxAlternatives=1;
+  r.voiceNote='Слушаю норвежскую речь…';persist();renderSignal(l);
+  rec.onresult=e=>{
+   if(signalRun(app(),l)!==r||r.index!==1)return;
+   r.spoken=String(e.results?.[0]?.[0]?.transcript||'').slice(0,260);
+   r.voiceNote=r.spoken?'Распознано: '+r.spoken+'. Сравни с образцом выше. Это упражнение не оценивает произношение автоматически.':
+    'Не удалось распознать фразу. Попробуй ещё раз.';
+   persist();renderSignal(l);
+  };
+  rec.onerror=()=>{
+   if(signalRun(app(),l)!==r||r.index!==1)return;
+   r.voiceNote='Микрофон недоступен. Разреши доступ или повтори вслух без записи.';
+   persist();renderSignal(l);
+  };
+  rec.start();return true;
+ }catch{
+  r.voiceNote='Не удалось запустить микрофон. Прослушай образец и повтори вслух.';
+  persist();renderSignal(l);return false;
+ }
 }
 function selectLevel(level){
  const s=app();if(!s)return false;
