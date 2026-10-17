@@ -101,6 +101,7 @@ const read=file=>fs.readFileSync(path.join(__dirname,'..',file),'utf8');
   await page.getByRole('button',{name:'A2'}).click();
   assert((await page.locator('.nq-unavailable').innerText()).includes('после подтверждения предыдущего уровня'));
   assert.equal(await page.locator('.nq-stop.current').count(),0,'Higher level never unlocks via radio choices');
+  assert(await page.getByRole('button',{name:/Доступно после предыдущего уровня/}).isDisabled(),'Side quests obey the same actual CEFR gate');
   await page.setViewportSize({width:360,height:760});
   await page.evaluate(()=>window.NENordicQuest.open());
   const viewport=await page.evaluate(()=>({client:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth}));
