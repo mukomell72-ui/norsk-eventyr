@@ -53,6 +53,15 @@ const read=file=>fs.readFileSync(path.join(__dirname,'..',file),'utf8');
   assert(await page.locator('.nq-nora-reaction.right').isVisible(),'Nora responds to correct Norwegian choices');
   await page.getByRole('button',{name:'Продолжить путь'}).click();
   assert(await page.locator('.nq-drop-zone').isVisible(),'Next task is interactive sentence construction');
+  const savedTask=await page.evaluate(()=>window.NENordicQuest.signalBank('A1','2026-10-17')[1].ru);
+  await page.evaluate(()=>{window.neLocalDate=()=> '2026-10-20';window.NENordicQuest.open();});
+  assert(await page.getByRole('button',{name:'Продолжить сигнал Норы'}).isVisible(),
+    'Next-day atlas must expose the interrupted mission');
+  await page.getByRole('button',{name:'Продолжить сигнал Норы'}).click();
+  assert((await page.locator('.nq-signal-meter').innerText()).includes('2 / 4'));
+  assert((await page.locator('.nq-builder').innerText()).includes(savedTask),
+    'Resumed stage must use the original sentence rather than today's randomized one');
+  await page.evaluate(()=>{window.neLocalDate=()=> '2026-10-17';});
   const tileCount=await page.locator('.nq-tile-bank .nq-tile').count();
   assert(tileCount>=3);
   for(let i=0;i<tileCount;i++){
