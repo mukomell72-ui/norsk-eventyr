@@ -44,6 +44,69 @@ const SIGNALS={
  {scene:'В дискуссии нужно показать две стороны вопроса.',ask:'Выбери фразу для сбалансированного аргумента.',no:'På den ene siden sparer vi tid, på den andre siden øker kostnadene.',ru:'С одной стороны, мы экономим время, с другой — расходы растут.',wrong:['Det finnes bare én løsning.','Ingen har noen mening om dette.'],wrongRu:['Существует лишь одно решение.','Ни у кого нет мнения по этому поводу.'],hint:'Нужна конструкция på den ene siden ... på den andre siden.'}
  ]
 };
+
+// Curated alternate tasks for the four-step story mission.
+// Each stage has three choices and each daily three-part set changes predictably.
+// These are authored Norwegian Bokmål expressions, not generated answer keys.
+const SIGNAL_VARIANTS={
+ A1:[
+  [
+   {scene:'На остановке ты не знаешь, где автобус.',ask:'Как спросить, где находится автобус?',no:'Hvor er bussen?',ru:'Где автобус?',wrong:['Hva heter du?','Jeg liker kaffe.'],wrongRu:['Как тебя зовут?','Я люблю кофе.'],hint:'Hvor — где; нужен вопрос о местонахождении.'},
+   {scene:'В кафе ты хочешь попросить воды.',ask:'Как вежливо попросить стакан воды?',no:'Kan jeg få et glass vann?',ru:'Можно мне стакан воды?',wrong:['Jeg trenger en billett.','Hvor bor du?'],wrongRu:['Мне нужен билет.','Где ты живёшь?'],hint:'Kan jeg få ... — вежливая просьба.'}
+  ],
+  [
+   {scene:'Нора спрашивает, где ты живёшь.',ask:'Собери фразу о себе.',no:'Jeg bor i Norge.',ru:'Я живу в Норвегии.',wrong:['Jeg kommer i morgen.','Jeg tar bussen.'],wrongRu:['Я приду завтра.','Я еду автобусом.'],hint:'Сначала подлежащее, затем глагол bor и место.'},
+   {scene:'Ты рассказываешь о своём рабочем дне.',ask:'Собери осмысленное предложение.',no:'Jeg jobber hver dag.',ru:'Я работаю каждый день.',wrong:['Jeg spiser frokost.','Jeg går hjem.'],wrongRu:['Я завтракаю.','Я иду домой.'],hint:'Hver dag — каждый день; обычный порядок слов.'}
+  ],
+  [
+   {scene:'Друг говорит, что завтра он дома.',ask:'Что означает услышанная фраза?',no:'Jeg er hjemme i morgen.',ru:'Завтра я дома.',wrong:['Jeg er hjemme nå.','Jeg var hjemme i går.'],wrongRu:['Я сейчас дома.','Я был дома вчера.'],hint:'I morgen — завтра, i går — вчера.'},
+   {scene:'На остановке звучит объявление.',ask:'Определи смысл сообщения.',no:'Bussen kommer om ti minutter.',ru:'Автобус придёт через десять минут.',wrong:['Bussen går om en time.','Toget er forsinket.'],wrongRu:['Автобус отправится через час.','Поезд опаздывает.'],hint:'Om ti minutter — через десять минут.'}
+  ]
+ ],
+ A2:[
+  [
+   {scene:'На работе нужно предупредить, что опоздаешь.',ask:'Выбери подходящее сообщение.',no:'Jeg blir litt forsinket i dag.',ru:'Сегодня я немного опоздаю.',wrong:['Jeg har fri hele uken.','Jeg kommer alltid for tidlig.'],wrongRu:['Я свободен всю неделю.','Я всегда прихожу слишком рано.'],hint:'Blir forsinket — задерживаюсь, опаздываю.'},
+   {scene:'Тебя попросили рассказать о вчерашнем дне.',ask:'Что можно сказать в прошедшем времени?',no:'Jeg jobbet i går.',ru:'Вчера я работал.',wrong:['Jeg jobber nå.','Jeg skal jobbe i morgen.'],wrongRu:['Я работаю сейчас.','Завтра я буду работать.'],hint:'I går требует прошедшего времени: jobbet.'}
+  ],
+  [
+   {scene:'Ты объясняешь, что пропустил автобус.',ask:'Собери фразу в прошедшем времени.',no:'Jeg mistet bussen i morges.',ru:'Сегодня утром я опоздал на автобус.',wrong:['Jeg fant nøkkelen i går.','Jeg møter en venn senere.'],wrongRu:['Вчера я нашёл ключ.','Позже я встречусь с другом.'],hint:'I morges — сегодня утром; mistet — прошедшая форма.'},
+   {scene:'Ты договариваешься о встрече.',ask:'Собери фразу о будущем.',no:'Vi skal møtes på fredag.',ru:'Мы встретимся в пятницу.',wrong:['Vi var hjemme i går.','Vi spiser sammen nå.'],wrongRu:['Вчера мы были дома.','Мы сейчас едим вместе.'],hint:'Skal + инфинитив выражает план.'}
+  ],
+  [
+   {scene:'Коллега сообщает о новой задаче.',ask:'Пойми сообщение на слух.',no:'Vi må levere rapporten før fredag.',ru:'Мы должны сдать отчёт до пятницы.',wrong:['Vi kan vente til mandag.','Vi trenger ikke rapporten.'],wrongRu:['Мы можем подождать до понедельника.','Нам не нужен отчёт.'],hint:'Må — должны, før fredag — до пятницы.'},
+   {scene:'Работодатель говорит о расписании.',ask:'Пойми сообщение на слух.',no:'Jeg starter klokka åtte i morgen.',ru:'Завтра я начинаю в восемь часов.',wrong:['Jeg slutter klokka fem.','Jeg startet klokka ni i går.'],wrongRu:['Я заканчиваю в пять часов.','Вчера я начал в девять.'],hint:'Starter — начинаю, i morgen — завтра.'}
+  ]
+ ],
+ B1:[
+  [
+   {scene:'На работе возникла проблема, и нужна помощь.',ask:'Как предложить обсудить варианты?',no:'Kan vi se på mulige løsninger sammen?',ru:'Можем ли мы вместе рассмотреть возможные решения?',wrong:['Alt fungerer helt perfekt.','Jeg vil ikke diskutere saken.'],wrongRu:['Всё работает идеально.','Я не хочу обсуждать вопрос.'],hint:'Se på mulige løsninger — рассмотреть возможные решения.'},
+   {scene:'В муниципалитет пришло непонятное письмо.',ask:'Как вежливо попросить уточнение?',no:'Jeg trenger en nærmere forklaring på brevet.',ru:'Мне нужно более подробное объяснение письма.',wrong:['Brevet var lett å forstå.','Jeg har mistet nøklene.'],wrongRu:['Письмо было легко понять.','Я потерял ключи.'],hint:'En nærmere forklaring — более подробное разъяснение.'}
+  ],
+  [
+   {scene:'Ты рассказываешь, почему задержался.',ask:'Собери связное предложение с fordi.',no:'Jeg kom sent fordi bussen var forsinket.',ru:'Я пришёл поздно, потому что автобус задержался.',wrong:['Jeg kommer alltid tidlig.','Bussen går om ti minutter.'],wrongRu:['Я всегда прихожу рано.','Автобус уходит через десять минут.'],hint:'Fordi вводит придаточное причины.'},
+   {scene:'Ты объясняешь, что сделал после разговора.',ask:'Собери предложение с последовательностью действий.',no:'Etter møtet sendte jeg en e-post.',ru:'После встречи я отправил электронное письмо.',wrong:['Møtet begynner snart.','Jeg sender aldri e-post.'],wrongRu:['Встреча скоро начнётся.','Я никогда не отправляю письма.'],hint:'После обстоятельства в начале нужен глагол на втором месте.'}
+  ],
+  [
+   {scene:'Коллега объясняет причину переноса встречи.',ask:'Что произошло?',no:'Møtet ble utsatt på grunn av sykdom.',ru:'Встречу перенесли из-за болезни.',wrong:['Møtet ble avlyst på grunn av været.','Møtet startet tidligere enn planlagt.'],wrongRu:['Встречу отменили из-за погоды.','Встреча началась раньше запланированного.'],hint:'Ble utsatt — перенесли; på grunn av — из-за.'},
+   {scene:'Ты слушаешь инструкцию по работе.',ask:'Что необходимо сделать сначала?',no:'Du bør lese instruksjonen før du begynner.',ru:'Тебе следует прочитать инструкцию до начала работы.',wrong:['Du kan hoppe over instruksjonen.','Du bør begynne uten å lese.'],wrongRu:['Можно пропустить инструкцию.','Стоит начать не читая.'],hint:'Før du begynner — прежде чем начнёшь.'}
+  ]
+ ],
+ B2:[
+  [
+   {scene:'Ты обсуждаешь решение с возможными недостатками.',ask:'Выбери взвешенное выражение.',no:'Forslaget har fordeler, men også noen klare begrensninger.',ru:'У предложения есть преимущества, но и очевидные ограничения.',wrong:['Forslaget har ingen svakheter.','Alle er enige uten diskusjon.'],wrongRu:['У предложения нет недостатков.','Все согласны без обсуждения.'],hint:'Fordeler и begrensninger показывают преимущества и ограничения.'},
+   {scene:'В дискуссии нужно деликатно не согласиться.',ask:'Выбери уместную аргументированную реплику.',no:'Jeg ser poenget ditt, men vurderer situasjonen annerledes.',ru:'Я понимаю твою мысль, но оцениваю ситуацию иначе.',wrong:['Du har ingenting å si.','Jeg har ikke hørt hva du sa.'],wrongRu:['Тебе нечего сказать.','Я не слышал, что ты сказал.'],hint:'Jeg ser poenget ditt — признание аргумента собеседника.'}
+  ],
+  [
+   {scene:'Ты предлагаешь изменить процесс только после анализа.',ask:'Собери логически точную фразу.',no:'Før vi endrer rutinene, må vi vurdere konsekvensene.',ru:'Прежде чем менять порядок работы, нужно оценить последствия.',wrong:['Vi bør handle uten å tenke.','Alle rutinene er allerede perfekte.'],wrongRu:['Следует действовать не думая.','Все процедуры уже идеальны.'],hint:'Придаточное Før vi ... стоит первым, после него идёт må vi.'},
+   {scene:'Ты объясняешь возможный результат плана.',ask:'Собери сложное условное высказывание.',no:'Hvis tiltaket fungerer, kan vi utvide ordningen.',ru:'Если мера сработает, мы сможем расширить систему.',wrong:['Tiltaket fungerer aldri.','Vi må stanse alle tiltak.'],wrongRu:['Мера никогда не работает.','Нужно остановить все меры.'],hint:'Hvis вводит условие, в главном предложении порядок слов канонический.'}
+  ],
+  [
+   {scene:'Ты слушаешь аргумент на совещании.',ask:'Что именно предлагает говорящий?',no:'Tiltaket kan redusere kostnadene uten å svekke kvaliteten.',ru:'Мера может сократить расходы без снижения качества.',wrong:['Tiltaket vil øke kostnadene betydelig.','Vi må ofre kvaliteten for å spare tid.'],wrongRu:['Мера значительно увеличит расходы.','Нужно пожертвовать качеством ради экономии времени.'],hint:'Uten å svekke kvaliteten — не ухудшая качество.'},
+   {scene:'В общественной дискуссии говорят об ограничениях.',ask:'Какой смысл у услышанного?',no:'Selv om løsningen virker lovende, krever den videre utredning.',ru:'Хотя решение выглядит перспективным, оно требует дальнейшего изучения.',wrong:['Løsningen er endelig godkjent.','Det er ingen grunn til å undersøke mer.'],wrongRu:['Решение окончательно одобрено.','Нет причин исследовать дальше.'],hint:'Selv om выражает уступку, videre utredning — дальнейшее изучение.'}
+  ]
+ ]
+};
+
 const h=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const date=()=>typeof window.neLocalDate==='function'?window.neLocalDate():new Date().toLocaleDateString('sv-SE');
 const app=()=>window.neLearnerState;
@@ -88,9 +151,14 @@ function passport(s){
  return {levels,earned:levels.reduce((n,x)=>n+x.earned,0),total:levels.reduce((n,x)=>n+x.total,0)};
 }
 function signalBank(level,key){
- const catalog=SIGNALS[safeLevel(level)];
- const source=String(key||date()).replace(/\D/g,''),shift=(Number(source.slice(-5))||0)%catalog.length;
- return catalog.map((_,i)=>catalog[(i+shift)%catalog.length]);
+ const lvl=safeLevel(level),day=String(key||date()).slice(0,10);
+ const ordinal=Date.parse(day+'T00:00:00Z')/86400000;
+ const seq=Number.isFinite(ordinal)?Math.abs(Math.floor(ordinal)):0;
+ return SIGNALS[lvl].map((original,i)=>{
+  const pool=[original,...SIGNAL_VARIANTS[lvl][i]];
+  const index=(Math.floor(seq/Math.pow(3,i))+i)%pool.length;
+  return pool[index];
+ });
 }
 function signalKey(level){return date()+':'+safeLevel(level)}
 function play(){return window.NQQuestPlay}
