@@ -60,7 +60,7 @@ const read=file=>fs.readFileSync(path.join(__dirname,'..',file),'utf8');
   await page.getByRole('button',{name:'Продолжить сигнал Норы'}).click();
   assert((await page.locator('.nq-signal-meter').innerText()).includes('2 / 4'));
   assert((await page.locator('.nq-builder').innerText()).includes(savedTask),
-    'Resumed stage must use the original sentence rather than today's randomized one');
+    "Resumed stage must use the original sentence rather than a new day's randomized one");
   await page.evaluate(()=>{window.neLocalDate=()=> '2026-10-17';});
   const tileCount=await page.locator('.nq-tile-bank .nq-tile').count();
   assert(tileCount>=3);
