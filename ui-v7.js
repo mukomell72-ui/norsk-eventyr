@@ -44,13 +44,13 @@
   function navGroupV7(active){
     let g=active||currentRouteV7;
     if(["lesson","topic"].includes(g))g="course";
-    if(["storyepisode","storyjournal"].includes(g))g="story";
+    if(["storyepisode","storyjournal"].includes(g))g="adventure";
     if(["daily","dailypractice","review","storyside","plan","teacher"].includes(g))g="home";
     if(["forms","cloze","tests","test","exam","examrun","exampart","progress","dictionary","dictation","grammarlab","pronunciation","listeninglab","settings","cloud","placement"].includes(g))g="hub";
     return g;
   }
   function iconV7(name){
-    const paths={home:'M3 10l9-7 9 7v10H3z M9 20v-7h6v7',course:'M3 4h7l2 2 2-2h7v16h-7l-2 2-2-2H3z M12 6v16',chat:'M21 11a9 9 0 0 1-9 9H4l-2 2v-11a9 9 0 0 1 19 0z M7 11h.01 M12 11h.01 M17 11h.01',story:'M2 5l6-2 8 3 6-2v16l-6 2-8-3-6 2z M8 3v16 M16 6v16',hub:'M5 12h.01 M12 12h.01 M19 12h.01',words:'M3 4h7l2 2 2-2h7v16h-7l-2 2-2-2H3z M12 6v16',review:'M20 7a9 9 0 1 0 1 8 M20 2v5h-5',lesson:'M2 9l10-6 10 6-10 6z M5 11v6l7 4 7-4v-6',talk:'M21 11a9 9 0 0 1-9 9H4l-2 2v-11a9 9 0 0 1 19 0z',cafe:'M4 5h13v9a6 6 0 0 1-12 0V5 M17 7h3a3 3 0 0 1 0 6h-3 M2 21h19',shopping:'M4 8h16v13H4z M8 8V5a4 4 0 0 1 8 0v3',bus:'M5 3h14v15H5z M5 11h14 M8 18v3 M16 18v3 M8 15h.01 M16 15h.01',work:'M3 7h18v14H3z M8 7V3h8v4 M3 12h18 M10 12v3h4v-3',port:'M12 6v15 M9 3a3 3 0 1 0 6 0a3 3 0 1 0-6 0 M5 12H2a10 10 0 0 0 20 0h-3 M7 10h10'};
+    const paths={home:'M3 10l9-7 9 7v10H3z M9 20v-7h6v7',course:'M3 4h7l2 2 2-2h7v16h-7l-2 2-2-2H3z M12 6v16',chat:'M21 11a9 9 0 0 1-9 9H4l-2 2v-11a9 9 0 0 1 19 0z M7 11h.01 M12 11h.01 M17 11h.01',story:'M2 5l6-2 8 3 6-2v16l-6 2-8-3-6 2z M8 3v16 M16 6v16',adventure:'M12 2l2.6 7.4L22 12l-7.4 2.6L12 22l-2.6-7.4L2 12l7.4-2.6z M12 10a2 2 0 1 0 0 4a2 2 0 0 0 0-4',hub:'M5 12h.01 M12 12h.01 M19 12h.01',words:'M3 4h7l2 2 2-2h7v16h-7l-2 2-2-2H3z M12 6v16',review:'M20 7a9 9 0 1 0 1 8 M20 2v5h-5',lesson:'M2 9l10-6 10 6-10 6z M5 11v6l7 4 7-4v-6',talk:'M21 11a9 9 0 0 1-9 9H4l-2 2v-11a9 9 0 0 1 19 0z',cafe:'M4 5h13v9a6 6 0 0 1-12 0V5 M17 7h3a3 3 0 0 1 0 6h-3 M2 21h19',shopping:'M4 8h16v13H4z M8 8V5a4 4 0 0 1 8 0v3',bus:'M5 3h14v15H5z M5 11h14 M8 18v3 M16 18v3 M8 15h.01 M16 15h.01',work:'M3 7h18v14H3z M8 7V3h8v4 M3 12h18 M10 12v3h4v-3',port:'M12 6v15 M9 3a3 3 0 1 0 6 0a3 3 0 1 0-6 0 M5 12H2a10 10 0 0 0 20 0h-3 M7 10h10'};
     return '<svg viewBox="0 0 24 24" width="23" height="23" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'+(paths[name]||paths.lesson)+'"/></svg>';
   }
   function navV7(active){
@@ -59,7 +59,7 @@
       ["home","⌂","Сегодня"],
       ["course","▤","Курс"],
       ["chat","◉","Разговор"],
-      ["story","⌖","Fjordvik"],
+      ["adventure","✦","Мир"],
       ["hub","•••","Ещё"]
     ];
     return '<nav class="dock-v7">'+items.map(([r,i,t])=>'<button class="'+(g===r?"active":"")+'" onclick="navigate(\''+r+'\')"><b>'+iconV7(r)+'</b><span>'+t+'</span></button>').join("")+'</nav>';
@@ -211,6 +211,7 @@
           '<button class="cta-v7" onclick="v7ContinueToday()">Продолжить день <b>→</b></button></div>'+
           '<div class="hero-note-v7">Små steg<br>store eventyr ♡</div>'+
         '</section>'+
+        (window.NENordicQuest?.homeTile?.()||'')+
         (living?miniPath:
         '<section class="route-card-v7"><div class="section-head-v7"><div><small>Твой маршрут на сегодня · 5 занятий</small><h2>'+(j.mins?"Осталось "+(j.total-j.done)+" из "+j.total+" блоков":"Маршрут завершён")+'</h2></div><span>План '+j.planned+' мин</span></div><p class="muted">Время на каждый блок — ориентир, а не измерение фактически потраченных минут.</p><div class="route-steps-v7">'+route+'</div></section>')+
         xpJourneyV7()+
@@ -399,6 +400,8 @@
         '<section class="stats-v7"><article><small>Профиль '+h(state.level)+'</small><b>'+(gate?.pass?'Подтверждён':'В работе')+'</b><i><em style="width:'+mastery+'%"></em></i><span>'+mastery+'%</span></article><article><small>Серия занятий</small><b>'+Number(state.streak||0)+' дней</b></article><article><small>Слова в словаре</small><b>'+dict+'</b></article><article><small>Маршрут курса</small><b>'+routeProgress+'%</b></article></section>'+
         '<section class="exam-v7"><div class="exam-bg-v7"></div><div class="exam-copy-v7"><small>Подготовка к Norskprøven</small><h2>Пробный экзамен</h2><p>Четыре навыка в одном маршруте.</p><div class="exam-parts-v7"><span>▤ Чтение</span><span>◉ Аудирование</span><span>✎ Письмо</span><span>◌ Говорение</span></div><button class="cta-v7 small" onclick="navigate(\'exam\')">Начать экзамен →</button></div></section>'+
         '<section class="tools-grid-v7">'+
+          hubTileV7("✦","Северный компас","Приключение и карта маршрута","adventure")+
+          hubTileV7("⌖","Истории Fjordvik","Сюжет и выбор","story")+
           hubTileV7("N","Нора","Адаптивный преподаватель","teacher")+
           hubTileV7("↻","Повторение","Интервалы и закрепление","review",due?String(due):"✓")+
           hubTileV7("▤","Выученные слова","Поиск · повтор · задания","learnedwords")+
@@ -429,6 +432,7 @@
       let r;
       if(target==="home")r=renderHomeV7();
       else if(target==="course")r=renderCourseV7(data||state.level);
+      else if(target==="adventure")r=window.NENordicQuest?.open?.()||renderHomeV7();
       else if(target==="livingday")r=window.NELivingDay?.open?.();
       else if(target==="chat")r=renderChatV7();
       else if(target==="story")r=renderStoryV7(data);
