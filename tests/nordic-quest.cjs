@@ -97,6 +97,19 @@ assert.equal(state.checked,true);
 assert.equal(W.nextSignal(),true);
 assert.equal(state.index,1);
 assert(screens.at(-1).html.includes('nq-drop-zone'),'A word-order board replaces multiple choice');
+// A player can stop overnight without losing their unfinished story or
+// receiving a new phrase midway through an active sentence assembly.
+const originalMissionPhrase=W.signalBank('A1','2026-10-17')[1];
+assert.notEqual(originalMissionPhrase.no,W.signalBank('A1','2026-10-20')[1].no);
+day='2026-10-20';
+assert(W.open());
+assert(screens.at(-1).html.includes('Продолжить сигнал Норы'),'Atlas offers saved unfinished mission');
+assert(W.beginSignal('A1'));
+assert.strictEqual(W.signalRun(s,'A1'),state,'Same saved mission must resume after midnight');
+assert.equal(state.index,1,'Interrupted stage is restored');
+assert(screens.at(-1).html.includes(originalMissionPhrase.ru),'Original sentence task is restored');
+assert.equal(W.isComplete(s,'A1'),false,'Unfinished mission never earns credit');
+day='2026-10-17';
 const phrase=W.signalBank('A1')[1].no,tiles=q.shuffledTiles(phrase);
 const correct=q.phraseTokens(phrase).map((_,i)=>tiles.findIndex(x=>x.id===i));
 assert(tiles.length>=3);
@@ -127,7 +140,9 @@ assert.equal(W.chooseSignalEnding(1),true);
 assert.equal(state.choice,'explore');
 assert(state.checked);
 assert(screens.at(-1).html.includes('ТВОЁ РЕШЕНИЕ'));
+day='2026-10-20'; // Completing after midnight retains the mission's original journal identity.
 assert.equal(W.nextSignal(),true);
+day='2026-10-17';
 assert(state.completed,'Completing the fourth challenge persists');
 assert(screens.at(-1).html.includes('Маршрут освещён'));
 assert(screens.at(-1).html.includes('ПОЛЕВАЯ ЗАМЕТКА СОХРАНЕНА'));
@@ -136,6 +151,8 @@ assert.equal(W.passport(s).earned,chaptersBefore,'Mini-games never forge CEFR sk
 const notes=W.journalEntries(s);
 assert.equal(notes.length,1);
 assert.equal(notes[0].choice,'explore');
+assert.equal(notes[0].key,'2026-10-17:A1','A continued old quest uses its original daily key');
+assert.equal(notes[0].date,'2026-10-17','Diary records the adventure's start date');
 assert(notes[0].result.includes('тропу'),'Choice changes the narrative outcome');
 assert(W.open());
 assert(screens.at(-1).html.includes('Путевые заметки'));
