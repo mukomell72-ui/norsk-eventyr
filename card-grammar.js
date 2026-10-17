@@ -97,6 +97,7 @@ const adjective={
  'rask':['raskt','raske','raskere','raskest','Et raskt svar.','Быстрый ответ.'],
  'forsinket':['forsinket','forsinkede','mer forsinket','mest forsinket','Bussen er forsinket.','Автобус опаздывает.']
 };
+const verbAliases={begynner:'begynne',begynte:'begynne',begynt:'begynne'};
 const nounAliases={nøkkelen:'nøkkel',klokka:'klokke',boka:'bok',boken:'bok',huset:'hus',jobben:'jobb',
  skolen:'skole',rommet:'rom',spørsmålet:'spørsmål',eplet:'eple',brødet:'brød',barnet:'barn'};
 const normalize=x=>String(x||'').normalize('NFKC').toLocaleLowerCase('nb-NO').trim().replace(/\s+/g,' ');
@@ -110,10 +111,11 @@ function describe(entry){
  const raw=normalize(original);
  const lemma=cleanLemma(original);
  const mapped=nounAliases[lemma]||lemma;
+ const verbLemma=Object.hasOwn(verbAliases,lemma)?verbAliases[lemma]:lemma;
  const pos=String(entry?.pos||'').toLowerCase();
  const gender=String(entry?.gender||'').toLowerCase();
  const article=/^(en|ei|et)\s/.exec(raw)?.[1];
- const url='https://ordbokene.no/bm/'+encodeURIComponent(mapped);
+ const url='https://ordbokene.no/bm/'+encodeURIComponent(verbLemma!==lemma?verbLemma:mapped);
  if(Object.hasOwn(noun,mapped)&&(article||pos==='noun'||!pos)){
   const [art,sgDef,pl,plDef,no,ru]=noun[mapped];
   return {type:'noun',typeRu:'Существительное',headword:art+' '+mapped,lemma:mapped,
@@ -121,12 +123,12 @@ function describe(entry){
      form('Мн. число · неопределённая',pl),form('Мн. число · определённая',plDef)],
     example:{no,ru},verified:true,url,help:'Учи существительное сразу с артиклем; формы числа и определённости повторяй вслух.'};
  }
- if(Object.hasOwn(verb,lemma)&&(raw.startsWith('å ')||pos==='verb'||pos==='modal'||!pos)){
-  const [pres,past,perfect,no,ru]=verb[lemma];
-  return {type:'verb',typeRu:'Глагол',headword:'å '+lemma,lemma,
-    forms:[form('Инфинитив','å '+lemma),form('Настоящее · presens',pres),
+ if(Object.hasOwn(verb,verbLemma)&&(raw.startsWith('å ')||pos==='verb'||pos==='modal'||!pos)){
+  const [pres,past,perfect,no,ru]=verb[verbLemma];
+  return {type:'verb',typeRu:'Глагол',headword:'å '+verbLemma,lemma:verbLemma,
+    forms:[form('Инфинитив','å '+verbLemma),form('Настоящее · presens',pres),
      form('Прошедшее · preteritum',past),form('Перфект · perfektum','har '+perfect),
-     form('Будущее · конструкция','skal '+lemma)],
+     form('Будущее · конструкция','skal '+verbLemma)],
     example:{no,ru},verified:true,url,help:'Запомни три разные формы: presens, preteritum и причастие после har. Будущее с skal — конструкция.'};
  }
  if(Object.hasOwn(adjective,lemma)&&(pos==='adjective'||!pos)){
