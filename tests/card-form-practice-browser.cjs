@@ -92,7 +92,10 @@ function sentence(task){
   async function solve(useVoice=false){
    const task=await page.evaluate(()=>window.NELivingWords.ensure().formPractice.task);
    assert.equal(task.kind,'sentence','The learner must make a meaningful sentence, not repeat a bare form');
-   const answer=sentence(task),previous=await page.evaluate(()=>window.NELivingWords.ensure().formPractice.answers.length);
+   const answer=sentence(task),previous=await page.evaluate(()=>{
+    const p=window.NELivingWords.ensure().formPractice;
+    return {answers:p.answers.length,misses:p.misses};
+   });
    if(useVoice){
     await page.evaluate(t=>window.spoken=t,answer);
     await page.getByRole('button',{name:'Сказать предложение'}).click();
@@ -102,7 +105,7 @@ function sentence(task){
    await page.getByRole('button',{name:'Проверить предложение'}).click();
    await page.waitForFunction(prev=>{
     const p=window.NELivingWords.ensure().formPractice;
-    return p.answers.length>prev||p.note.startsWith('Пока неверно.')||
+    return p.answers.length>prev.answers||p.misses>prev.misses||
       p.note.includes('недоступна');
    },previous);
    return task;
