@@ -70,7 +70,7 @@ function open(){
  const complete=d.finished===true,oldWork=pending&&pending._adaptive?.livingDayId!==d.id;
  const intro=complete
  ?'На сегодня цель выполнена. Следующий учебный день продолжит маршрут с учётом проверенных навыков.'
- :'Мы продолжаем одну тему через связанные ситуации, разные собеседники и самостоятельные ответы. После ошибок возвращаемся к тому, что требует закрепления.';
+ :'Сначала короткие мини-этапы со словами и быстрой проверкой. Затем Нора поможет применить их в связанных жизненных ситуациях, диалогах, аудировании и речи. Прогресс сохраняется после каждого этапа.';
  const action=complete?'':oldWork
  ?'<button class="btn" onclick="NELivingDay.resumeOlder()">Завершить начатый ранее урок →</button>'
  :'<button class="btn" onclick="NELivingDay.begin()">Продолжить занятие с Норой →</button>';
@@ -85,7 +85,7 @@ function open(){
  '<p>'+esc(intro)+'</p>'+
  '<div class="progress" aria-label="Прогресс сегодняшнего занятия"><i style="width:'+Math.round(d.scene/SCENES*100)+'%"></i></div>'+
  '<p><b>'+(complete?'Занятие завершено':esc(SCENE_LABELS[d.scene]))+'</b> · '+d.scene+' из '+SCENES+' ситуаций отработано</p>'+
- '<p class="muted">Расчётная нагрузка — от 45 минут (план '+(d.plannedMinutes||60)+' мин); реальное время не измеряется. Темп зависит от понимания, речи и повторений.</p>'+
+ '<p class="muted">Можно заниматься короткими заходами и продолжить позже. Полный учебный день ориентировочно '+(d.plannedMinutes||60)+' мин; фактическое время не измеряется. Переход зависит от понимания и самостоятельных ответов.</p>'+
  (d.feedback?'<div class="notice">'+esc(d.feedback)+'</div>':'')+
  '<p class="muted">'+esc(hint)+'</p>'+action+
  (complete?'<button class="btn secondary" onclick="navigate(\'course\',\''+esc(d.level)+'\')">К программе уровня</button>':'')+
