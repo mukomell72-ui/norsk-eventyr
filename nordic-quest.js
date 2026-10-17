@@ -49,7 +49,7 @@ const date=()=>typeof window.neLocalDate==='function'?window.neLocalDate():new D
 const app=()=>window.neLearnerState;
 function safeLevel(level){return LEVELS.includes(level)?level:'A1'}
 function getWorldState(s,create=false){
- const root=s?.learningV8;if(!root||typeof root!=='object')return null;
+ const root=s?.learningV8||(create&&s?(s.learningV8={}):null);if(!root||typeof root!=='object')return null;
  if(create&&(!root.adventureWorld||typeof root.adventureWorld!=='object'||Array.isArray(root.adventureWorld)))
   root.adventureWorld={viewLevel:safeLevel(s.level),signalRuns:{}};
  const world=root.adventureWorld;
