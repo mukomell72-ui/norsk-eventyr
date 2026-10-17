@@ -102,7 +102,7 @@ function harness(level=null){
  retry.api.render();
  assert.equal(retry.state.placement.productive.nextIndex,0);
 
- assert(read('access.js').includes("'ui-v8.js','nordic-quest.js','placement-calibration.js','updates.js'"));
+ assert(read('access.js').includes("'ui-v8.js','nordic-quest-play.js','nordic-quest.js','placement-calibration.js','updates.js'"));
  assert(read('sw.js').includes('/placement-calibration.js?v='));
  assert(read('v3.js').includes("navigate(\\'calibration\\')"));
  const adaptiveText=read('adaptive-teacher.js');
