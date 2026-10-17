@@ -405,7 +405,7 @@ function open(){
  const s=app(),curr=window.NECurriculum;
  if(!s||!curr)return window.navigate?.('home');
  const w=getWorldState(s,true),j=journey(s,w.viewLevel),stamps=passport(s);
- const todayDone=isComplete(s,j.level),current=j.active;
+ const todayDone=isComplete(s,j.level),current=j.active,notes=journalEntries(s),latest=notes.slice(-3).reverse();
  const levelNav=LEVELS.map(l=>'<button class="nq-level '+(l===j.level?'active':'')+'" aria-pressed="'+(l===j.level)+'" onclick="NENordicQuest.selectLevel(\''+l+'\')">'+l+'</button>').join('');
  const nodes=j.chapters.map((ch,i)=>
   '<button class="nq-stop '+h(ch.status)+' nq-stop-'+i+'" onclick="NENordicQuest.openChapter(\''+h(ch.moduleId)+'\')"'+
@@ -440,11 +440,18 @@ function open(){
    '<div class="nq-map"><div class="nq-map-river" aria-hidden="true"></div>'+
      '<div class="nq-route-line" aria-hidden="true"></div>'+nodes+'</div>'+
    '<section class="nq-signal-card"><div class="nq-signal-illustration" aria-hidden="true"><span>⌁</span><i></i></div>'+
-    '<div class="nq-signal-copy"><span class="nq-kicker">ПОБОЧНОЕ ПРИКЛЮЧЕНИЕ · 3 СИГНАЛА</span>'+
-     '<h2>Радио северного маяка</h2><p>Три небольшие ситуации: выбери уместную фразу, узнай смысл на слух и проверь себя.</p>'+
+    '<div class="nq-signal-copy"><span class="nq-kicker">ПОБОЧНОЕ ПРИКЛЮЧЕНИЕ · 4 ИСПЫТАНИЯ</span>'+
+     '<h2>Радио северного маяка</h2><p>Ответь в диалоге, собери фразу, разгадай сообщение на слух и выбери продолжение своей истории.</p>'+
      '<button class="nq-button outline" onclick="NENordicQuest.beginSignal(\''+h(j.level)+'\')">'+
        (todayDone?'Открыть путевую заметку':'Принять сигнал Норы')+' →</button></div></section>'+
-   '<section class="nq-passport"><div class="nq-section-header"><span class="nq-kicker">ДОКАЗАННЫЙ ПРОГРЕСС</span>'+
+   '<section class="nq-travel-diary"><div class="nq-section-header">'+
+    '<span class="nq-kicker">ТВОИ СОБСТВЕННЫЕ ИСТОРИИ</span><h2>Путевые заметки</h2>'+
+    '<p>Решения в дополнительных приключениях создают разные истории. Это игровые сувениры, а не сертификаты владения языком.</p></div>'+
+    (latest.length?'<div class="nq-note-list">'+latest.map(note=>
+      '<article class="nq-diary-page"><span>'+h(note.level)+' · '+h(note.date)+'</span>'+
+      '<b>'+h(note.title)+'</b><p>'+h(note.result)+'</p></article>').join('')+'</div>':
+      '<div class="nq-diary-empty"><span aria-hidden="true">✧</span><p>Здесь появится твоя первая история. Прими радиосигнал и выбери, как поступить.</p></div>')+
+    '<div class="nq-diary-count">Сохранено разных приключений: <b>'+notes.length+'</b></div></section>'+'<section class="nq-passport"><div class="nq-section-header"><span class="nq-kicker">ДОКАЗАННЫЙ ПРОГРЕСС</span>'+
     '<h2>Паспорт путешественника</h2><p>Штампы здесь нельзя купить за XP: только освоить соответствующие модули.</p></div>'+
     '<div class="nq-seals">'+seals+'</div>'+
     '<div class="nq-nora-note"><div class="nq-nora-portrait" aria-hidden="true"></div><div><b>Записка Норы</b><p>'+
@@ -468,8 +475,9 @@ function homeTile(){
    '<button class="nq-button primary" onclick="navigate(\'adventure\')">Открыть мир →</button></section>';
 }
 window.NENordicQuest=Object.freeze({
- journey,passport,signalBank,signalRun,answerSignal,nextSignal,isComplete,
+ journey,passport,signalBank,signalRun,answerSignal,nextSignal,isComplete,journalEntries,
  open,homeTile,selectLevel,openChapter,startChapter,beginSignal,hearSignal,revealSignal,
+ selectTile,clearTiles,checkAssembly,chooseSignalEnding,tryPronunciation,toggleSound,
  // Visible in tests and internal state tools; must never assert competence from mini-game.
  REGIONS,PLACES
 });
