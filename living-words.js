@@ -211,7 +211,7 @@ function renderMiniRound(d){
   '<p>Ты перевёл слова, использовал их в норвежских предложениях и прошёл короткую проверку.</p>'+
   '<p class="muted">Быстрая проверка: '+checkpoint.questions.length+' заданий; ошибок: '+checkpoint.mistakes+'. Затруднения сохранены для повторения.</p>'+
   '<div class="progress" role="progressbar" aria-label="Прогресс словарной практики" aria-valuemin="0" aria-valuemax="'+d.active.length+'" aria-valuenow="'+done.seen+'"><i style="width:'+done.percent+'%"></i></div>'+
-  '<p><b>'+done.seen+' из '+done.total+' активных слов</b> · мини-этапов завершено '+(done.completed+1)+' из '+done.rounds+'</p>'+
+  '<p><b>'+done.seen+' из '+done.total+' активных слов</b> · мини-этапов завершено '+Math.min(done.rounds,Math.max(done.completed,roundIndex))+' из '+done.rounds+'</p>'+
   '<button class="btn" onclick="NELivingWords.continueMini()">'+esc(next)+'</button>'+
   '<button class="btn ghost" onclick="navigate(\'home\')">Остановиться сейчас · прогресс сохранится</button>'+
   '</div>',d);
