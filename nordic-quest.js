@@ -298,7 +298,7 @@ function nextSignal(){
   }
  }
  persist();if(r.completed)soundEffect('finish');
- return renderSignal(l);
+ return renderSignal(l,r);
 }
 function hearSignal(){
  const {r,l,tasks}=signalContext();
@@ -382,10 +382,12 @@ function startChapter(id){
  if(s.activeLesson?.id||(!d?.finished&&d?.moduleId===id))return window.navigate?.('livingday');
  return window.teacherStartModule?.(id);
 }
-function renderSignal(level){
+function renderSignal(level,finishedRun){
  const s=app();if(!s)return false;
  const l=safeLevel(level),world=getWorldState(s,true);world.viewLevel=l;
- const r=signalRun(s,l,true),tasks=signalBank(l,r.date),done=r.completed;
+ // When yesterday's mission finishes after midnight, show its ending before
+ // offering a separate new-day mission on the atlas.
+ const r=finishedRun||signalRun(s,l,true),tasks=signalBank(l,r.date),done=r.completed;
  if(!play())return false;
  const mode=signalMode(r),total=r.version===1?3:4;
  const title=done?'Маршрут освещён!':'Радио северного маяка';
