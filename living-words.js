@@ -163,11 +163,25 @@ function render(){
   const queue=cardQueue(d),card=currentCard(d);
   if(!card){d.stage='cloze';d.feedback='';save();return render()}
   const word=card.word,feedback=d.cardFeedback,review=d.cardsSeen>=d.active.length;
+  // Existing saved exercises from the previous release asked for a single form.
+  // Upgrade the CURRENT task in place, preserving the student's translation and retries.
+  const oldPractice=d.formPractice;
+  if(oldPractice?.started&&oldPractice.task?.kind==='form'){
+   const tasks=window.NECardFormPractice?.taskList?.(word)||[];
+   const replacement=tasks.find(t=>t.index===oldPractice.task.index)||tasks[0];
+   if(replacement){
+    oldPractice.task=replacement;oldPractice.draft='';oldPractice.done=false;
+    oldPractice.note='Обновление задания: теперь нужно написать целое предложение на норвежском, а не отдельную форму слова.';
+    save();
+   }
+  }
+  const stageLabel='<div class="eyebrow" role="status">'+
+   (feedback?'ШАГ 2 ИЗ 2 · ПРИМЕНИ СЛОВО В ПРЕДЛОЖЕНИИ':'ШАГ 1 ИЗ 2 · НАПИШИ ПЕРЕВОД НА РУССКОМ')+'</div>';
   const grammar=window.NECardGrammar?.describe?.(word)||{headword:word.word,typeRu:'Слово',forms:[],help:'Формы не определены.',verified:false};
   const rows=(grammar.forms||[]).map(row=>'<tr><td>'+esc(row.label)+'</td><td lang="nb"><b>'+esc(row.form)+'</b></td></tr>').join('');
   const dictLink='<a href="'+esc(grammar.url||'https://ordbokene.no/')+'" target="_blank" rel="noopener noreferrer">Проверить в Bokmålsordboka ↗</a>';
   // Grammar is initially collapsed to encourage recall; answer feedback opens it.
-  const morphology='<details class="card" style="margin-top:12px;padding:14px"'+(feedback&&!d.formPractice?.started?' open':'')+'>'+
+  const morphology='<details class="card" style="margin-top:12px;padding:14px"'+(feedback?' open':'')+'>'+
    '<summary style="cursor:pointer;font-weight:600">'+esc(grammar.typeRu)+' · Начальная форма и склонение / времена</summary>'+
    (rows?'<table class="forms-table" style="margin-top:10px;width:100%"><tbody>'+rows+'</tbody></table>':
     '<p class="muted">Подтверждённых форм пока нет. Не будем придумывать окончания.</p>')+
@@ -179,26 +193,26 @@ function render(){
   const practice=d.formPractice;
   const practiceHtml=practice?.started&&!practice.done
    ?'<div class="card" style="margin-top:14px;padding:16px">'+
-    '<div class="eyebrow">Обязательная практика этого слова</div>'+
+    '<div class="eyebrow">Шаг 2 · Закрепление и понимание слова</div>'+
     '<p><b>'+esc(practice.task.prompt)+'</b></p>'+
-    (practice.task.kind==='form'?'<p class="muted">Напиши только нужную форму слова по-норвежски.</p>':
-      '<p class="muted">Напиши целое предложение. Можно использовать подходящую форму слова. Проверяет Нора.</p>')+
-    '<label class="field-label" for="livingFormAnswer">Твой ответ на норвежском</label>'+
+    '<p class="muted">Напиши целое осмысленное предложение по-норвежски. Одного слова или формы недостаточно. Нора проверит значение, ситуацию и грамматику.</p>'+
+    '<label class="field-label" for="livingFormAnswer">Твоё предложение на норвежском (не перевод)</label>'+
     '<input class="input" id="livingFormAnswer" lang="nb" maxlength="280" autocomplete="off" value="'+esc(practice.draft||'')+
-    '" placeholder="Введи ответ здесь" oninput="NELivingWords.draftForm(this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();NELivingWords.checkForm()}">'+
-    '<div class="row"><button class="btn" onclick="NELivingWords.checkForm()">Проверить форму</button>'+
-    '<button class="btn secondary" onclick="NELivingWords.recordForm()">🎤 Сказать по-норвежски</button></div>'+
+    '" placeholder="Например: Jeg ..." oninput="NELivingWords.draftForm(this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();NELivingWords.checkForm()}">'+
+    '<div class="row"><button class="btn" onclick="NELivingWords.checkForm()">Проверить предложение</button>'+
+    '<button class="btn secondary" onclick="NELivingWords.recordForm()">🎤 Сказать предложение</button></div>'+
     (practice.note?'<div class="notice" role="status">'+esc(practice.note)+'</div>':'')+
     (practice.misses>0?'<p class="muted">Подсказка доступна выше. Исправь ответ, чтобы продолжить.</p>':'')+
     '</div>':'';
   const fields=feedback
    ?(practice?.done
-     ?'<div class="notice" role="status">Форма слова закреплена. Можно продолжать.</div>'+
+     ?'<div class="notice" role="status">Ты правильно применил слово в предложении. Можно продолжать.</div>'+
        '<button class="btn" onclick="NELivingWords.nextCard()">'+(review?'Продолжить повтор →':'Следующая карточка →')+'</button>'
      :practice?.started?practiceHtml:
-       '<p>Теперь примени это слово в одной из случайных грамматических форм.</p>'+
+       '<p>Русский перевод проверен. Теперь примени слово в своём норвежском предложении.</p>'+
        '<button class="btn" onclick="NELivingWords.beginCardPractice()">Задание с этим словом →</button>')
-   :'<label class="field-label" for="livingTranslate">Переведи слово на русский</label>'+
+   :'<p class="muted">Сначала напиши, что означает слово по-русски. Только после этого откроется задание на его применение.</p>'+ 
+    '<label class="field-label" for="livingTranslate">Шаг 1. Напиши перевод слова на русский</label>'+
     '<input id="livingTranslate" class="input" lang="ru" autocomplete="off" maxlength="200" value="'+esc(d.cardDraft||'')+
     '" placeholder="Напиши перевод здесь" oninput="NELivingWords.draftTranslation(this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();NELivingWords.checkTranslation()}">'+
     '<div class="row"><button class="btn" onclick="NELivingWords.checkTranslation()">Проверить перевод</button>'+
@@ -209,7 +223,7 @@ function render(){
    (d.cardsSeen+1)+' из '+queue.length+'</p>'+
    '<div class="card" style="padding:24px"><div class="muted">'+esc(grammar.typeRu)+'</div>'+
    '<h2 lang="nb" style="text-align:center">'+esc(grammar.headword)+'</h2>'+
-   '<button class="btn secondary" onclick="NELivingWords.listenCard()">▶ Послушать слово</button>'+
+   '<button class="btn secondary" onclick="NELivingWords.listenCard()">▶ Послушать слово</button>'+stageLabel+
    result+fields+morphology+'</div>',d);
  }
  if(d.stage==='cloze'){
