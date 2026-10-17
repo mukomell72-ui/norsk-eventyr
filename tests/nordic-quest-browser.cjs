@@ -71,7 +71,7 @@ const read=file=>fs.readFileSync(path.join(__dirname,'..',file),'utf8');
   await page.getByRole('button',{name:'Проверить предложение'}).click();
   assert(await page.locator('.nq-build-complete').isVisible());
   assert(await page.getByRole('button',{name:'Сказать Норе'}).isVisible(),'Optional pronunciation supports independent speaking');
-  await page.getByRole('button',{name:'Послушать',exact:true}).click();
+  await page.locator('.nq-speaking-bonus').getByRole('button',{name:/Послушать/}).click();
   assert.equal(await page.evaluate(()=>window.audio.length),1,'Listen to native Norwegian example');
   await page.getByRole('button',{name:'Продолжить путь'}).click();
   assert(await page.getByRole('button',{name:'Слушать фразу'}).isVisible(),'Third challenge tests listening');
