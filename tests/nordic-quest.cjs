@@ -31,7 +31,7 @@ assert(b2.chapters.every(ch=>ch.status==='locked'),'Future level not available w
 const pass=W.passport(s);
 assert.equal(pass.earned,1);
 assert.equal(pass.total,32);
-assert(W.homeTile().includes('Северный'));
+assert(W.homeTile().includes('северный маршрут'));
 assert(W.homeTile().includes('Дом у залива'));
 assert(W.open(), 'World can render');
 assert(screens.at(-1).html.includes('nq-world'));
