@@ -152,7 +152,7 @@ const notes=W.journalEntries(s);
 assert.equal(notes.length,1);
 assert.equal(notes[0].choice,'explore');
 assert.equal(notes[0].key,'2026-10-17:A1','A continued old quest uses its original daily key');
-assert.equal(notes[0].date,'2026-10-17','Diary records the adventure's start date');
+assert.equal(notes[0].date,'2026-10-17',"Diary records the adventure's start date");
 assert(notes[0].result.includes('тропу'),'Choice changes the narrative outcome');
 assert(W.open());
 assert(screens.at(-1).html.includes('Путевые заметки'));
