@@ -142,6 +142,9 @@ assert(state.checked);
 assert(screens.at(-1).html.includes('ТВОЁ РЕШЕНИЕ'));
 day='2026-10-20'; // Completing after midnight retains the mission's original journal identity.
 assert.equal(W.nextSignal(),true);
+assert(screens.at(-1).html.includes('Маршрут освещён'),'Late completion shows its own ending');
+assert.equal(s.learningV8.adventureWorld.signalRuns['2026-10-20:A1'],undefined,
+ 'Finishing yesterday must not silently generate a new mission');
 day='2026-10-17';
 assert(state.completed,'Completing the fourth challenge persists');
 assert(screens.at(-1).html.includes('Маршрут освещён'));
