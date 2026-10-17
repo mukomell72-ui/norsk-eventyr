@@ -299,40 +299,106 @@ function renderSignal(level){
  const s=app();if(!s)return false;
  const l=safeLevel(level),world=getWorldState(s,true);world.viewLevel=l;
  const r=signalRun(s,l,true),tasks=signalBank(l,r.date),done=r.completed;
- const title=done?'Сигнал принят!':'Полевой сигнал Норы';
+ if(!play())return false;
+ const mode=signalMode(r),total=r.version===1?3:4;
+ const title=done?'Маршрут освещён!':'Радио северного маяка';
+ const sound='<button class="nq-sound-toggle" aria-pressed="'+(world.soundOn===true)+'" onclick="NENordicQuest.toggleSound()">'+
+  (world.soundOn===true?'♫ Звук: включён':'♫ Звук: выключен')+'</button>';
  const common='<section class="nq-world nq-signal" data-adventure-screen="signal">'+
   '<button class="nq-back" onclick="navigate(\'adventure\')">← К карте путешествия</button>'+
   '<header class="nq-signal-header"><span class="nq-signal-symbol" aria-hidden="true">⌁</span>'+
    '<span class="nq-kicker">СЕВЕРНЫЙ ЭФИР · '+h(l)+'</span><h1>'+title+'</h1>'+
-   '<p>Короткая самостоятельная разведка. Она тренирует понимание, но не заменяет полный урок и проверку уровня.</p></header>';
+   '<p>Твоё собственное приключение с Норой: смысл, порядок слов, понимание на слух и выбор пути. Не заменяет основной урок и проверку уровня.</p>'+
+   sound+'</header>';
  if(done){
-  window.shell?.(common+'<div class="nq-signal-finished"><span aria-hidden="true">✦</span>'+
-   '<h2>Ты уловил три сигнала</h2><p>Ситуации разобраны, а заметка сохранена в дневнике путешествия. Ошибок: '+r.misses+'.</p>'+
-   '<button class="nq-button primary" onclick="navigate(\'adventure\')">Вернуться к экспедиции →</button>'+
-   '<button class="nq-button secondary" onclick="navigate(\'livingday\')">Продолжить обучение с Норой →</button>'+
+  const story=r.storyTitle?'<div class="nq-outcome"><span class="nq-kicker">ТВОЯ ИСТОРИЯ</span>'+
+   '<h3>'+h(r.storyTitle)+'</h3><p>'+h(r.storyResult)+'</p></div>':'';
+  const note=r.version===1?'Три радиосигнала разгаданы.':'Четыре игровых этапа завершены.';
+  window.shell?.(common+
+   '<div class="nq-signal-finished" role="status"><div class="nq-celebration" aria-hidden="true">✦</div>'+
+    '<span class="nq-reward-label">ПОЛЕВАЯ ЗАМЕТКА СОХРАНЕНА</span>'+
+    '<h2>Ты дошёл до маяка!</h2><p>'+note+' Ошибок: '+r.misses+
+     '. Итог этой истории записан в дневнике. Языковой уровень подтверждается только заданиями курса.</p>'+
+    story+'<div class="nq-nora-reaction completed"><div class="nq-reaction-portrait"></div><p><b>Нора</b> Отличная работа над ситуацией! Попробуй применить знакомые слова в полноценном разговоре.</p></div>'+
+    '<button class="nq-button primary" onclick="navigate(\'adventure\')">Вернуться к экспедиции →</button>'+
+    '<button class="nq-button secondary" onclick="navigate(\'livingday\')">Продолжить обучение с Норой →</button>'+
    '</div></section>','adventure');return true;
  }
- const t=tasks[r.index],audio=r.index===1;
- const options=audio?[t.ru,...t.wrongRu]:[t.no,...t.wrong];
- const right=(r.index+1)%3,correct=options[0];
- const arranged=options.filter((_,i)=>i!==0);
- arranged.splice(right,0,correct);
- const prompt=audio?'Прослушай норвежскую фразу и выбери её смысл.':t.ask;
- const choices=arranged.map((txt,i)=>'<button class="nq-answer" '+(r.checked?'disabled':'')+
-  ' onclick="NENordicQuest.answerSignal('+i+')">'+h(txt)+'</button>').join('');
- const message=r.feedback?'<div class="nq-answer-feedback '+(r.checked?'right':'try')+'" role="status">'+h(r.feedback)+'</div>':'';
+ const task=tasks[mode==='assemble'?1:mode==='listen'?2:0];
+ const stepNames=['Диалог у пристани','Собери реплику','Сигнал на слух','Твоя развилка'];
+ const stepIcons=['❞','▤','♫','✧'];
+ const mark=mode==='dialogue'?'ПОНЯТЬ СИТУАЦИЮ':mode==='assemble'?'ПОСТРОИТЬ ПРЕДЛОЖЕНИЕ':
+  mode==='listen'?'ПОНЯТЬ НА СЛУХ':'ВЫБРАТЬ СВОЙ ПУТЬ';
+ let activity='';
+ if(mode==='dialogue'||mode==='listen'){
+  const audio=mode==='listen',answers=audio?[task.ru,...task.wrongRu]:[task.no,...task.wrong];
+  const index=(r.index+1)%3,right=answers[0],variants=answers.slice(1);
+  variants.splice(index,0,right);
+  activity=(audio?'<div class="nq-audio-panel"><button class="nq-button primary" onclick="NENordicQuest.hearSignal()">▶ Слушать фразу</button>'+
+     '<button class="nq-audio-reveal" onclick="NENordicQuest.revealSignal()">Не слышно? Показать текст</button>'+
+     (r.reveal?'<p lang="nb">'+h(task.no)+'</p>':'')+'</div>':
+     '<p class="nq-task-context">'+h(task.scene)+'</p>')+
+    '<div class="nq-answers">'+variants.map((answer,i)=>
+     '<button class="nq-answer" '+(r.checked?'disabled':'')+' onclick="NENordicQuest.answerSignal('+i+')">'+
+       '<span class="nq-answer-letter">'+['A','B','C'][i]+'</span><span>'+h(answer)+'</span></button>').join('')+'</div>';
+ }else if(mode==='assemble'){
+  const tiles=tilesFor(r,tasks),used=Array.isArray(r.tiles)?r.tiles:[],built=play().assembled(task.no,used);
+  const picked=used.map(index=>'<button class="nq-tile picked" '+(r.checked?'disabled':'')+' onclick="NENordicQuest.selectTile('+index+')">'+
+   h(tiles[index]?.value||'')+' <span aria-hidden="true">×</span></button>').join('');
+  const available=tiles.map((tile,index)=>used.includes(index)?'':
+   '<button class="nq-tile" onclick="NENordicQuest.selectTile('+index+')">'+h(tile.value)+'</button>').join('');
+  activity='<div class="nq-builder">'+
+    '<p class="nq-task-context">'+h(task.scene)+' <b>'+h(task.ru)+'</b></p>'+
+    '<div class="nq-build-label">ТВОЁ ПРЕДЛОЖЕНИЕ</div>'+
+    '<div class="nq-drop-zone" role="group" aria-label="Собранное предложение">'+
+      (picked||'<span class="nq-placeholder">Нажимай слова снизу, чтобы собрать фразу</span>')+'</div>'+
+    '<div class="nq-build-label">СЛОВА</div><div class="nq-tile-bank" role="group" aria-label="Слова для предложения">'+available+'</div>'+
+    (r.checked?'<p class="nq-build-complete" lang="nb">'+h(built)+'</p>':
+     '<div class="nq-builder-actions">'+
+     '<button class="nq-button primary" '+(used.length!==tiles.length?'disabled':'')+
+       ' onclick="NENordicQuest.checkAssembly()">Проверить предложение →</button>'+
+     '<button class="nq-button secondary" onclick="NENordicQuest.clearTiles()">Очистить</button></div>')+
+    (r.checked?'<div class="nq-speaking-bonus"><b>Бонус: произнеси фразу</b>'+
+     '<p>Прослушай образец, повтори и при желании попробуй распознавание микрофоном. Это тренировка, а не автоматическая оценка произношения.</p>'+
+     '<button class="nq-button secondary" onclick="NENordicQuest.hearSignal()">▶ Послушать</button>'+
+     '<button class="nq-button outline" onclick="NENordicQuest.tryPronunciation()">🎙 Сказать Норе</button>'+
+     (r.voiceNote?'<p role="status">'+h(r.voiceNote)+'</p>':'')+'</div>':'')+
+   '</div>';
+ }else if(mode==='decision'){
+  const branches=play().branches(l);
+  activity='<div class="nq-decision-scene"><p>Ты получил радиосообщение и достиг развилки. Как поступить?</p>'+
+   '<div class="nq-decision-branches">'+branches.map((branch,i)=>
+     '<button class="nq-decision-option '+(r.choice===branch.id?'selected':'')+'" '+
+      (r.checked?'disabled':'')+' onclick="NENordicQuest.chooseSignalEnding('+i+')">'+
+      '<span class="nq-decision-number">'+(i+1)+'</span><b lang="nb">'+h(branch.no)+'</b>'+
+      '<small>'+h(branch.ru)+'</small></button>').join('')+'</div>'+
+   '<p class="nq-decision-help">Оба варианта грамматически правильные. Выбирай тот, который подходит твоему решению — история изменится.</p>'+
+   (r.checked?'<div class="nq-story-teaser"><span class="nq-kicker">ТВОЁ РЕШЕНИЕ</span>'+
+     '<h3>'+h(branches.find(x=>x.id===r.choice)?.title||'Новый маршрут')+'</h3>'+
+     '<p>'+h(branches.find(x=>x.id===r.choice)?.story||'')+'</p></div>':'')+
+   '</div>';
+ }
+ const msg=r.feedback?'<div class="nq-nora-reaction '+(r.checked?'right':'try')+'" role="status" aria-live="polite">'+
+   '<div class="nq-reaction-portrait" aria-hidden="true"></div><p><b>Нора</b> '+h(r.feedback.replace(/^Нора:\s*/,''))+'</p></div>':'';
  window.shell?.(common+
-  '<div class="nq-signal-meter"><span>Сигнал '+(r.index+1)+' / '+tasks.length+'</span>'+
-    '<div class="nq-meter-track" role="progressbar" aria-label="Прогресс разведки" aria-valuemin="0" aria-valuemax="'+tasks.length+'" aria-valuenow="'+r.index+'"><i style="width:'+Math.floor(r.index/tasks.length*100)+'%"></i></div></div>'+
-  '<div class="nq-question"><span class="nq-kicker">'+(audio?'НА СЛУХ':'В ЖИЗНЕННОЙ СИТУАЦИИ')+'</span>'+
-   '<h2>'+h(audio?'Сообщение по радио':t.scene)+'</h2><p>'+h(prompt)+'</p>'+
-   (audio?'<div class="nq-audio-panel"><button class="nq-button primary" onclick="NENordicQuest.hearSignal()">▶ Слушать фразу</button>'+
-    '<button class="nq-audio-reveal" onclick="NENordicQuest.revealSignal()">Не слышно? Показать текст</button>'+
-    (r.reveal?'<p lang="nb">'+h(t.no)+'</p>':'')+'</div>':'')+
-   '<div class="nq-answers">'+choices+'</div>'+message+
+  '<div class="nq-signal-meter"><span>Этап '+(r.index+1)+' / '+total+'</span>'+
+   '<div class="nq-meter-track" role="progressbar" aria-label="Прогресс приключения" aria-valuemin="0" aria-valuemax="'+total+'" aria-valuenow="'+r.index+'">'+
+    '<i style="width:'+Math.round(r.index/total*100)+'%"></i></div></div>'+
+  '<div class="nq-challenge-track">'+stepNames.slice(0,total).map((title,i)=>
+    '<span class="nq-challenge-step '+(i<r.index?'done':i===r.index?'now':'later')+'" title="'+h(title)+'">'+
+    (i<r.index?'✓':stepIcons[i])+'</span>').join('')+'</div>'+
+  '<div class="nq-question nq-mode-'+mode+(r.checked?' nq-solved':'')+'">'+
+   '<span class="nq-kicker">'+mark+'</span>'+
+   '<h2>'+h(mode==='listen'?'Загадочное сообщение':mode==='assemble'?'Подбери правильные слова':
+      mode==='decision'?'Поворот истории':task.scene)+'</h2>'+
+   '<p>'+h(mode==='listen'?'Прослушай норвежскую фразу и выбери её значение.':
+       mode==='assemble'?'Составь норвежское предложение в правильном порядке.':
+       mode==='decision'?'Выбери свою реплику — дальнейшее событие зависит от неё.':task.ask)+'</p>'+
+   activity+msg+
    (r.checked?'<button class="nq-button primary nq-next" onclick="NENordicQuest.nextSignal()">'+
-      (r.index===tasks.length-1?'Завершить разведку →':'Следующий сигнал →')+'</button>':'')+
-   '</div></section>','adventure');
+      (r.index===total-1?'Завершить приключение →':'Продолжить путь →')+'</button>':'')+
+   '<p class="nq-task-note">Можно вернуться к карте и продолжить позже: текущий этап сохраняется. Полные навыки оценивает Нора на уроке.</p>'+
+  '</div></section>','adventure');
  return true;
 }
 function open(){
