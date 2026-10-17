@@ -182,7 +182,10 @@ function signalRun(s,level,create=false){
 }
 function beginSignal(level){
  const s=app();if(!s||!play())return false;
- const l=safeLevel(level);signalRun(s,l,true);return renderSignal(l);
+ const l=safeLevel(level);
+ // The atlas is browsable, but future CEFR missions are evidence-gated.
+ if(!journey(s,l).allowed)return false;
+ signalRun(s,l,true);return renderSignal(l);
 }
 function isComplete(s,level){return signalRun(s,level)?.completed===true}
 function signalContext(){
@@ -510,8 +513,8 @@ function open(){
    '<section class="nq-signal-card"><div class="nq-signal-illustration" aria-hidden="true"><span>⌁</span><i></i></div>'+
     '<div class="nq-signal-copy"><span class="nq-kicker">ПОБОЧНОЕ ПРИКЛЮЧЕНИЕ · 4 ИСПЫТАНИЯ</span>'+
      '<h2>Радио северного маяка</h2><p>Ответь в диалоге, собери фразу, разгадай сообщение на слух и выбери продолжение своей истории.</p>'+
-     '<button class="nq-button outline" onclick="NENordicQuest.beginSignal(\''+h(j.level)+'\')">'+
-       (todayDone?'Открыть путевую заметку':'Принять сигнал Норы')+' →</button></div></section>'+
+     '<button class="nq-button outline" '+(!j.allowed?'disabled aria-disabled="true" title="Сначала подтверди предыдущий уровень"':'onclick="NENordicQuest.beginSignal(\''+h(j.level)+'\')"')+'>'+
+       (!j.allowed?'Доступно после предыдущего уровня':todayDone?'Открыть путевую заметку':'Принять сигнал Норы')+' →</button></div></section>'+
    '<section class="nq-travel-diary"><div class="nq-section-header">'+
     '<span class="nq-kicker">ТВОИ СОБСТВЕННЫЕ ИСТОРИИ</span><h2>Путевые заметки</h2>'+
     '<p>Решения в дополнительных приключениях создают разные истории. Это игровые сувениры, а не сертификаты владения языком.</p></div>'+
