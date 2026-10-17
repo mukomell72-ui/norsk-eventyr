@@ -1,7 +1,37 @@
-// Mobile browser: every word has one mandatory task; wrong form -> hint -> fix -> different form.
+// Real mobile Chromium: explicit translation -> contextual sentence on every word.
 'use strict';
-const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const {chromium}=require('playwright');
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),{chromium}=require('playwright');
+function sentence(task){
+ const form=task.requiredForm;
+ if(!form){
+  return [
+   'Etter hvert lærer jeg norsk bedre.',
+   'Jeg forstår mer etter hvert.',
+   'Etter hvert snakker jeg mer norsk.'
+  ][task.index];
+ }
+ if(task.type==='noun')return [
+  'Jeg har '+form+' hjemme.',
+  'Jeg ser '+form+' her.',
+  'Jeg har to '+form+' hjemme.',
+  'Jeg ser '+form+' her.'
+ ][task.index];
+ if(task.type==='verb')return [
+  'Jeg liker '+form+' tidlig.',
+  'Jeg '+form+' på jobb i dag.',
+  'Jeg '+form+' på jobb i går.',
+  'Jeg '+form+' på jobb denne uka.',
+  'Jeg '+form+' på jobb i morgen.'
+ ][task.index];
+ if(task.type==='adjective')return [
+  'Jeg har en '+form+' venn.',
+  'Jeg har et '+form+' hus.',
+  'Jeg har '+form+' venner.',
+  'Dette er '+form+' enn før.',
+  'Dette er '+form+' akkurat nå.'
+ ][task.index];
+ throw Error('Unexpected task '+JSON.stringify(task));
+}
 (async()=>{
  const browser=await chromium.launch({headless:true});
  try{
@@ -9,113 +39,116 @@ const {chromium}=require('playwright');
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.setContent('<html lang="ru"><body><main id="app"></main></body></html>');
   await page.evaluate(()=>{
+   const bank=[['begynner','начинаю'],['en bok','книга'],['god','хороший'],['etter hvert','постепенно']];
    window.neLearnerState={learningV8:{},dailyDictionary:{},srs:{},dailyPacks:{}};
-   window.NELivingDay={details:()=>({moduleId:'testing',title:'Знакомство',level:'A1',date:'2026-10-17'}),begin:()=>{}};
-   window.NECurated={get:()=>({vocab:[['å gå','идти'],['en bok','книга'],['god','хороший'],['etter hvert','постепенно']]})};
-   window.NECurriculum={modules:()=>[]};
+   window.NELivingDay={details:()=>({moduleId:'testing',title:'Повседневная жизнь',level:'A1',date:'2026-10-17'}),begin:()=>{}};
+   window.NECurated={get:()=>({vocab:bank})};window.NECurriculum={modules:()=>[]};
    window.NEFunctionalPractice={getCatalog:()=>({cloze:[]})};
-   window.saveState=()=>{};
-   window.shell=html=>document.getElementById('app').innerHTML=html;
+   window.saveState=()=>{};window.shell=s=>document.getElementById('app').innerHTML=s;
    window.speakText=()=>{};
-   window.aiEvaluate=async payload=>({ok:true,data:{
-    accepted:payload.answer.toLocaleLowerCase('nb-NO').includes('etter hvert'),score:90,explanation_ru:'Хорошее предложение'
-   }});
-   window.recognizedLanguages=[];
-   window.recognitionAnswer='';
+   window.evaluations=[];
+   window.rejectNext=false;
+   window.aiEvaluate=async payload=>{
+    window.evaluations.push(payload);
+    const accepted=!window.rejectNext;window.rejectNext=false;
+    return {ok:true,data:{accepted,score:accepted?91:35,
+     explanation_ru:accepted?'Значение и грамматика верны.':'Предложение не соответствует значению. Исправь контекст.'}};
+   };
+   window.spoken='';
+   window.languages=[];
    window.SpeechRecognition=class{
     constructor(){this.lang=''}
     start(){
-     window.recognizedLanguages.push(this.lang);
-     this.onresult?.({results:[{isFinal:true,0:{transcript:window.recognitionAnswer}}]});
+     window.languages.push(this.lang);
+     this.onresult?.({results:[{isFinal:true,0:{transcript:window.spoken}}]});
      this.onend?.();
     }
    };
   });
-  for(const file of ['card-grammar.js','card-form-practice.js','living-words.js'])
-   await page.addScriptTag({content:fs.readFileSync(path.join(__dirname,'..',file),'utf8')});
+  for(const name of ['card-grammar.js','card-form-practice.js','living-words.js'])
+   await page.addScriptTag({content:fs.readFileSync(path.join(__dirname,'..',name),'utf8')});
   await page.evaluate(()=>window.NELivingWords.render());
-  const wordAt=()=>page.evaluate(()=>{
-   const d=window.NELivingWords.ensure();return d.active[d.cardQueue[d.cardsSeen]];
-  });
-  async function translate(answer){
-   await page.locator('#livingTranslate').fill(answer);
+  assert(await page.getByRole('heading',{name:'å begynne'}).isVisible(),'The inflected beginnen form receives its infinitive lemma');
+  assert((await page.locator('#app').innerText()).includes('ШАГ 1 ИЗ 2'));
+  assert(await page.locator('#livingTranslate').isVisible(),'Russian translation is the first visible input');
+  assert.equal(await page.locator('#livingFormAnswer').count(),0,'No grammar task until translation is checked');
+  assert.equal(await page.evaluate(()=>window.NELivingWords.nextCard()),false);
+  async function translate(value,spoken=false){
+   assert(await page.locator('#livingTranslate').isVisible());
+   if(spoken){
+    await page.evaluate(t=>window.spoken=t,value);
+    await page.getByRole('button',{name:'Ответить голосом'}).click();
+    assert.equal(await page.locator('#livingTranslate').inputValue(),value);
+    assert.equal(await page.evaluate(()=>window.languages.at(-1)),'ru-RU');
+   }else await page.locator('#livingTranslate').fill(value);
    await page.getByRole('button',{name:'Проверить перевод'}).click();
-   assert.equal(await page.evaluate(()=>window.NELivingWords.nextCard()),false,'Cannot bypass per-word assignment');
+   assert((await page.locator('#app').innerText()).includes('ШАГ 2 ИЗ 2'));
+   assert((await page.locator('#app').innerText()).includes('Правильный перевод:'));
+   assert.equal(await page.locator('#livingTranslate').count(),0);
+   assert.equal(await page.evaluate(()=>window.NELivingWords.nextCard()),false);
    await page.getByRole('button',{name:'Задание с этим словом'}).click();
-   assert(await page.locator('#livingFormAnswer').isVisible());
+   assert(await page.locator('#livingFormAnswer').isVisible(),'A contextual assignment is mandatory for every word');
   }
   async function solve(useVoice=false){
-   const d=await page.evaluate(()=>{
-    const s=window.NELivingWords.ensure(),p=s.formPractice;
-    return {task:p.task,word:s.active[s.cardQueue[s.cardsSeen]]};
+   const task=await page.evaluate(()=>window.NELivingWords.ensure().formPractice.task);
+   assert.equal(task.kind,'sentence','The learner must make a meaningful sentence, not repeat a bare form');
+   const answer=sentence(task),previous=await page.evaluate(()=>{
+    const p=window.NELivingWords.ensure().formPractice;
+    return {answers:p.answers.length,misses:p.misses};
    });
-   const sentenceVariants=[
-    'Etter hvert lærer jeg mer norsk.',
-    'Jeg lærer flere ord etter hvert.',
-    'Etter hvert forstår jeg flere norske ord.'
-   ];
-   const answer=d.task.kind==='form'?d.task.answer:sentenceVariants[d.task.index];
    if(useVoice){
-    await page.evaluate(a=>window.recognitionAnswer=a,answer);
-    await page.getByRole('button',{name:'Сказать по-норвежски'}).click();
+    await page.evaluate(t=>window.spoken=t,answer);
+    await page.getByRole('button',{name:'Сказать предложение'}).click();
     assert.equal(await page.locator('#livingFormAnswer').inputValue(),answer);
-    const lang=await page.evaluate(()=>window.recognizedLanguages.at(-1));
-    assert.equal(lang,'nb-NO');
+    assert.equal(await page.evaluate(()=>window.languages.at(-1)),'nb-NO');
    }else await page.locator('#livingFormAnswer').fill(answer);
-   const previous=await page.evaluate(()=>window.NELivingWords.ensure().formPractice.answers.length);
-   await page.getByRole('button',{name:'Проверить форму'}).click();
+   await page.getByRole('button',{name:'Проверить предложение'}).click();
    await page.waitForFunction(prev=>{
     const p=window.NELivingWords.ensure().formPractice;
-    return p.answers.length>prev||p.note.startsWith('Пока неверно.')||p.note.startsWith('Проверка Норы сейчас недоступна');
+    return p.answers.length>prev.answers||p.misses>prev.misses||
+      p.note.includes('недоступна');
    },previous);
-   return d;
+   return task;
   }
-  await translate('идти');
-  const first=await page.evaluate(()=>window.NELivingWords.ensure().formPractice.task);
-  await page.locator('#livingFormAnswer').fill('неправильно');
-  await page.getByRole('button',{name:'Проверить форму'}).click();
-  assert((await page.locator('#app').innerText()).includes('Пока неверно.'));
+  await translate('начинаю');
+  const initial=await page.evaluate(()=>window.NELivingWords.ensure().formPractice.task);
+  assert.equal(initial.type,'verb');
+  await page.locator('#livingFormAnswer').fill('Начать');
+  await page.getByRole('button',{name:'Проверить предложение'}).click();
+  assert((await page.locator('#app').innerText()).includes('Русский перевод уже проверен на шаге 1'),
+   'Pasting a Russian translation into the Norwegian sentence field receives explicit guidance');
   assert.equal(await page.evaluate(()=>window.NELivingWords.nextCard()),false);
-  assert.equal(await page.evaluate(()=>window.NELivingWords.ensure().formPractice.task.index),first.index,
-   'Wrong form is not replaced before learner corrects it');
-  await solve(false);
-  const second=await page.evaluate(()=>window.NELivingWords.ensure().formPractice.task);
-  assert.notEqual(second.index,first.index,'After correction, assign a different tense/grammatical form');
-  assert.equal(await page.evaluate(()=>window.NELivingWords.ensure().formPractice.done),false);
+  assert.equal(await page.evaluate(()=>window.NELivingWords.ensure().formPractice.task.index),initial.index);
+  await page.evaluate(()=>window.rejectNext=true);
+  await solve();
+  assert((await page.locator('#app').innerText()).includes('смысл')||
+   (await page.locator('#app').innerText()).includes('контекст'),'Nora must reject bad semantics even for valid forms');
+  await solve();
+  const different=await page.evaluate(()=>window.NELivingWords.ensure().formPractice.task.index);
+  assert.notEqual(different,initial.index,'After fixing an error, a DIFFERENT grammar task is mandatory');
   await solve(true);
   assert.equal(await page.evaluate(()=>window.NELivingWords.ensure().formPractice.done),true);
+  assert((await page.locator('#app').innerText()).includes('правильно применил слово'));
   await page.getByRole('button',{name:'Следующая карточка'}).click();
-  let guard=0,checked=1,phraseMistakeTried=false;
+  let guard=0,checked=1;
   while(await page.evaluate(()=>window.NELivingWords.ensure().stage)==='cards'){
-   if(++guard>12)throw Error('Card queue did not complete after valid answers');
-   const word=await wordAt();
-   await translate(word.translation);
-   if(word.word==='etter hvert'&&!phraseMistakeTried){
-    phraseMistakeTried=true;
-    await page.locator('#livingFormAnswer').fill('Jeg bruker et ord i dag.');
-    await page.getByRole('button',{name:'Проверить форму'}).click();
-    assert((await page.locator('#app').innerText()).includes('не найдено изучаемое слово'));
-    assert.equal(await page.evaluate(()=>window.NELivingWords.ensure().formPractice.needsAnother),true);
-    const before=await page.evaluate(()=>window.NELivingWords.ensure().formPractice.task.index);
-    await solve();
-    assert.notEqual(await page.evaluate(()=>window.NELivingWords.ensure().formPractice.task.index),before,
-      'After a wrong contextual sentence, a second prompt is mandatory');
-   }
+   if(++guard>10)throw Error('Vocabulary did not finish after correct independent sentences');
+   const word=await page.evaluate(()=>{
+    const d=window.NELivingWords.ensure();return d.active[d.cardQueue[d.cardsSeen]];
+   });
+   await translate(word.translation,word.word==='en bok');
    await solve();
-   const done=await page.evaluate(()=>window.NELivingWords.ensure().formPractice.done);
-   const debug=await page.evaluate(()=>{const d=window.NELivingWords.ensure();
-    return {card:d.active[d.cardQueue[d.cardsSeen]]?.word,task:d.formPractice?.task,
-      feedback:d.formPractice?.note,answers:d.formPractice?.answers,misses:d.formPractice?.misses,
-      needsAnother:d.formPractice?.needsAnother};});
-   assert(done,'One correct morphology or sentence assignment is enough for each word: '+JSON.stringify(debug));
+   assert(await page.evaluate(()=>window.NELivingWords.ensure().formPractice.done));
    await page.getByRole('button',{name:/Следующая карточка|Продолжить повтор/}).click();
    checked++;
   }
-  assert(checked>=5,'Every initial word and the missed word received practice');
-  const state=await page.evaluate(()=>window.neLearnerState);
-  assert(state.wordPracticeQueue?.['gå'],'Missed inflection remains due for later review');
-  assert(state.learningV8.livingVocabulary.days['2026-10-17'].cardAttempted[0]>=1);
-  assert.deepEqual(errors,[],'No uncaught JS errors');
-  console.log('PASS mobile: mandatory randomized task for every word, correction before new form, voice, unknown fallback and spaced review');
+  assert(checked>=5,'A contextual task is mandatory for every initial and repeated word');
+  const state=await page.evaluate(()=>window.neLearnerState),evaluations=await page.evaluate(()=>window.evaluations);
+  assert(state.wordPracticeQueue?.begynner,'Incorrect usage remains scheduled for spaced repetition');
+  assert(evaluations.length>=checked);
+  assert(evaluations.every(v=>v.goal.includes('смысл')||v.goal.includes('русский смысл')),
+   'Teacher gets the actual meaning and usage rubric');
+  assert.deepEqual(errors,[],'No JavaScript errors during the mobile lesson');
+  console.log('PASS translation then contextual sentence on every card: writing, speaking, semantic mistakes, different follow-up task, saved review');
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});

@@ -14,7 +14,7 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
    window.NECurated={get:()=>({vocab:bank})};window.NECurriculum={modules:()=>[]};
    window.NEFunctionalPractice={getCatalog:()=>({cloze:[]})};
    window.saveState=()=>{};window.shell=s=>document.getElementById('app').innerHTML=s;
-   window.speakText=()=>{};
+   window.speakText=()=>{};window.aiEvaluate=async()=>({ok:true,data:{accepted:true,score:90}});
   });
   const source=n=>fs.readFileSync(path.join(__dirname,'..',n),'utf8');
   await page.addScriptTag({content:source('card-grammar.js')});
@@ -25,6 +25,8 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   const details=page.locator('details');
   assert.equal(await details.evaluate(x=>x.open),false,'Forms collapsed to encourage independent recall');
   assert(await page.locator('#livingTranslate').isVisible());
+  assert((await page.locator('#app').innerText()).includes('ШАГ 1 ИЗ 2'));
+  assert.equal(await page.locator('#livingFormAnswer').count(),0);
   await page.locator('#livingTranslate').fill('автомобиль');
   await page.getByRole('button',{name:'Проверить перевод'}).click();
   assert.equal(await details.evaluate(x=>x.open),true,'Forms are shown automatically after feedback');
@@ -34,9 +36,17 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   await page.getByRole('button',{name:'Задание с этим словом'}).click();
   assert(await page.locator('#livingFormAnswer').isVisible(),'Every card receives form practice');
   const task=await page.evaluate(()=>window.NELivingWords.ensure().formPractice.task);
-  await page.locator('#livingFormAnswer').fill(task.answer);
-  await page.getByRole('button',{name:'Проверить форму'}).click();
-  assert((await page.locator('#app').innerText()).includes('Форма слова закреплена'));
+  const phrases=[
+   'Jeg har en bil hjemme.',
+   'Jeg ser bilen her.',
+   'Jeg har to biler hjemme.',
+   'Jeg ser bilene her.'
+  ];
+  assert.equal(task.kind,'sentence','Form must be used in a meaningful sentence');
+  await page.locator('#livingFormAnswer').fill(phrases[task.index]);
+  await page.getByRole('button',{name:'Проверить предложение'}).click();
+  await page.waitForFunction(()=>window.NELivingWords.ensure().formPractice.done);
+  assert((await page.locator('#app').innerText()).includes('правильно применил слово'));
   await page.getByRole('button',{name:'Следующая карточка'}).click();
   assert(await page.getByRole('heading',{name:'å gå'}).isVisible());
   await page.locator('summary').click();

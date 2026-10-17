@@ -14,6 +14,7 @@ const sample=[
  [{word:'å være',translation:'быть'},'verb','å være',['å være','er','var','har vært','skal være']],
  [{word:'å skrive',translation:'писать'},'verb','å skrive',['å skrive','skriver','skrev','har skrevet','skal skrive']],
  [{word:'å logge inn',translation:'входить'},'verb','å logge inn',['å logge inn','logger inn','logget inn','har logget inn','skal logge inn']],
+ [{word:'begynner',translation:'начинаю'},'verb','å begynne',['å begynne','begynner','begynte','har begynt','skal begynne']],
  [{word:'god',translation:'хороший'},'adjective','god',['god','godt','gode','bedre','best']],
  [{word:'liten',translation:'маленький'},'adjective','liten',['liten','lite','små','mindre','minst']]
 ];

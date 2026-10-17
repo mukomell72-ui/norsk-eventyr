@@ -129,7 +129,7 @@ const D=w.NELivingWords;
  assert.equal(Object.keys(s.dailyDictionary).length,20,'Older learned entries must remain archived');
  assert(saves>4);
  const access=read('access.js'),sw=read('sw.js'),lexicon=read('lexicon.js'),teacher=read('living-day.js');
- assert(access.includes("'living-words.js'")&&sw.includes('/living-words.js?v=8.3.0-lesson19'));
+ assert(access.includes("'living-words.js'")&&sw.includes('/living-words.js?v=8.3.0-lesson20'));
  assert(teacher.includes('NELivingWords.isReady()'),'Main route must check whether warmup is complete');
  assert(lexicon.includes("livingVocabulary?.days?.[date]?.newWords"),'Separate optional daily section cannot award another five new words');
  console.log('PASS daily vocabulary: mandatory grammar on every word including retries, Russian and Norwegian voice, 15 active, five new/day, cloze and production');
