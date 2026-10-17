@@ -70,7 +70,7 @@ function choose(level,moduleId,date){
  const current=retained.reverse();
  const active=[...current,...newWords].slice(-MAX);
  const record={date,level,moduleId,newWords,active,cardsSeen:0,revealed:false,stage:'cards',
-  cardQueue:active.map((_,i)=>i),cardDraft:'',cardFeedback:null,formPractice:null,cardAttempted:{},deferredWords:[],
+  cardQueue:active.map((_,i)=>i),cardDraft:'',cardFeedback:null,formPractice:null,cardAttempted:{},deferredWords:[],miniRound:null,miniRounds:{},
   clozeIndex:0,clozeMisses:0,writingOK:false,speakingOK:false,ready:false,feedback:'',speechText:'',
   writingDraft:'',checkedCloze:[],completedAt:null};
  p.days[date]=record;p.active=active.map(x=>({word:x.word,translation:x.translation,key:key(x.word),pos:x.pos||'',gender:x.gender||''}));
@@ -143,6 +143,11 @@ function advanceCard(retry){
  if(!d||d.stage!=='cards'||!card||!d.cardFeedback)return false;
  if(retry&&(!d.cardFeedback.correct||d.formPractice?.hadMistake))cardQueue(d).push(card.idx);
  d.cardsSeen++;d.cardFeedback=null;d.formPractice=null;d.cardDraft='';d.revealed=false;d.feedback='';
+ const engine=window.NEMiniPath;
+ if(engine&&d.cardsSeen<=d.active.length&&engine.boundaries(d.active.length).includes(d.cardsSeen)){
+  d.miniRounds=d.miniRounds&&typeof d.miniRounds==='object'?d.miniRounds:{};
+  if(!d.miniRounds[String(d.cardsSeen)])d.miniRound=engine.build(d,d.cardsSeen);
+ }
  save();render();return true;
 }
 function feedbackNote(record){
@@ -150,19 +155,118 @@ function feedbackNote(record){
 }
 function wrapper(content,record){
  const count=record.active.length,newCount=record.newWords.length;
+ const p=window.NEMiniPath?.progress?.(record);
+ const road=p?'<div class="card" style="margin:12px 0;padding:14px">'+
+  '<div class="row" style="justify-content:space-between;align-items:center"><b>Твой путь: короткие этапы</b><small>'+p.seen+' / '+p.total+' слов</small></div>'+
+  '<div class="progress" role="progressbar" aria-label="Прогресс активных слов" aria-valuemin="0" aria-valuemax="'+Math.max(1,p.total)+'" aria-valuenow="'+p.seen+'"><i style="width:'+p.percent+'%"></i></div>'+
+  '<div class="row" style="gap:6px;flex-wrap:wrap">'+p.stages.map(x=>
+    '<span class="tag" style="opacity:'+(x.done?'1':'.8')+'">'+(x.done?'✓ ':'')+'Этап '+x.number+': '+x.start+'–'+x.end+'</span>').join('')+'</div>'+
+  '</div>':'';
  window.shell('<section class="card" style="max-width:760px;margin:auto">'+
   '<div class="eyebrow">Norsk Eventyr · начало занятия</div><h1>Сначала вспомним слова</h1>'+
   '<p>Активных слов: <b>'+count+' / '+MAX+'</b> · Новых сегодня: <b>'+newCount+' / '+PER_DAY+'</b>. Остальные выученные слова не удаляются и остаются для повторения.</p>'+
-  content+feedbackNote(record)+
+  road+content+feedbackNote(record)+
   '<button class="btn ghost" onclick="navigate(\'home\')">← На главную · сохранить прогресс</button></section>','home');
 }
+
+function progress(){
+ const state=getState(),date=window.NELivingDay?.details?.(false)?.date;
+ const record=date&&state?.learningV8?.livingVocabulary?.days?.[date];
+ return record&&window.NEMiniPath?.progress?.(record)||null;
+}
+function renderMiniRound(d){
+ const checkpoint=d.miniRound,engine=window.NEMiniPath;
+ if(!checkpoint||!engine)return false;
+ const boundaries=engine.boundaries(d.active.length),roundIndex=boundaries.indexOf(checkpoint.boundary)+1;
+ const heading='Мини-этап '+roundIndex+' из '+boundaries.length;
+ if(checkpoint.phase==='quiz'){
+  const q=checkpoint.questions?.[checkpoint.index];
+  if(!q){checkpoint.phase='break';save();return renderMiniRound(d)}
+  const item=d.active[q.wordIndex];
+  if(!item){checkpoint.phase='break';save();return renderMiniRound(d)}
+  const prompt=q.audio&&!q.revealed
+   ?'<h2>Послушай слово и выбери перевод</h2><button class="btn secondary" onclick="NELivingWords.listenMini()">▶ Прослушать слово</button>'+
+    '<button class="btn ghost" onclick="NELivingWords.revealMiniWord()">Показать слово, если нет звука</button>'
+   :'<h2 lang="nb">'+esc(item.word)+'</h2>'+
+    (q.audio?'<button class="btn secondary" onclick="NELivingWords.listenMini()">▶ Ещё раз прослушать</button>':'');
+  const choices=q.options.map((label,i)=>
+   '<button class="btn secondary" style="text-align:left;width:100%;margin-top:8px" onclick="NELivingWords.answerMini('+i+')">'+
+    (i+1)+'. '+esc(label)+'</button>').join('');
+  return wrapper(
+   '<div class="eyebrow">'+esc(heading)+' · Быстрая проверка</div>'+
+   '<div class="progress" role="progressbar" aria-valuenow="'+checkpoint.index+'" aria-valuemin="0" aria-valuemax="'+checkpoint.questions.length+'"><i style="width:'+Math.round(checkpoint.index/checkpoint.questions.length*100)+'%"></i></div>'+
+   '<p class="muted">Вопрос '+(checkpoint.index+1)+' из '+checkpoint.questions.length+'. Выбери перевод. Ошибку можно исправить без штрафов.</p>'+
+   '<div class="card" style="padding:20px">'+prompt+choices+
+    (checkpoint.note?'<p class="notice" role="status">'+esc(checkpoint.note)+'</p>':'')+
+   '</div>',d);
+ }
+ const done=window.NEMiniPath?.progress?.(d);
+ const next=checkpoint.boundary<d.active.length
+  ?'Перейти к следующим словам →'
+  :d.cardsSeen<cardQueue(d).length?'Повторить трудные слова →':'Продолжить занятие с Норой →';
+ return wrapper(
+  '<div class="eyebrow">'+esc(heading)+' · Завершён</div>'+
+  '<div class="card" style="padding:24px">'+
+  '<h2>Хороший этап: '+Math.min(5,checkpoint.boundary-(roundIndex-1)*5)+' слов!</h2>'+
+  '<p>Ты перевёл слова, использовал их в норвежских предложениях и прошёл короткую проверку.</p>'+
+  '<p class="muted">Быстрая проверка: '+checkpoint.questions.length+' заданий; ошибок: '+checkpoint.mistakes+'. Затруднения сохранены для повторения.</p>'+
+  '<div class="progress" role="progressbar" aria-label="Прогресс словарной практики" aria-valuemin="0" aria-valuemax="'+d.active.length+'" aria-valuenow="'+done.seen+'"><i style="width:'+done.percent+'%"></i></div>'+
+  '<p><b>'+done.seen+' из '+done.total+' активных слов</b> · мини-этапов завершено '+Math.min(done.rounds,Math.max(done.completed,roundIndex))+' из '+done.rounds+'</p>'+
+  '<button class="btn" onclick="NELivingWords.continueMini()">'+esc(next)+'</button>'+
+  '<button class="btn ghost" onclick="navigate(\'home\')">Остановиться сейчас · прогресс сохранится</button>'+
+  '</div>',d);
+}
+function answerMini(choice){
+ const d=ensure(),mini=d?.miniRound,engine=window.NEMiniPath;
+ if(!d||d.stage!=='cards'||!mini||mini.phase!=='quiz'||!engine)return false;
+ const r=engine.evaluate(mini,choice);
+ if(!r.valid)return false;
+ if(!r.correct&&r.firstMiss){
+  const word=d.active[r.wordIndex];
+  if(word){
+   markWrong(d,{idx:r.wordIndex,word});
+   const future=cardQueue(d).slice(d.cardsSeen);
+   if(!future.includes(r.wordIndex))cardQueue(d).push(r.wordIndex);
+  }
+ }
+ if(r.done){
+  d.miniRounds=d.miniRounds&&typeof d.miniRounds==='object'?d.miniRounds:{};
+  d.miniRounds[String(mini.boundary)]={done:true,mistakes:mini.mistakes,
+   completedAt:new Date().toISOString()};
+ }
+ save();render();return r.correct;
+}
+function listenMini(){
+ const d=ensure(),mini=d?.miniRound,q=mini?.questions?.[mini.index];
+ const word=q&&d.active[q.wordIndex];
+ if(!word||mini.phase!=='quiz')return false;
+ const text=window.NECardGrammar?.describe?.(word)?.headword||word.word;
+ window.speakText?.(text,.9);return true;
+}
+function revealMiniWord(){
+ const d=ensure(),q=d?.miniRound?.questions?.[d.miniRound.index];
+ if(!q||d.miniRound.phase!=='quiz')return false;
+ q.revealed=true;save();render();return true;
+}
+function continueMini(){
+ const d=ensure(),mini=d?.miniRound;
+ if(!d||!mini||mini.phase!=='break')return false;
+ if(!d.miniRounds?.[String(mini.boundary)]){
+  d.miniRounds=d.miniRounds||{};
+  d.miniRounds[String(mini.boundary)]={done:true,mistakes:mini.mistakes,completedAt:new Date().toISOString()};
+ }
+ d.miniRound=null;save();render();return true;
+}
+
 function render(){
  const d=ensure();if(!d)return;
  if(d.ready)return window.NELivingDay?.open?.();
+ if(d.stage==='cards'&&d.miniRound)return renderMiniRound(d);
  if(d.stage==='cards'){
   const queue=cardQueue(d),card=currentCard(d);
   if(!card){d.stage='cloze';d.feedback='';save();return render()}
   const word=card.word,feedback=d.cardFeedback,review=d.cardsSeen>=d.active.length;
+  const kind=word.newToday?'<span class="tag">Новое слово</span>':'<span class="tag">Повторение</span>';
   // Existing saved exercises from the previous release asked for a single form.
   // Upgrade the CURRENT task in place, preserving the student's translation and retries.
   const oldPractice=d.formPractice;
@@ -221,7 +325,7 @@ function render(){
     '<p class="muted">После голосового ответа проверь распознанный текст в поле. При ошибке слово повторится позже.</p>';
   return wrapper('<p class="muted">'+(review?'Повторяем трудные слова · ':'Карточки · ')+
    (d.cardsSeen+1)+' из '+queue.length+'</p>'+
-   '<div class="card" style="padding:24px"><div class="muted">'+esc(grammar.typeRu)+'</div>'+
+   '<div class="card" style="padding:24px"><div class="muted">'+esc(grammar.typeRu)+'</div>'+kind+
    '<h2 lang="nb" style="text-align:center">'+esc(grammar.headword)+'</h2>'+
    '<button class="btn secondary" onclick="NELivingWords.listenCard()">▶ Послушать слово</button>'+stageLabel+
    result+fields+morphology+'</div>',d);
@@ -491,5 +595,5 @@ function recordSpeech(){
  }catch{recognizing=false;d.feedback='Микрофон не запустился. Проверь разрешение браузера.';save();render();return false}
 }
 function checkSpeaking(){const d=ensure();return d?.speechText?assess('speaking',d.speechText):false}
-window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,checkForm,recordForm,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation});
+window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,checkForm,recordForm,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation,progress,answerMini,listenMini,revealMiniWord,continueMini});
 })();

@@ -162,7 +162,7 @@
   }
   function renderHomeV7(){
     currentRouteV7="home";
-    const j=guidedV7(),living=window.NELivingDay?.details?.()||null,story=j.story,words=dailyWordsV7(),district=story?.district||"Fjordvik",
+    const j=guidedV7(),living=window.NELivingDay?.details?.()||null,wordStatus=window.NELivingWords?.progress?.()||null,story=j.story,words=dailyWordsV7(),district=story?.district||"Fjordvik",
       pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id],
       met=state.noraMemory?.introduced===true,
       heroTitle=living?(living.finished?'На сегодня отлично!':pending?'Продолжим?':'Учим норвежский вместе'):pending?"Продолжим?":j.mins===0?"До завтра!":met?"Идём дальше!":"Начнём вместе",
@@ -177,6 +177,32 @@
         '<div><b>'+h(x.title)+'</b><small>'+h(x.sub)+'</small></div><em>'+x.mins+' мин</em>'+
       '</button>'
     ).join("");
+    const shortSteps=(wordStatus?.stages?.length?wordStatus.stages:[
+      {number:1,start:1,end:5,done:false},{number:2,start:6,end:10,done:false},
+      {number:3,start:11,end:15,done:false}
+    ]).map(step=>
+      '<button class="route-step-v7 '+(step.done?'done':'')+'" onclick="v7ContinueToday()">'+
+       '<span class="route-icon-v7">'+(step.done?'✓':step.number)+'</span>'+
+       '<div><b>Слова · мини-этап '+step.number+'</b><small>'+step.start+'–'+step.end+
+        ' · перевод, предложение, быстрая проверка</small></div>'+
+       '<em>'+(step.done?'Готово':wordStatus?.seen>=step.start-1?'Продолжить':'Далее')+'</em></button>'
+    ).join('');
+    const miniPath= living?
+      '<section class="route-card-v7"><div class="section-head-v7"><div>'+
+        '<small>Твой маршрут · маленькие шаги</small><h2>'+h(living.title)+'</h2></div>'+
+        '<span>'+h(living.level)+'</span></div>'+
+        '<p>'+h(living.objective)+'</p>'+
+        '<p class="muted">Сначала слова короткими этапами по пять. После них — практика с Норой: слух, речь и письмо. Можно остановиться и продолжить позже без потери результата.</p>'+
+        '<div class="progress" role="progressbar" aria-label="Прогресс словарной практики"><i style="width:'+(wordStatus?.percent||0)+'%"></i></div>'+
+        '<div class="route-steps-v7">'+shortSteps+
+          '<button class="route-step-v7 '+(living.finished?'done':'')+'" onclick="v7ContinueToday()">'+
+           '<span class="route-icon-v7">'+(living.finished?'✓':'N')+'</span>'+
+           '<div><b>Нора · ситуации и разговор</b><small>'+living.scene+' из '+living.total+
+             ' связанных ситуаций освоено; переход подтверждается ответами</small></div>'+
+           '<em>'+(living.finished?'Готово':'Продолжить')+'</em></button></div>'+
+        '<p class="muted">Полное дневное занятие может занять больше времени, чем один мини-этап. Уровень определяется проверкой навыков, а не количеством нажатий.</p>'+
+        '<button class="btn secondary" onclick="v7ContinueToday()">Продолжить с сохранённого места →</button>'+
+      '</section>':null;
     shell(
       '<section class="home-v7">'+
         '<section class="hero-v7">'+
@@ -185,7 +211,7 @@
           '<button class="cta-v7" onclick="v7ContinueToday()">Продолжить день <b>→</b></button></div>'+
           '<div class="hero-note-v7">Små steg<br>store eventyr ♡</div>'+
         '</section>'+
-        (living?'<section class="route-card-v7"><div class="section-head-v7"><div><small>Одна тема · несколько реальных ситуаций</small><h2>'+h(living.finished?'Учебный день завершён':living.title)+'</h2></div><span>План от 45 мин</span></div><p>'+h(living.objective)+'</p><p class="muted">Нора последовательно объясняет, даёт практику и возвращает ошибки. Пройдено ситуаций: '+living.scene+' из '+living.total+'. Это ориентир нагрузки, а не счётчик времени.</p><button class="btn secondary" onclick="v7ContinueToday()">'+h(living.finished?'Посмотреть результаты':'Вернуться к занятию')+' →</button></section>':
+        (living?miniPath:
         '<section class="route-card-v7"><div class="section-head-v7"><div><small>Твой маршрут на сегодня · 5 занятий</small><h2>'+(j.mins?"Осталось "+(j.total-j.done)+" из "+j.total+" блоков":"Маршрут завершён")+'</h2></div><span>План '+j.planned+' мин</span></div><p class="muted">Время на каждый блок — ориентир, а не измерение фактически потраченных минут.</p><div class="route-steps-v7">'+route+'</div></section>')+
         xpJourneyV7()+
                 '<section class="card applied-home-entry"><div class="section-head-v7"><div><small>Дополнительная практика · '+h(state.level)+'</small><h2>Норвежский для жизни</h2><p>Проверь формы слов и потренируйся заполнять документы.</p></div></div><div class="applied-actions"><button class="btn" onclick="navigate(\'cloze\')">Вставить слово</button><button class="btn secondary" onclick="navigate(\'forms\')">Анкеты и заявления</button></div></section>'+

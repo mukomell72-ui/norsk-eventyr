@@ -30,6 +30,7 @@ w.SpeechRecognition=SR;
 const document={getElementById:id=>input[id]||null};
 const ctx={window:w,document,Date,Math,Array,String,Number,Object,JSON,Set,Intl};
 vm.runInNewContext(read('card-form-practice.js'),ctx);
+vm.runInNewContext(read('mini-path.js'),ctx);
 vm.runInNewContext(read('living-words.js'),ctx);
 const D=w.NELivingWords;
 (async()=>{
@@ -88,6 +89,18 @@ const D=w.NELivingWords;
   await finishCard(session.active[n]);
  }
  assert.equal(session.cardsSeen,5);
+ assert(session.miniRound&&session.miniRound.phase==='quiz','A five-word checkpoint must open before long repetition');
+ assert(views.at(-1).includes('Быстрая проверка'),'Checkpoint shows a distinct interactive format');
+ const savedRound=JSON.parse(JSON.stringify(session.miniRound));
+ assert.equal(savedRound.boundary,5,'Checkpoint persists in existing learner state');
+ while(session.miniRound.phase==='quiz'){
+  const q=session.miniRound.questions[session.miniRound.index];
+  assert.equal(D.answerMini(q.correct),true);
+ }
+ assert.equal(session.miniRound.phase,'break');
+ assert(views.at(-1).includes('Остановиться сейчас'),'Learner may safely pause after completing a mini lesson');
+ assert.equal(D.progress().completed,1,'Round completion is tracked');
+ assert.equal(D.continueMini(),true,'Learner explicitly starts the next activity');
  assert.equal(session.stage,'cards','Missed first word must reappear before next exercise');
  assert(views.at(-1).includes(missed.word));
  // A failed retry can be deferred without losing it from the long-term queue.
@@ -129,8 +142,9 @@ const D=w.NELivingWords;
  assert.equal(Object.keys(s.dailyDictionary).length,20,'Older learned entries must remain archived');
  assert(saves>4);
  const access=read('access.js'),sw=read('sw.js'),lexicon=read('lexicon.js'),teacher=read('living-day.js');
- assert(access.includes("'living-words.js'")&&sw.includes('/living-words.js?v=8.3.0-lesson20'));
+ assert(access.includes("'mini-path.js','living-words.js'")&&sw.includes('/mini-path.js?v=8.3.0-lesson21'));
+ assert(sw.includes('/living-words.js?v=8.3.0-lesson21'));
  assert(teacher.includes('NELivingWords.isReady()'),'Main route must check whether warmup is complete');
  assert(lexicon.includes("livingVocabulary?.days?.[date]?.newWords"),'Separate optional daily section cannot award another five new words');
- console.log('PASS daily vocabulary: mandatory grammar on every word including retries, Russian and Norwegian voice, 15 active, five new/day, cloze and production');
+ console.log('PASS daily vocabulary: five-word mini-lesson checkpoint, mandatory contextual grammar on every word, retries, Russian/Norwegian voice, 15 active and 5 new/day');
 })().catch(err=>{console.error(err);process.exitCode=1});
