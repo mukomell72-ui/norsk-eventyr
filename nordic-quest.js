@@ -165,8 +165,23 @@ function play(){return window.NQQuestPlay}
 function signalMode(run){return play()?.mode?.(run?.index)||'dialogue'}
 function signalRun(s,level,create=false){
  const w=getWorldState(s,create);if(!w)return null;
- const k=signalKey(level);
- if(create&&!w.signalRuns[k]){
+ const runs=w.signalRuns;
+ if(!runs||typeof runs!=='object'||Array.isArray(runs))return null;
+ const today=date(),lvl=safeLevel(level),todayKey=signalKey(lvl);
+ let k=todayKey;
+ if(!runs[k]){
+  // Keep an unfinished saved mission accessible after midnight.
+  // Restore its original dated task bank as well as its selected tiles.
+  const pending=Object.keys(runs).filter(key=>{
+   const r=runs[key],started=key.slice(0,10);
+   return key.endsWith(':'+lvl)&&/^\d{4}-\d{2}-\d{2}$/.test(started)&&
+    started<=today&&r&&r.date===started&&r.level===lvl&&
+    r.completed!==true&&Number.isInteger(r.index)&&r.index>=0&&
+    r.index<(r.version===1?3:4);
+  }).sort().at(-1);
+  if(pending)k=pending;
+ }
+ if(create&&!runs[k]){
   w.signalRuns[k]={version:2,level:safeLevel(level),date:date(),index:0,misses:0,
    completed:false,reveal:false,feedback:'',checked:false,tiles:[],choice:null,spoken:'',voiceNote:''};
   const keys=Object.keys(w.signalRuns).sort();
@@ -190,7 +205,8 @@ function beginSignal(level){
 function isComplete(s,level){return signalRun(s,level)?.completed===true}
 function signalContext(){
  const s=app(),w=getWorldState(s),l=safeLevel(w?.viewLevel||s?.level);
- return {s,w,l,r:signalRun(s,l),tasks:signalBank(l)};
+ const r=signalRun(s,l);
+ return {s,w,l,r,tasks:signalBank(l,r?.date)};
 }
 function soundEffect(kind){
  const w=getWorldState(app());
@@ -272,9 +288,9 @@ function nextSignal(){
    if(branch){
     r.storyTitle=branch.title;r.storyResult=branch.story;
     w.journal=Array.isArray(w.journal)?w.journal:[];
-    const key=signalKey(l);
+    const key=r.date+':'+l;
     if(!w.journal.some(entry=>entry.key===key)){
-     w.journal.push({key,date:date(),level:l,title:branch.title,
+     w.journal.push({key,date:r.date,level:l,title:branch.title,
       result:branch.story,misses:r.misses,choice:r.choice});
      if(w.journal.length>90)w.journal=w.journal.slice(-90);
     }
@@ -476,7 +492,8 @@ function open(){
  const s=app(),curr=window.NECurriculum;
  if(!s||!curr)return window.navigate?.('home');
  const w=getWorldState(s,true),j=journey(s,w.viewLevel),stamps=passport(s);
- const todayDone=isComplete(s,j.level),current=j.active,notes=journalEntries(s),latest=notes.slice(-3).reverse();
+ const currentRun=signalRun(s,j.level),todayDone=currentRun?.completed===true;
+ const current=j.active,notes=journalEntries(s),latest=notes.slice(-3).reverse();
  const levelNav=LEVELS.map(l=>'<button class="nq-level '+(l===j.level?'active':'')+'" aria-pressed="'+(l===j.level)+'" onclick="NENordicQuest.selectLevel(\''+l+'\')">'+l+'</button>').join('');
  const nodes=j.chapters.map((ch,i)=>
   '<button class="nq-stop '+h(ch.status)+' nq-stop-'+i+'" onclick="NENordicQuest.openChapter(\''+h(ch.moduleId)+'\')"'+
@@ -514,7 +531,8 @@ function open(){
     '<div class="nq-signal-copy"><span class="nq-kicker">ПОБОЧНОЕ ПРИКЛЮЧЕНИЕ · 4 ИСПЫТАНИЯ</span>'+
      '<h2>Радио северного маяка</h2><p>Ответь в диалоге, собери фразу, разгадай сообщение на слух и выбери продолжение своей истории.</p>'+
      '<button class="nq-button outline" '+(!j.allowed?'disabled aria-disabled="true" title="Сначала подтверди предыдущий уровень"':'onclick="NENordicQuest.beginSignal(\''+h(j.level)+'\')"')+'>'+
-       (!j.allowed?'Доступно после предыдущего уровня':todayDone?'Открыть путевую заметку':'Принять сигнал Норы')+' →</button></div></section>'+
+       (!j.allowed?'Доступно после предыдущего уровня':todayDone?'Открыть путевую заметку':
+        currentRun?'Продолжить сигнал Норы':'Принять сигнал Норы')+' →</button></div></section>'+
    '<section class="nq-travel-diary"><div class="nq-section-header">'+
     '<span class="nq-kicker">ТВОИ СОБСТВЕННЫЕ ИСТОРИИ</span><h2>Путевые заметки</h2>'+
     '<p>Решения в дополнительных приключениях создают разные истории. Это игровые сувениры, а не сертификаты владения языком.</p></div>'+
