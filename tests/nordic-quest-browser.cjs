@@ -30,6 +30,7 @@ const read=file=>fs.readFileSync(path.join(__dirname,'..',file),'utf8');
   assert.equal(await page.locator('.nq-stop.current').count(),1);
   assert.equal(await page.locator('.nq-stop.locked').count(),6);
   assert((await page.locator('.nq-passport').innerText()).includes('1/8'),'No fake stamps for unlearned chapters');
+  fs.mkdirSync(path.join(__dirname,'artifacts'),{recursive:true});
   await page.screenshot({path:path.join(__dirname,'artifacts','nordic-quest-world.png'),fullPage:true});
   await page.locator('.nq-stop.current').click();
   assert((await page.locator('#app').innerText()).includes('ТВОЯ ЦЕЛЬ В ЯЗЫКЕ'));
