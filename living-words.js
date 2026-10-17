@@ -293,73 +293,71 @@ async function checkForm(){
  const d=ensure(),card=d&&currentCard(d),p=d?.formPractice;
  if(!d||d.stage!=='cards'||!card||!p?.started||p.done||formBusy)return false;
  const answer=String(document.getElementById('livingFormAnswer')?.value||p.draft||'').trim();
+ const engine=window.NECardFormPractice;
+ const fail=message=>{
+  p.misses++;p.hadMistake=true;p.needsAnother=true;markWrong(d,card);
+  p.note='Пока неверно. '+message;
+  save();render();return false;
+ };
  if(!answer){
-  p.note='Введи форму слова или произнеси ответ по-норвежски.';
+  p.note='Напиши предложение по-норвежски или произнеси его через микрофон.';
   save();render();return false;
  }
  p.draft=answer;
- const engine=window.NECardFormPractice;
- let correct=false,explanation='';
- if(p.task.kind==='form'){
-  correct=engine?.correct?.(p.task,answer,card.word)===true;
- }else{
-  if(answer.length<12||answer.trim().split(/\s+/).length<3){
-   p.misses++;p.hadMistake=true;p.needsAnother=true;markWrong(d,card);
-   p.note='Нужно полное предложение на норвежском (не меньше трёх слов). Исправь ответ, затем получишь другое задание с этим словом.';
-   save();render();return false;
-  }
-  const lemma=window.NECardGrammar?.describe?.(card.word)?.lemma||card.word.word;
-  const roots=String(lemma).toLocaleLowerCase('nb-NO').replace(/^å\s+/,'')
-   .split(/\s+/).filter(Boolean);
-  const normalized=answer.toLocaleLowerCase('nb-NO');
-  const found=roots.some(w=>w.length>=3&&normalized.includes(w.slice(0,Math.max(3,Math.floor(w.length*.7)))));
-  if(!found){
-   p.misses++;p.hadMistake=true;p.needsAnother=true;markWrong(d,card);
-   p.note='В предложении не найдено изучаемое слово. Исправь ответ, затем получишь другое задание с этим же словом.';
-   save();render();return false;
-  }
-  if(p.answers.some(previous=>window.NECardFormPractice?.norm(previous)===window.NECardFormPractice?.norm(answer))){
-   p.misses++;p.hadMistake=true;p.needsAnother=true;markWrong(d,card);
-   p.note='Это предложение уже использовалось. Составь другое предложение с тем же словом.';
-   save();render();return false;
-  }
-  formBusy=true;
-  p.note='Нора проверяет предложение…';save();render();
-  try{
-   const topic=window.NELivingDay?.details?.().title||'Повседневная жизнь';
-   const r=typeof window.aiEvaluate==='function'?await window.aiEvaluate({
-    answer,question:'Составь предложение с изучаемым словом «'+String(card.word.word)+'».',
-    goal:'Проверь реальное осмысленное предложение на норвежском. Обязательно должно использоваться слово «'+
-      String(card.word.word)+'» в корректной форме. Уровень '+d.level+'. Тема: '+topic+
-      '. Оцени грамматику, смысл и правильность использования слова.',level:d.level,mode:'writing'
-   }):{ok:false};
-   if(ensure()!==d||d.formPractice!==p||d.stage!=='cards')return false;
-   if(!r.ok){
-    p.note='Проверка Норы сейчас недоступна. Ответ сохранён — повтори проверку позднее.';
-    save();render();return false;
-   }
-   const data=r.data||{};
-   correct=data.accepted===true&&Number(data.score)>=65;
-   explanation=String(data.explanation_ru||data.improvements_ru?.[0]||'Проверь грамматику предложения.').slice(0,380);
-  }catch{
-   p.note='Не удалось проверить предложение. Ответ сохранён, попробуй ещё раз.';
-   save();render();return false;
-  }finally{formBusy=false}
+ if(/[а-яё]/i.test(answer)){
+  return fail('Здесь нужно предложение на норвежском. Русский перевод уже проверен на шаге 1.');
  }
+ if(answer.length<12||answer.trim().split(/\s+/).length<3){
+  return fail('Одного слова недостаточно. Составь полное осмысленное предложение по-норвежски (не меньше трёх слов).');
+ }
+ if(!engine?.containsWord?.(p.task,answer,card.word)){
+  return fail('В предложении нет нужного слова в заданной форме. '+(engine?.hint?.(p.task,p.misses+1)||'Проверь слово и его форму.'));
+ }
+ if(p.answers.some(previous=>engine.norm(previous)===engine.norm(answer))){
+  return fail('Ты уже использовал это предложение. Напиши другое со словом в заданной форме.');
+ }
+ formBusy=true;
+ p.note='Нора проверяет, правильно ли ты понял значение и применил слово в предложении…';
+ save();render();
+ let correct=false,explanation='';
+ try{
+  const topic=window.NELivingDay?.details?.().title||'Повседневная жизнь';
+  const rubric='Нужно ОДНО самостоятельно придуманное, естественное норвежское предложение. '+
+    'Проверь, что слово «'+String(card.word.word)+'» (словарная форма: «'+String(p.task.word)+
+    '», русский смысл: «'+String(card.word.translation)+'») использовано по смыслу и грамматически верно. '+
+    (p.task.requiredForm?'Требуемая грамматическая форма: '+p.task.label+' («'+p.task.requiredForm+'»). ':'')+
+    'Проверь порядок слов, уместность, время, род/число и наличие законченной мысли. '+
+    'Нельзя засчитывать одно слово, случайный набор слов или смысловую ошибку. '+
+    'Уровень '+d.level+'. Тема: '+topic+'. Дай короткую конкретную подсказку по-русски при ошибке.';
+  const response=typeof window.aiEvaluate==='function'?await window.aiEvaluate({
+   answer,question:p.task.prompt,goal:rubric,level:d.level,mode:'writing'
+  }):{ok:false};
+  if(ensure()!==d||d.formPractice!==p||d.stage!=='cards')return false;
+  if(!response?.ok){
+   p.note='Проверка Норы сейчас недоступна. Твоё предложение сохранено. Повтори проверку позже.';
+   save();render();return false;
+  }
+  const data=response.data||{};
+  correct=data.accepted===true&&Number(data.score)>=70;
+  explanation=String(data.explanation_ru||data.improvements_ru?.[0]||'Проверь смысл, форму и порядок слов.').slice(0,450);
+ }catch{
+  if(ensure()===d&&d.formPractice===p){
+   p.note='Связь с проверкой Норы прервалась. Твой ответ сохранён, попробуй снова.';
+   save();render();
+  }
+  return false;
+ }finally{formBusy=false}
  if(!correct){
-  p.misses++;p.hadMistake=true;p.needsAnother=true;
-  markWrong(d,card);
-  p.note='Пока неверно. '+(p.task.kind==='form'?engine.hint(p.task,p.misses):explanation+' '+engine.hint(p.task,p.misses));
-  save();render();return false;
+  return fail(explanation+' '+(engine?.hint?.(p.task,p.misses+1)||'Исправь предложение, чтобы продолжить.'));
  }
  p.answers.push(answer);
  if(p.needsAnother){
   p.task=engine.choose(card.word,p.task.index);
   p.taskCount++;p.misses=0;p.draft='';p.needsAnother=false;
-  p.note='Теперь правильно! После ошибки попробуй другое случайное задание с этим же словом.';
+  p.note='Исправление принято! Теперь составь другое предложение с тем же словом в новой форме или ситуации.';
   save();render();return true;
  }
- p.done=true;p.note='Верно! Слово применено правильно.';
+ p.done=true;p.note='Смысл и употребление слова закреплены. Предложение принято.';
  save();render();return true;
 }
 let formRecognition=null;
