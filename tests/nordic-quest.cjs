@@ -18,6 +18,29 @@ vm.runInNewContext(read('nordic-quest-play.js'),ctx);
 vm.runInNewContext(read('nordic-quest.js'),ctx);
 const W=w.NENordicQuest;
 assert(W&&W.REGIONS&&W.PLACES.length===8);
+// Daily replayability: three independently rotating tasks create 27 distinct
+// daily challenge sets per language level before combinations repeat.
+for(const level of ['A1','A2','B1','B2']){
+ const variants=new Set();
+ for(let offset=0;offset<27;offset++){
+  const d=new Date(Date.UTC(2026,9,17+offset)).toISOString().slice(0,10);
+  const bank=W.signalBank(level,d);
+  assert.equal(bank.length,3);
+  bank.forEach((task,index)=>{
+   assert(task.scene&&task.ask&&task.no&&task.ru&&task.hint);
+   assert.equal(task.wrong.length,2);
+   assert.equal(task.wrongRu.length,2);
+   assert(!task.wrong.includes(task.no));
+   assert(!task.wrongRu.includes(task.ru));
+   if(index===1)assert(task.no.trim().split(/\s+/).length>=3,'Sentence builder needs multiple tiles');
+  });
+  variants.add(bank.map(task=>task.no).join('|'));
+ }
+ assert.equal(variants.size,27,level+' should have 27 distinct daily mission sets, not three repetitive prompts');
+ assert.deepEqual(Array.from(W.signalBank(level,'2026-10-20')).map(x=>x.no),
+                  Array.from(W.signalBank(level,'2026-10-20')).map(x=>x.no),'Daily challenge order remains stable across reloads');
+}
+
 const a1=W.journey(s,'A1');
 assert.equal(a1.chapters.length,8);
 assert.equal(a1.mastered,1,'A mastered chapter needs real module mastery, not XP');
