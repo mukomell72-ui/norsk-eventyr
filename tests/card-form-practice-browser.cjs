@@ -65,7 +65,7 @@ function sentence(task){
     }
    };
   });
-  for(const name of ['card-grammar.js','card-form-practice.js','living-words.js'])
+  for(const name of ['card-grammar.js','card-form-practice.js','mini-path.js','living-words.js'])
    await page.addScriptTag({content:fs.readFileSync(path.join(__dirname,'..',name),'utf8')});
   await page.evaluate(()=>window.NELivingWords.render());
   assert(await page.getByRole('heading',{name:'å begynne'}).isVisible(),'The inflected beginnen form receives its infinitive lemma');
@@ -133,6 +133,16 @@ function sentence(task){
   let guard=0,checked=1;
   while(await page.evaluate(()=>window.NELivingWords.ensure().stage)==='cards'){
    if(++guard>10)throw Error('Vocabulary did not finish after correct independent sentences');
+   if(await page.evaluate(()=>!!window.NELivingWords.ensure().miniRound)){
+    while(await page.evaluate(()=>window.NELivingWords.ensure().miniRound?.phase)==='quiz'){
+     const correct=await page.evaluate(()=>{
+      const m=window.NELivingWords.ensure().miniRound;return m.questions[m.index].correct;
+     });
+     await page.locator('button[onclick^="NELivingWords.answerMini("]').nth(correct).click();
+    }
+    await page.getByRole('button',{name:/Продолжить занятие|Повторить трудные слова|Перейти к следующим словам/}).click();
+    continue;
+   }
    const word=await page.evaluate(()=>{
     const d=window.NELivingWords.ensure();return d.active[d.cardQueue[d.cardsSeen]];
    });
@@ -149,6 +159,6 @@ function sentence(task){
   assert(evaluations.every(v=>v.goal.includes('смысл')||v.goal.includes('русский смысл')),
    'Teacher gets the actual meaning and usage rubric');
   assert.deepEqual(errors,[],'No JavaScript errors during the mobile lesson');
-  console.log('PASS translation then contextual sentence on every card: writing, speaking, semantic mistakes, different follow-up task, saved review');
+  console.log('PASS mobile: contextual sentence on every card, Russian/voice input, semantic corrections, saved mini-lesson and spaced review');
  }finally{await browser.close()}
 })().catch(e=>{console.error(e);process.exitCode=1});
