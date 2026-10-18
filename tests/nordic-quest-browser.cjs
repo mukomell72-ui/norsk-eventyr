@@ -1,0 +1,121 @@
+// Real mobile Chromium: unique Nordic map -> skill-linked chapter -> radio choice and audio.
+'use strict';
+const {chromium}=require('playwright'),assert=require('node:assert/strict');
+const fs=require('node:fs'),path=require('node:path');
+const read=file=>fs.readFileSync(path.join(__dirname,'..',file),'utf8');
+(async()=>{
+ const browser=await chromium.launch({headless:true});
+ try{
+  const page=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await page.setContent('<html lang="ru"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:0;background:#06131f;color:white"><main style="max-width:760px;margin:auto;padding:0 14px" id="app"></main></body></html>');
+  await page.addStyleTag({content:read('nordic-quest.css')});
+  await page.evaluate(()=>{
+   window.neLearnerState={level:'A1',xp:500000,learningV8:{},completed:{},dailyDictionary:{},srs:{}};
+   window.neLocalDate=()=> '2026-10-17';
+   window.saveState=()=>{window.saved=(window.saved||0)+1;};
+   window.shell=(html,route)=>{document.getElementById('app').innerHTML=html;window.screen=route;};
+   window.NEAdaptive={highestUnlockedLevel:()=> 'A1',moduleMastery:(_s,id)=>id==='a1-foundation'?87:id==='a1-home'?32:0};
+   window.NELivingDay={details:()=>({moduleId:'a1-home',finished:false})};
+   window.routes=[];window.audio=[];
+   window.speakText=(phrase,rate)=>{window.audio.push({phrase,rate});return Promise.resolve({source:'mock'});};
+   window.navigate=(...args)=>{window.routes.push(args);if(args[0]==='adventure')return window.NENordicQuest.open();};
+  });
+  for(const file of ['curriculum-v8.js','nordic-quest-play.js','nordic-quest.js'])
+   await page.addScriptTag({content:read(file)});
+  await page.evaluate(()=>window.NENordicQuest.open());
+  assert(await page.locator('.nq-hero h1').isVisible(),'Immersive unique quest home appears');
+  assert.equal(await page.locator('.nq-stop').count(),8);
+  assert.equal(await page.locator('.nq-stop.mastered').count(),1);
+  assert.equal(await page.locator('.nq-stop.current').count(),1);
+  assert.equal(await page.locator('.nq-stop.locked').count(),6);
+  assert((await page.locator('.nq-passport').innerText()).includes('1/8'),'No fake stamps for unlearned chapters');
+  fs.mkdirSync(path.join(__dirname,'artifacts'),{recursive:true});
+  await page.screenshot({path:path.join(__dirname,'artifacts','nordic-quest-world.png'),fullPage:true});
+  await page.locator('.nq-stop.current').click();
+  assert((await page.locator('#app').innerText()).includes('ТВОЯ ЦЕЛЬ В ЯЗЫКЕ'));
+  assert(await page.getByRole('button',{name:'Начать задание с Норой'}).isVisible());
+  await page.getByRole('button',{name:'Начать задание с Норой'}).click();
+  assert.equal((await page.evaluate(()=>window.routes.at(-1)))[0],'livingday','Active teacher day remains authority');
+  await page.evaluate(()=>window.NENordicQuest.open());
+  await page.locator('.nq-stop.locked').first().click();
+  assert((await page.locator('#app').innerText()).includes('станет доступна'));
+  assert.equal(await page.getByRole('button',{name:'Начать задание с Норой'}).count(),0,'Locked chapter cannot be launched');
+  await page.getByRole('button',{name:'К карте путешествия'}).click();
+  assert(await page.locator('.nq-map').isVisible());
+  await page.getByRole('button',{name:'Принять сигнал Норы'}).click();
+  assert.equal(await page.locator('.nq-answer').count(),3,'First task offers contextual Norwegian dialogue');
+  assert((await page.locator('.nq-signal-meter').innerText()).includes('1 / 4'));
+  await page.locator('.nq-answer').nth(0).click();
+  assert((await page.locator('.nq-nora-reaction.try').innerText()).includes('Нора'));
+  assert.equal(await page.evaluate(()=>window.NENordicQuest.signalRun(window.neLearnerState,'A1').index),0,'Wrong dialogue answer stays on task');
+  await page.locator('.nq-answer').nth(1).click();
+  assert(await page.locator('.nq-nora-reaction.right').isVisible(),'Nora responds to correct Norwegian choices');
+  await page.getByRole('button',{name:'Продолжить путь'}).click();
+  assert(await page.locator('.nq-drop-zone').isVisible(),'Next task is interactive sentence construction');
+  const savedTask=await page.evaluate(()=>window.NENordicQuest.signalBank('A1','2026-10-17')[1].ru);
+  await page.evaluate(()=>{window.neLocalDate=()=> '2026-10-20';window.NENordicQuest.open();});
+  assert(await page.getByRole('button',{name:'Продолжить сигнал Норы'}).isVisible(),
+    'Next-day atlas must expose the interrupted mission');
+  await page.getByRole('button',{name:'Продолжить сигнал Норы'}).click();
+  assert((await page.locator('.nq-signal-meter').innerText()).includes('2 / 4'));
+  assert((await page.locator('.nq-builder').innerText()).includes(savedTask),
+    "Resumed stage must use the original sentence rather than a new day's randomized one");
+  await page.evaluate(()=>{window.neLocalDate=()=> '2026-10-17';});
+  const tileCount=await page.locator('.nq-tile-bank .nq-tile').count();
+  assert(tileCount>=3);
+  for(let i=0;i<tileCount;i++){
+   await page.locator('button[onclick="NENordicQuest.selectTile('+i+')"]').click();
+  }
+  await page.getByRole('button',{name:'Проверить предложение'}).click();
+  assert(await page.locator('.nq-nora-reaction.try').isVisible(),'Wrong word order is explained');
+  await page.getByRole('button',{name:'Очистить'}).click();
+  const correctIndices=await page.evaluate(()=>{
+   const W=window.NENordicQuest,q=window.NQQuestPlay,bank=W.signalBank('A1');
+   const phrase=bank[1].no,tiles=q.shuffledTiles(phrase);
+   return q.phraseTokens(phrase).map((_,i)=>tiles.findIndex(tile=>tile.id===i));
+  });
+  for(const idx of correctIndices)await page.locator('button[onclick="NENordicQuest.selectTile('+idx+')"]').click();
+  assert.equal(await page.locator('.nq-tile-bank .nq-tile').count(),0);
+  await page.getByRole('button',{name:'Проверить предложение'}).click();
+  assert(await page.locator('.nq-build-complete').isVisible());
+  assert(await page.getByRole('button',{name:'Сказать Норе'}).isVisible(),'Optional pronunciation supports independent speaking');
+  await page.locator('.nq-speaking-bonus').getByRole('button',{name:/Послушать/}).click();
+  assert.equal(await page.evaluate(()=>window.audio.length),1,'Listen to native Norwegian example');
+  await page.getByRole('button',{name:'Продолжить путь'}).click();
+  assert(await page.getByRole('button',{name:'Слушать фразу'}).isVisible(),'Third challenge tests listening');
+  await page.getByRole('button',{name:'Слушать фразу'}).click();
+  assert.equal(await page.evaluate(()=>window.audio.length),2);
+  await page.getByRole('button',{name:'Не слышно? Показать текст'}).click();
+  assert(await page.locator('.nq-audio-panel p[lang="nb"]').isVisible(),'Silent-device fallback works');
+  await page.locator('.nq-answer').nth(0).click();
+  await page.getByRole('button',{name:'Продолжить путь'}).click();
+  assert(await page.locator('.nq-decision-option').count()===2,'Fourth challenge offers independent story choice');
+  await page.locator('.nq-decision-option').nth(1).click();
+  assert(await page.locator('.nq-story-teaser').isVisible(),'Choice changes visible narrative');
+  await page.getByRole('button',{name:'Завершить приключение'}).click();
+  assert((await page.locator('.nq-signal-finished').innerText()).includes('маяка'));
+  assert(await page.locator('.nq-celebration').isVisible());
+  assert((await page.locator('.nq-outcome').innerText()).includes('Тропа к городу'));
+  const s=await page.evaluate(()=>window.neLearnerState);
+  assert.equal(s.level,'A1');
+  assert.equal(s.xp,500000);
+  assert(s.learningV8.adventureWorld.signalRuns['2026-10-17:A1'].completed);
+  assert.equal(s.learningV8.adventureWorld.journal.length,1,'Adventure changes persistent field journal');
+  assert.equal(s.learningV8.adventureWorld.journal[0].choice,'explore');
+  assert(await page.getByRole('button',{name:'Вернуться к экспедиции'}).isVisible());
+  await page.getByRole('button',{name:'Вернуться к экспедиции'}).click();
+  assert(await page.locator('.nq-diary-page').isVisible(),'Story outcome can be read after leaving quest');
+  assert(await page.getByRole('button',{name:'Открыть путевую заметку'}).isVisible());
+  await page.getByRole('button',{name:'A2'}).click();
+  assert((await page.locator('.nq-unavailable').innerText()).includes('после подтверждения предыдущего уровня'));
+  assert.equal(await page.locator('.nq-stop.current').count(),0,'Higher level never unlocks via radio choices');
+  assert(await page.getByRole('button',{name:/Доступно после предыдущего уровня/}).isDisabled(),'Side quests obey the same actual CEFR gate');
+  await page.setViewportSize({width:360,height:760});
+  await page.evaluate(()=>window.NENordicQuest.open());
+  const viewport=await page.evaluate(()=>({client:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth}));
+  assert(viewport.scroll<=viewport.client+4,'Mobile adventure must not scroll horizontally: '+JSON.stringify(viewport));
+  assert.deepEqual(errors,[],'No JS exceptions in adventure path');
+  console.log('PASS Nordic Quest mobile: mission map, real mastery stamps, locked chapters, audio accessibility, 3-day signals and safe responsive layout');
+ }finally{await browser.close()}
+})().catch(e=>{console.error(e);process.exitCode=1});
