@@ -21,8 +21,12 @@ assert.equal(revision,v,'Access bootstrap must fetch the published revision');
 const baseCache='norsk-eventyr-v'+v.replaceAll('.','-');
 const actualCache=(sw.match(/^const CACHE="([^"]+)";/m)||[])[1];
 const assetRevision=actualCache?.startsWith(baseCache)?actualCache.slice(baseCache.length):null;
-assert(assetRevision!==null&&(/^(?:-(?:ui|auth|lesson)[1-9][0-9]*)?$/).test(assetRevision),
+assert(assetRevision!==null&&(/^(?:-(?:ui|auth|lesson)[1-9][0-9]*(?:-listening[1-9][0-9]*)?)?$/).test(assetRevision),
   'PWA cache must match the release version or a numbered patch revision');
+const audioSuffix=(assetRevision?.match(/(-listening[1-9][0-9]*)$/)||[])[1]||'';
+const baseRevision=assetRevision?.slice(0,assetRevision.length-audioSuffix.length)||'';
+// Independently validate a narrowly scoped audio-cache refresh: core lessons
+// remain on their tested revision, while access, audio bank and elite reload.
 assert(index.includes('<title>Norsk Eventyr '+v),'Page must show exact application version');
 assert(health.includes('version:"'+v+'"'),'Health endpoint must report the deployed version');
 const assetsLiteral=(sw.match(/^const ASSETS=(\[[^\n]+\]);/m)||[])[1];
@@ -35,16 +39,17 @@ for(const asset of assets){
  const [pathname,query]=asset.split('?');
  if(asset!=='/')assert(exists(pathname.replace(/^\//,'')),'PWA update will fail: missing '+asset);
  if(query&&pathname!=='/manifest.json'){
-  const patched=assetRevision?.startsWith('-lesson')?['/v8.css','/access.js','/access.css','/app.js','/guided-speaking.js','/v3.js','/adaptive-teacher.js','/course-methodology.js','/verified-learning-resources.js','/elite.js','/ui-v7.js','/nordic-quest-play.js','/nordic-quest.js','/nordic-quest.css','/living-day.js','/card-grammar.js','/card-form-practice.js','/mini-path.js','/living-words.js','/admin-dashboard.js','/admin-dashboard.css','/study-activity.js']:
+  const patched=assetRevision?.startsWith('-lesson')?['/v8.css','/access.js','/access.css','/app.js','/guided-speaking.js','/v3.js','/adaptive-teacher.js','/course-methodology.js','/verified-learning-resources.js','/norwegian-listening.js','/elite.js','/ui-v7.js','/nordic-quest-play.js','/nordic-quest.js','/nordic-quest.css','/living-day.js','/card-grammar.js','/card-form-practice.js','/mini-path.js','/living-words.js','/admin-dashboard.js','/admin-dashboard.css','/study-activity.js']:
    assetRevision?.startsWith('-auth')?['/v8.css','/access.js','/access.css']:['/v8.css'];
-  const expected='v='+v+(patched.includes(pathname)?assetRevision:'');
+  const expected='v='+v+(patched.includes(pathname)?baseRevision:'')+
+   (audioSuffix&&['/access.js','/elite.js','/norwegian-listening.js'].includes(pathname)?audioSuffix:'');
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
 }
 }
 if(assetRevision){
-  assert(index.includes('href="/v8.css?v='+v+assetRevision+'"'),
+  assert(index.includes('href="/v8.css?v='+v+baseRevision+'"'),
     'UI patch must force the same fresh stylesheet on the page');
-  assert(assets.includes('/v8.css?v='+v+assetRevision),
+  assert(assets.includes('/v8.css?v='+v+baseRevision),
     'UI patch stylesheet must be available offline');
 }
 if(assetRevision?.startsWith('-auth')){
@@ -60,7 +65,8 @@ if(assetRevision?.startsWith('-lesson')){
     'Lesson patch must fetch fresh lesson bootstrap');
   assert(assets.includes('/access.js?v='+v+assetRevision),
     'PWA must precache updated lesson bootstrap');
-  assert(access.includes("LESSON_PATCH='"+assetRevision+"'"),
+  assert(access.includes("LESSON_PATCH='"+baseRevision+"'")&&
+   (!audioSuffix||access.includes("'"+audioSuffix+"'")), 
     'Access bootstrap and offline cache must agree on lesson patch revision');
 }
 const assetSet=new Set(assets);
@@ -69,8 +75,9 @@ assert(bootstrap,'Dynamic asset dependency list must be declared');
 const scripts=[...bootstrap[1].matchAll(/'([^']+\.js)'/g)].map(m=>m[1]);
 assert(scripts.length>=15,'Critical dynamic scripts dropped');
 for(const filename of scripts){
- const patch=assetRevision?.startsWith('-lesson')&&['app.js','guided-speaking.js','v3.js','adaptive-teacher.js','course-methodology.js','verified-learning-resources.js','elite.js','ui-v7.js','nordic-quest-play.js','nordic-quest.js','living-day.js','card-grammar.js','card-form-practice.js','mini-path.js','living-words.js'].includes(filename)?assetRevision:'';
- assert(assetSet.has('/'+filename+'?v='+v+patch),'PWA must cache bootstrapped script '+filename);
+ const patch=assetRevision?.startsWith('-lesson')&&['app.js','guided-speaking.js','v3.js','adaptive-teacher.js','course-methodology.js','verified-learning-resources.js','norwegian-listening.js','elite.js','ui-v7.js','nordic-quest-play.js','nordic-quest.js','living-day.js','card-grammar.js','card-form-practice.js','mini-path.js','living-words.js'].includes(filename)?baseRevision:'';
+ const suffix=audioSuffix&&['norwegian-listening.js','elite.js'].includes(filename)?audioSuffix:'';
+ assert(assetSet.has('/'+filename+'?v='+v+patch+suffix),'PWA must cache bootstrapped script '+filename);
 }
 for(const m of index.matchAll(/\b(?:src|href)="(\/[^"]+)"/g)){
  const url=m[1];
