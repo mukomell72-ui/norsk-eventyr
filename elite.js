@@ -165,39 +165,150 @@
   function selectPronPhrase(i){pronSelection.phrase=i;renderPronunciationLab()}
   function practicePronounce(){const g=SOUND_LAB[pronSelection.group],p=g.phrases[pronSelection.phrase];markActivity("pronunciation");toggleMic("elitePronText",p)}
 
+  // The historical Headstart recordings mix English teaching prompts with Norwegian.
+  // Keep them as explicitly marked OPTIONAL archival material, not the listening course.
   const FSI_HUMAN_AUDIO=[
-    ["Introductions","Знакомство и вежливые выражения","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%201%20-%20Courtesy%20ExpressionsA.mp3"],
-    ["Numbers","Числа","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%202%20-%20DistanceA.mp3"],
-    ["Time","Время и дни недели","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%203%20-%20Time%20Days%20of%20WeekA.mp3"],
-    ["Restaurant","В ресторане","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%204%20-%20In%20A%20RestaurantA.mp3"],
-    ["Shopping","Покупки","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%205%20-%20ShoppingA.mp3"],
-    ["Hotel","В отеле","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%206%20-%20At%20The%20HotelA.mp3"],
-    ["Directions","Как спросить дорогу","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%207%20-%20Asking%20For%20Directions.mp3"],
-    ["At a party","В гостях","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%208%20-%20Courtesy%20To%20A%20Host.mp3"]
+    ["Знакомство и вежливость","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%201%20-%20Courtesy%20ExpressionsA.mp3"],
+    ["Числа и расстояния","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%202%20-%20DistanceA.mp3"],
+    ["Время и дни недели","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%203%20-%20Time%20Days%20of%20WeekA.mp3"],
+    ["В ресторане","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%204%20-%20In%20A%20RestaurantA.mp3"],
+    ["Покупки","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%205%20-%20ShoppingA.mp3"],
+    ["Гостиница","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%206%20-%20At%20The%20HotelA.mp3"],
+    ["Как спросить дорогу","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%207%20-%20Asking%20For%20Directions.mp3"],
+    ["В гостях","https://fsi-language-courses-media.nyc3.cdn.digitaloceanspaces.com/languages/Norwegian/Headstart/Norwegian%20Headstart%20-%20Unit%208%20-%20Courtesy%20To%20A%20Host.mp3"]
   ];
   const AUTH_RESOURCES=[
-    ["NTNU LearnNoW","Современный официальный учебный курс NTNU; открываем как внешний источник, потому что права на перепубликацию его аудио отдельно не заявлены.","https://www.ntnu.edu/learnnow/info/downloads"],
+    ["NTNU LearnNoW","Современный курс NTNU с записями норвежской речи. Слушать на официальном сайте: разрешения на встраивание этих записей нет.","https://www.ntnu.edu/learnnow/info/downloads"],
     ["Nasjonalbiblioteket Språkbanken","Открытые норвежские речевые корпуса, включая CC0-материалы.","https://www.nb.no/sprakbanken/en/resource-catalogue/"],
-    ["NRK Oppdatert","Ежедневный норвежский подкаст о текущих темах — для B1–B2.","https://radio.nrk.no/podkast/oppdatert"],
+    ["NRK Oppdatert","Современный норвежский подкаст о текущих темах (B1–B2).","https://radio.nrk.no/podkast/oppdatert"],
     ["Klar Tale","Новости на более доступном норвежском.","https://www.klartale.no/"]
   ];
-  // Completing actual playback marks listening practice, not comprehension or CEFR mastery.
-  window.NEStudyMarkListening=()=>markActivity("listening");
+  let norwegianListeningPractice=null;
   function renderListeningLab(){
     if(listeningSession){URL.revokeObjectURL(listeningSession.url);listeningSession=null}
-    shell('<div class="screen-head"><button class="back" onclick="navigate(\'hub\')">←</button><div><div class="eyebrow">Настоящий норвежский</div><h2 style="margin:0">Listening Lab</h2></div></div>'+
-    '<div class="notice"><b>Живые голоса:</b> ниже встроены реальные записи норвежской речи из Norwegian Headstart. Материал распространяется как public domain; запись не является AI-озвучкой.</div>'+
-    '<div class="section-title"><h2>Живой курс · 8 ситуаций</h2><span class="tag">FSI / DLI</span></div>'+
-    '<section class="fsi-audio-list-v63">'+FSI_HUMAN_AUDIO.map((x,i)=>'<article class="fsi-audio-card-v63"><div><small>Unit '+(i+1)+'</small><b>'+esc(x[0])+'</b><span>'+esc(x[1])+'</span></div><audio controls preload="none" onended="NEStudyMarkListening()" src="'+x[2]+'"></audio></article>').join("")+'</section>'+
-    '<div class="fsi-license-v63"><b>Источник:</b> Norwegian Headstart, U.S. government language material. Записи публично распространяются как public domain. Курс 1981 года, поэтому отдельные формы обращения могут быть устаревшими; современную норму приложение продолжает проверять отдельно.</div>'+
-    '<div class="section-title"><h2>Современные источники</h2></div><section class="grid">'+AUTH_RESOURCES.map(x=>'<article class="card"><h3>'+esc(x[0])+'</h3><p class="muted">'+esc(x[1])+'</p><a class="btn secondary link-btn" href="'+x[2]+'" target="_blank" rel="noopener">Открыть источник ↗</a></article>').join("")+'</section>'+
+    norwegianListeningPractice=null;
+    const bank=window.NENorwegianListening?.byLevel(state.level)||[];
+    const done=state.elite.norwegianListeningProgress||{};
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'hub\')">←</button><div><div class="eyebrow">Аудирование · '+esc(state.level)+'</div><h2 style="margin:0">Слушаем норвежский</h2></div></div>'+
+    '<section class="card"><h2>Норвежская речь — русский интерфейс</h2><p>Слушай только норвежские предложения, отвечай по-русски и после ответа разбирай слова и смысл.</p>'+
+    '<p class="muted"><b>Источник звука:</b> синтезированная норвежская речь (AI или голос устройства). Это не записи носителей. Если звук недоступен, можно раскрыть текст, но это не будет засчитано как аудирование.</p></section>'+
+    '<div class="section-title"><h2>Тренировки уровня '+esc(state.level)+'</h2></div>'+
+    '<section class="grid ne-norwegian-listening">'+bank.map((lesson,i)=>
+      '<article class="card" data-norwegian-lesson="'+esc(lesson.id)+'"><small>Тренировка '+(i+1)+' · '+esc(lesson.level)+' · 2 вопроса</small>'+
+      '<h3>'+esc(lesson.title)+'</h3><p class="muted">'+esc(lesson.topic)+'</p>'+
+      (done[lesson.id]?.completedAt?'<p class="feedback good">Пройдено: '+esc(String(done[lesson.id].firstTry||0))+' из 2 без ошибок с первой попытки</p>':'')+
+      '<button class="btn" onclick="startNorwegianListening(\''+esc(lesson.id)+'\')">Начать слушать →</button></article>').join('')+'</section>'+
+    '<details class="card ne-english-archive"><summary><b>Дополнительный архив: Norwegian Headstart (есть английские объяснения)</b></summary>'+
+    '<p class="muted">Исторический курс для англоговорящих. В этих MP3 встречается английская речь. Материал не относится к основным упражнениям Norsk Eventyr. Если запись не загружается, будет показана ошибка: пустое время 0:00 / 0:00 само по себе не доказывает причину сбоя.</p>'+
+    '<section class="fsi-audio-list-v63">'+FSI_HUMAN_AUDIO.map((x,i)=>
+      '<article class="fsi-audio-card-v63"><div><small>Архив · урок '+(i+1)+'</small><b>'+esc(x[0])+'</b></div>'+
+      '<audio controls preload="none" aria-label="Архивная запись '+(i+1)+'" onerror="NEHeadstartAudioError('+i+')" src="'+x[1]+'"></audio>'+
+      '<p id="fsi-error-'+i+'" class="muted" role="status"></p></article>').join('')+'</section>'+
+    '<p class="muted">Источник: Norwegian Headstart (FSI / DLI), исторические учебные записи. Их качество и доступность на внешнем сервере не гарантированы.</p></details>'+
+    '<div class="section-title"><h2>Современные источники норвежской речи</h2></div>'+
+    '<section class="grid">'+AUTH_RESOURCES.map(x=>'<article class="card"><h3>'+esc(x[0])+'</h3><p class="muted">'+esc(x[1])+'</p><a class="btn secondary link-btn" href="'+x[2]+'" target="_blank" rel="noopener noreferrer">Открыть официальный источник ↗</a></article>').join('')+'</section>'+
     '<div class="section-title"><h2>Речь носителей и профессиональные аудиоисточники · '+esc(state.level)+'</h2></div>'+
     '<div class="notice"><b>Границы прав:</b> NTNU — изучай на официальном сайте. CC0-корпуса Språkbanken можно перерабатывать после отбора и проверки звука, но их архивы ещё не встроены в наш плеер. Это не дополнительные готовые уроки.</div>'+
-    '<section class="grid">'+(window.NEResources?.byLevel(state.level,['listening','speech_corpus'])||[]).map(r=>'<article class="card"><small>'+esc(r.publisher)+' · '+esc(r.rights==='cc0_dataset'?'CC0, архив':'внешний учебный ресурс')+'</small><h3>'+esc(r.name)+'</h3><p class="muted">'+esc(r.note)+'</p><a class="btn secondary link-btn" target="_blank" rel="noopener noreferrer" href="'+esc(r.url)+'">Открыть официальный источник ↗</a></article>').join('')+'</section>'+
+    '<section class="grid">'+(window.NEResources?.byLevel(state.level,['listening','speech_corpus'])||[]).map(r=>
+      '<article class="card"><small>'+esc(r.publisher)+' · '+esc(r.rights==='cc0_dataset'?'CC0, архив':'внешний учебный ресурс')+'</small><h3>'+esc(r.name)+'</h3><p class="muted">'+esc(r.note)+'</p><a class="btn secondary link-btn" target="_blank" rel="noopener noreferrer" href="'+esc(r.url)+'">Открыть официальный источник ↗</a></article>').join('')+'</section>'+
     '<div class="section-title"><h2>Внешняя проверка навыков</h2></div>'+
     '<section class="grid">'+(window.NEResources?.byLevel(state.level,['assessment'])||[]).map(r=>'<article class="card"><small>'+esc(r.publisher)+'</small><h3>'+esc(r.name)+'</h3><p class="muted">'+esc(r.note)+'</p><a class="btn secondary link-btn" target="_blank" rel="noopener noreferrer" href="'+esc(r.url)+'">К официальным критериям ↗</a></article>').join('')+'</section>'+
-    '<p class="muted">Только официальный экзамен или независимая проверка квалифицированными специалистами могут подтвердить внешнюю оценку. Приложение не выдаёт себе сертификат.</p>'+
+    '<p class="muted">Игровые задания и озвучка сами по себе не подтверждают уровень CEFR. Для официального подтверждения необходим Norskprøven.</p>'+
     '<div class="section-title"><h2>Разобрать своё аудио</h2></div><section class="card"><p class="muted">Выбери короткий норвежский аудиофайл до 6 МБ. Мы сделаем транскрипцию и 5 вопросов на понимание.</p><input id="listenFile" type="file" accept="audio/*" class="input"><button class="btn" style="margin-top:10px" onclick="analyzeListeningFile()">Анализировать</button><div id="listenLabBox"></div></section>',"home");
+  }
+  function NEHeadstartAudioError(i){
+    const el=document.getElementById('fsi-error-'+Number(i));
+    if(el)el.textContent='Внешний аудиофайл сейчас не загрузился. Пропусти эту архивную запись; основной норвежский курс работает отдельно.';
+  }
+  function startNorwegianListening(id){
+    const lesson=window.NENorwegianListening?.find(id);
+    if(!lesson||lesson.level!==state.level)return false;
+    norwegianListeningPractice={id,index:0,heard:false,revealed:false,firstTry:true,
+      clean:0,solved:false,finished:false};
+    return renderNorwegianListeningPractice();
+  }
+  function renderNorwegianListeningPractice(){
+    const p=norwegianListeningPractice,lesson=window.NENorwegianListening?.find(p?.id);
+    if(!p||!lesson)return renderListeningLab();
+    if(p.finished){
+      const counted=p.heard&&!p.revealed;
+      shell('<div class="screen-head"><button class="back" onclick="navigate(\'listeninglab\')">←</button><div><div class="eyebrow">Аудирование · '+esc(lesson.level)+'</div><h2>'+esc(lesson.title)+'</h2></div></div>'+
+        '<section class="card"><h2>Тренировка завершена</h2><p>Верно с первой попытки: '+p.clean+' из '+lesson.questions.length+'.</p>'+
+        '<p class="muted">'+(counted?'Прослушана норвежская синтезированная речь. Это тренировочная активность, не оценка CEFR.':
+        'Задание пройдено с текстовой подсказкой или без подтверждённого звука. Результат не засчитан как аудирование.')+'</p>'+
+        '<h3>Норвежский текст</h3><p lang="nb">'+esc(lesson.no)+'</p>'+
+        '<h3>Перевод</h3><p>'+esc(lesson.ru)+'</p>'+
+        '<button class="btn" onclick="navigate(\'listeninglab\')">К другим заданиям →</button></section>',"home");
+      return true;
+    }
+    const q=lesson.questions[p.index];
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'listeninglab\')">←</button><div><div class="eyebrow">'+esc(lesson.level)+' · Норвежская речь</div><h2>'+esc(lesson.title)+'</h2></div></div>'+
+      '<section class="card ne-audio-lesson" data-listen-task="'+esc(lesson.id)+'"><p class="muted">Вопрос '+(p.index+1)+' из '+lesson.questions.length+'. Слушай норвежскую речь; пояснения и варианты ответа — на русском.</p>'+
+      '<button id="neListenPlay" class="btn" onclick="playNorwegianListening()">▶ Слушать по-норвежски</button>'+
+      '<button class="btn secondary" onclick="revealNorwegianListening()">Показать текст и перевод</button>'+
+      '<p id="neListenStatus" role="status" class="muted">Озвучка синтезированная, не запись носителя языка.</p>'+
+      (p.revealed?'<div class="notice"><p lang="nb">'+esc(lesson.no)+'</p><p>'+esc(lesson.ru)+'</p><small>Подсказка открыта: результат не засчитывается как аудирование.</small></div>':'')+
+      '<h3>'+esc(q.q)+'</h3><div class="choice-list">'+q.opts.map((answer,i)=>
+        '<button class="choice" '+(p.solved?'disabled':'')+' onclick="answerNorwegianListening('+i+')">'+esc(answer)+'</button>').join('')+'</div>'+
+      '<div id="neListenFeedback" role="status"></div>'+
+      (p.solved?'<button class="btn" onclick="nextNorwegianListening()">'+(p.index===lesson.questions.length-1?'Закончить тренировку':'Следующий вопрос →')+'</button>':'')+
+      '<p class="muted">Подсказки помогают изучать язык, но не создают подтверждённый балл за восприятие на слух.</p></section>',"home");
+    return true;
+  }
+  async function playNorwegianListening(){
+    const p=norwegianListeningPractice,lesson=window.NENorwegianListening?.find(p?.id);
+    if(!p||!lesson||p.finished)return false;
+    const btn=document.getElementById('neListenPlay'),status=document.getElementById('neListenStatus');
+    if(status)status.textContent='Готовлю норвежскую озвучку…';
+    try{
+      const result=await speakText(lesson.no,.88,btn);
+      if(norwegianListeningPractice!==p||!status?.isConnected)return false;
+      if(['ai','device','human'].includes(result?.source)){
+        p.heard=true;status.textContent='Норвежская фраза воспроизводится. Прослушай её, затем ответь.';
+        return true;
+      }
+      status.textContent='Звук не запустился. Проверь громкость и интернет или открой текст. Без аудио результат не учитывается как аудирование.';
+    }catch{if(norwegianListeningPractice===p&&status?.isConnected)status.textContent='Ошибка озвучки. Можно открыть текст и выполнить задание без оценки слуха.'}
+    return false;
+  }
+  function revealNorwegianListening(){
+    const p=norwegianListeningPractice;if(!p||p.finished)return false;
+    p.revealed=true;return renderNorwegianListeningPractice();
+  }
+  function answerNorwegianListening(i){
+    const p=norwegianListeningPractice,lesson=window.NENorwegianListening?.find(p?.id);
+    if(!p||!lesson||p.solved||p.finished||!Number.isInteger(i))return false;
+    const box=document.getElementById('neListenFeedback');
+    if(!p.heard&&!p.revealed){
+      if(box)box.innerHTML='<div class="feedback bad">Сначала прослушай фразу или открой текст, если звук не работает.</div>';
+      return false;
+    }
+    const q=lesson.questions[p.index];
+    if(i!==q.correct){
+      p.firstTry=false;
+      if(box)box.innerHTML='<div class="feedback bad">Пока неверно. Прослушай ещё раз и выбери другой ответ.</div>';
+      return false;
+    }
+    if(p.firstTry)p.clean++;
+    p.solved=true;
+    renderNorwegianListeningPractice();
+    const feedback=document.getElementById('neListenFeedback');
+    if(feedback)feedback.innerHTML='<div class="feedback good">Верно. '+esc(q.explain)+'</div>';
+    return true;
+  }
+  function nextNorwegianListening(){
+    const p=norwegianListeningPractice,lesson=window.NENorwegianListening?.find(p?.id);
+    if(!p||!lesson||!p.solved||p.finished)return false;
+    p.index++;p.solved=false;p.firstTry=true;
+    if(p.index>=lesson.questions.length){
+      p.finished=true;
+      state.elite.norwegianListeningProgress=state.elite.norwegianListeningProgress||{};
+      state.elite.norwegianListeningProgress[lesson.id]={
+        completedAt:today(),firstTry:p.clean,withAudio:p.heard&&!p.revealed};
+      if(p.heard&&!p.revealed)markActivity('listening');
+      else baseSaveState();
+    }
+    return renderNorwegianListeningPractice();
   }
   async function fileB64(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onload=()=>resolve(String(r.result).split(",")[1]);r.onerror=reject;r.readAsDataURL(file)})}
   async function analyzeListeningFile(){
@@ -371,7 +482,7 @@
 
   function errorCard(title,msg){shell('<section class="card"><h2>'+esc(title)+'</h2><p class="muted">'+esc(msg||"Неизвестная ошибка")+'</p><button class="btn" onclick="navigate(\'home\')">На главную</button></section>',"home")}
 
-  Object.assign(window,{renderPlan,startDictation,checkDictation,nextDictation,startGrammarLab,answerGrammarLab,nextGrammarLab,renderPronunciationLab,selectSoundGroup,selectPronPhrase,practicePronounce,renderListeningLab,analyzeListeningFile,answerListeningLab,nextListeningLab,renderCloud,createCloud,cloudSync,connectCloud,copyRecovery,disconnectCloud,deleteCloudData,renderSettings,runHealthCheck,setEliteGoal,setDailyMinutes,installApp,neMergeState:mergeState,neResolveStartLevel:resolveStartLevel});
+  Object.assign(window,{NEHeadstartAudioError,startNorwegianListening,playNorwegianListening,revealNorwegianListening,answerNorwegianListening,nextNorwegianListening,renderNorwegianListeningPractice,renderPlan,startDictation,checkDictation,nextDictation,startGrammarLab,answerGrammarLab,nextGrammarLab,renderPronunciationLab,selectSoundGroup,selectPronPhrase,practicePronounce,renderListeningLab,analyzeListeningFile,answerListeningLab,nextListeningLab,renderCloud,createCloud,cloudSync,connectCloud,copyRecovery,disconnectCloud,deleteCloudData,renderSettings,runHealthCheck,setEliteGoal,setDailyMinutes,installApp,neMergeState:mergeState,neResolveStartLevel:resolveStartLevel});
 
   window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e});
   window.addEventListener("appinstalled",()=>{installPrompt=null});
