@@ -74,6 +74,8 @@ const elite=read('elite.js');
 assert(map.includes('route:"listeninglab"')&&map.includes('route:"dictation"')&&map.includes('route:"chat"'),
  'The daily roadmap must offer listening, conversation and writing');
 assert(map.includes('План '+String.fromCharCode(39)+'+j.planned'), 'UI must show planned, not claimed spent minutes');
-assert(elite.includes('onended="NEStudyMarkListening()"'),'Real audio playback must be able to complete listening practice');
-assert(elite.includes('Completing actual playback marks listening practice, not comprehension'),'Playback must not be presented as CEFR mastery');
+assert(elite.includes("p.heard&&!p.revealed")&&elite.includes("markActivity('listening')"),
+ 'Verified Norwegian audio attempts must be eligible for listening practice, never reading-only answers');
+assert(elite.includes('Это тренировочная активность, не оценка CEFR.')&&elite.includes('Синтез')===false,
+ 'Listening activity must not be misrepresented as CEFR mastery or native-speaker recording');
 console.log('PASS evidence-based teacher course: no skipping, voice proof, meaningful comprehension, delayed transfer and grandfathered legacy state');
