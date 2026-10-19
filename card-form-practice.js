@@ -51,6 +51,24 @@ function authoredTranslation(g,task){
   const no=['Jeg har '+f+'.',f.charAt(0).toUpperCase()+f.slice(1)+' er her.','Det er flere '+f+' her.',f.charAt(0).toUpperCase()+f.slice(1)+' er viktige.'];
   return {russianSentence:ru[i],modelAnswer:no[i]};
  }
+ // Modal verbs require hand-authored contexts: generic verb templates may be misleading.
+ if(g.type==='verb'&&word==='kunne'){
+  const russian=[
+   'Полезно уметь говорить по-норвежски.',
+   'Я могу тебе помочь.',
+   'Вчера я не мог прийти.',
+   'Раньше я мог тебе помогать.',
+   'После курса я смогу говорить по-норвежски.'
+  ];
+  const norwegian=[
+   'Det er nyttig å kunne snakke norsk.',
+   'Jeg kan hjelpe deg.',
+   'Jeg kunne ikke komme i går.',
+   'Jeg har kunnet hjelpe deg før.',
+   'Etter kurset skal jeg kunne snakke norsk.'
+  ];
+  return {russianSentence:russian[i],modelAnswer:norwegian[i]};
+ }
  if(g.type==='verb'&&authoredVerbs.has(word)){
   const [inf,pres,past,perfect,complement]=authoredVerbs.get(word),f=task.requiredForm;
   const ru=['Я стараюсь '+inf+'.','Сегодня я '+pres+'.','Вчера я '+past+'.','Я уже '+perfect+'.','Завтра я собираюсь '+inf+'.'];
@@ -205,19 +223,22 @@ function spellingHint(task,sentence){
  return 'Проверь написание слова «'+wrong+'»: правильно «'+correct+'». Исправь это слово и проверь перевод снова.';
 }
 function hint(task,misses){
+ const modalNote=task?.lemma==='kunne'
+  ?'Сравни формы: kan — могу (настоящее), kunne — мог/мог бы, har kunnet — имел возможность. После kan/kunne следующий глагол без å. '
+  :'';
  const morphology=task?.requiredForm
    ?'Нужная форма: '+task.label+'. '+(
     task.type==='verb'?'Вспомни время и конструкцию.':
     task.type==='noun'?'Проверь артикль, число и определённость.':
     'Проверь род, число и степень сравнения.')
    :'Вспомни значение слова и составь другое осмысленное предложение.';
- if(misses>=3&&task?.requiredForm)return morphology+
+ if(misses>=3&&task?.requiredForm)return modalNote+morphology+
   (task.russianSentence&&task.modelAnswer
     ?' Подсказка к переводу: '+(task.type==='adjective'&&task.index===4&&task.modelAnswer.toLowerCase().includes(task.requiredForm+'e')
       ?'после определённого существительного используется форма «'+task.requiredForm+'e».'
       :'проверь слово и его форму; полный ответ пока не показывается.')
     :' Подсказка: подходящая форма — «'+task.requiredForm+'». Теперь употреби её в собственном предложении.');
- return morphology+' Не достаточно написать одно слово: нужно полное предложение.';
+ return modalNote+morphology+' Недостаточно написать одно слово: нужно полное предложение.';
 }
 window.NECardFormPractice=Object.freeze({
  taskList,choose,variants,hasRequiredForm,containsWord,hint,spellingHint,norm,authoredTranslation
