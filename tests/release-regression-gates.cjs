@@ -45,7 +45,7 @@ for(const asset of assets){
    assetRevision?.startsWith('-auth')?['/v8.css','/access.js','/access.css']:['/v8.css'];
   const expected='v='+v+(patched.includes(pathname)?baseRevision:'')+
    (audioSuffix&&['/access.js','/elite.js','/norwegian-listening.js'].includes(pathname)?audioSuffix:'')+
-   (translationSuffix&&['/access.js','/card-form-practice.js','/living-words.js'].includes(pathname)?translationSuffix:'');
+   (translationSuffix&&['/access.js','/card-grammar.js','/card-form-practice.js','/living-words.js'].includes(pathname)?translationSuffix:'');
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
 }
 }
@@ -81,7 +81,7 @@ assert(scripts.length>=15,'Critical dynamic scripts dropped');
 for(const filename of scripts){
  const patch=assetRevision?.startsWith('-lesson')&&['app.js','guided-speaking.js','v3.js','adaptive-teacher.js','course-methodology.js','verified-learning-resources.js','norwegian-listening.js','elite.js','ui-v7.js','nordic-quest-play.js','nordic-quest.js','living-day.js','card-grammar.js','card-form-practice.js','mini-path.js','living-words.js'].includes(filename)?baseRevision:'';
  const suffix=(audioSuffix&&['norwegian-listening.js','elite.js'].includes(filename)?audioSuffix:'')+
-   (translationSuffix&&['card-form-practice.js','living-words.js'].includes(filename)?translationSuffix:'');
+   (translationSuffix&&['card-grammar.js','card-form-practice.js','living-words.js'].includes(filename)?translationSuffix:'');
  assert(assetSet.has('/'+filename+'?v='+v+patch+suffix),'PWA must cache bootstrapped script '+filename);
 }
 for(const m of index.matchAll(/\b(?:src|href)="(\/[^"]+)"/g)){
@@ -92,6 +92,16 @@ const ordered=['data.js','curriculum-v8.js','course-methodology.js','verified-le
 for(let i=1;i<ordered.length;i++){
  assert(scripts.indexOf(ordered[i-1])>=0&&scripts.indexOf(ordered[i])>scripts.indexOf(ordered[i-1]),
   'Bootstrap dependency order changed: '+ordered[i-1]+' -> '+ordered[i]);
+}
+// A learning-patch release must fetch fresh grammar and practice modules on
+// already-installed PWAs; reusing the previous URL can serve stale code.
+if(translationSuffix==='-translate3'){
+ for(const filename of ['card-grammar.js','card-form-practice.js','living-words.js']){
+  const url='/'+filename+'?v='+v+baseRevision+translationSuffix;
+  assert(assetSet.has(url),'Learning update missing fresh cache entry '+url);
+ }
+ assert(index.includes('src="/access.js?v='+v+assetRevision+'"'),
+  'Installed app must load the new learning revision of access.js');
 }
 assert(!assets.some(x=>x.startsWith('/api/')),'Never cache authenticated AI responses');
 assert(sw.includes('u.pathname.startsWith("/api/")'),'Service worker must bypass /api calls');
