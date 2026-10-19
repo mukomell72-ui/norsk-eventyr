@@ -102,6 +102,19 @@ jobs:
           path: release-out/*
           retention-days: 14
           if-no-files-found: error
+      - name: Build audited learning update after successful QA
+        if: success() && github.event_name == 'pull_request' && github.head_ref == 'release/8.3.0-lesson24-audit-fixes-20261019'
+        env:
+          NE_RELEASE_REF: ${{ github.event.pull_request.head.sha }}
+        run: node tools/prepare-staging-release.cjs --ref "$NE_RELEASE_REF"
+      - name: Upload audited source ZIP, manifest and SHA-256
+        if: success() && github.event_name == 'pull_request' && github.head_ref == 'release/8.3.0-lesson24-audit-fixes-20261019'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Norsk-Eventyr-8.3.0-audit-fixes-release-candidate
+          path: release-out/*
+          retention-days: 14
+          if-no-files-found: error
       - name: Store screenshots for manual visual QA
         if: always()
         uses: actions/upload-artifact@v4
