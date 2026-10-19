@@ -173,6 +173,31 @@ function sentence(task){
   assert(evaluations.length>=checked);
   assert(evaluations.every(v=>v.goal.includes('смысл')||v.goal.includes('русский смысл')),
    'Teacher gets the actual meaning and usage rubric');
+  // A previously saved free-writing prompt for kunne must update in place
+  // after the new verified modal exercises become available, without losing draft.
+  await page.evaluate(()=>{
+   const d=window.NELivingWords.ensure();
+   d.ready=false;d.stage='cards';d.cardsSeen=0;d.cardQueue=[0];
+   d.active=[{word:'kunne',translation:'мочь',newToday:false}];
+   d.cardFeedback={correct:true,answer:'мочь'};
+   d.formPractice={started:true,done:false,task:{
+    kind:'sentence',index:2,type:'other',requiredForm:null,russianSentence:null,
+    prompt:'Придумай осмысленную фразу с kunne.',lemma:'kunne',word:'kunne'
+   },draft:'Jeg kan hjelpe deg',note:'',misses:1,hadMistake:true,answers:[]};
+   window.NELivingWords.render();
+  });
+  const restored=await page.evaluate(()=>{
+   const p=window.NELivingWords.ensure().formPractice;
+   return {task:p.task,draft:p.draft,misses:p.misses};
+  });
+  assert.equal(restored.task.russianSentence,'Вчера я не мог прийти.');
+  assert.equal(restored.task.requiredForm,'kunne');
+  assert.equal(restored.draft,'Jeg kan hjelpe deg');
+  assert.equal(restored.misses,1);
+  assert(await page.getByRole('button',{name:'Объяснить задание'}).isVisible());
+  await page.getByRole('button',{name:'Объяснить задание'}).click();
+  assert((await page.locator('#app').innerText()).includes('kan — могу'),
+   'Hint must explain kan / kunne before a learner submits an error');
   assert.deepEqual(errors,[],'No JavaScript errors during the mobile lesson');
   console.log('PASS mobile: contextual sentence on every card, Russian/voice input, semantic corrections, saved mini-lesson and spaced review');
  }finally{await browser.close()}
