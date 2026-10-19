@@ -270,12 +270,12 @@ function render(){
   // Existing saved exercises from the previous release asked for a single form.
   // Upgrade the CURRENT task in place, preserving the student's translation and retries.
   const oldPractice=d.formPractice;
-  if(oldPractice?.started&&oldPractice.task?.kind==='form'){
+  if(oldPractice?.started&&(oldPractice.task?.kind==='form'||(oldPractice.task?.kind==='sentence'&&!('russianSentence' in oldPractice.task)))){
    const tasks=window.NECardFormPractice?.taskList?.(word)||[];
    const replacement=tasks.find(t=>t.index===oldPractice.task.index)||tasks[0];
    if(replacement){
-    oldPractice.task=replacement;oldPractice.draft='';oldPractice.done=false;
-    oldPractice.note='Обновление задания: теперь нужно написать целое предложение на норвежском, а не отдельную форму слова.';
+    oldPractice.task=replacement;oldPractice.done=false;
+    oldPractice.note=replacement.russianSentence?'Обновление задания: переведи предложенное русское предложение на норвежский.':'Обновление задания: напиши целое предложение на норвежском.';
     save();
    }
   }
@@ -298,9 +298,9 @@ function render(){
   const practiceHtml=practice?.started&&!practice.done
    ?'<div class="card" style="margin-top:14px;padding:16px">'+
     '<div class="eyebrow">Шаг 2 · Закрепление и понимание слова</div>'+
-    '<p><b>'+esc(practice.task.prompt)+'</b></p>'+
-    '<p class="muted">Напиши целое осмысленное предложение по-норвежски. Одного слова или формы недостаточно. Нора проверит значение, ситуацию и грамматику.</p>'+
-    '<label class="field-label" for="livingFormAnswer">Твоё предложение на норвежском (не перевод)</label>'+
+    '<p><b>'+(practice.task.russianSentence?'Переведи на норвежский:':'Задание:')+'</b></p>'+    (practice.task.russianSentence?'<p lang="ru" class="notice" style="font-size:1.16rem;font-weight:650">'+esc(practice.task.russianSentence)+'</p>':'<p><b>'+esc(practice.task.prompt)+'</b></p>')+    (practice.task.russianSentence?'<p class="muted">Нужная грамматическая форма: '+esc(practice.task.label)+'. Переведи смысл предложения, не повторяй готовый образец.</p>':'')+
+    '<p class="muted">'+(practice.task.russianSentence?'Переведи предложение целиком. Нора проверит смысл, порядок слов и нужную форму слова.':'Напиши целое осмысленное предложение по-норвежски. Нора проверит значение, ситуацию и грамматику.')+'</p>'+
+    '<label class="field-label" for="livingFormAnswer">'+(practice.task.russianSentence?'Твой перевод на норвежский':'Твоё предложение на норвежском')+'</label>'+
     '<input class="input" id="livingFormAnswer" lang="nb" maxlength="280" autocomplete="off" value="'+esc(practice.draft||'')+
     '" placeholder="Например: Jeg ..." oninput="NELivingWords.draftForm(this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();NELivingWords.checkForm()}">'+
     '<div class="row"><button class="btn" onclick="NELivingWords.checkForm()">Проверить предложение</button>'+
@@ -313,7 +313,7 @@ function render(){
      ?'<div class="notice" role="status">Ты правильно применил слово в предложении. Можно продолжать.</div>'+
        '<button class="btn" onclick="NELivingWords.nextCard()">'+(review?'Продолжить повтор →':'Следующая карточка →')+'</button>'
      :practice?.started?practiceHtml:
-       '<p>Русский перевод проверен. Теперь примени слово в своём норвежском предложении.</p>'+
+       '<p>Русский перевод слова проверен. Теперь переведи предложение на норвежский, используя нужную форму слова.</p>'+
        '<button class="btn" onclick="NELivingWords.beginCardPractice()">Задание с этим словом →</button>')
    :'<p class="muted">Сначала напиши, что означает слово по-русски. Только после этого откроется задание на его применение.</p>'+ 
     '<label class="field-label" for="livingTranslate">Шаг 1. Напиши перевод слова на русский</label>'+
@@ -435,12 +435,12 @@ async function checkForm(){
   return fail('Ты уже использовал это предложение. Напиши другое со словом в заданной форме.');
  }
  formBusy=true;
- p.note='Нора проверяет, правильно ли ты понял значение и применил слово в предложении…';
+ p.note=p.task.russianSentence?'Нора проверяет перевод русского предложения…':'Нора проверяет, правильно ли ты применил слово…';
  save();render();
  let correct=false,explanation='';
  try{
   const topic=window.NELivingDay?.details?.().title||'Повседневная жизнь';
-  const rubric='Нужно ОДНО самостоятельно придуманное, естественное норвежское предложение. '+
+  const rubric=(p.task.russianSentence?'Нужно перевести предложенное русское предложение на естественный Bokmål, сохранив его смысл. Русское предложение: «'+p.task.russianSentence+'». Эталон для проверки смысла (не требовать дословного совпадения): «'+p.task.modelAnswer+'». Допускай любые грамматически корректные эквиваленты, которые полностью передают смысл и правильную форму; отвергай только реальные смысловые/грамматические ошибки. ':'Нужно ОДНО самостоятельно придуманное, естественное норвежское предложение. ')+
     'Проверь, что слово «'+String(card.word.word)+'» (словарная форма: «'+String(p.task.word)+
     '», русский смысл: «'+String(card.word.translation)+'») использовано по смыслу и грамматически верно. '+
     (p.task.requiredForm?'Требуемая грамматическая форма: '+p.task.label+' («'+p.task.requiredForm+'»). ':'')+
@@ -472,10 +472,10 @@ async function checkForm(){
  if(p.needsAnother){
   p.task=engine.choose(card.word,p.task.index);
   p.taskCount++;p.misses=0;p.draft='';p.needsAnother=false;
-  p.note='Исправление принято! Теперь составь другое предложение с тем же словом в новой форме или ситуации.';
+  p.note=p.task.russianSentence?'Исправление принято! Теперь переведи другое русское предложение с тем же словом.':'Исправление принято! Теперь составь другое предложение с тем же словом.';
   save();render();return true;
  }
- p.done=true;p.note='Смысл и употребление слова закреплены. Предложение принято.';
+ p.done=true;p.note=p.task.russianSentence?'Перевод принят! Ты правильно применил слово в предложении.':'Смысл и употребление слова закреплены. Предложение принято.';
  save();render();return true;
 }
 let formRecognition=null;
