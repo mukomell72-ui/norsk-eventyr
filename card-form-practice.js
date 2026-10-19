@@ -54,7 +54,7 @@ function authoredTranslation(g,task){
  if(g.type==='verb'&&authoredVerbs.has(word)){
   const [inf,pres,past,perfect,complement]=authoredVerbs.get(word),f=task.requiredForm;
   const ru=['Я стараюсь '+inf+'.','Сегодня я '+pres+'.','Вчера я '+past+'.','Я уже '+perfect+'.','Завтра я собираюсь '+inf+'.'];
-  const no=['Jeg prøver '+f+' '+complement+'.','I dag '+f+' jeg '+complement+'.','I går '+f+' jeg '+complement+'.','Jeg '+f+' '+complement+'.','I morgen '+f.replace(/^skal /,'skal jeg ')+' '+complement+'.'];
+  const no=['Jeg prøver '+f+' '+complement+'.','I dag '+(f.includes(' ')?f.split(' ')[0]+' jeg '+f.split(' ').slice(1).join(' '):f+' jeg')+' '+complement+'.','I går '+(f.includes(' ')?f.split(' ')[0]+' jeg '+f.split(' ').slice(1).join(' '):f+' jeg')+' '+complement+'.','Jeg '+f+' '+complement+'.','I morgen '+f.replace(/^skal /,'skal jeg ')+' '+complement+'.'];
   if(word==='være'){
    ru[1]='Сегодня я дома.';ru[2]='Вчера я был дома.';ru[3]='Я уже был дома.';
   }
@@ -128,6 +128,16 @@ function hasRequiredForm(task,sentence,word){
  const g=window.NECardGrammar?.describe?.(word);
  if(variants(task,word).some(form=>includesSequence(sentence,form)))return true;
  // Natural definite superlatives inflect: stor -> størst / største.
+ if(g?.type==='verb'&&task.index===4){
+  // Standard V2 order: "I morgen skal jeg begynne", not "skal begynne jeg".
+  const pieces=norm(task.requiredForm).split(' ');
+  const tokens=norm(sentence).split(' ');
+  const index=tokens.indexOf(pieces[0]);
+  if(index>=0&&index+pieces.length<tokens.length&&
+   ['jeg','du','han','hun','vi','dere','de','man'].includes(tokens[index+1])&&
+   tokens.slice(index+2,index+pieces.length+1).join(' ')===pieces.slice(1).join(' '))
+   return true;
+ }
  if(g?.type==='adjective'&&task.index===4){
   const form=String(task.requiredForm);
   if(includesSequence(sentence,form+'e'))return true;
@@ -166,7 +176,12 @@ function hint(task,misses){
     task.type==='noun'?'Проверь артикль, число и определённость.':
     'Проверь род, число и степень сравнения.')
    :'Вспомни значение слова и составь другое осмысленное предложение.';
- if(misses>=3&&task?.requiredForm)return morphology+' Подсказка: подходящая форма — «'+task.requiredForm+'». Теперь употреби её в собственном предложении.';
+ if(misses>=3&&task?.requiredForm)return morphology+
+  (task.russianSentence&&task.modelAnswer
+    ?' Подсказка к переводу: '+(task.type==='adjective'&&task.index===4&&task.modelAnswer.toLowerCase().includes(task.requiredForm+'e')
+      ?'после определённого существительного используется форма «'+task.requiredForm+'e».'
+      :'проверь слово и его форму; полный ответ пока не показывается.')
+    :' Подсказка: подходящая форма — «'+task.requiredForm+'». Теперь употреби её в собственном предложении.');
  return morphology+' Не достаточно написать одно слово: нужно полное предложение.';
 }
 window.NECardFormPractice=Object.freeze({
