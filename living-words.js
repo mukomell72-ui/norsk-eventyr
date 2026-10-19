@@ -270,8 +270,14 @@ function render(){
   // Existing saved exercises from the previous release asked for a single form.
   // Upgrade the CURRENT task in place, preserving the student's translation and retries.
   const oldPractice=d.formPractice;
-  if(oldPractice?.started&&(oldPractice.task?.kind==='form'||(oldPractice.task?.kind==='sentence'&&!('russianSentence' in oldPractice.task)))){
-   const tasks=window.NECardFormPractice?.taskList?.(word)||[];
+  const refreshedTasks=oldPractice?.started?window.NECardFormPractice?.taskList?.(word)||[]:[];
+  // Keep an already-started card, but replace an old unverified free-writing
+  // prompt when a newly verified paradigm and specific translation now exist.
+  const staleVerifiedTask=oldPractice?.task?.kind==='sentence'&&
+   oldPractice.task.requiredForm==null&&refreshedTasks.some(t=>!!t.requiredForm);
+  if(oldPractice?.started&&(oldPractice.task?.kind==='form'||staleVerifiedTask||
+     (oldPractice.task?.kind==='sentence'&&!('russianSentence' in oldPractice.task)))){
+   const tasks=refreshedTasks;
    const replacement=tasks.find(t=>t.index===oldPractice.task.index)||tasks[0];
    if(replacement){
     oldPractice.task=replacement;oldPractice.done=false;
