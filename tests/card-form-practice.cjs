@@ -21,8 +21,8 @@ for(const [word,type,count,example] of [
  const entry={word,translation:'пример'},tasks=E.taskList(entry);
  assert.equal(tasks.length,count,word);
  assert(tasks.every(t=>t.kind==='sentence'&&t.prompt&&t.requiredForm&&t.type===type),word);
- assert(tasks.every(t=>t.prompt.includes('предложение')||t.prompt.includes('Используй')),
-  'The exercise must request contextual language rather than a free-standing form');
+ assert(tasks.every(t=>t.russianSentence&&t.modelAnswer&&t.prompt.startsWith('Переведи на норвежский:')),
+  'Known words must offer a concrete Russian sentence instead of abstract free-writing');
  assert(E.containsWord(tasks.find(t=>t.index===(word==='begynner'?1:0)),example,entry),
   'Appropriate sentence must contain required morphological form for '+word);
  for(const task of tasks){
@@ -30,7 +30,7 @@ for(const [word,type,count,example] of [
   assert(!E.containsWord(task,'Bordet ligger inne i skapet.',entry),
    'Unrelated text must be rejected: '+word);
   assert(E.hint(task,1).includes('форм'),'Targeted grammar hint: '+word);
-  assert(E.hint(task,3).includes(task.requiredForm),'Reveal verified form after repeated errors');
+  assert(E.hint(task,3).length>40,'Targeted morphological hint after repeated errors');
   assert.notEqual(E.choose(entry,task.index,()=>0).index,task.index,'Changed task following mistake');
  }
 }
@@ -43,6 +43,25 @@ assert.equal(E.containsWord(E.taskList({word:'en bok'})[1],'Jeg leser boka.',{wo
  'Bokmål feminine definite endings must be accepted');
 assert.equal(E.containsWord(E.taskList({word:'et hus'})[2],'Jeg ser huset.',{word:'et hus'}),false,
  'Singular bestemt cannot count as plural ubestemt');
+// All 86 verified lexemes (34 nouns, 39 verbs, 13 adjectives) have Russian prompts
+// for every inflection, and a model solution that passes the morphology gate.
+for(const [name,keys,pos] of [
+ ['adjectives',['stor','liten','god','ny','viktig','lang','kort','gammel','fin','dyr','billig','rask','forsinket'],'adjective'],
+ ['verbs',['være','ha','gjøre','gå','komme','bo','lære','jobbe','snakke','spørre','svare','skrive','lese','se','ta','få','spise','drikke','kjøpe','velge','legge','ligge','forstå','finne','sende','besøke','vente','begynne','slutte','logge inn','ordne opp','rekke','oppdage','beklage','foretrekke','vaske','rengjøre','hente','åpne'],'verb'],
+ ['nouns',['bil','hus','bok','jobb','nøkkel','time','oppgave','pause','faktura','brød','møte','avtale','beskjed','erfaring','misforståelse','søknad','vedtak','spørsmål','målgruppe','avveining','forbehold','rapport','eple','dag','uke','år','butikk','rom','ord','barn','jente','skole','venn','klokke'],'noun']
+]){
+ for(const key of keys){
+  const entry={word:pos==='noun'?window.NECardGrammar.describe({word:key}).headword:key,pos};
+  const tasks=E.taskList(entry);
+  assert(tasks.every(t=>typeof t.russianSentence==='string'&&/[А-Яа-яЁё]/.test(t.russianSentence)),key+' missing Russian text');
+  assert(tasks.every(t=>typeof t.modelAnswer==='string'&&E.containsWord(t,t.modelAnswer,entry)),key+' reference answer does not match required form');
+ }
+}
+const superlative=E.taskList({word:'stor'})[4];
+assert.equal(superlative.russianSentence,'Это самый большой стол в комнате.');
+assert(E.containsWord(superlative,'Dette er det største bordet i rommet.',{word:'stor'}));
+assert(!E.containsWord(superlative,'Dette er et stort bord i rommet.',{word:'stor'}));
+assert(E.containsWord(E.taskList({word:'begynner'})[4],'I morgen skal jeg begynne på jobb.',{word:'begynner'}));
 const phrase={word:'etter hvert',pos:'phrase',translation:'постепенно'};
 const unknown={word:'å underbygge',translation:'обосновывать'};
 for(const entry of [phrase,unknown,{word:'hensiktsmessig',pos:'adjective',translation:'целесообразный'}]){

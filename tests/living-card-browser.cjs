@@ -42,13 +42,13 @@ const {chromium}=require('playwright');
     return {task,word:word.word};
    });
    const task=data.task;
-   let answer={
+   let answer=task.modelAnswer||{
     hjemme:'Jeg er hjemme nå.',
     takk:'Jeg sier takk for hjelpen.',
     hvor:'Hvor bor du i Norge?',
     norsk:'Jeg lærer norsk hver dag.'
    }[data.word];
-   if(data.word==='jobb'){
+   if(data.word==='jobb'&&!task.modelAnswer){
     const form=task.requiredForm;
     answer=[
      'Jeg har '+form+'.',

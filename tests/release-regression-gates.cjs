@@ -21,10 +21,12 @@ assert.equal(revision,v,'Access bootstrap must fetch the published revision');
 const baseCache='norsk-eventyr-v'+v.replaceAll('.','-');
 const actualCache=(sw.match(/^const CACHE="([^"]+)";/m)||[])[1];
 const assetRevision=actualCache?.startsWith(baseCache)?actualCache.slice(baseCache.length):null;
-assert(assetRevision!==null&&(/^(?:-(?:ui|auth|lesson)[1-9][0-9]*(?:-listening[1-9][0-9]*)?)?$/).test(assetRevision),
+assert(assetRevision!==null&&(/^(?:-(?:ui|auth|lesson)[1-9][0-9]*(?:-listening[1-9][0-9]*)?(?:-translate[1-9][0-9]*)?)?$/).test(assetRevision),
   'PWA cache must match the release version or a numbered patch revision');
-const audioSuffix=(assetRevision?.match(/(-listening[1-9][0-9]*)$/)||[])[1]||'';
-const baseRevision=assetRevision?.slice(0,assetRevision.length-audioSuffix.length)||'';
+const translationSuffix=(assetRevision?.match(/(-translate[1-9][0-9]*)$/)||[])[1]||'';
+const withoutTranslation=assetRevision?.slice(0,assetRevision.length-translationSuffix.length)||'';
+const audioSuffix=(withoutTranslation.match(/(-listening[1-9][0-9]*)$/)||[])[1]||'';
+const baseRevision=withoutTranslation.slice(0,withoutTranslation.length-audioSuffix.length);
 // Independently validate a narrowly scoped audio-cache refresh: core lessons
 // remain on their tested revision, while access, audio bank and elite reload.
 assert(index.includes('<title>Norsk Eventyr '+v),'Page must show exact application version');
@@ -42,7 +44,8 @@ for(const asset of assets){
   const patched=assetRevision?.startsWith('-lesson')?['/v8.css','/access.js','/access.css','/app.js','/guided-speaking.js','/v3.js','/adaptive-teacher.js','/course-methodology.js','/verified-learning-resources.js','/norwegian-listening.js','/elite.js','/ui-v7.js','/nordic-quest-play.js','/nordic-quest.js','/nordic-quest.css','/living-day.js','/card-grammar.js','/card-form-practice.js','/mini-path.js','/living-words.js','/admin-dashboard.js','/admin-dashboard.css','/study-activity.js']:
    assetRevision?.startsWith('-auth')?['/v8.css','/access.js','/access.css']:['/v8.css'];
   const expected='v='+v+(patched.includes(pathname)?baseRevision:'')+
-   (audioSuffix&&['/access.js','/elite.js','/norwegian-listening.js'].includes(pathname)?audioSuffix:'');
+   (audioSuffix&&['/access.js','/elite.js','/norwegian-listening.js'].includes(pathname)?audioSuffix:'')+
+   (translationSuffix&&['/access.js','/card-form-practice.js','/living-words.js'].includes(pathname)?translationSuffix:'');
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
 }
 }
@@ -66,7 +69,8 @@ if(assetRevision?.startsWith('-lesson')){
   assert(assets.includes('/access.js?v='+v+assetRevision),
     'PWA must precache updated lesson bootstrap');
   assert(access.includes("LESSON_PATCH='"+baseRevision+"'")&&
-   (!audioSuffix||access.includes("'"+audioSuffix+"'")), 
+   (!audioSuffix||access.includes("'"+audioSuffix+"'"))&&
+   (!translationSuffix||access.includes("'"+translationSuffix+"'")), 
     'Access bootstrap and offline cache must agree on lesson patch revision');
 }
 const assetSet=new Set(assets);
@@ -76,7 +80,8 @@ const scripts=[...bootstrap[1].matchAll(/'([^']+\.js)'/g)].map(m=>m[1]);
 assert(scripts.length>=15,'Critical dynamic scripts dropped');
 for(const filename of scripts){
  const patch=assetRevision?.startsWith('-lesson')&&['app.js','guided-speaking.js','v3.js','adaptive-teacher.js','course-methodology.js','verified-learning-resources.js','norwegian-listening.js','elite.js','ui-v7.js','nordic-quest-play.js','nordic-quest.js','living-day.js','card-grammar.js','card-form-practice.js','mini-path.js','living-words.js'].includes(filename)?baseRevision:'';
- const suffix=audioSuffix&&['norwegian-listening.js','elite.js'].includes(filename)?audioSuffix:'';
+ const suffix=(audioSuffix&&['norwegian-listening.js','elite.js'].includes(filename)?audioSuffix:'')+
+   (translationSuffix&&['card-form-practice.js','living-words.js'].includes(filename)?translationSuffix:'');
  assert(assetSet.has('/'+filename+'?v='+v+patch+suffix),'PWA must cache bootstrapped script '+filename);
 }
 for(const m of index.matchAll(/\b(?:src|href)="(\/[^"]+)"/g)){
