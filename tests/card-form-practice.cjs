@@ -60,6 +60,12 @@ for(const [name,keys,pos] of [
 const superlative=E.taskList({word:'stor'})[4];
 assert.equal(superlative.russianSentence,'Это самый большой стол в комнате.');
 assert(E.containsWord(superlative,'Dette er det største bordet i rommet.',{word:'stor'}));
+assert(E.spellingHint(superlative,'Dette er det største bordet i romm').includes('«romm»: правильно «rommet»'),
+ 'Near-identical mistranslation pinpoints the typo instead of demanding a new sentence');
+assert.equal(E.spellingHint(superlative,superlative.modelAnswer),'','A correct translation must have no spelling warning');
+assert.equal(E.spellingHint(superlative,'Dette er det største bordet i stua.'),'',
+ 'An independently valid alternative is left to semantic grading');
+
 assert(!E.containsWord(superlative,'Dette er et stort bord i rommet.',{word:'stor'}));
 assert(E.containsWord(E.taskList({word:'begynner'})[4],'I morgen skal jeg begynne på jobb.',{word:'begynner'}));
 const phrase={word:'etter hvert',pos:'phrase',translation:'постепенно'};
