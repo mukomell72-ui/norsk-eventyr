@@ -61,6 +61,9 @@ const D=w.NELivingWords;
  assert.equal(D.acceptedTranslation('ЖИЛИЩЕ','дом / жилище'),true,'Explicit dictionary synonyms accepted');
  assert.equal(D.acceptedTranslation('ЁЖ','еж'),true,'Russian ё/е normalization works');
  assert.equal(D.acceptedTranslation('неверно','правильно'),false);
+ assert.equal(D.acceptedTranslation('автомобиль','машина'),true,'A common correct synonym is accepted without AI');
+ assert.equal(D.acceptedTranslation('приятель','друг'),true,'A known close Russian synonym is accepted');
+ assert.equal(D.acceptedTranslation('ручка','машина'),false,'Unrelated Russian words must remain rejected');
  D.render();
  assert(views.at(-1).includes('id="livingTranslate"')&&views.at(-1).includes('Ответить голосом'),
   'Text field and microphone must be visible within each card');

@@ -230,6 +230,25 @@ function sentence(task){
   assert(unknownRecovery.note.includes('нет заранее проверенного примера'),
     'Never fabricate an exemplar for an unverified word');
   assert.equal(unknownRecovery.done,false);
+  // Norwegian has legitimate two-word sentences. Format mistakes must not
+  // be recorded as genuine vocabulary failures.
+  await page.evaluate(()=>{
+   const d=window.NELivingWords.ensure();
+   d.active=[{word:'sover',translation:'спит',newToday:false}];
+   d.cardFeedback={correct:true,answer:'спит'};
+   d.formPractice={started:true,done:false,
+    task:window.NECardFormPractice.taskList(d.active[0])[0],
+    draft:'',misses:0,hadMistake:false,needsAnother:false,answers:[],taskCount:1,note:''};
+   window.NELivingWords.render();
+  });
+  await page.locator('#livingFormAnswer').fill('Сплю');
+  await page.getByRole('button',{name:'Проверить предложение'}).click();
+  assert.equal(await page.evaluate(()=>window.NELivingWords.ensure().formPractice.misses),0,
+   'Accidentally typing Russian must not count as an incorrect Norwegian attempt');
+  await page.locator('#livingFormAnswer').fill('Jeg sover.');
+  await page.getByRole('button',{name:'Проверить предложение'}).click();
+  await page.waitForFunction(()=>window.NELivingWords.ensure().formPractice.done===true);
+  assert.equal(await page.evaluate(()=>window.NELivingWords.ensure().formPractice.misses),0);
   assert.deepEqual(errors,[],'No JavaScript errors during the mobile lesson');
   console.log('PASS mobile: contextual sentence on every card, Russian/voice input, semantic corrections, saved mini-lesson and spaced review');
  }finally{await browser.close()}

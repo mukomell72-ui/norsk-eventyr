@@ -75,6 +75,27 @@ assert(!E.containsWord(modalTasks[4],'I morgen kan jeg hjelpe deg.',{word:'kunne
 assert(E.hint(modalTasks[2],1).includes('kan — могу'),'Feedback explains the precise modal contrast');
 const superlative=E.taskList({word:'stor'})[4];
 assert.equal(superlative.russianSentence,'Это самый большой стол в комнате.');
+const ordinaryPlural=E.taskList({word:'stor'})[2];
+assert.equal(E.spellingHint(ordinaryPlural,'Det er store hus.'),'',
+ 'A valid Bokmål demonstrative must not be incorrectly classified as a typo');
+for(const [word,examples] of [
+ ['time',['Урок начинается в девять.','Timen begynner klokka ni.']],
+ ['brød',['Буханки хлеба лежат на столе.','Brødene ligger på bordet.']],
+ ['erfaring',['Это был полезный опыт.','Det var en nyttig erfaring.']],
+ ['jobb',['Работа начинается в восемь.','Jobben begynner klokka åtte.']],
+ ['faktura',['Счета уже оплачены.','Fakturaene er betalt.']],
+ ['klokke',['Часы висят на стене.','Klokka henger på veggen.']]
+]){
+ const tasks=E.taskList({word, pos:'noun'});
+ assert(tasks.some(t=>t.russianSentence===examples[0]&&t.modelAnswer===examples[1]),word+' must have a life-like context');
+}
+for(const key of ['jobb','time','brød','erfaring','klokke','dag','uke','år','møte','misforståelse','avtale','faktura','målgruppe','forbehold','avveining']){
+ const entry={word:key,pos:'noun'},tasks=E.taskList(entry);
+ assert(tasks.length===4&&tasks.every(t=>t.modelAnswer&&E.containsWord(t,t.modelAnswer,entry)),
+  'Every curated noun sentence must pass its actual morphological requirement: '+key);
+ assert(tasks.every(t=>!/(этот час здесь|эти хлеба важны|эти опыты важны)/i.test(t.russianSentence)),
+  'Do not teach meaningless generic patterns: '+key);
+}
 assert(E.containsWord(superlative,'Dette er det største bordet i rommet.',{word:'stor'}));
 assert(E.spellingHint(superlative,'Dette er det største bordet i romm').includes('«romm»: правильно «rommet»'),
  'Near-identical mistranslation pinpoints the typo instead of demanding a new sentence');
