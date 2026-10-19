@@ -45,7 +45,7 @@ for(const asset of assets){
    assetRevision?.startsWith('-auth')?['/v8.css','/access.js','/access.css']:['/v8.css'];
   const expected='v='+v+(patched.includes(pathname)?baseRevision:'')+
    (audioSuffix&&['/access.js','/elite.js','/norwegian-listening.js'].includes(pathname)?audioSuffix:'')+
-   (translationSuffix&&['/access.js','/card-form-practice.js','/living-words.js'].includes(pathname)?translationSuffix:'');
+   (translationSuffix&&['/access.js','/ui-v7.js','/ui-v8.js','/updates.js','/card-form-practice.js','/living-words.js'].includes(pathname)?translationSuffix:'');
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
 }
 }
@@ -81,7 +81,7 @@ assert(scripts.length>=15,'Critical dynamic scripts dropped');
 for(const filename of scripts){
  const patch=assetRevision?.startsWith('-lesson')&&['app.js','guided-speaking.js','v3.js','adaptive-teacher.js','course-methodology.js','verified-learning-resources.js','norwegian-listening.js','elite.js','ui-v7.js','nordic-quest-play.js','nordic-quest.js','living-day.js','card-grammar.js','card-form-practice.js','mini-path.js','living-words.js'].includes(filename)?baseRevision:'';
  const suffix=(audioSuffix&&['norwegian-listening.js','elite.js'].includes(filename)?audioSuffix:'')+
-   (translationSuffix&&['card-form-practice.js','living-words.js'].includes(filename)?translationSuffix:'');
+   (translationSuffix&&['ui-v7.js','ui-v8.js','updates.js','card-form-practice.js','living-words.js'].includes(filename)?translationSuffix:'');
  assert(assetSet.has('/'+filename+'?v='+v+patch+suffix),'PWA must cache bootstrapped script '+filename);
 }
 for(const m of index.matchAll(/\b(?:src|href)="(\/[^"]+)"/g)){
@@ -104,6 +104,16 @@ if(translationSuffix==='-translate3'){
   assert(assetSet.has(expectedUrl),'New learning asset missing from PWA: '+expectedUrl);
  }
  assert(access.includes("'"+translationSuffix+"'"),'Loader must agree with learning patch');
+}
+if(translationSuffix==='-translate4'){
+ for(const pathname of ['/ui-v7.js','/ui-v8.js','/updates.js']){
+  const rev=pathname==='/ui-v7.js'?baseRevision:'';
+  assert(assetSet.has(pathname+'?v='+v+rev+translationSuffix),'Installed PWA must fetch fresh version UI: '+pathname);
+ }
+ assert(sw.includes('NE_GET_VERSION')&&sw.includes('cache:CACHE'),
+   'Installed SW must reveal its actual active cache revision via MessageChannel');
+ assert(index.includes('/access.js?v='+v+assetRevision),
+   'Version check must use a fresh bootstrap URL');
 }
 assert(!assets.some(x=>x.startsWith('/api/')),'Never cache authenticated AI responses');
 assert(sw.includes('u.pathname.startsWith("/api/")'),'Service worker must bypass /api calls');
