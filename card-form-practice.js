@@ -91,6 +91,7 @@ function taskList(word){
  return contexts.map((context,i)=>({
   kind:'sentence',index:i,type:g?.type||'other',label:'Применение слова в речи',
   prompt:context+' Используй слово «'+(g?.headword||String(word.word||''))+'» так, чтобы смысл предложения был понятен.',
+  russianSentence:null,modelAnswer:null,
   requiredForm:null,answer:null,word:g?.headword||String(word.word||''),
   lemma:g?.lemma||String(word.word||''),help:'Напиши полноценное предложение; Нора оценит значение, контекст и грамматику.',
   url:g?.url||''
