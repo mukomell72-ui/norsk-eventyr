@@ -151,7 +151,13 @@ function sentence(task){
    });
    await translate(word.translation,word.word==='en bok');
    await solve();
-   assert(await page.evaluate(()=>window.NELivingWords.ensure().formPractice.done));
+   const debug=await page.evaluate(()=>{
+    const d=window.NELivingWords.ensure(),p=d.formPractice;
+    return {word:d.active[d.cardQueue[d.cardsSeen]]?.word,done:p?.done,task:p?.task,
+      note:p?.note,misses:p?.misses,hadMistake:p?.hadMistake,needsAnother:p?.needsAnother,
+      answers:p?.answers,draft:p?.draft};
+   });
+   assert(debug.done,'Card did not complete after model translation: '+JSON.stringify(debug));
    await page.getByRole('button',{name:/Следующая карточка|Продолжить повтор/}).click();
    checked++;
   }
