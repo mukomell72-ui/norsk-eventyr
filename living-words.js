@@ -298,12 +298,13 @@ function render(){
   const practiceHtml=practice?.started&&!practice.done
    ?'<div class="card" style="margin-top:14px;padding:16px">'+
     '<div class="eyebrow">Шаг 2 · Закрепление и понимание слова</div>'+
-    '<p><b>'+(practice.task.russianSentence?'Переведи на норвежский:':'Задание:')+'</b></p>'+    (practice.task.russianSentence?'<p lang="ru" class="notice" style="font-size:1.16rem;font-weight:650">'+esc(practice.task.russianSentence)+'</p>':'<p><b>'+esc(practice.task.prompt)+'</b></p>')+    (practice.task.russianSentence?'<p class="muted">Нужная грамматическая форма: '+esc(practice.task.label)+'. Сохрани смысл предложения и используй указанную грамматическую форму.</p>':'')+
+    '<p><b>'+(practice.task.russianSentence?'Переведи на норвежский:':'Задание:')+'</b></p>'+    (practice.task.russianSentence?'<p lang="ru" class="notice" style="font-size:1.16rem;font-weight:650">'+esc(practice.task.russianSentence)+'</p>':'<p><b>'+esc(practice.task.prompt)+'</b></p>')+    (practice.task.requiredForm?'<p class="muted"><b>Нужная форма:</b> '+esc(practice.task.label)+'. '+(practice.task.russianSentence?'Сохрани смысл русского предложения.':'Составь самостоятельное предложение с этой формой.')+'</p>':'')+
     '<p class="muted">'+(practice.task.russianSentence?'Переведи предложение целиком. Нора проверит смысл, порядок слов и нужную форму слова.':'Напиши целое осмысленное предложение по-норвежски. Нора проверит значение, ситуацию и грамматику.')+'</p>'+
     '<label class="field-label" for="livingFormAnswer">'+(practice.task.russianSentence?'Твой перевод на норвежский':'Твоё предложение на норвежском')+'</label>'+
     '<input class="input" id="livingFormAnswer" lang="nb" maxlength="280" autocomplete="off" value="'+esc(practice.draft||'')+
     '" placeholder="Например: Jeg ..." oninput="NELivingWords.draftForm(this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();NELivingWords.checkForm()}">'+
     '<div class="row"><button class="btn" onclick="NELivingWords.checkForm()">Проверить предложение</button>'+
+    '<button class="btn secondary" onclick="NELivingWords.showFormHint()">Объяснить задание</button>'+
     '<button class="btn secondary" onclick="NELivingWords.recordForm()">🎤 Сказать предложение</button></div>'+
     (practice.note?'<div class="notice" role="status">'+esc(practice.note)+'</div>':'')+
     (practice.misses>0?'<p class="muted">Подсказка доступна выше. Исправь ответ, чтобы продолжить.</p>':'')+
@@ -405,6 +406,12 @@ function beginCardPractice(){
 function draftForm(value){
  const d=ensure(),p=d?.formPractice;
  if(d?.stage==='cards'&&p?.started&&!p.done){p.draft=String(value||'').slice(0,280);save()}
+}
+function showFormHint(){
+ const d=ensure(),p=d?.formPractice,engine=window.NECardFormPractice;
+ if(!d||d.stage!=='cards'||!p?.started||p.done||!engine?.hint)return false;
+ p.note='Подсказка: '+engine.hint(p.task,3);
+ save();render();return true;
 }
 let formBusy=false;
 async function checkForm(){
@@ -599,5 +606,5 @@ function recordSpeech(){
  }catch{recognizing=false;d.feedback='Микрофон не запустился. Проверь разрешение браузера.';save();render();return false}
 }
 function checkSpeaking(){const d=ensure();return d?.speechText?assess('speaking',d.speechText):false}
-window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,checkForm,recordForm,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation,progress,answerMini,listenMini,revealMiniWord,continueMini});
+window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,showFormHint,checkForm,recordForm,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation,progress,answerMini,listenMini,revealMiniWord,continueMini});
 })();
