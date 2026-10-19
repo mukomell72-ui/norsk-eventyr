@@ -14,6 +14,7 @@ for(const [word,type,count,example] of [
  ['et hus','noun',4,'Jeg bor i et hus.'],
  ['å gå','verb',5,'Jeg liker å gå hjem.'],
  ['å være','verb',5,'Jeg ønsker å være hjemme.'],
+ ['kunne','verb',5,'Jeg kunne ikke komme i går.'],
  ['god','adjective',5,'Jeg har en god venn.'],
  ['stor','adjective',5,'Dette er en stor bil.'],
  ['begynner','verb',5,'Jeg begynner på jobb klokka åtte.']
@@ -23,7 +24,7 @@ for(const [word,type,count,example] of [
  assert(tasks.every(t=>t.kind==='sentence'&&t.prompt&&t.requiredForm&&t.type===type),word);
  assert(tasks.every(t=>t.russianSentence&&t.modelAnswer&&t.prompt.startsWith('Переведи на норвежский:')),
   'Known words must offer a concrete Russian sentence instead of abstract free-writing');
- assert(E.containsWord(tasks.find(t=>t.index===(word==='begynner'?1:0)),example,entry),
+ assert(E.containsWord(tasks.find(t=>t.index===(word==='begynner'?1:word==='kunne'?2:0)),example,entry),
   'Appropriate sentence must contain required morphological form for '+word);
  for(const task of tasks){
   assert(E.containsWord(task,'Jeg vil skrive: '+task.requiredForm+'.',entry),'Exact form in phrase detected: '+word);
@@ -47,7 +48,7 @@ assert.equal(E.containsWord(E.taskList({word:'et hus'})[2],'Jeg ser huset.',{wor
 // for every inflection, and a model solution that passes the morphology gate.
 for(const [name,keys,pos] of [
  ['adjectives',['stor','liten','god','ny','viktig','lang','kort','gammel','fin','dyr','billig','rask','forsinket'],'adjective'],
- ['verbs',['være','ha','gjøre','gå','komme','bo','lære','jobbe','snakke','spørre','svare','skrive','lese','se','ta','få','spise','drikke','kjøpe','velge','legge','ligge','forstå','finne','sende','besøke','vente','begynne','slutte','logge inn','ordne opp','rekke','oppdage','beklage','foretrekke','vaske','rengjøre','hente','åpne'],'verb'],
+ ['verbs',['kunne','være','ha','gjøre','gå','komme','bo','lære','jobbe','snakke','spørre','svare','skrive','lese','se','ta','få','spise','drikke','kjøpe','velge','legge','ligge','forstå','finne','sende','besøke','vente','begynne','slutte','logge inn','ordne opp','rekke','oppdage','beklage','foretrekke','vaske','rengjøre','hente','åpne'],'verb'],
  ['nouns',['bil','hus','bok','jobb','nøkkel','time','oppgave','pause','faktura','brød','møte','avtale','beskjed','erfaring','misforståelse','søknad','vedtak','spørsmål','målgruppe','avveining','forbehold','rapport','eple','dag','uke','år','butikk','rom','ord','barn','jente','skole','venn','klokke'],'noun']
 ]){
  for(const key of keys){
@@ -57,6 +58,15 @@ for(const [name,keys,pos] of [
   assert(tasks.every(t=>typeof t.modelAnswer==='string'&&E.containsWord(t,t.modelAnswer,entry)),key+' reference answer does not match required form');
  }
 }
+const modalTasks=E.taskList({word:'kunne',pos:'modal'});
+assert.equal(modalTasks[1].russianSentence,'Я могу тебе помочь.');
+assert.equal(modalTasks[2].russianSentence,'Вчера я не мог прийти.');
+assert(E.containsWord(modalTasks[1],'Jeg kan hjelpe deg.',{word:'kunne',pos:'modal'}));
+assert(!E.containsWord(modalTasks[2],'Jeg kan hjelpe deg.',{word:'kunne',pos:'modal'}),
+ 'Present kan cannot pass the past kunne exercise');
+assert(E.containsWord(modalTasks[2],'Jeg kunne ikke komme i går.',{word:'kunne',pos:'modal'}));
+assert(E.containsWord(modalTasks[4],'Etter kurset skal jeg kunne snakke norsk.',{word:'kunne',pos:'modal'}));
+assert(E.hint(modalTasks[2],1).includes('kan — могу'),'Feedback explains the precise modal contrast');
 const superlative=E.taskList({word:'stor'})[4];
 assert.equal(superlative.russianSentence,'Это самый большой стол в комнате.');
 assert(E.containsWord(superlative,'Dette er det største bordet i rommet.',{word:'stor'}));
