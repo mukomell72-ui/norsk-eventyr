@@ -77,6 +77,18 @@ assert.equal(translatedWord.response.explanation_ru,"thing");
 const missingTranslation=await query(chat,"/api/chat",{mode:"explain",message:"Explain ting"},{reply_no:"",translation_ru:"",explanation_ru:""});
 assert.equal(missingTranslation.status,502);
 assert.equal(missingTranslation.response.code,"AI_EXPLANATION_EMPTY");
+const gapStringFalse=await query(evaluate,"/api/evaluate",{
+ action:"lexical_gap",text:"Jeg trenger et ord",level:"A1"},
+ {candidates:[{target_lemma:"kunne",translation_ru:"мочь",kind:"modal",
+ confidence:0.99,useful_now:"false",reason_ru:"Не добавлять без явно true"}]});
+assert.equal(gapStringFalse.status,200);
+assert.deepEqual(gapStringFalse.response.candidates,[],
+ 'A string "false" must not become a new study word');
+const gapTrue=await query(evaluate,"/api/evaluate",{
+ action:"lexical_gap",text:"Jeg trenger et ord",level:"A1"},
+ {candidates:[{target_lemma:"kunne",translation_ru:"мочь",kind:"modal",
+ confidence:0.99,useful_now:true,reason_ru:"Недостающий модальный глагол"}]});
+assert.equal(gapTrue.response.candidates.length,1,'Explicit true remains accepted');
 const evalFail=await query(evaluate,"/api/evaluate",{answer:"Lotten! Takk",question:"Bestill kaffe",goal:"Закажи кофе по-норвежски",level:"A1",mode:"dialogue"},{accepted:false,score:91,explanation_ru:"Непонятно, что вы хотите заказать.",corrected:"Jeg vil ha en kaffe.",error_tag:"task"});
 assert.equal(evalFail.status,200);assert.equal(evalFail.response.accepted,false);assert.equal(evalFail.response.score,49);
 const ui=fs.readFileSync(new URL("../ui-v7.js",import.meta.url),"utf8");

@@ -64,7 +64,8 @@ export default async function handler(req,res){
         source_fragment:clean(x.source_fragment,220),
         reason_ru:clean(x.reason_ru,360),
         confidence:Math.max(0,Math.min(1,Number(x.confidence)||0)),
-        useful_now:Boolean(x.useful_now),
+        // Do not accept the string "false" as truthy when AI emits JSON.
+        useful_now:x.useful_now===true,
         corrected_sentence:clean(x.corrected_sentence,500)
       })).filter(x=>x.target_lemma&&x.translation_ru&&x.useful_now&&x.confidence>=0.68);
       return res.status(200).json({candidates:arr});

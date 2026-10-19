@@ -93,6 +93,18 @@ for(let i=1;i<ordered.length;i++){
  assert(scripts.indexOf(ordered[i-1])>=0&&scripts.indexOf(ordered[i])>scripts.indexOf(ordered[i-1]),
   'Bootstrap dependency order changed: '+ordered[i-1]+' -> '+ordered[i]);
 }
+// Scoped teaching-data patch: a new cache namespace must include both updated
+// learning scripts and the new bootstrap URL, without caching student API data.
+if(translationSuffix==='-translate3'){
+ const expectedBootstrap='/access.js?v='+v+assetRevision;
+ assert(index.includes('src="'+expectedBootstrap+'"'),'New HTML must load the updated bootstrap');
+ assert(assetSet.has(expectedBootstrap),'New bootstrap must be available to installed PWAs');
+ for(const filename of ['card-form-practice.js','living-words.js']){
+  const expectedUrl='/'+filename+'?v='+v+baseRevision+translationSuffix;
+  assert(assetSet.has(expectedUrl),'New learning asset missing from PWA: '+expectedUrl);
+ }
+ assert(access.includes("'"+translationSuffix+"'"),'Loader must agree with learning patch');
+}
 assert(!assets.some(x=>x.startsWith('/api/')),'Never cache authenticated AI responses');
 assert(sw.includes('u.pathname.startsWith("/api/")'),'Service worker must bypass /api calls');
 console.log('PASS release gate: '+assets.length+' existing PWA assets, atomic precache manifest, release revision, boot order and uncached API');

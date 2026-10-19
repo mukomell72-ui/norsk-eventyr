@@ -37,10 +37,94 @@ const contexts=[
 const authoredAdjectives=new Map([["stor",[["Это большая машина.","Это большой дом.","Это большие дома.","Этот дом больше другого.","Это самый большой стол в комнате."],["Dette er en stor bil.","Dette er et stort hus.","Dette er store hus.","Dette huset er større enn det andre.","Dette er det største bordet i rommet."]]],["liten",[["Это маленькая машина.","Это маленькое здание.","Это маленькие дома.","Этот дом меньше другого.","Этот дом самый маленький."],["Dette er en liten bil.","Dette er et lite hus.","Dette er små hus.","Dette huset er mindre enn det andre.","Dette huset er minst."]]],["god",[["Это хорошая работа.","Это хорошее предложение.","Это хорошие друзья.","Это предложение лучше другого.","Этот вариант самый лучший."],["Dette er en god jobb.","Dette er et godt forslag.","Dette er gode venner.","Dette forslaget er bedre enn det andre.","Dette alternativet er best."]]],["ny",[["Это новая машина.","Это новое здание.","Это новые дома.","Этот дом новее другого.","Этот дом самый новый."],["Dette er en ny bil.","Dette er et nytt hus.","Dette er nye hus.","Dette huset er nyere enn det andre.","Dette huset er nyest."]]],["viktig",[["Это важная работа.","Это важное сообщение.","Это важные сообщения.","Это сообщение важнее другого.","Это сообщение самое важное."],["Dette er en viktig jobb.","Dette er et viktig budskap.","Dette er viktige beskjeder.","Denne beskjeden er viktigere enn den andre.","Denne beskjeden er viktigst."]]],["lang",[["Это длинная дорога.","Это долгое собрание.","Это длинные дни.","Эта дорога длиннее другой.","Эта дорога самая длинная."],["Dette er en lang vei.","Dette er et langt møte.","Dette er lange dager.","Denne veien er lengre enn den andre.","Denne veien er lengst."]]],["kort",[["Это короткая пауза.","Это короткое письмо.","Это короткие письма.","Это письмо короче другого.","Это письмо самое короткое."],["Dette er en kort pause.","Dette er et kort brev.","Dette er korte brev.","Dette brevet er kortere enn det andre.","Dette brevet er kortest."]]],["gammel",[["Это старая машина.","Это старое здание.","Это старые дома.","Этот дом старше другого.","Этот дом самый старый."],["Dette er en gammel bil.","Dette er et gammelt hus.","Dette er gamle hus.","Dette huset er eldre enn det andre.","Dette huset er eldst."]]],["fin",[["Это красивая машина.","Это красивое здание.","Это красивые дома.","Этот дом красивее другого.","Этот дом самый красивый."],["Dette er en fin bil.","Dette er et fint hus.","Dette er fine hus.","Dette huset er finere enn det andre.","Dette huset er finest."]]],["dyr",[["Это дорогая машина.","Это дорогое здание.","Это дорогие дома.","Этот дом дороже другого.","Этот дом самый дорогой."],["Dette er en dyr bil.","Dette er et dyrt hus.","Dette er dyre hus.","Dette huset er dyrere enn det andre.","Dette huset er dyrest."]]],["billig",[["Это дешёвая машина.","Это дешёвое здание.","Это дешёвые дома.","Этот дом дешевле другого.","Этот дом самый дешёвый."],["Dette er en billig bil.","Dette er et billig hus.","Dette er billige hus.","Dette huset er billigere enn det andre.","Dette huset er billigst."]]],["rask",[["Это быстрая машина.","Это быстрое транспортное средство.","Это быстрые машины.","Эта машина быстрее другой.","Эта машина самая быстрая."],["Dette er en rask bil.","Dette er et raskt kjøretøy.","Dette er raske biler.","Denne bilen er raskere enn den andre.","Denne bilen er raskest."]]],["forsinket",[["Этот автобус опаздывает.","Этот поезд опаздывает.","Эти автобусы опаздывают.","Этот автобус опаздывает сильнее, чем другой.","Из всех автобусов этот опаздывает больше всего."],["Denne bussen er forsinket.","Dette toget er forsinket.","Disse bussene er forsinkede.","Denne bussen er mer forsinket enn den andre.","Av alle bussene er denne mest forsinket."]]]]);
 const authoredNouns=new Map([["bil",["машина","машина","машин","машины","f"]],["hus",["дом","дом","домов","дома","m"]],["bok",["книга","книга","книг","книги","f"]],["jobb",["работа","работа","работ","работы","f"]],["nøkkel",["ключ","ключ","ключей","ключи","m"]],["time",["час","час","часов","часы","m"]],["oppgave",["задание","задание","заданий","задания","n"]],["pause",["перерыв","перерыв","перерывов","перерывы","m"]],["faktura",["счёт","счёт","счетов","счета","m"]],["brød",["хлеб","хлеб","хлебов","хлеба","m"]],["møte",["встреча","встреча","встреч","встречи","f"]],["avtale",["договорённость","договорённость","договорённостей","договорённости","f"]],["beskjed",["сообщение","сообщение","сообщений","сообщения","n"]],["erfaring",["опыт","опыт","опытов","опыты","m"]],["misforståelse",["недоразумение","недоразумение","недоразумений","недоразумения","n"]],["søknad",["заявление","заявление","заявлений","заявления","n"]],["vedtak",["решение","решение","решений","решения","n"]],["spørsmål",["вопрос","вопрос","вопросов","вопросы","m"]],["målgruppe",["целевая группа","целевая группа","целевых групп","целевые группы","f"]],["avveining",["оценка вариантов","оценка вариантов","оценок вариантов","оценки вариантов","f"]],["forbehold",["оговорка","оговорка","оговорок","оговорки","f"]],["rapport",["отчёт","отчёт","отчётов","отчёты","m"]],["eple",["яблоко","яблоко","яблок","яблоки","n"]],["dag",["день","день","дней","дни","m"]],["uke",["неделя","неделя","недель","недели","f"]],["år",["год","год","лет","годы","m"]],["butikk",["магазин","магазин","магазинов","магазины","m"]],["rom",["комната","комната","комнат","комнаты","f"]],["ord",["слово","слово","слов","слова","n"]],["barn",["ребёнок","ребёнок","детей","дети","m"]],["jente",["девочка","девочка","девочек","девочки","f"]],["skole",["школа","школа","школ","школы","f"]],["venn",["друг","друг","друзей","друзья","m"]],["klokke",["часы","часы","часов","часы","n"]]]);
 const authoredVerbs=new Map([["være",["быть дома","дома","был дома","был дома","hjemme"]],["ha",["иметь время","есть время","было время","было время","tid"]],["gjøre",["сделать задание","делаю задание","сделал задание","сделал задание","en oppgave"]],["gå",["пойти домой","иду домой","пошёл домой","ушёл домой","hjem"]],["komme",["прийти домой","прихожу домой","пришёл домой","пришёл домой","hjem"]],["bo",["жить в Норвегии","живу в Норвегии","жил в Норвегии","жил в Норвегии","i Norge"]],["lære",["учить норвежский","учу норвежский","учил норвежский","выучил норвежский","norsk"]],["jobbe",["работать дома","работаю дома","работал дома","поработал дома","hjemme"]],["snakke",["говорить по-норвежски","говорю по-норвежски","говорил по-норвежски","говорил по-норвежски","norsk"]],["spørre",["спросить учителя","спрашиваю учителя","спросил учителя","спросил учителя","læreren"]],["svare",["ответить на вопрос","отвечаю на вопрос","ответил на вопрос","ответил на вопрос","på spørsmålet"]],["skrive",["написать сообщение","пишу сообщение","написал сообщение","написал сообщение","en melding"]],["lese",["прочитать книгу","читаю книгу","читал книгу","прочитал книгу","en bok"]],["se",["увидеть машину","вижу машину","видел машину","увидел машину","en bil"]],["ta",["сделать перерыв","делаю перерыв","сделал перерыв","сделал перерыв","en pause"]],["få",["получить сообщение","получаю сообщение","получил сообщение","получил сообщение","en beskjed"]],["spise",["съесть яблоко","ем яблоко","ел яблоко","съел яблоко","et eple"]],["drikke",["выпить воду","пью воду","пил воду","выпил воду","vann"]],["kjøpe",["купить хлеб","покупаю хлеб","покупал хлеб","купил хлеб","brød"]],["velge",["выбрать эту машину","выбираю эту машину","выбрал эту машину","выбрал эту машину","denne bilen"]],["legge",["положить ключ сюда","кладу ключ сюда","положил ключ сюда","положил ключ сюда","nøkkelen her"]],["ligge",["лежать здесь","лежу здесь","лежал здесь","лежал здесь","her"]],["forstå",["понять вопрос","понимаю вопрос","понял вопрос","понял вопрос","spørsmålet"]],["finne",["найти ключ","нахожу ключ","нашёл ключ","нашёл ключ","nøkkelen"]],["sende",["отправить сообщение","отправляю сообщение","отправил сообщение","отправил сообщение","en melding"]],["besøke",["навестить друга","навещаю друга","навещал друга","навестил друга","en venn"]],["vente",["ждать автобус","жду автобус","ждал автобус","дождался автобуса","på bussen"]],["begynne",["начать работу","начинаю работу","начал работу","начал работу","på jobb"]],["slutte",["перестать работать","перестаю работать","перестал работать","перестал работать","å jobbe"]],["logge inn",["войти в систему","вхожу в систему","вошёл в систему","вошёл в систему","på nettsiden"]],["ordne opp",["разобраться с проблемой","разбираюсь с проблемой","разобрался с проблемой","разобрался с проблемой","i problemet"]],["rekke",["успеть на автобус","успеваю на автобус","успел на автобус","успел на автобус","bussen"]],["oppdage",["заметить ошибку","замечаю ошибку","заметил ошибку","заметил ошибку","en feil"]],["beklage",["извиниться за ошибку","извиняюсь за ошибку","извинился за ошибку","извинился за ошибку","feilen"]],["foretrekke",["предпочесть чай","предпочитаю чай","предпочёл чай","предпочёл чай","te"]],["vaske",["помыть пол","мою пол","мыл пол","помыл пол","gulvet"]],["rengjøre",["убрать комнату","убираю комнату","убрал комнату","убрал комнату","rommet"]],["hente",["забрать детей","забираю детей","забрал детей","забрал детей","barna"]],["åpne",["открыть дверь","открываю дверь","открыл дверь","открыл дверь","døren"]]]);
+// Manually authored everyday contexts for words where a generic "here/important"
+// translation creates unnatural Russian, misleading meaning, or empty drill repetition.
+// These are reviewed implementation examples, NOT independently certified by a native teacher.
+const contextualNouns=new Map([
+ ['jobb',[
+  ['У меня есть работа.','Jeg har en jobb.'],
+  ['Работа начинается в восемь.','Jobben begynner klokka åtte.'],
+  ['У него две работы.','Han har to jobber.'],
+  ['Обе работы находятся в городе.','Jobbene ligger i byen.']]],
+ ['time',[
+  ['У меня есть час на уборку.','Jeg har en time til å vaske.'],
+  ['Урок начинается в девять.','Timen begynner klokka ni.'],
+  ['Сегодня у нас два урока.','I dag har vi to timer.'],
+  ['Уроки заканчиваются в три.','Timene slutter klokka tre.']]],
+ ['brød',[
+  ['Я купил буханку хлеба.','Jeg kjøpte et brød.'],
+  ['Хлеб свежий.','Brødet er ferskt.'],
+  ['В магазине осталось две буханки хлеба.','Det er to brød igjen i butikken.'],
+  ['Буханки хлеба лежат на столе.','Brødene ligger på bordet.']]],
+ ['erfaring',[
+  ['Это был полезный опыт.','Det var en nyttig erfaring.'],
+  ['Этот опыт многому меня научил.','Erfaringen lærte meg mye.'],
+  ['У меня было несколько похожих случаев на работе.','Jeg har hatt flere lignende erfaringer på jobben.'],
+  ['Эти случаи многому меня научили.','Erfaringene har lært meg mye.']]],
+ ['klokke',[
+  ['У меня есть наручные часы.','Jeg har ei klokke.'],
+  ['Часы висят на стене.','Klokka henger på veggen.'],
+  ['В магазине несколько часов.','Det er flere klokker i butikken.'],
+  ['Часы показывают разное время.','Klokkene viser forskjellig tid.']]],
+ ['dag',[
+  ['У меня сегодня свободный день.','Jeg har en fri dag i dag.'],
+  ['День начинается рано.','Dagen begynner tidlig.'],
+  ['У меня три свободных дня.','Jeg har tre dager fri.'],
+  ['Дни становятся короче.','Dagene blir kortere.']]],
+ ['uke',[
+  ['У меня есть неделя на выполнение задания.','Jeg har en uke på å gjøre oppgaven.'],
+  ['Неделя начинается в понедельник.','Uken begynner på mandag.'],
+  ['Я буду здесь две недели.','Jeg blir her i to uker.'],
+  ['Недели пролетели быстро.','Ukene gikk fort.']]],
+ ['år',[
+  ['Я прожил здесь один год.','Jeg har bodd her i et år.'],
+  ['Этот год был трудным.','Året var vanskelig.'],
+  ['Я работал здесь два года.','Jeg jobbet her i to år.'],
+  ['Годы пролетели быстро.','Årene gikk fort.']]],
+ ['møte',[
+  ['У нас сегодня собрание.','Vi har et møte i dag.'],
+  ['Собрание начинается в десять.','Møtet begynner klokka ti.'],
+  ['У меня две встречи завтра.','Jeg har to møter i morgen.'],
+  ['Встречи перенесли.','Møtene ble flyttet.']]],
+ ['misforståelse',[
+  ['Возникло недоразумение.','Det oppstod en misforståelse.'],
+  ['Недоразумение быстро разрешилось.','Misforståelsen ble raskt oppklart.'],
+  ['Иногда бывают недоразумения.','Noen ganger oppstår det misforståelser.'],
+  ['Недоразумения уже разрешены.','Misforståelsene er oppklart.']]],
+ ['avtale',[
+  ['У меня есть запись к врачу.','Jeg har en avtale med legen.'],
+  ['Запись к врачу завтра.','Avtalen med legen er i morgen.'],
+  ['У меня две встречи на этой неделе.','Jeg har to avtaler denne uken.'],
+  ['Договорённости подтверждены.','Avtalene er bekreftet.']]],
+ ['faktura',[
+  ['Я получил счёт.','Jeg fikk en faktura.'],
+  ['Счёт нужно оплатить до пятницы.','Fakturaen må betales innen fredag.'],
+  ['У меня есть два неоплаченных счёта.','Jeg har to ubetalte fakturaer.'],
+  ['Счета уже оплачены.','Fakturaene er betalt.']]],
+ ['målgruppe',[
+  ['У этого курса есть целевая аудитория.','Dette kurset har en målgruppe.'],
+  ['Целевая аудитория — взрослые.','Målgruppen er voksne.'],
+  ['Кампания охватывает несколько целевых групп.','Kampanjen når flere målgrupper.'],
+  ['У этих групп разные потребности.','Målgruppene har ulike behov.']]],
+ ['forbehold',[
+  ['Я делаю оговорку по этому поводу.','Jeg tar et forbehold om dette.'],
+  ['Оговорка указана в договоре.','Forbeholdet står i kontrakten.'],
+  ['У нас есть две оговорки.','Vi har to forbehold.'],
+  ['Оговорки нужно прочитать.','Forbeholdene må leses.']]],
+ ['avveining',[
+  ['Нам нужно взвесить разные варианты.','Vi må gjøre en avveining.'],
+  ['Сопоставление вариантов было непростым.','Avveiningen var vanskelig.'],
+  ['Этот вопрос требует нескольких взвешенных решений.','Saken krever flere avveininger.'],
+  ['Сопоставление вариантов заняло много времени.','Avveiningene tok lang tid.']]]
+]);
 function authoredTranslation(g,task){
  const i=task.index,word=String(g.lemma||'');
  if(g.type==='adjective'&&authoredAdjectives.has(word)){
   const [ru,no]=authoredAdjectives.get(word);return {russianSentence:ru[i],modelAnswer:no[i]};
+ }
+ if(g.type==='noun'&&contextualNouns.has(word)){
+  const pair=contextualNouns.get(word)[i];
+  return pair?{russianSentence:pair[0],modelAnswer:pair[1]}:null;
  }
  if(g.type==='noun'&&authoredNouns.has(word)){
   const [acc,nom,genPl,nomPl,gender]=authoredNouns.get(word);
@@ -228,6 +312,10 @@ function spellingHint(task,sentence){
  }
  if(changed<0)return '';
  const wrong=actual[changed],correct=expected[changed];
+ // Function words and common demonstratives are real alternative words, not typos.
+ // "Det er store hus" must reach meaning-based grading, not be 'corrected' to "Dette".
+ const validVariants=new Set(['det','dette','den','denne','de','disse','her','der','er','har','var','kan','skal','vil','blir']);
+ if(validVariants.has(wrong)||validVariants.has(correct))return '';
  if(wrong.length<3||correct.length<4||Math.abs(wrong.length-correct.length)>2)return '';
  let prefix=0;
  while(prefix<wrong.length&&prefix<correct.length&&wrong[prefix]===correct[prefix])prefix++;

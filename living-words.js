@@ -115,7 +115,12 @@ function acceptedTranslation(answer,translation){
  const variants=expected.split(/\s*(?:\/|;|\||,|\s+или\s+)\s*/i)
   .map(s=>s.replace(/\s*\([^)]*\)\s*/g,' ').trim())
   .filter(Boolean);
- return variants.some(x=>ruNorm(x)===value);
+ if(variants.some(x=>ruNorm(x)===value))return true;
+ // Only a short, explicitly curated set of clearly equivalent Russian translations.
+ // Do not infer new synonyms from spelling or let AI silently grade vocabulary recall.
+ const synonyms={'машина':['автомобиль'],'автомобиль':['машина'],
+  'друг':['приятель'],'приятель':['друг']};
+ return variants.some(x=>(synonyms[ruNorm(x)]||[]).includes(value));
 }
 function cardQueue(d){
  if(!Array.isArray(d.cardQueue))d.cardQueue=d.active.map((_,i)=>i);
@@ -459,10 +464,14 @@ async function checkForm(){
  }
  p.draft=answer;
  if(/[а-яё]/i.test(answer)){
-  return fail('Здесь нужно предложение на норвежском. Русский перевод уже проверен на шаге 1.');
+  // Wrong input language is a format problem, not evidence that a word was forgotten.
+  p.note='Здесь нужно предложение на норвежском. Русский перевод уже проверен на шаге 1.';
+  save();render();return false;
  }
- if(answer.length<12||answer.trim().split(/\s+/).length<3){
-  return fail('Одного слова недостаточно. Составь полное осмысленное предложение по-норвежски (не меньше трёх слов).');
+ if(answer.trim().split(/\s+/).length<2){
+  // Full sentences in Norwegian may be short: "Det regner." / "Jeg sover."
+  p.note='Напиши законченное предложение. Два слова могут быть достаточны, если мысль понятна.';
+  save();render();return false;
  }
  if(!engine?.containsWord?.(p.task,answer,card.word)){
   return fail('В предложении нет нужного слова в заданной форме. '+(engine?.hint?.(p.task,p.misses+1)||'Проверь слово и его форму.'));
