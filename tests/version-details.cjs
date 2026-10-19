@@ -23,7 +23,7 @@ const document={
  addEventListener:(type,cb)=>{handlers[type]=cb},
  body:{append(){lastNotice++}},
 };
-const window={};const ctx={
+const window={addEventListener(){}};const ctx={
  window,document,navigator:{onLine:true,serviceWorker},MessageChannel,
  location:{href:'http://localhost/',reload(){throw Error('Unrequested reload')}},
  fetch:async url=>({ok:true,async text(){return 'const CACHE="'+currentCache+'";'}}),
