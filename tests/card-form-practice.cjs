@@ -98,6 +98,6 @@ assert(!E.containsWord(E.taskList(phrase)[0],'Jeg lærer flere ord.',phrase));
 assert(E.norm('  HAR   GÅTT! ')==='har gått');
 const access=load('access.js'),sw=load('sw.js'),pkg=JSON.parse(load('tests/package.json'));
 assert(access.includes("'card-grammar.js','card-form-practice.js','mini-path.js','living-words.js'"));
-assert(sw.includes('/card-form-practice.js?v=8.3.0-lesson23'));
+assert(sw.includes('/card-form-practice.js?v=8.3.0-lesson24'));
 assert(pkg.scripts.test.includes('node card-form-practice.cjs'));
 console.log('PASS contextual practice: per-word sentences, verified inflections, meaningful situations, feminine alternatives, safety for unknown words');
