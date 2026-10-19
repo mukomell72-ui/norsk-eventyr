@@ -270,8 +270,14 @@ function render(){
   // Existing saved exercises from the previous release asked for a single form.
   // Upgrade the CURRENT task in place, preserving the student's translation and retries.
   const oldPractice=d.formPractice;
-  if(oldPractice?.started&&(oldPractice.task?.kind==='form'||(oldPractice.task?.kind==='sentence'&&!('russianSentence' in oldPractice.task)))){
-   const tasks=window.NECardFormPractice?.taskList?.(word)||[];
+  const refreshedTasks=oldPractice?.started?window.NECardFormPractice?.taskList?.(word)||[]:[];
+  // Keep an already-started card, but replace an old unverified free-writing
+  // prompt when a newly verified paradigm and specific translation now exist.
+  const staleVerifiedTask=oldPractice?.task?.kind==='sentence'&&
+   oldPractice.task.requiredForm==null&&refreshedTasks.some(t=>!!t.requiredForm);
+  if(oldPractice?.started&&(oldPractice.task?.kind==='form'||staleVerifiedTask||
+     (oldPractice.task?.kind==='sentence'&&!('russianSentence' in oldPractice.task)))){
+   const tasks=refreshedTasks;
    const replacement=tasks.find(t=>t.index===oldPractice.task.index)||tasks[0];
    if(replacement){
     oldPractice.task=replacement;oldPractice.done=false;
@@ -298,15 +304,20 @@ function render(){
   const practiceHtml=practice?.started&&!practice.done
    ?'<div class="card" style="margin-top:14px;padding:16px">'+
     '<div class="eyebrow">Шаг 2 · Закрепление и понимание слова</div>'+
-    '<p><b>'+(practice.task.russianSentence?'Переведи на норвежский:':'Задание:')+'</b></p>'+    (practice.task.russianSentence?'<p lang="ru" class="notice" style="font-size:1.16rem;font-weight:650">'+esc(practice.task.russianSentence)+'</p>':'<p><b>'+esc(practice.task.prompt)+'</b></p>')+    (practice.task.russianSentence?'<p class="muted">Нужная грамматическая форма: '+esc(practice.task.label)+'. Сохрани смысл предложения и используй указанную грамматическую форму.</p>':'')+
+    '<p><b>'+(practice.task.russianSentence?'Переведи на норвежский:':'Задание:')+'</b></p>'+    (practice.task.russianSentence?'<p lang="ru" class="notice" style="font-size:1.16rem;font-weight:650">'+esc(practice.task.russianSentence)+'</p>':'<p><b>'+esc(practice.task.prompt)+'</b></p>')+    (practice.task.requiredForm?'<p class="muted"><b>Нужная форма:</b> '+esc(practice.task.label)+'. '+(practice.task.russianSentence?'Сохрани смысл русского предложения.':'Составь самостоятельное предложение с этой формой.')+'</p>':'')+
     '<p class="muted">'+(practice.task.russianSentence?'Переведи предложение целиком. Нора проверит смысл, порядок слов и нужную форму слова.':'Напиши целое осмысленное предложение по-норвежски. Нора проверит значение, ситуацию и грамматику.')+'</p>'+
     '<label class="field-label" for="livingFormAnswer">'+(practice.task.russianSentence?'Твой перевод на норвежский':'Твоё предложение на норвежском')+'</label>'+
     '<input class="input" id="livingFormAnswer" lang="nb" maxlength="280" autocomplete="off" value="'+esc(practice.draft||'')+
     '" placeholder="Например: Jeg ..." oninput="NELivingWords.draftForm(this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();NELivingWords.checkForm()}">'+
     '<div class="row"><button class="btn" onclick="NELivingWords.checkForm()">Проверить предложение</button>'+
+    '<button class="btn secondary" onclick="NELivingWords.showFormHint()">Объяснить задание</button>'+
     '<button class="btn secondary" onclick="NELivingWords.recordForm()">🎤 Сказать предложение</button></div>'+
     (practice.note?'<div class="notice" role="status">'+esc(practice.note)+'</div>':'')+
-    (practice.misses>0?'<p class="muted">Подсказка доступна выше. Исправь ответ, чтобы продолжить.</p>':'')+
+    (practice.misses>=2?'<div class="row"><button class="btn secondary" onclick="NELivingWords.reviewFormError()">'+
+      (practice.task.modelAnswer&&practice.task.russianSentence?
+        'Разобрать ошибку и получить новое задание':'Сменить ситуацию без готового ответа')+
+      '</button></div>':'')+
+    (practice.misses>0?'<p class="muted">Исправь ответ. После двух ошибок можно изучить образец и попробовать новую ситуацию; ответ не зачтётся автоматически.</p>':'')+
     '</div>':'';
   const fields=feedback
    ?(practice?.done
@@ -405,6 +416,31 @@ function beginCardPractice(){
 function draftForm(value){
  const d=ensure(),p=d?.formPractice;
  if(d?.stage==='cards'&&p?.started&&!p.done){p.draft=String(value||'').slice(0,280);save()}
+}
+function showFormHint(){
+ const d=ensure(),p=d?.formPractice,engine=window.NECardFormPractice;
+ if(!d||d.stage!=='cards'||!p?.started||p.done||!engine?.hint)return false;
+ p.note='Подсказка: '+engine.hint(p.task,3);
+ save();render();return true;
+}
+// After repeated failures, show only a verified example, then require a NEW
+// independently solved task. Revealed answers never count as correct work.
+function reviewFormError(){
+ const d=ensure(),card=d&&currentCard(d),p=d?.formPractice,engine=window.NECardFormPractice;
+ if(!d||d.stage!=='cards'||!card||!p?.started||p.done||p.misses<2||
+    formBusy||!engine?.choose)return false;
+ const old=p.task;
+ const verified=!!(old.russianSentence&&old.modelAnswer);
+ const explanation=verified
+   ?'Разбор предыдущего задания: «'+old.russianSentence+'» — «'+old.modelAnswer+
+    '». Это пример для изучения, а не засчитанный ответ.'
+   :'Для предыдущего задания нет заранее проверенного примера: готовый ответ не придумываем.';
+ const next=engine.choose(card.word,old.index);
+ if(!next||next.index===old.index)return false;
+ p.task=next;p.taskCount=(Number(p.taskCount)||1)+1;p.misses=0;
+ p.draft='';p.needsAnother=false;p.hadMistake=true;p.done=false;
+ p.note=explanation+' Теперь выполни другое задание самостоятельно. Ошибки остаются в повторении.';
+ save();render();return true;
 }
 let formBusy=false;
 async function checkForm(){
@@ -599,5 +635,5 @@ function recordSpeech(){
  }catch{recognizing=false;d.feedback='Микрофон не запустился. Проверь разрешение браузера.';save();render();return false}
 }
 function checkSpeaking(){const d=ensure();return d?.speechText?assess('speaking',d.speechText):false}
-window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,checkForm,recordForm,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation,progress,answerMini,listenMini,revealMiniWord,continueMini});
+window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,showFormHint,reviewFormError,checkForm,recordForm,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation,progress,answerMini,listenMini,revealMiniWord,continueMini});
 })();
