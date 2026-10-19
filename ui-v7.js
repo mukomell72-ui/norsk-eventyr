@@ -391,13 +391,18 @@
   function hubTileV7(icon,title,sub,route,badge=""){
     return '<button class="tool-v7" onclick="navigate(\''+route+'\')"><span>'+icon+'</span><div><b>'+title+'</b><small>'+sub+'</small></div>'+(badge?'<em>'+badge+'</em>':'')+'</button>';
   }
+  function daysLabelV7(count){
+    const n=Math.max(0,Math.floor(Number(count)||0)),last=n%10,hundred=n%100;
+    const word=last===1&&hundred!==11?'день':last>=2&&last<=4&&(hundred<12||hundred>14)?'дня':'дней';
+    return n+' '+word;
+  }
   function renderHubV7(){
     currentRouteV7="hub";
     const routeProgress=levelProgressV7(state.level),gate=window.NEAdaptive?NEAdaptive.levelGate(state,state.level):null,mastery=gate?gate.avg:routeProgress,dict=Object.keys(state.dailyDictionary||{}).length,due=dueCountV7();
     shell(
       '<section class="hub-v7">'+
         '<section class="hub-hero-v7"><div class="hub-shade-v7"></div><div><small>Твой путь · твои результаты</small><h1>Прогресс<br>и экзамен</h1><p>Всё важное без лишних экранов.</p></div></section>'+
-        '<section class="stats-v7"><article><small>Профиль '+h(state.level)+'</small><b>'+(gate?.pass?'Подтверждён':'В работе')+'</b><i><em style="width:'+mastery+'%"></em></i><span>'+mastery+'%</span></article><article><small>Серия занятий</small><b>'+Number(state.streak||0)+' дней</b></article><article><small>Слова в словаре</small><b>'+dict+'</b></article><article><small>Маршрут курса</small><b>'+routeProgress+'%</b></article></section>'+
+        '<section class="stats-v7"><article><small>Профиль '+h(state.level)+'</small><b>'+(gate?.pass?'Подтверждён':'В работе')+'</b><i><em style="width:'+mastery+'%"></em></i><span>'+mastery+'%</span></article><article><small>Серия занятий</small><b>'+daysLabelV7(state.streak)+'</b></article><article><small>Слова в словаре</small><b>'+dict+'</b></article><article><small>Маршрут курса</small><b>'+routeProgress+'%</b></article></section>'+
         '<section class="exam-v7"><div class="exam-bg-v7"></div><div class="exam-copy-v7"><small>Подготовка к Norskprøven</small><h2>Пробный экзамен</h2><p>Четыре навыка в одном маршруте.</p><div class="exam-parts-v7"><span>▤ Чтение</span><span>◉ Аудирование</span><span>✎ Письмо</span><span>◌ Говорение</span></div><button class="cta-v7 small" onclick="navigate(\'exam\')">Начать экзамен →</button></div></section>'+
         '<section class="tools-grid-v7">'+
           hubTileV7("✦","Северный компас","Приключение и карта маршрута","adventure")+
