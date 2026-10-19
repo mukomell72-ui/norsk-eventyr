@@ -88,11 +88,14 @@ function sentence(task){
    assert.equal(await page.evaluate(()=>window.NELivingWords.nextCard()),false);
    await page.getByRole('button',{name:'Задание с этим словом'}).click();
    assert(await page.locator('#livingFormAnswer').isVisible(),'A contextual assignment is mandatory for every word');
+   const task=await page.evaluate(()=>window.NELivingWords.ensure().formPractice.task);
+   if(task.russianSentence)assert((await page.locator('#app').innerText()).includes(task.russianSentence),
+    'After the Russian word translation, show the full Russian sentence to translate into Norwegian');
   }
   async function solve(useVoice=false){
    const task=await page.evaluate(()=>window.NELivingWords.ensure().formPractice.task);
    assert.equal(task.kind,'sentence','The learner must make a meaningful sentence, not repeat a bare form');
-   const answer=sentence(task),previous=await page.evaluate(()=>{
+   const answer=task.modelAnswer||sentence(task),previous=await page.evaluate(()=>{
     const p=window.NELivingWords.ensure().formPractice;
     return {answers:p.answers.length,misses:p.misses};
    });
