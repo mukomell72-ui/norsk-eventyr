@@ -146,7 +146,7 @@ const D=w.NELivingWords;
  assert(saves>4);
  const access=read('access.js'),sw=read('sw.js'),lexicon=read('lexicon.js'),teacher=read('living-day.js');
  assert(access.includes("'mini-path.js','living-words.js'")&&sw.includes('/mini-path.js?v=8.3.0-lesson24'));
- assert(sw.includes('/living-words.js?v=8.3.0-lesson24-translate3'));
+ assert(sw.includes('/living-words.js?v=8.3.0-lesson24-translate4'));
  assert(teacher.includes('NELivingWords.isReady()'),'Main route must check whether warmup is complete');
  assert(lexicon.includes("livingVocabulary?.days?.[date]?.newWords"),'Separate optional daily section cannot award another five new words');
  console.log('PASS daily vocabulary: five-word mini-lesson checkpoint, mandatory contextual grammar on every word, retries, Russian/Norwegian voice, 15 active and 5 new/day');
