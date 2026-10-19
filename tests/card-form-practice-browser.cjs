@@ -198,6 +198,38 @@ function sentence(task){
   await page.getByRole('button',{name:'Объяснить задание'}).click();
   assert((await page.locator('#app').innerText()).includes('kan — могу'),
    'Hint must explain kan / kunne before a learner submits an error');
+  await page.locator('#livingFormAnswer').fill('Jeg kan hjelpe deg.');
+  await page.getByRole('button',{name:'Проверить предложение'}).click();
+  assert(await page.getByRole('button',{name:'Разобрать ошибку и получить новое задание'}).isVisible(),
+   'After two failed attempts, the learner can request a verified example');
+  await page.getByRole('button',{name:'Разобрать ошибку и получить новое задание'}).click();
+  const recovery=await page.evaluate(()=>{
+   const p=window.NELivingWords.ensure().formPractice;
+   return {task:p.task,misses:p.misses,done:p.done,answers:p.answers,hadMistake:p.hadMistake,
+    draft:p.draft,note:p.note};
+  });
+  assert.notEqual(recovery.task.index,2,'Worked example must be followed by a DIFFERENT task');
+  assert.equal(recovery.done,false,'Seeing a sample must never complete the card');
+  assert.equal(recovery.answers.length,0,'A shown example is not a successful answer');
+  assert.equal(recovery.hadMistake,true,'Errors stay scheduled for spaced repetition');
+  assert.equal(recovery.draft,'','Old wrong answer should not silently enter the new task');
+  assert(recovery.note.includes('Jeg kunne ikke komme i går.'),'Show the verified worked example');
+  assert.equal(await page.evaluate(()=>window.NELivingWords.nextCard()),false);
+  await page.evaluate(()=>{
+   const d=window.NELivingWords.ensure();
+   d.active=[{word:'etter hvert',translation:'постепенно',newToday:false}];
+   d.formPractice={started:true,done:false,
+    task:window.NECardFormPractice.taskList(d.active[0])[0],
+    draft:'',misses:2,hadMistake:true,needsAnother:true,answers:[],taskCount:1,note:''};
+   window.NELivingWords.render();
+  });
+  assert(await page.getByRole('button',{name:'Сменить ситуацию без готового ответа'}).isVisible());
+  await page.getByRole('button',{name:'Сменить ситуацию без готового ответа'}).click();
+  const unknownRecovery=await page.evaluate(()=>window.NELivingWords.ensure().formPractice);
+  assert.equal(unknownRecovery.task.index!==0,true);
+  assert(unknownRecovery.note.includes('нет заранее проверенного примера'),
+    'Never fabricate an exemplar for an unverified word');
+  assert.equal(unknownRecovery.done,false);
   assert.deepEqual(errors,[],'No JavaScript errors during the mobile lesson');
   console.log('PASS mobile: contextual sentence on every card, Russian/voice input, semantic corrections, saved mini-lesson and spaced review');
  }finally{await browser.close()}

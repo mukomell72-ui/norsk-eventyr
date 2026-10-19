@@ -313,7 +313,11 @@ function render(){
     '<button class="btn secondary" onclick="NELivingWords.showFormHint()">Объяснить задание</button>'+
     '<button class="btn secondary" onclick="NELivingWords.recordForm()">🎤 Сказать предложение</button></div>'+
     (practice.note?'<div class="notice" role="status">'+esc(practice.note)+'</div>':'')+
-    (practice.misses>0?'<p class="muted">Подсказка доступна выше. Исправь ответ, чтобы продолжить.</p>':'')+
+    (practice.misses>=2?'<div class="row"><button class="btn secondary" onclick="NELivingWords.reviewFormError()">'+
+      (practice.task.modelAnswer&&practice.task.russianSentence?
+        'Разобрать ошибку и получить новое задание':'Сменить ситуацию без готового ответа')+
+      '</button></div>':'')+
+    (practice.misses>0?'<p class="muted">Исправь ответ. После двух ошибок можно изучить образец и попробовать новую ситуацию; ответ не зачтётся автоматически.</p>':'')+
     '</div>':'';
   const fields=feedback
    ?(practice?.done
@@ -417,6 +421,25 @@ function showFormHint(){
  const d=ensure(),p=d?.formPractice,engine=window.NECardFormPractice;
  if(!d||d.stage!=='cards'||!p?.started||p.done||!engine?.hint)return false;
  p.note='Подсказка: '+engine.hint(p.task,3);
+ save();render();return true;
+}
+// After repeated failures, show only a verified example, then require a NEW
+// independently solved task. Revealed answers never count as correct work.
+function reviewFormError(){
+ const d=ensure(),card=d&&currentCard(d),p=d?.formPractice,engine=window.NECardFormPractice;
+ if(!d||d.stage!=='cards'||!card||!p?.started||p.done||p.misses<2||
+    formBusy||!engine?.choose)return false;
+ const old=p.task;
+ const verified=!!(old.russianSentence&&old.modelAnswer);
+ const explanation=verified
+   ?'Разбор предыдущего задания: «'+old.russianSentence+'» — «'+old.modelAnswer+
+    '». Это пример для изучения, а не засчитанный ответ.'
+   :'Для предыдущего задания нет заранее проверенного примера: готовый ответ не придумываем.';
+ const next=engine.choose(card.word,old.index);
+ if(!next||next.index===old.index)return false;
+ p.task=next;p.taskCount=(Number(p.taskCount)||1)+1;p.misses=0;
+ p.draft='';p.needsAnother=false;p.hadMistake=true;p.done=false;
+ p.note=explanation+' Теперь выполни другое задание самостоятельно. Ошибки остаются в повторении.';
  save();render();return true;
 }
 let formBusy=false;
@@ -612,5 +635,5 @@ function recordSpeech(){
  }catch{recognizing=false;d.feedback='Микрофон не запустился. Проверь разрешение браузера.';save();render();return false}
 }
 function checkSpeaking(){const d=ensure();return d?.speechText?assess('speaking',d.speechText):false}
-window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,showFormHint,checkForm,recordForm,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation,progress,answerMini,listenMini,revealMiniWord,continueMini});
+window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,showFormHint,reviewFormError,checkForm,recordForm,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation,progress,answerMini,listenMini,revealMiniWord,continueMini});
 })();

@@ -66,6 +66,12 @@ assert(!E.containsWord(modalTasks[2],'Jeg kan hjelpe deg.',{word:'kunne',pos:'mo
  'Present kan cannot pass the past kunne exercise');
 assert(E.containsWord(modalTasks[2],'Jeg kunne ikke komme i går.',{word:'kunne',pos:'modal'}));
 assert(E.containsWord(modalTasks[4],'Etter kurset skal jeg kunne snakke norsk.',{word:'kunne',pos:'modal'}));
+assert(E.containsWord(modalTasks[3],'Jeg har alltid kunnet hjelpe deg.',{word:'kunne',pos:'modal'}),
+ 'An adverb between har and kunnet must not be rejected before meaning is checked');
+assert(E.containsWord(modalTasks[4],'I morgen skal jeg kanskje kunne hjelpe deg.',{word:'kunne',pos:'modal'}),
+ 'Natural V2 with a modal adverb must pass the morphology gate');
+assert(!E.containsWord(modalTasks[4],'I morgen kan jeg hjelpe deg.',{word:'kunne',pos:'modal'}),
+ 'Wrong future morphology must remain rejected');
 assert(E.hint(modalTasks[2],1).includes('kan — могу'),'Feedback explains the precise modal contrast');
 const superlative=E.taskList({word:'stor'})[4];
 assert.equal(superlative.russianSentence,'Это самый большой стол в комнате.');

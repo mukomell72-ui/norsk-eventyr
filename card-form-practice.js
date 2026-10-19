@@ -146,6 +146,26 @@ function hasRequiredForm(task,sentence,word){
  if(!task?.requiredForm)return false;
  const g=window.NECardGrammar?.describe?.(word);
  if(variants(task,word).some(form=>includesSequence(sentence,form)))return true;
+ // Accept natural Bokmål placement of auxiliary + subject/adverb + participle:
+ // "Jeg har alltid kunnet ..." and V2 "I morgen skal jeg kanskje kunne ...".
+ // This is only a morphology gate: AI still checks meaning and sentence grammar.
+ if(g?.type==='verb'&&[3,4].includes(task.index)){
+  const pieces=norm(task.requiredForm).split(' '),words=norm(sentence).split(' ');
+  const fillers=new Set(['jeg','du','han','hun','vi','dere','de','man',
+   'ikke','aldri','alltid','ofte','allerede','nettopp','kanskje','fortsatt','fremdeles','også']);
+  if(['har','skal'].includes(pieces[0])&&pieces.length>=2){
+   for(let i=0;i<words.length;i++){
+    if(words[i]!==pieces[0])continue;
+    for(let j=i+1;j<Math.min(i+5,words.length);j++){
+     if(words.slice(j,j+pieces.length-1).join(' ')!==pieces.slice(1).join(' '))continue;
+     const between=words.slice(i+1,j);
+     if(between.every(t=>fillers.has(t))&&
+        between.filter(t=>['jeg','du','han','hun','vi','dere','de','man'].includes(t)).length<=1)
+      return true;
+    }
+   }
+  }
+ }
  // Natural definite superlatives inflect: stor -> størst / største.
  if(g?.type==='verb'&&[1,2].includes(task.index)&&String(task.requiredForm).includes(' ')){
   const parts=norm(task.requiredForm).split(' '),tokens=norm(sentence).split(' ');
