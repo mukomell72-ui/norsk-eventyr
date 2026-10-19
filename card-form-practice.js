@@ -177,6 +177,33 @@ function containsWord(task,sentence,word){
  const base=words[0]||'',stem=base.slice(0,Math.max(3,base.length-2));
  return stem.length>=3&&norm(sentence).split(' ').some(token=>token.startsWith(stem));
 }
+// Give precise local feedback only when a supplied translation differs by one
+// near-identical word. Other valid formulations remain for Nora to assess.
+function spellingHint(task,sentence){
+ if(!task?.russianSentence||!task.modelAnswer)return '';
+ const actual=norm(sentence).split(' ').filter(Boolean),expected=norm(task.modelAnswer).split(' ').filter(Boolean);
+ if(actual.length!==expected.length||actual.length<3)return '';
+ let changed=-1;
+ for(let i=0;i<actual.length;i++)if(actual[i]!==expected[i]){
+  if(changed!==-1)return '';
+  changed=i;
+ }
+ if(changed<0)return '';
+ const wrong=actual[changed],correct=expected[changed];
+ if(wrong.length<3||correct.length<4||Math.abs(wrong.length-correct.length)>2)return '';
+ let prefix=0;
+ while(prefix<wrong.length&&prefix<correct.length&&wrong[prefix]===correct[prefix])prefix++;
+ if(prefix<3)return '';
+ let distances=Array.from({length:correct.length+1},(_,i)=>i);
+ for(let i=1;i<=wrong.length;i++){
+  const next=[i];
+  for(let j=1;j<=correct.length;j++)
+   next[j]=Math.min(next[j-1]+1,distances[j]+1,distances[j-1]+(wrong[i-1]===correct[j-1]?0:1));
+  distances=next;
+ }
+ if(distances[correct.length]>2)return '';
+ return 'Проверь написание слова «'+wrong+'»: правильно «'+correct+'». Исправь это слово и проверь перевод снова.';
+}
 function hint(task,misses){
  const morphology=task?.requiredForm
    ?'Нужная форма: '+task.label+'. '+(
@@ -193,6 +220,6 @@ function hint(task,misses){
  return morphology+' Не достаточно написать одно слово: нужно полное предложение.';
 }
 window.NECardFormPractice=Object.freeze({
- taskList,choose,variants,hasRequiredForm,containsWord,hint,norm,authoredTranslation
+ taskList,choose,variants,hasRequiredForm,containsWord,hint,spellingHint,norm,authoredTranslation
 });
 })();

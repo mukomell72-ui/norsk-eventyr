@@ -298,7 +298,7 @@ function render(){
   const practiceHtml=practice?.started&&!practice.done
    ?'<div class="card" style="margin-top:14px;padding:16px">'+
     '<div class="eyebrow">Шаг 2 · Закрепление и понимание слова</div>'+
-    '<p><b>'+(practice.task.russianSentence?'Переведи на норвежский:':'Задание:')+'</b></p>'+    (practice.task.russianSentence?'<p lang="ru" class="notice" style="font-size:1.16rem;font-weight:650">'+esc(practice.task.russianSentence)+'</p>':'<p><b>'+esc(practice.task.prompt)+'</b></p>')+    (practice.task.russianSentence?'<p class="muted">Нужная грамматическая форма: '+esc(practice.task.label)+'. Переведи смысл предложения, не повторяй готовый образец.</p>':'')+
+    '<p><b>'+(practice.task.russianSentence?'Переведи на норвежский:':'Задание:')+'</b></p>'+    (practice.task.russianSentence?'<p lang="ru" class="notice" style="font-size:1.16rem;font-weight:650">'+esc(practice.task.russianSentence)+'</p>':'<p><b>'+esc(practice.task.prompt)+'</b></p>')+    (practice.task.russianSentence?'<p class="muted">Нужная грамматическая форма: '+esc(practice.task.label)+'. Сохрани смысл предложения и используй указанную грамматическую форму.</p>':'')+
     '<p class="muted">'+(practice.task.russianSentence?'Переведи предложение целиком. Нора проверит смысл, порядок слов и нужную форму слова.':'Напиши целое осмысленное предложение по-норвежски. Нора проверит значение, ситуацию и грамматику.')+'</p>'+
     '<label class="field-label" for="livingFormAnswer">'+(practice.task.russianSentence?'Твой перевод на норвежский':'Твоё предложение на норвежском')+'</label>'+
     '<input class="input" id="livingFormAnswer" lang="nb" maxlength="280" autocomplete="off" value="'+esc(practice.draft||'')+
@@ -431,7 +431,11 @@ async function checkForm(){
  if(!engine?.containsWord?.(p.task,answer,card.word)){
   return fail('В предложении нет нужного слова в заданной форме. '+(engine?.hint?.(p.task,p.misses+1)||'Проверь слово и его форму.'));
  }
- if(p.answers.some(previous=>engine.norm(previous)===engine.norm(answer))){
+ // A translation prompt requires the same meaning, so repeating the previous
+ // answer is allowed. The no-repeat rule applies only to free-writing tasks.
+ const spelling=engine?.spellingHint?.(p.task,answer);
+ if(spelling)return fail(spelling);
+ if(!p.task.russianSentence&&p.answers.some(previous=>engine.norm(previous)===engine.norm(answer))){
   return fail('Ты уже использовал это предложение. Напиши другое со словом в заданной форме.');
  }
  formBusy=true;

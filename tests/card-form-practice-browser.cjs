@@ -122,6 +122,12 @@ function sentence(task){
    'Pasting a Russian translation into the Norwegian sentence field receives explicit guidance');
   assert.equal(await page.evaluate(()=>window.NELivingWords.nextCard()),false);
   assert.equal(await page.evaluate(()=>window.NELivingWords.ensure().formPractice.task.index),initial.index);
+  // A saved identical answer must not trigger the old free-writing
+  // duplicate guard in translation mode; let Nora grade its meaning.
+  await page.evaluate(()=>{
+   const p=window.NELivingWords.ensure().formPractice;
+   p.answers.push(p.task.modelAnswer);
+  });
   await page.evaluate(()=>window.rejectNext=true);
   await solve();
   assert((await page.locator('#app').innerText()).includes('смысл')||
