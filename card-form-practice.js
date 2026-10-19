@@ -128,6 +128,13 @@ function hasRequiredForm(task,sentence,word){
  const g=window.NECardGrammar?.describe?.(word);
  if(variants(task,word).some(form=>includesSequence(sentence,form)))return true;
  // Natural definite superlatives inflect: stor -> størst / største.
+ if(g?.type==='verb'&&[1,2].includes(task.index)&&String(task.requiredForm).includes(' ')){
+  const parts=norm(task.requiredForm).split(' '),tokens=norm(sentence).split(' ');
+  // Split particle verbs respect V2: "I dag logger jeg inn".
+  for(let k=0;k<tokens.length-parts.length;k++)
+   if(tokens[k]===parts[0]&&['jeg','du','han','hun','vi','dere','de','man'].includes(tokens[k+1])&&
+      tokens.slice(k+2,k+parts.length+1).join(' ')===parts.slice(1).join(' '))return true;
+ }
  if(g?.type==='verb'&&task.index===4){
   // Standard V2 order: "I morgen skal jeg begynne", not "skal begynne jeg".
   const pieces=norm(task.requiredForm).split(' ');
