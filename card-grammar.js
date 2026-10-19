@@ -43,6 +43,7 @@ const noun={
 };
 const verb={
  'være':['er','var','vært','Jeg er hjemme.','Я дома.'],
+ 'kunne':['kan','kunne','kunnet','Jeg kan hjelpe deg.','Я могу тебе помочь.'],
  'ha':['har','hadde','hatt','Jeg har en bok.','У меня есть книга.'],
  'gjøre':['gjør','gjorde','gjort','Jeg gjør en oppgave.','Я выполняю задание.'],
  'gå':['går','gikk','gått','Jeg går på jobb.','Я иду на работу.'],
@@ -97,7 +98,7 @@ const adjective={
  'rask':['raskt','raske','raskere','raskest','Et raskt svar.','Быстрый ответ.'],
  'forsinket':['forsinket','forsinkede','mer forsinket','mest forsinket','Bussen er forsinket.','Автобус опаздывает.']
 };
-const verbAliases={begynner:'begynne',begynte:'begynne',begynt:'begynne'};
+const verbAliases={begynner:'begynne',begynte:'begynne',begynt:'begynne',kan:'kunne',kunnet:'kunne'};
 const nounAliases={nøkkelen:'nøkkel',klokka:'klokke',boka:'bok',boken:'bok',huset:'hus',jobben:'jobb',
  skolen:'skole',rommet:'rom',spørsmålet:'spørsmål',eplet:'eple',brødet:'brød',barnet:'barn'};
 const normalize=x=>String(x||'').normalize('NFKC').toLocaleLowerCase('nb-NO').trim().replace(/\s+/g,' ');
@@ -129,7 +130,7 @@ function describe(entry){
     forms:[form('Инфинитив','å '+verbLemma),form('Настоящее · presens',pres),
      form('Прошедшее · preteritum',past),form('Перфект · perfektum','har '+perfect),
      form('Будущее · конструкция','skal '+verbLemma)],
-    example:{no,ru},verified:true,url,help:'Запомни три разные формы: presens, preteritum и причастие после har. Будущее с skal — конструкция.'};
+    example:{no,ru},verified:true,url,help:verbLemma==='kunne'?'Модальный глагол: kan — могу сейчас, kunne — мог раньше или мог бы (вежливая просьба), har kunnet — мог до настоящего момента. После kan/kunne следующий глагол употребляется без å: Jeg kan hjelpe deg.':'Запомни три разные формы: presens, preteritum и причастие после har. Будущее с skal — конструкция.'};
  }
  if(Object.hasOwn(adjective,lemma)&&(pos==='adjective'||!pos)){
   const [neuter,plural,comparative,superlative,no,ru]=adjective[lemma];
