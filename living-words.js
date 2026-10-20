@@ -400,7 +400,13 @@ function render(){
    (feedback.correct?'Верно!':'Нужно повторить.')+'</b> Правильный перевод: '+esc(word.translation)+
    (feedback.correct?'':' · Слово сохранено в повторении.')+'</div>':'';
   const practice=d.formPractice;
-  const wordHelp=practice?.started?window.NECardFormPractice?.unknownWordHints?.(practice.task)||[]:[];
+  // Previous builds stored a separate expanded translation panel. Remove its
+  // obsolete state once, without discarding the learner's draft or help score.
+  if(practice?.helpOpen){
+    practice.helpOpen=false;
+    if(String(practice.note||'').startsWith('Подсказка открыта:'))practice.note='';
+    save();
+  }
   const practiceHtml=practice?.started&&!practice.done
    ?'<div class="card" style="margin-top:14px;padding:16px">'+
     '<div class="eyebrow">Шаг 2 · Закрепление и понимание слова</div>'+
@@ -411,15 +417,7 @@ function render(){
     '" placeholder="Например: Jeg ..." oninput="NELivingWords.draftForm(this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();NELivingWords.checkForm()}">'+
     '<div class="row"><button class="btn" onclick="NELivingWords.checkForm()">Проверить предложение</button>'+
     '<button class="btn secondary" onclick="NELivingWords.showFormHint()">Объяснить задание</button>'+
-    '<button class="btn secondary" onclick="NELivingWords.recordForm()">🎤 Сказать предложение</button>'+ 
-    '<button class="btn ghost" onclick="NELivingWords.showUnknownWordHelp()">Не знаю слово</button></div>'+
-    (practice.helpOpen?'<div class="notice" role="status"><b>Помощь с незнакомыми словами</b>'+
-      (wordHelp.length?'<p>Нажми на произношение рядом с нужным переводом:</p><div class="row">'+
-        wordHelp.map((h,i)=>'<span class="tag">'+esc(h.ru)+' → <b lang="nb">'+esc(h.no)+'</b> '+
-          '<button class="btn ghost" aria-label="Послушать '+esc(h.no)+'" onclick="NELivingWords.listenUnknownWord('+i+')">▶</button></span>').join('')+'</div>':
-        '<p>Для этого задания нет отдельно проверенных переводов слов. Посмотри форму выше или открой Bokmålsordboka.</p>')+
-      (practice.task.modelAnswer?'<button class="btn secondary" onclick="NELivingWords.studyVerifiedExample()">Изучить образец и получить другое задание</button>':'')+
-      '<p>Подсказка не засчитывает ответ. Слово добавлено в повторение.</p></div>':'')+
+    '<button class="btn secondary" onclick="NELivingWords.recordForm()">🎤 Сказать предложение</button></div>'+
     (practice.note?'<div class="notice" role="status">'+esc(practice.note)+'</div>':'')+
     (practice.misses>=2?'<div class="row"><button class="btn secondary" onclick="NELivingWords.reviewFormError()">'+
       (practice.task.modelAnswer&&practice.task.russianSentence?
@@ -570,33 +568,6 @@ function listenTappedWord(){
  return true;
 }
 
-function showUnknownWordHelp(){
- const d=ensure(),card=d&&currentCard(d),p=d?.formPractice;
- if(!d||d.stage!=='cards'||!card||!p?.started||p.done||p.helpOpen||formBusy)return false;
- p.helpOpen=true;p.hadMistake=true;p.needsAnother=true;
- markWrong(d,card);
- p.note='Подсказка открыта: изучи незнакомые слова, затем самостоятельно переведи предложение. После помощи будет ещё одно задание.';
- save();render();return true;
-}
-function listenUnknownWord(index){
- const p=ensure()?.formPractice;
- if(!p?.started||!p.helpOpen||p.done)return false;
- const hint=window.NECardFormPractice?.unknownWordHints?.(p.task)?.[index];
- if(!hint?.no)return false;
- window.speakText?.(hint.no,.88);return true;
-}
-function studyVerifiedExample(){
- const d=ensure(),card=d&&currentCard(d),p=d?.formPractice,engine=window.NECardFormPractice;
- if(!d||d.stage!=='cards'||!card||!p?.started||p.done||!p.helpOpen||
-    !p.task?.modelAnswer||formBusy||!engine?.choose)return false;
- const old=p.task,next=engine.choose(card.word,old.index);
- if(!next||next.index===old.index)return false;
- p.task=next;p.taskCount=(Number(p.taskCount)||1)+1;p.misses=0;p.draft='';
- p.helpOpen=false;p.needsAnother=false;p.hadMistake=true;resetTappedPrompt(p);
- p.note='Учебный образец предыдущего задания: «'+old.russianSentence+'» — «'+old.modelAnswer+
-   '». Это не зачтённый ответ. Теперь выполни новое задание самостоятельно.';
- save();render();return true;
-}
 function showFormHint(){
  const d=ensure(),p=d?.formPractice,engine=window.NECardFormPractice;
  if(!d||d.stage!=='cards'||!p?.started||p.done||!engine?.hint)return false;
@@ -819,5 +790,5 @@ function recordSpeech(){
  }catch{recognizing=false;d.feedback='Микрофон не запустился. Проверь разрешение браузера.';save();render();return false}
 }
 function checkSpeaking(){const d=ensure();return d?.speechText?assess('speaking',d.speechText):false}
-window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,showFormHint,showUnknownWordHelp,listenUnknownWord,tapUnknownWord,listenTappedWord,studyVerifiedExample,reviewFormError,checkForm,recordForm,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation,progress,answerMini,listenMini,revealMiniWord,continueMini});
+window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,showFormHint,tapUnknownWord,listenTappedWord,reviewFormError,checkForm,recordForm,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation,progress,answerMini,listenMini,revealMiniWord,continueMini});
 })();
