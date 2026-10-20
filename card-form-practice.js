@@ -36,7 +36,7 @@ const contexts=[
 // No unverified automatic word alignment: the Russian/Norwegian pairs are authored.
 const wordHints=new Map([
  ['Часы висят на стене.',[{ru:'висят',no:'henger'},{ru:'на стене',no:'på veggen'}]],
- ['У меня есть наручные часы.',[{ru:'у меня есть',no:'jeg har'},{ru:'наручные',no:'armbånds- (часть сложного слова armbåndsur)'}]],
+ ['У меня есть наручные часы.',[{ru:'у меня есть',no:'jeg har'}]],
  ['В магазине несколько часов.',[{ru:'в магазине',no:'i butikken'},{ru:'несколько',no:'flere'}]],
  ['Часы показывают разное время.',[{ru:'показывают',no:'viser'},{ru:'разное время',no:'forskjellig tid'}]],
  ['Работа начинается в восемь.',[{ru:'начинается',no:'begynner'},{ru:'в восемь',no:'klokka åtte'}]],
