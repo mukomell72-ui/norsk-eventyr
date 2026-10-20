@@ -25,20 +25,33 @@ for(const value of [session.active[0].translation,state.learningV8.livingVocabul
 assert.equal(app.acceptedTranslation('часы',session.active[0].translation),true);
 const tasks=win.NECardFormPractice.taskList(card);
 assert.equal(tasks[1].russianSentence,'Часы висят на стене.');
-session.formPractice={started:true,done:false,task:tasks[1],draft:'',note:'',misses:0,
- hadMistake:false,needsAnother:false,answers:[],taskCount:1};
+session.formPractice={started:true,done:false,task:tasks[1],draft:'Klokka',note:'Подсказка открыта: изучи незнакомые слова, затем самостоятельно переведи предложение. После помощи будет ещё одно задание.',misses:0,
+ helpOpen:true,hadMistake:true,needsAnother:true,answers:[],taskCount:1};
 app.render();
-assert(views.at(-1).includes('Не знаю слово'));
-assert.equal(app.showUnknownWordHelp(),true);
-assert.equal(session.formPractice.needsAnother,true);
+const html=views.at(-1);
+assert(!html.includes('Помощь с незнакомыми словами'),'Deprecated full-list translation box must be absent');
+assert(!html.includes('Не знаю слово'),'Old separate translation button must be absent');
+assert(!html.includes('разное время →'),'Translations cannot be pre-opened as a list');
+assert(!html.includes('Подсказка открыта:'),'Saved obsolete notice must be cleared');
+assert(html.includes('Перевести слово висят'),'Russian words remain tappable');
+assert.equal(session.formPractice.helpOpen,false,'Saved expanded help panel is closed');
+assert.equal(session.formPractice.note,'','Stale help note removed');
+assert.equal(session.formPractice.draft,'Klokka','Saved partial Norwegian answer preserved');
+assert.equal(session.formPractice.needsAnother,true,'Old help must not falsely count independent mastery');
 assert.equal(session.formPractice.done,false);
-assert(state.wordPracticeQueue.klokke,'Assisted word must join the review queue');
-assert(views.at(-1).includes('висят')&&views.at(-1).includes('henger'));
-assert(views.at(-1).includes('на стене')&&views.at(-1).includes('på veggen'));
-assert.equal(app.listenUnknownWord(0),true);
-assert.equal(spoken.at(-1),'henger');
-assert.equal(app.studyVerifiedExample(),true);
-assert.notEqual(session.formPractice.task.index,1,'A fully revealed example must be followed by a new task');
-assert.equal(session.formPractice.done,false,'A revealed answer must not count as mastery');
-assert(views.at(-1).includes('Klokka henger på veggen.'));
-console.log('PASS: unknown-word help, pronunciation, persisted clock repair, review and non-skippable practice');
+assert.equal(win.NECardFormPractice.unknownWordHints,undefined,'Deprecated list API removed');
+assert.equal(app.showUnknownWordHelp,undefined,'Deprecated list action removed');
+assert.equal(win.NECardFormPractice.tappedWordGloss(tasks[1],'висят').form_no,'henger');
+(async()=>{
+ assert.equal(await app.tapUnknownWord(1),true,'Word-specific translation opens on tap');
+ const inline=views.at(-1);
+ assert(inline.includes('henger</b> — висят'),'Only selected word appears next to sentence');
+ assert(!inline.includes('Помощь с незнакомыми словами'));
+ assert.equal(state.dailyDictionary.henge.translation_ru,'висеть');
+ assert.equal(state.wordPracticeQueue.henge>0,true,'Tapped item added to spaced repetition');
+ assert.equal(app.listenTappedWord(),true);
+ assert.equal(spoken.at(-1),'henger');
+ assert.equal(session.formPractice.draft,'Klokka');
+ assert.equal(session.formPractice.done,false);
+ console.log('PASS: old multi-word translation panel hidden; one-word tap, dictionary and legacy draft preserved');
+})().catch(e=>{console.error(e);process.exitCode=1});
