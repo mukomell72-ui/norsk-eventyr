@@ -554,7 +554,7 @@ async function tapUnknownWord(index){
  if(valid){
   p.wordTapHints=p.wordTapHints||{};
   p.wordTapHints[lower]={lemma_no:result.lemma_no,form_no:result.form_no,
-   translation_ru:result.translation_ru,grammar_ru:result.grammar_ru||''};
+   translation_ru:result.translation_ru,grammar_ru:result.grammar_ru||'',source_ru:result.source_ru||''};
   // Help must not be silently counted as independent mastery.
   p.hadMistake=true;p.needsAnother=true;
  }
