@@ -14,8 +14,9 @@ const norm=x=>key(x).replace(/[.!?]+$/,'');
 function correctTranslation(word,translation){
  const lemma=key(word).replace(/^(?:en|ei|et)\s+/,'');
  const ru=String(translation||'').trim();
- return lemma==='klokke'&&/^в\s+.{0,30}час(?:а|ов)?(?:\s|$)/iu.test(ru)
-  ?'часы / наручные часы':ru;
+ return ['klokke','klokka','klokken','klokker','klokkene'].includes(lemma)&&
+  /^в\s+.{0,30}час(?:а|ов)?(?:\s|$)/iu.test(ru)
+  ?'часы':ru;
 }
 function repairTranslations(s,p){
  let changed=false;
@@ -400,6 +401,16 @@ function render(){
    (feedback.correct?'Верно!':'Нужно повторить.')+'</b> Правильный перевод: '+esc(word.translation)+
    (feedback.correct?'':' · Слово сохранено в повторении.')+'</div>':'';
   const practice=d.formPractice;
+  // A saved failed lookup can now have a verified, offline translation.
+  // Clear only the stale error bubble: require a new word tap and preserve
+  // the learner's answer, review history and other hint state.
+  if(practice?.wordTap?.status==='error'){
+    const failedToken=russianTokens(practice.task?.russianSentence)[practice.wordTap.index];
+    if(failedToken&&window.NECardFormPractice?.tappedWordGloss?.(practice.task,failedToken)){
+      practice.wordTap=null;
+      save();
+    }
+  }
   // Previous builds stored a separate expanded translation panel. Remove its
   // obsolete state once, without discarding the learner's draft or help score.
   if(practice?.helpOpen){
