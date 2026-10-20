@@ -439,7 +439,7 @@ function diagnoseErrors(task,sentence,word){
     const wrong=actual[i],right=ref[i];let prefix=0;
     while(prefix<wrong.length&&prefix<right.length&&wrong[prefix]===right[prefix])prefix++;
     if(seen.has(wrong)||inflections.has(wrong)||wrong.length<3||right.length<4||
-       prefix<3||Math.abs(wrong.length-right.length)>2||nearEditDistance(wrong,right)>2)continue;
+       prefix<3||wrong.slice(-2)!==right.slice(-2)||Math.abs(wrong.length-right.length)>2||nearEditDistance(wrong,right)>2)continue;
     add(wrong,'Опечатка: «'+wrong+'» → «'+right+'». Проверь написание этого слова.');
    }
   }
