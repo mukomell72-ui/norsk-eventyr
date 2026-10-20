@@ -32,6 +32,48 @@ export default async function handler(req,res){
   if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED",code:"AI_NOT_CONFIGURED"});
 
   const body=req.body||{};
+  // Single contextual word lookup reuses the existing guarded evaluation API.
+  if(body.action==="word_lookup"){
+    const {selected_word,sentence_ru,reference_no,level="A1"}=body;
+    const selected=clean(selected_word,55).toLocaleLowerCase("ru-RU");
+    const russian=clean(sentence_ru,350),reference=clean(reference_no,350);
+    const tokens=russian.match(/[А-Яа-яЁё]+/gu)||[];
+    if(!/^[а-яё]{1,45}$/iu.test(selected)||!tokens.some(t=>t.toLocaleLowerCase("ru-RU")===selected)||
+       !reference||typeof reference_no!=="string"||reference_no.length>350||
+       typeof sentence_ru!=="string"||sentence_ru.length>350)
+      return res.status(400).json({error:"INVALID_WORD_LOOKUP",code:"INVALID_WORD_LOOKUP"});
+    const target=["A1","A2","B1","B2"].includes(level)?level:"A1";
+    const prompt=[
+      "Ты эксперт-переводчик русского и норвежского Bokmål. Требуется объяснить ОДНО выбранное слово в конкретном учебном предложении.",
+      "Русский текст: "+russian,
+      "Выбранное слово: "+selected,
+      "Уровень: "+target,
+      "Проверенное норвежское предложение для контекста: "+reference,
+      "Определи, какой норвежский фрагмент проверенного предложения передаёт значение выбранного русского слова.",
+      "form_no: точное слово или короткая последовательность слов из проверенного норвежского предложения; не придумывай отсутствующие формы.",
+      "lemma_no: норвежская словарная форма выбранной единицы (существительное без артикля, глагол в инфинитиве без å).",
+      "translation_ru: короткое словарное значение леммы по-русски, не перевод всего предложения.",
+      "grammar_ru: короткое пояснение формы или конструкции.",
+      "Если отдельного эквивалента в предложении нет, возвращай found=false. Не выдумывай слово ради ответа.",
+      "Ответ только JSON: "+JSON.stringify({found:true,lemma_no:"",form_no:"",translation_ru:"",grammar_ru:""})
+    ].join("\n");
+    try{
+      const out=parseJson(await ask(prompt,250,"none"));
+      if(out?.found!==true)return res.status(422).json({error:"WORD_NOT_ALIGNED",code:"WORD_NOT_ALIGNED"});
+      const lemma=clean(out.lemma_no,75),form=clean(out.form_no,75),
+        translation=clean(out.translation_ru,100),grammar=clean(out.grammar_ru,160);
+      const canonical=x=>x.normalize("NFKC").toLocaleLowerCase("nb-NO")
+        .replace(/[.,!?;:"“”«»()\[\]{}]/g," ").replace(/\s+/g," ").trim();
+      if(!lemma||!form||!translation||/[А-Яа-яЁё]/iu.test(lemma+form)||
+         !/[a-zæøå]/iu.test(lemma)||!/[a-zæøå]/iu.test(form)||
+         !(" "+canonical(reference)+" ").includes(" "+canonical(form)+" ")||
+         !/[А-Яа-яЁё]/iu.test(translation)||lemma.split(/\s+/).length>3||
+         form.split(/\s+/).length>4)
+        return res.status(422).json({error:"WORD_NOT_ALIGNED",code:"WORD_NOT_ALIGNED"});
+      return res.status(200).json({ok:true,lemma_no:lemma,form_no:form,translation_ru:translation,grammar_ru:grammar});
+    }catch(e){return res.status(502).json({error:"WORD_LOOKUP_FAILED",code:e?.code||"WORD_LOOKUP_FAILED"})}
+  }
+
   if(body.action==="lexical_gap"){
     const {text="",context="",level="A1",source="answer"}=body;
     if(typeof text!=="string"||!text.trim())return res.status(200).json({candidates:[]});

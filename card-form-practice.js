@@ -46,6 +46,34 @@ const wordHints=new Map([
  ['Я могу тебе помочь.',[{ru:'тебе',no:'deg'},{ru:'помочь',no:'hjelpe'}]],
  ['Это самый большой стол в комнате.',[{ru:'стол',no:'bordet'},{ru:'в комнате',no:'i rommet'}]]
 ]);
+// Per-token, hand-checked alignments. A word's dictionary lemma is distinct
+// from the inflected form that must appear in the requested sentence.
+const tappedWordGlosses=new Map([
+ ['Часы висят на стене.',{
+  'часы':{lemma_no:'klokke',form_no:'klokka',translation_ru:'часы',grammar_ru:'Определённая форма единственного числа.'},
+  'висят':{lemma_no:'henge',form_no:'henger',translation_ru:'висеть',grammar_ru:'Настоящее время (presens).'},
+  'на':{lemma_no:'på',form_no:'på',translation_ru:'на',grammar_ru:'Предлог.'},
+  'стене':{lemma_no:'vegg',form_no:'veggen',translation_ru:'стена',grammar_ru:'Определённая форма единственного числа.'}
+ }],
+ ['Работа начинается в восемь.',{
+  'работа':{lemma_no:'jobb',form_no:'jobben',translation_ru:'работа'},
+  'начинается':{lemma_no:'begynne',form_no:'begynner',translation_ru:'начинаться'},
+  'в':{lemma_no:'klokka',form_no:'klokka',translation_ru:'в (указание времени)'},
+  'восемь':{lemma_no:'åtte',form_no:'åtte',translation_ru:'восемь'}
+ }],
+ ['Урок начинается в девять.',{
+  'урок':{lemma_no:'time',form_no:'timen',translation_ru:'урок'},
+  'начинается':{lemma_no:'begynne',form_no:'begynner',translation_ru:'начинаться'},
+  'в':{lemma_no:'klokka',form_no:'klokka',translation_ru:'в (указание времени)'},
+  'девять':{lemma_no:'ni',form_no:'ni',translation_ru:'девять'}
+ }]
+]);
+function tappedWordGloss(task,russianToken){
+ const sentence=String(task?.russianSentence||'');
+ const token=String(russianToken||'').trim().toLocaleLowerCase('ru-RU');
+ const item=tappedWordGlosses.get(sentence)?.[token];
+ return item?{...item}:null;
+}
 function unknownWordHints(task){
  const hints=wordHints.get(String(task?.russianSentence||''))||[];
  return hints.map(h=>({ru:h.ru,no:h.no}));
@@ -368,6 +396,6 @@ function hint(task,misses){
  return modalNote+morphology+' Недостаточно написать одно слово: нужно полное предложение.';
 }
 window.NECardFormPractice=Object.freeze({
- taskList,choose,variants,hasRequiredForm,containsWord,hint,spellingHint,norm,authoredTranslation,unknownWordHints
+ taskList,choose,variants,hasRequiredForm,containsWord,hint,spellingHint,norm,authoredTranslation,unknownWordHints,tappedWordGloss
 });
 })();
