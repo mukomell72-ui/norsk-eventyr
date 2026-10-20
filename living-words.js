@@ -9,6 +9,36 @@ const save=()=>window.saveState?.();
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const key=x=>String(x||'').trim().normalize('NFKC').toLocaleLowerCase('nb-NO').replace(/^å\s+/,'').replace(/[.,!?;:"'()[\]{}]/g,'').replace(/\s+/g,' ');
 const norm=x=>key(x).replace(/[.!?]+$/,'');
+// Fix only the confirmed semantic confusion: ei klokke is a clock/watch,
+// whereas "klokka åtte" means "at eight o'clock".
+function correctTranslation(word,translation){
+ const lemma=key(word).replace(/^(?:en|ei|et)\s+/,'');
+ const ru=String(translation||'').trim();
+ return lemma==='klokke'&&/^в\s+.{0,30}час(?:а|ов)?(?:\s|$)/iu.test(ru)
+  ?'часы / наручные часы':ru;
+}
+function repairTranslations(s,p){
+ let changed=false;
+ const fix=(entry,wordField,translationField)=>{
+  if(!entry||typeof entry!=='object')return;
+  const corrected=correctTranslation(entry[wordField],entry[translationField]);
+  if(corrected!==entry[translationField]){entry[translationField]=corrected;changed=true}
+ };
+ for(const w of p.active)fix(w,'word','translation');
+ for(const record of Object.values(p.days)){
+  if(!record||typeof record!=='object')continue;
+  for(const w of record.active||[])fix(w,'word','translation');
+  for(const w of record.newWords||[])fix(w,'word','translation');
+ }
+ for(const entry of Object.values(s.dailyDictionary||{})){
+  if(entry){const corrected=correctTranslation(entry.lemma||entry.word,entry.translation_ru);if(corrected!==entry.translation_ru){entry.translation_ru=corrected;changed=true}}
+ }
+ for(const entry of Object.values(s.srs||{}))fix(entry,'word','translation');
+ for(const pack of Object.values(s.dailyPacks||{})){
+  for(const w of pack?.words||[]){const corrected=correctTranslation(w.lemma||w.word,w.translation_ru);if(corrected!==w.translation_ru){w.translation_ru=corrected;changed=true}}
+ }
+ if(changed)save();
+}
 function isWord(w){return !!(w&&typeof w.word==='string'&&w.word.trim()&&typeof w.translation==='string'&&w.translation.trim())}
 function snapshot(){
  const s=getState();if(!s)return null;
@@ -17,10 +47,11 @@ function snapshot(){
  if(!p||typeof p!=='object'||Array.isArray(p))s.learningV8.livingVocabulary=p={active:[],days:{}};
  p.days=p.days&&typeof p.days==='object'&&!Array.isArray(p.days)?p.days:{};
  p.active=Array.isArray(p.active)?p.active.filter(isWord).slice(-MAX):[];
+ repairTranslations(s,p);
  return p;
 }
 function candidates(level,moduleId){
- const out=[],seen=new Set(),add=(name,ru,metadata={})=>{const k=key(name);if(!k||!ru||seen.has(k))return;seen.add(k);out.push({word:String(name).trim(),translation:String(ru).trim(),key:k,...metadata})};
+ const out=[],seen=new Set(),add=(name,ru,metadata={})=>{const k=key(name);if(!k||!ru||seen.has(k))return;seen.add(k);out.push({word:String(name).trim(),translation:correctTranslation(name,ru),key:k,...metadata})};
  const catalog=window.NECurated;
  const ids=[moduleId,...(window.NECurriculum?.modules(level)||[]).map(x=>x.id)];
  for(const id of [...new Set(ids.filter(Boolean))]){
@@ -30,7 +61,7 @@ function candidates(level,moduleId){
 }
 function fromDictionary(s,level){
  const entries=Object.values(s.dailyDictionary||{}).filter(x=>x&&(x.level===level||!x.level)&&((x.lemma||x.word)&&x.translation_ru)).map(x=>({
-  word:String(x.lemma||x.word),translation:String(x.translation_ru),key:key(x.lemma||x.word),pos:x.pos||'',gender:x.gender||'',
+  word:String(x.lemma||x.word),translation:correctTranslation(x.lemma||x.word,x.translation_ru),key:key(x.lemma||x.word),pos:x.pos||'',gender:x.gender||'',
   seen:String(x.firstDate||''),due:Number(x.nextDue)||0,wrong:Number(x.wrong)||0
  }));
  entries.sort((a,b)=>(b.due>0&&b.due<=Date.now()?1:0)-(a.due>0&&a.due<=Date.now()?1:0)||b.wrong-a.wrong||String(a.seen).localeCompare(String(b.seen)));
@@ -42,7 +73,7 @@ function choose(level,moduleId,date){
  const existing=new Set([...p.active.map(x=>key(x.word)),...Object.values(s.dailyDictionary||{}).map(x=>key(x.lemma||x.word))]);
  const packed=(s.dailyPacks?.[date]?.words||[]).filter(x=>x&&(x.lemma||x.word)&&x.translation_ru);
  const newWords=[],added=new Set();
- const add=(word,translation,metadata={})=>{const k=key(word);if(!k||!translation||added.has(k)||newWords.length>=PER_DAY)return;added.add(k);newWords.push({word:String(word),translation:String(translation),key:k,newToday:true,pos:metadata.pos||'',gender:metadata.gender||''})};
+ const add=(word,translation,metadata={})=>{const k=key(word);if(!k||!translation||added.has(k)||newWords.length>=PER_DAY)return;added.add(k);newWords.push({word:String(word),translation:correctTranslation(word,translation),key:k,newToday:true,pos:metadata.pos||'',gender:metadata.gender||''})};
  if(packed.length){
   // Today's generated daily pack is the canonical five; never silently add another five.
   for(const x of packed.slice(0,PER_DAY))add(x.lemma||x.word,x.translation_ru,{pos:x.pos,gender:x.gender});
@@ -306,6 +337,7 @@ function render(){
    (feedback.correct?'Верно!':'Нужно повторить.')+'</b> Правильный перевод: '+esc(word.translation)+
    (feedback.correct?'':' · Слово сохранено в повторении.')+'</div>':'';
   const practice=d.formPractice;
+  const wordHelp=practice?.started?window.NECardFormPractice?.unknownWordHints?.(practice.task)||[]:[];
   const practiceHtml=practice?.started&&!practice.done
    ?'<div class="card" style="margin-top:14px;padding:16px">'+
     '<div class="eyebrow">Шаг 2 · Закрепление и понимание слова</div>'+
@@ -316,7 +348,15 @@ function render(){
     '" placeholder="Например: Jeg ..." oninput="NELivingWords.draftForm(this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();NELivingWords.checkForm()}">'+
     '<div class="row"><button class="btn" onclick="NELivingWords.checkForm()">Проверить предложение</button>'+
     '<button class="btn secondary" onclick="NELivingWords.showFormHint()">Объяснить задание</button>'+
-    '<button class="btn secondary" onclick="NELivingWords.recordForm()">🎤 Сказать предложение</button></div>'+
+    '<button class="btn secondary" onclick="NELivingWords.recordForm()">🎤 Сказать предложение</button>'+ 
+    '<button class="btn ghost" onclick="NELivingWords.showUnknownWordHelp()">Не знаю слово</button></div>'+
+    (practice.helpOpen?'<div class="notice" role="status"><b>Помощь с незнакомыми словами</b>'+
+      (wordHelp.length?'<p>Нажми на произношение рядом с нужным переводом:</p><div class="row">'+
+        wordHelp.map((h,i)=>'<span class="tag">'+esc(h.ru)+' → <b lang="nb">'+esc(h.no)+'</b> '+
+          '<button class="btn ghost" aria-label="Послушать '+esc(h.no)+'" onclick="NELivingWords.listenUnknownWord('+i+')">▶</button></span>').join('')+'</div>':
+        '<p>Для этого задания нет отдельно проверенных переводов слов. Посмотри форму выше или открой Bokmålsordboka.</p>')+
+      (practice.task.modelAnswer?'<button class="btn secondary" onclick="NELivingWords.studyVerifiedExample()">Изучить образец и получить другое задание</button>':'')+
+      '<p>Подсказка не засчитывает ответ. Слово добавлено в повторение.</p></div>':'')+
     (practice.note?'<div class="notice" role="status">'+esc(practice.note)+'</div>':'')+
     (practice.misses>=2?'<div class="row"><button class="btn secondary" onclick="NELivingWords.reviewFormError()">'+
       (practice.task.modelAnswer&&practice.task.russianSentence?
@@ -422,6 +462,33 @@ function draftForm(value){
  const d=ensure(),p=d?.formPractice;
  if(d?.stage==='cards'&&p?.started&&!p.done){p.draft=String(value||'').slice(0,280);save()}
 }
+function showUnknownWordHelp(){
+ const d=ensure(),card=d&&currentCard(d),p=d?.formPractice;
+ if(!d||d.stage!=='cards'||!card||!p?.started||p.done||p.helpOpen||formBusy)return false;
+ p.helpOpen=true;p.hadMistake=true;p.needsAnother=true;
+ markWrong(d,card);
+ p.note='Подсказка открыта: изучи незнакомые слова, затем самостоятельно переведи предложение. После помощи будет ещё одно задание.';
+ save();render();return true;
+}
+function listenUnknownWord(index){
+ const p=ensure()?.formPractice;
+ if(!p?.started||!p.helpOpen||p.done)return false;
+ const hint=window.NECardFormPractice?.unknownWordHints?.(p.task)?.[index];
+ if(!hint?.no)return false;
+ window.speakText?.(hint.no,.88);return true;
+}
+function studyVerifiedExample(){
+ const d=ensure(),card=d&&currentCard(d),p=d?.formPractice,engine=window.NECardFormPractice;
+ if(!d||d.stage!=='cards'||!card||!p?.started||p.done||!p.helpOpen||
+    !p.task?.modelAnswer||formBusy||!engine?.choose)return false;
+ const old=p.task,next=engine.choose(card.word,old.index);
+ if(!next||next.index===old.index)return false;
+ p.task=next;p.taskCount=(Number(p.taskCount)||1)+1;p.misses=0;p.draft='';
+ p.helpOpen=false;p.needsAnother=false;p.hadMistake=true;
+ p.note='Учебный образец предыдущего задания: «'+old.russianSentence+'» — «'+old.modelAnswer+
+   '». Это не зачтённый ответ. Теперь выполни новое задание самостоятельно.';
+ save();render();return true;
+}
 function showFormHint(){
  const d=ensure(),p=d?.formPractice,engine=window.NECardFormPractice;
  if(!d||d.stage!=='cards'||!p?.started||p.done||!engine?.hint)return false;
@@ -443,7 +510,7 @@ function reviewFormError(){
  const next=engine.choose(card.word,old.index);
  if(!next||next.index===old.index)return false;
  p.task=next;p.taskCount=(Number(p.taskCount)||1)+1;p.misses=0;
- p.draft='';p.needsAnother=false;p.hadMistake=true;p.done=false;
+ p.draft='';p.needsAnother=false;p.helpOpen=false;p.hadMistake=true;p.done=false;
  p.note=explanation+' Теперь выполни другое задание самостоятельно. Ошибки остаются в повторении.';
  save();render();return true;
 }
@@ -520,7 +587,7 @@ async function checkForm(){
  p.answers.push(answer);
  if(p.needsAnother){
   p.task=engine.choose(card.word,p.task.index);
-  p.taskCount++;p.misses=0;p.draft='';p.needsAnother=false;
+  p.taskCount++;p.misses=0;p.draft='';p.needsAnother=false;p.helpOpen=false;
   p.note=p.task.russianSentence?'Исправление принято! Теперь переведи другое русское предложение с тем же словом.':'Исправление принято! Теперь составь другое предложение с тем же словом.';
   save();render();return true;
  }
@@ -644,5 +711,5 @@ function recordSpeech(){
  }catch{recognizing=false;d.feedback='Микрофон не запустился. Проверь разрешение браузера.';save();render();return false}
 }
 function checkSpeaking(){const d=ensure();return d?.speechText?assess('speaking',d.speechText):false}
-window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,showFormHint,reviewFormError,checkForm,recordForm,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation,progress,answerMini,listenMini,revealMiniWord,continueMini});
+window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,showFormHint,showUnknownWordHelp,listenUnknownWord,studyVerifiedExample,reviewFormError,checkForm,recordForm,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation,progress,answerMini,listenMini,revealMiniWord,continueMini});
 })();

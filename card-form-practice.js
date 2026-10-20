@@ -32,6 +32,25 @@ const contexts=[
  'Представь разговор с другом и напиши собственное предложение с этим словом.',
  'Расскажи о работе, доме или учёбе, используя это слово в подходящей форме.'
 ];
+// Explicitly reviewed word-level hints for common translation prompts.
+// No unverified automatic word alignment: the Russian/Norwegian pairs are authored.
+const wordHints=new Map([
+ ['Часы висят на стене.',[{ru:'висят',no:'henger'},{ru:'на стене',no:'på veggen'}]],
+ ['У меня есть наручные часы.',[{ru:'у меня есть',no:'jeg har'}]],
+ ['В магазине несколько часов.',[{ru:'в магазине',no:'i butikken'},{ru:'несколько',no:'flere'}]],
+ ['Часы показывают разное время.',[{ru:'показывают',no:'viser'},{ru:'разное время',no:'forskjellig tid'}]],
+ ['Работа начинается в восемь.',[{ru:'начинается',no:'begynner'},{ru:'в восемь',no:'klokka åtte'}]],
+ ['Урок начинается в девять.',[{ru:'начинается',no:'begynner'},{ru:'в девять',no:'klokka ni'}]],
+ ['Уроки заканчиваются в три.',[{ru:'заканчиваются',no:'slutter'},{ru:'в три',no:'klokka tre'}]],
+ ['Собрание начинается в десять.',[{ru:'начинается',no:'begynner'},{ru:'в десять',no:'klokka ti'}]],
+ ['Я могу тебе помочь.',[{ru:'тебе',no:'deg'},{ru:'помочь',no:'hjelpe'}]],
+ ['Это самый большой стол в комнате.',[{ru:'стол',no:'bordet'},{ru:'в комнате',no:'i rommet'}]]
+]);
+function unknownWordHints(task){
+ const hints=wordHints.get(String(task?.russianSentence||''))||[];
+ return hints.map(h=>({ru:h.ru,no:h.no}));
+}
+
 // Carefully authored prompts for translating a complete Russian sentence into Bokmål.
 // Norwegian solutions are used ONLY for checking/hints, never shown before the answer.
 const authoredAdjectives=new Map([["stor",[["Это большая машина.","Это большой дом.","Это большие дома.","Этот дом больше другого.","Это самый большой стол в комнате."],["Dette er en stor bil.","Dette er et stort hus.","Dette er store hus.","Dette huset er større enn det andre.","Dette er det største bordet i rommet."]]],["liten",[["Это маленькая машина.","Это маленькое здание.","Это маленькие дома.","Этот дом меньше другого.","Этот дом самый маленький."],["Dette er en liten bil.","Dette er et lite hus.","Dette er små hus.","Dette huset er mindre enn det andre.","Dette huset er minst."]]],["god",[["Это хорошая работа.","Это хорошее предложение.","Это хорошие друзья.","Это предложение лучше другого.","Этот вариант самый лучший."],["Dette er en god jobb.","Dette er et godt forslag.","Dette er gode venner.","Dette forslaget er bedre enn det andre.","Dette alternativet er best."]]],["ny",[["Это новая машина.","Это новое здание.","Это новые дома.","Этот дом новее другого.","Этот дом самый новый."],["Dette er en ny bil.","Dette er et nytt hus.","Dette er nye hus.","Dette huset er nyere enn det andre.","Dette huset er nyest."]]],["viktig",[["Это важная работа.","Это важное сообщение.","Это важные сообщения.","Это сообщение важнее другого.","Это сообщение самое важное."],["Dette er en viktig jobb.","Dette er et viktig budskap.","Dette er viktige beskjeder.","Denne beskjeden er viktigere enn den andre.","Denne beskjeden er viktigst."]]],["lang",[["Это длинная дорога.","Это долгое собрание.","Это длинные дни.","Эта дорога длиннее другой.","Эта дорога самая длинная."],["Dette er en lang vei.","Dette er et langt møte.","Dette er lange dager.","Denne veien er lengre enn den andre.","Denne veien er lengst."]]],["kort",[["Это короткая пауза.","Это короткое письмо.","Это короткие письма.","Это письмо короче другого.","Это письмо самое короткое."],["Dette er en kort pause.","Dette er et kort brev.","Dette er korte brev.","Dette brevet er kortere enn det andre.","Dette brevet er kortest."]]],["gammel",[["Это старая машина.","Это старое здание.","Это старые дома.","Этот дом старше другого.","Этот дом самый старый."],["Dette er en gammel bil.","Dette er et gammelt hus.","Dette er gamle hus.","Dette huset er eldre enn det andre.","Dette huset er eldst."]]],["fin",[["Это красивая машина.","Это красивое здание.","Это красивые дома.","Этот дом красивее другого.","Этот дом самый красивый."],["Dette er en fin bil.","Dette er et fint hus.","Dette er fine hus.","Dette huset er finere enn det andre.","Dette huset er finest."]]],["dyr",[["Это дорогая машина.","Это дорогое здание.","Это дорогие дома.","Этот дом дороже другого.","Этот дом самый дорогой."],["Dette er en dyr bil.","Dette er et dyrt hus.","Dette er dyre hus.","Dette huset er dyrere enn det andre.","Dette huset er dyrest."]]],["billig",[["Это дешёвая машина.","Это дешёвое здание.","Это дешёвые дома.","Этот дом дешевле другого.","Этот дом самый дешёвый."],["Dette er en billig bil.","Dette er et billig hus.","Dette er billige hus.","Dette huset er billigere enn det andre.","Dette huset er billigst."]]],["rask",[["Это быстрая машина.","Это быстрое транспортное средство.","Это быстрые машины.","Эта машина быстрее другой.","Эта машина самая быстрая."],["Dette er en rask bil.","Dette er et raskt kjøretøy.","Dette er raske biler.","Denne bilen er raskere enn den andre.","Denne bilen er raskest."]]],["forsinket",[["Этот автобус опаздывает.","Этот поезд опаздывает.","Эти автобусы опаздывают.","Этот автобус опаздывает сильнее, чем другой.","Из всех автобусов этот опаздывает больше всего."],["Denne bussen er forsinket.","Dette toget er forsinket.","Disse bussene er forsinkede.","Denne bussen er mer forsinket enn den andre.","Av alle bussene er denne mest forsinket."]]]]);
@@ -349,6 +368,6 @@ function hint(task,misses){
  return modalNote+morphology+' Недостаточно написать одно слово: нужно полное предложение.';
 }
 window.NECardFormPractice=Object.freeze({
- taskList,choose,variants,hasRequiredForm,containsWord,hint,spellingHint,norm,authoredTranslation
+ taskList,choose,variants,hasRequiredForm,containsWord,hint,spellingHint,norm,authoredTranslation,unknownWordHints
 });
 })();
