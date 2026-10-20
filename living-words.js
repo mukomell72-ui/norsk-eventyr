@@ -310,8 +310,9 @@ function tappedPrompt(task,practice){
    else if(detail.status==='ready'){
     const word=detail.entry;
     pop='<span role="status" style="display:inline-block;margin:3px 5px;padding:7px;border:1px solid #66c8bc;border-radius:9px;background:rgba(13,90,92,.22);font-size:.85em">'+
-     '<b lang="nb">'+esc(word.form_no)+'</b> · '+esc(word.translation_ru)+
-     (word.lemma_no!==word.form_no?' · словарная форма: <b lang="nb">'+esc(word.lemma_no)+'</b>':'')+
+     '<b lang="nb">'+esc(word.form_no)+'</b> — '+esc(part.toLocaleLowerCase('ru-RU'))+
+     (word.lemma_no!==word.form_no?' · <b lang="nb">'+esc(word.lemma_no)+'</b> — '+esc(word.translation_ru):
+      ' · '+esc(word.translation_ru))+
      (word.grammar_ru?' · '+esc(word.grammar_ru):'')+
      ' · <b>В словаре</b> <button type="button" class="btn ghost" onclick="NELivingWords.listenTappedWord()" aria-label="Послушать '+esc(word.form_no)+'" style="padding:4px 8px">▶</button></span>';
    }
