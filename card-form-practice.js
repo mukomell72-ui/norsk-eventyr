@@ -32,21 +32,6 @@ const contexts=[
  'Представь разговор с другом и напиши собственное предложение с этим словом.',
  'Расскажи о работе, доме или учёбе, используя это слово в подходящей форме.'
 ];
-// Explicitly reviewed word-level hints for common translation prompts.
-// No unverified automatic word alignment: the Russian/Norwegian pairs are authored.
-const wordHints=new Map([
- ['Часы висят на стене.',[{ru:'висят',no:'henger'},{ru:'на стене',no:'på veggen'}]],
- ['У меня есть часы.',[{ru:'у меня есть',no:'jeg har'}]],
- ['У меня есть наручные часы.',[{ru:'у меня есть',no:'jeg har'}]],
- ['В магазине несколько часов.',[{ru:'в магазине',no:'i butikken'},{ru:'несколько',no:'flere'}]],
- ['Часы показывают разное время.',[{ru:'показывают',no:'viser'},{ru:'разное время',no:'forskjellig tid'}]],
- ['Работа начинается в восемь.',[{ru:'начинается',no:'begynner'},{ru:'в восемь',no:'klokka åtte'}]],
- ['Урок начинается в девять.',[{ru:'начинается',no:'begynner'},{ru:'в девять',no:'klokka ni'}]],
- ['Уроки заканчиваются в три.',[{ru:'заканчиваются',no:'slutter'},{ru:'в три',no:'klokka tre'}]],
- ['Собрание начинается в десять.',[{ru:'начинается',no:'begynner'},{ru:'в десять',no:'klokka ti'}]],
- ['Я могу тебе помочь.',[{ru:'тебе',no:'deg'},{ru:'помочь',no:'hjelpe'}]],
- ['Это самый большой стол в комнате.',[{ru:'стол',no:'bordet'},{ru:'в комнате',no:'i rommet'}]]
-]);
 // Per-token, hand-checked alignments. A word's dictionary lemma is distinct
 // from the inflected form that must appear in the requested sentence.
 // Russian «у меня есть» is translated as a single Norwegian construction.
@@ -421,6 +406,6 @@ function hint(task,misses){
  return modalNote+morphology+' Недостаточно написать одно слово: нужно полное предложение.';
 }
 window.NECardFormPractice=Object.freeze({
- taskList,choose,variants,hasRequiredForm,containsWord,hint,spellingHint,norm,authoredTranslation,unknownWordHints,tappedWordGloss
+ taskList,choose,variants,hasRequiredForm,containsWord,hint,spellingHint,norm,authoredTranslation,tappedWordGloss
 });
 })();

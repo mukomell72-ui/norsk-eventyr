@@ -21,10 +21,12 @@ assert.equal(revision,v,'Access bootstrap must fetch the published revision');
 const baseCache='norsk-eventyr-v'+v.replaceAll('.','-');
 const actualCache=(sw.match(/^const CACHE="([^"]+)";/m)||[])[1];
 const assetRevision=actualCache?.startsWith(baseCache)?actualCache.slice(baseCache.length):null;
-assert(assetRevision!==null&&(/^(?:-(?:ui|auth|lesson)[1-9][0-9]*(?:-listening[1-9][0-9]*)?(?:-translate[1-9][0-9]*)?(?:-wordhelp[1-9][0-9]*)?(?:-stamp[1-9][0-9]*)?(?:-tap[1-9][0-9]*)?(?:-watch[1-9][0-9]*)?)?$/).test(assetRevision),
+assert(assetRevision!==null&&(/^(?:-(?:ui|auth|lesson)[1-9][0-9]*(?:-listening[1-9][0-9]*)?(?:-translate[1-9][0-9]*)?(?:-wordhelp[1-9][0-9]*)?(?:-stamp[1-9][0-9]*)?(?:-tap[1-9][0-9]*)?(?:-watch[1-9][0-9]*)?(?:-taponly[1-9][0-9]*)?)?$/).test(assetRevision),
   'PWA cache must match the release version or a numbered patch revision');
-const watchSuffix=(assetRevision?.match(/(-watch[1-9][0-9]*)$/)||[])[1]||'';
-const withoutWatch=assetRevision?.slice(0,assetRevision.length-watchSuffix.length)||'';
+const tapOnlySuffix=(assetRevision?.match(/(-taponly[1-9][0-9]*)$/)||[])[1]||'';
+const withoutTapOnly=assetRevision?.slice(0,assetRevision.length-tapOnlySuffix.length)||'';
+const watchSuffix=(withoutTapOnly.match(/(-watch[1-9][0-9]*)$/)||[])[1]||'';
+const withoutWatch=withoutTapOnly.slice(0,withoutTapOnly.length-watchSuffix.length);
 const tapSuffix=(withoutWatch.match(/(-tap[1-9][0-9]*)$/)||[])[1]||'';
 const withoutTap=withoutWatch.slice(0,withoutWatch.length-tapSuffix.length);
 const stampSuffix=(withoutTap.match(/(-stamp[1-9][0-9]*)$/)||[])[1]||'';
@@ -57,7 +59,8 @@ for(const asset of assets){
    (wordHelpSuffix&&['/access.js','/card-form-practice.js','/living-words.js'].includes(pathname)?wordHelpSuffix:'')+
    (stampSuffix&&['/access.js','/updates.js','/ui-v8.js'].includes(pathname)?stampSuffix:'')+
    (tapSuffix&&['/access.js','/card-form-practice.js','/living-words.js'].includes(pathname)?tapSuffix:'')+
-   (watchSuffix&&['/access.js','/card-form-practice.js','/living-words.js'].includes(pathname)?watchSuffix:'');
+   (watchSuffix&&['/access.js','/card-form-practice.js','/living-words.js'].includes(pathname)?watchSuffix:'')+
+   (tapOnlySuffix&&['/access.js','/card-form-practice.js','/living-words.js'].includes(pathname)?tapOnlySuffix:'');
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
 }
 }
@@ -86,7 +89,8 @@ if(assetRevision?.startsWith('-lesson')){
    (!wordHelpSuffix||access.includes("'"+wordHelpSuffix+"'"))&&
    (!stampSuffix||access.includes("'"+stampSuffix+"'"))&&
    (!tapSuffix||access.includes("'"+tapSuffix+"'"))&&
-   (!watchSuffix||access.includes("'"+watchSuffix+"'")), 
+   (!watchSuffix||access.includes("'"+watchSuffix+"'"))&&
+   (!tapOnlySuffix||access.includes("'"+tapOnlySuffix+"'")), 
     'Access bootstrap and offline cache must agree on lesson patch revision');
 }
 const assetSet=new Set(assets);
@@ -101,7 +105,8 @@ for(const filename of scripts){
    (wordHelpSuffix&&['card-form-practice.js','living-words.js'].includes(filename)?wordHelpSuffix:'')+
    (stampSuffix&&['ui-v8.js','updates.js'].includes(filename)?stampSuffix:'')+
    (tapSuffix&&['card-form-practice.js','living-words.js'].includes(filename)?tapSuffix:'')+
-   (watchSuffix&&['card-form-practice.js','living-words.js'].includes(filename)?watchSuffix:'');
+   (watchSuffix&&['card-form-practice.js','living-words.js'].includes(filename)?watchSuffix:'')+
+   (tapOnlySuffix&&['card-form-practice.js','living-words.js'].includes(filename)?tapOnlySuffix:'');
  assert(assetSet.has('/'+filename+'?v='+v+patch+suffix),'PWA must cache bootstrapped script '+filename);
 }
 for(const m of index.matchAll(/\b(?:src|href)="(\/[^"]+)"/g)){
