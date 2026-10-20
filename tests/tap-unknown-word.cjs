@@ -70,9 +70,39 @@ rec.formPractice={started:true,done:false,task,draft:'Klokka',note:'',misses:0,h
  assert.equal(await app.tapUnknownWord(2),false);
  assert(views.at(-1).includes('Ничего не сохранено'));
  assert.equal(state.dailyDictionary.slappe,undefined,'Rejected uncertain hints must never enter dictionary');
+ // Regression from a real saved card: the old wording implied a wristwatch
+ // even though the verified Bokmål reference only said "ei klokke".
+ const legacy={...E.taskList(entry)[0],russianSentence:'У меня есть наручные часы.',
+  prompt:'Переведи на норвежский: «У меня есть наручные часы.»',
+  modelAnswer:'Jeg har ei klokke.'};
+ const wrist=E.tappedWordGloss(legacy,'наручные');
+ assert.equal(wrist.lemma_no,'armbåndsur','A tapped wristwatch has a real Bokmål lemma');
+ assert.equal(wrist.translation_ru,'наручные часы');
+ assert.equal(wrist.form_no,'et armbåndsur');
+ assert.equal(E.taskList(entry)[0].russianSentence,'У меня есть часы.','New prompts must match their model translation');
+ rec.formPractice.task=legacy;
+ rec.formPractice.draft='Jeg har';
+ rec.formPractice.wordTap={index:3,status:'error'};
+ rec.formPractice.wordTapHints={};
+ app.render();
+ assert.equal(rec.formPractice.task.russianSentence,'У меня есть часы.',
+  'Saved inaccurate task must be migrated to correct wording');
+ assert.equal(rec.formPractice.draft,'Jeg har','Migration must preserve an unfinished translation');
+ assert.equal(rec.formPractice.wordTap,null,'Obsolete failure bubble is discarded');
+ assert(!views.at(-1).includes('Перевод не подтверждён.'));
+ assert(views.at(-1).includes('Перевести слово часы'),'Migrated prompt supports instant tap');
+ const before=requests.length;
+ assert.equal(await app.tapUnknownWord(2),true); // "есть" is a part of "у меня есть"
+ assert(views.at(-1).includes('jeg har</b> — у меня есть'),'Idiomatic Russian phrase shown as one unit');
+ assert.equal(state.dailyDictionary.ha.translation_ru,'иметь');
+ assert.equal(await app.tapUnknownWord(3),true);
+ assert(views.at(-1).includes('ei klokke</b> — часы'));
+ assert(state.wordPracticeQueue.klokke,'Clock noun is retained for review');
+ assert.equal(requests.length,before,'Curated Russian words do not need flaky remote AI');
+ assert.equal(rec.formPractice.draft,'Jeg har');
  assert(saves>5);
  const sw=read('sw.js');
- assert(sw.includes('/living-words.js?v=8.3.0-lesson24-translate4-wordhelp1-tap1'));
- assert(sw.includes('/card-form-practice.js?v=8.3.0-lesson24-translate4-wordhelp1-tap1'));
+ assert(sw.includes('/living-words.js?v=8.3.0-lesson24-translate4-wordhelp1-tap1-watch1'));
+ assert(sw.includes('/card-form-practice.js?v=8.3.0-lesson24-translate4-wordhelp1-tap1-watch1'));
  console.log('PASS inline word taps: instant help, contextual API, dictionary, pronunciation, retry, no guessing and progress preserved');
 })().catch(e=>{console.error(e);process.exitCode=1});
