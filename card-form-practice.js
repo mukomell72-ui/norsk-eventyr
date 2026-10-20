@@ -65,6 +65,19 @@ const tappedWordGlosses=new Map([
   'на':{lemma_no:'på',form_no:'på',translation_ru:'на',grammar_ru:'Предлог.'},
   'стене':{lemma_no:'vegg',form_no:'veggen',translation_ru:'стена',grammar_ru:'Определённая форма единственного числа.'}
  }],
+ // Every clock lesson form has locally verified translations; no network required.
+ ['В магазине несколько часов.',{
+  'в':{lemma_no:'i',form_no:'i',translation_ru:'в',grammar_ru:'Предлог места.'},
+  'магазине':{lemma_no:'butikk',form_no:'butikken',translation_ru:'магазин',grammar_ru:'Определённая форма единственного числа.'},
+  'несколько':{lemma_no:'flere',form_no:'flere',translation_ru:'несколько',grammar_ru:'Указывает на несколько предметов.'},
+  'часов':{lemma_no:'klokke',form_no:'klokker',translation_ru:'часы',grammar_ru:'Множественное число, неопределённая форма. Здесь часы как предметы, а не промежутки времени.'}
+ }],
+ ['Часы показывают разное время.',{
+  'часы':{lemma_no:'klokke',form_no:'klokkene',translation_ru:'часы',grammar_ru:'Множественное число, определённая форма.'},
+  'показывают':{lemma_no:'vise',form_no:'viser',translation_ru:'показывать',grammar_ru:'Настоящее время (presens).'},
+  'разное':{lemma_no:'forskjellig',form_no:'forskjellig',translation_ru:'разный',grammar_ru:'Прилагательное: «разное время» — forskjellig tid.'},
+  'время':{lemma_no:'tid',form_no:'tid',translation_ru:'время',grammar_ru:'Существительное.'}
+ }],
  ['Работа начинается в восемь.',{
   'работа':{lemma_no:'jobb',form_no:'jobben',translation_ru:'работа'},
   'начинается':{lemma_no:'begynne',form_no:'begynner',translation_ru:'начинаться'},
