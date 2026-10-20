@@ -386,6 +386,10 @@ function spellingHint(task,sentence){
  // "Det er store hus" must reach meaning-based grading, not be 'corrected' to "Dette".
  const validVariants=new Set(['det','dette','den','denne','de','disse','her','der','er','har','var','kan','skal','vil','blir']);
  if(validVariants.has(wrong)||validVariants.has(correct))return '';
+ // A definite plural noun in -ene can be a legitimate alternative to a
+ // model with singular definite -en (butikkene vs butikken). Grade meaning
+ // rather than suggesting a spelling change.
+ if(correct.endsWith('en')&&wrong===correct+'e')return '';
  if(wrong.length<3||correct.length<4||Math.abs(wrong.length-correct.length)>2)return '';
  let prefix=0;
  while(prefix<wrong.length&&prefix<correct.length&&wrong[prefix]===correct[prefix])prefix++;
