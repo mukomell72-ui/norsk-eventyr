@@ -20,7 +20,7 @@ for(const file of ['card-grammar.js','card-form-practice.js','living-words.js'])
 const app=win.NELivingWords,session=app.ensure();
 for(const value of [session.active[0].translation,state.learningV8.livingVocabulary.active[0].translation,
  state.dailyDictionary.klokke.translation_ru,state.srs.klokke.translation,state.dailyPacks[date].words[0].translation_ru]){
- assert.equal(value,'часы / наручные часы','Old and newly generated incorrect gloss is repaired');
+ assert.equal(value,'часы','Old and newly generated incorrect gloss is repaired');
 }
 assert.equal(app.acceptedTranslation('часы',session.active[0].translation),true);
 const tasks=win.NECardFormPractice.taskList(card);
