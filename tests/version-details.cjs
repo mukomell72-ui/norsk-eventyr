@@ -26,7 +26,7 @@ const document={
 const window={addEventListener(){}};const ctx={
  window,document,navigator:{onLine:true,serviceWorker},MessageChannel,
  location:{href:'http://localhost/',reload(){throw Error('Unrequested reload')}},
- fetch:async url=>url==='/api/release-info'
+ fetch:async url=>url==='/api/health?release=1'
   ?{ok:true,async json(){return {ok:true,published_at:'2026-10-20T09:20:00Z',time_basis:'verified_vercel_status'}}}
   :{ok:true,async text(){return 'const CACHE="'+currentCache+'";'}},
  URL,Date,Error,JSON,String,Array,Object,RegExp,Promise,
