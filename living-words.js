@@ -31,11 +31,11 @@ function repairTranslations(s,p){
   for(const w of record.newWords||[])fix(w,'word','translation');
  }
  for(const entry of Object.values(s.dailyDictionary||{})){
-  if(entry)fix({get lemma(){return entry.lemma||entry.word},set translation_ru(v){entry.translation_ru=v},get translation_ru(){return entry.translation_ru}},'lemma','translation_ru');
+  if(entry){const corrected=correctTranslation(entry.lemma||entry.word,entry.translation_ru);if(corrected!==entry.translation_ru){entry.translation_ru=corrected;changed=true}}
  }
  for(const entry of Object.values(s.srs||{}))fix(entry,'word','translation');
  for(const pack of Object.values(s.dailyPacks||{})){
-  for(const w of pack?.words||[])fix(w,'lemma','translation_ru');
+  for(const w of pack?.words||[]){const corrected=correctTranslation(w.lemma||w.word,w.translation_ru);if(corrected!==w.translation_ru){w.translation_ru=corrected;changed=true}}
  }
  if(changed)save();
 }
