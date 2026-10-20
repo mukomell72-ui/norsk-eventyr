@@ -294,6 +294,54 @@ function continueMini(){
  d.miniRound=null;save();render();return true;
 }
 
+// Render each Russian word as an accessible inline target, with feedback
+// adjacent to the tapped word rather than in a separate hint panel.
+function russianTokens(sentence){return String(sentence||'').match(/[А-Яа-яЁё]+/gu)||[]}
+function tappedPrompt(task,practice){
+ const sentence=String(task?.russianSentence||''),parts=sentence.match(/[А-Яа-яЁё]+|[^А-Яа-яЁё]+/gu)||[];
+ let index=0;
+ return parts.map(part=>{
+  if(!/^[А-Яа-яЁё]+$/u.test(part))return esc(part);
+  const slot=index++,selected=practice?.wordTap?.index===slot,detail=selected?practice.wordTap:null;
+  let pop='';
+  if(detail){
+   if(detail.status==='loading')pop='<span role="status" style="display:inline-block;margin:3px 5px;padding:6px;border:1px solid #6595ad;border-radius:9px;font-size:.85em">Ищу перевод…</span>';
+   else if(detail.status==='error')pop='<span role="status" style="display:inline-block;margin:3px 5px;padding:6px;border:1px solid #a98577;border-radius:9px;font-size:.85em">Перевод не подтверждён. Ничего не сохранено.</span>';
+   else if(detail.status==='ready'){
+    const word=detail.entry;
+    pop='<span role="status" style="display:inline-block;margin:3px 5px;padding:7px;border:1px solid #66c8bc;border-radius:9px;background:rgba(13,90,92,.22);font-size:.85em">'+
+     '<b lang="nb">'+esc(word.form_no)+'</b> · '+esc(word.translation_ru)+
+     (word.lemma_no!==word.form_no?' · словарная форма: <b lang="nb">'+esc(word.lemma_no)+'</b>':'')+
+     (word.grammar_ru?' · '+esc(word.grammar_ru):'')+
+     ' · <b>В словаре</b> <button type="button" class="btn ghost" onclick="NELivingWords.listenTappedWord()" aria-label="Послушать '+esc(word.form_no)+'" style="padding:4px 8px">▶</button></span>';
+   }
+  }
+  return '<button type="button" lang="ru" aria-label="Перевести слово '+esc(part)+'" aria-pressed="'+(selected?'true':'false')+'" onclick="NELivingWords.tapUnknownWord('+slot+')" style="display:inline;color:inherit;background:transparent;border:0;border-bottom:2px dotted #80c5dc;padding:0 1px;font:inherit;font-weight:inherit;cursor:pointer">'+esc(part)+'</button>'+pop;
+ }).join('');
+}
+function resetTappedPrompt(practice){practice.wordTap=null;practice.wordTapHints={}}
+function rememberTappedWord(record,entry){
+ const source=getState(),lemma=String(entry?.lemma_no||'').trim(),
+  form=String(entry?.form_no||'').trim(),ru=String(entry?.translation_ru||'').trim();
+ if(!source||!lemma||!form||!ru||lemma.length>75||form.length>75||ru.length>120||
+   /[А-Яа-яЁё]/u.test(lemma+form)||!/[А-Яа-яЁё]/u.test(ru))return false;
+ const k=key(lemma),now=Date.now();
+ if(!k)return false;
+ source.dailyDictionary=source.dailyDictionary||{};
+ source.srs=source.srs||{};
+ source.wordPracticeQueue=source.wordPracticeQueue||{};
+ const old=source.dailyDictionary[k]||{},prior=source.srs[k]||{};
+ source.dailyDictionary[k]={...old,lemma:old.lemma||lemma,
+  translation_ru:old.translation_ru||ru,level:old.level||record.level,
+  firstDate:old.firstDate||record.date,lastSeen:record.date,
+  exposures:(Number(old.exposures)||0)+1,strength:old.strength??20,nextDue:now,
+  source:old.source||'tapped_word'};
+ source.srs[k]={stage:0,seen:0,correct:0,...prior,word:prior.word||lemma,
+  translation:prior.translation||ru,level:prior.level||record.level,due:now};
+ source.wordPracticeQueue[k]=now;
+ return true;
+}
+
 function render(){
  const d=ensure();if(!d)return;
  if(d.ready)return window.NELivingDay?.open?.();
@@ -316,7 +364,7 @@ function render(){
    const tasks=refreshedTasks;
    const replacement=tasks.find(t=>t.index===oldPractice.task.index)||tasks[0];
    if(replacement){
-    oldPractice.task=replacement;oldPractice.done=false;
+    oldPractice.task=replacement;oldPractice.done=false;resetTappedPrompt(oldPractice);
     oldPractice.note=replacement.russianSentence?'Обновление задания: переведи предложенное русское предложение на норвежский.':'Обновление задания: напиши целое предложение на норвежском.';
     save();
    }
@@ -341,7 +389,7 @@ function render(){
   const practiceHtml=practice?.started&&!practice.done
    ?'<div class="card" style="margin-top:14px;padding:16px">'+
     '<div class="eyebrow">Шаг 2 · Закрепление и понимание слова</div>'+
-    '<p><b>'+(practice.task.russianSentence?'Переведи на норвежский:':'Задание:')+'</b></p>'+    (practice.task.russianSentence?'<p lang="ru" class="notice" style="font-size:1.16rem;font-weight:650">'+esc(practice.task.russianSentence)+'</p>':'<p><b>'+esc(practice.task.prompt)+'</b></p>')+    (practice.task.requiredForm?'<p class="muted"><b>Нужная форма:</b> '+esc(practice.task.label)+'. '+(practice.task.russianSentence?'Сохрани смысл русского предложения.':'Составь самостоятельное предложение с этой формой.')+'</p>':'')+
+    '<p><b>'+(practice.task.russianSentence?'Переведи на норвежский:':'Задание:')+'</b></p>'+    (practice.task.russianSentence?'<p lang="ru" class="notice" style="font-size:1.16rem;font-weight:650">'+tappedPrompt(practice.task,practice)+'</p><p class="muted">Нажми на любое незнакомое слово: перевод откроется рядом, а слово попадёт в словарь.</p>':'<p><b>'+esc(practice.task.prompt)+'</b></p>')+    (practice.task.requiredForm?'<p class="muted"><b>Нужная форма:</b> '+esc(practice.task.label)+'. '+(practice.task.russianSentence?'Сохрани смысл русского предложения.':'Составь самостоятельное предложение с этой формой.')+'</p>':'')+
     '<p class="muted">'+(practice.task.russianSentence?'Переведи предложение целиком. Нора проверит смысл, порядок слов и нужную форму слова.':'Напиши целое осмысленное предложение по-норвежски. Нора проверит значение, ситуацию и грамматику.')+'</p>'+
     '<label class="field-label" for="livingFormAnswer">'+(practice.task.russianSentence?'Твой перевод на норвежский':'Твоё предложение на норвежском')+'</label>'+
     '<input class="input" id="livingFormAnswer" lang="nb" maxlength="280" autocomplete="off" value="'+esc(practice.draft||'')+
@@ -462,6 +510,51 @@ function draftForm(value){
  const d=ensure(),p=d?.formPractice;
  if(d?.stage==='cards'&&p?.started&&!p.done){p.draft=String(value||'').slice(0,280);save()}
 }
+async function tapUnknownWord(index){
+ const d=ensure(),card=d&&currentCard(d),p=d?.formPractice,task=p?.task;
+ if(!d||d.stage!=='cards'||!card||!p?.started||p.done||formBusy||
+   !task?.russianSentence||!task?.modelAnswer)return false;
+ const token=russianTokens(task.russianSentence)[index];
+ if(!token)return false;
+ const lower=token.toLocaleLowerCase('ru-RU'),cached=p.wordTapHints?.[lower];
+ if(cached){
+  p.wordTap={index,status:'ready',entry:cached};save();render();return true;
+ }
+ if(p.wordTap?.index===index&&p.wordTap?.status==='loading')return false;
+ p.wordTap={index,status:'loading'};save();render();
+ let result=window.NECardFormPractice?.tappedWordGloss?.(task,token)||null;
+ if(!result){
+  try{
+   const response=await fetch('/api/evaluate',{method:'POST',credentials:'same-origin',
+    headers:{'Content-Type':'application/json',...(window.NEAccess?.headers?.()||{})},
+    body:JSON.stringify({action:'word_lookup',selected_word:token,
+     sentence_ru:task.russianSentence,reference_no:task.modelAnswer,level:d.level})
+   });
+   const data=await response.json().catch(()=>({}));
+   if(response.ok&&data?.ok===true)result=data;
+  }catch{}
+ }
+ if(ensure()!==d||d.formPractice!==p||p.task!==task||p.done||d.stage!=='cards')return false;
+ const valid=result&&rememberTappedWord(d,result);
+ if(valid){
+  p.wordTapHints=p.wordTapHints||{};
+  p.wordTapHints[lower]={lemma_no:result.lemma_no,form_no:result.form_no,
+   translation_ru:result.translation_ru,grammar_ru:result.grammar_ru||''};
+  // Help must not be silently counted as independent mastery.
+  p.hadMistake=true;p.needsAnother=true;
+ }
+ if(p.wordTap?.index===index){
+  p.wordTap=valid?{index,status:'ready',entry:p.wordTapHints[lower]}:{index,status:'error'};
+ }
+ save();render();return !!valid;
+}
+function listenTappedWord(){
+ const p=ensure()?.formPractice,entry=p?.wordTap?.entry;
+ if(!p?.started||p.done||p.wordTap?.status!=='ready'||!entry?.form_no)return false;
+ window.speakText?.(entry.form_no,.88);
+ return true;
+}
+
 function showUnknownWordHelp(){
  const d=ensure(),card=d&&currentCard(d),p=d?.formPractice;
  if(!d||d.stage!=='cards'||!card||!p?.started||p.done||p.helpOpen||formBusy)return false;
@@ -484,7 +577,7 @@ function studyVerifiedExample(){
  const old=p.task,next=engine.choose(card.word,old.index);
  if(!next||next.index===old.index)return false;
  p.task=next;p.taskCount=(Number(p.taskCount)||1)+1;p.misses=0;p.draft='';
- p.helpOpen=false;p.needsAnother=false;p.hadMistake=true;
+ p.helpOpen=false;p.needsAnother=false;p.hadMistake=true;resetTappedPrompt(p);
  p.note='Учебный образец предыдущего задания: «'+old.russianSentence+'» — «'+old.modelAnswer+
    '». Это не зачтённый ответ. Теперь выполни новое задание самостоятельно.';
  save();render();return true;
@@ -510,7 +603,7 @@ function reviewFormError(){
  const next=engine.choose(card.word,old.index);
  if(!next||next.index===old.index)return false;
  p.task=next;p.taskCount=(Number(p.taskCount)||1)+1;p.misses=0;
- p.draft='';p.needsAnother=false;p.helpOpen=false;p.hadMistake=true;p.done=false;
+ p.draft='';p.needsAnother=false;p.helpOpen=false;p.hadMistake=true;p.done=false;resetTappedPrompt(p);
  p.note=explanation+' Теперь выполни другое задание самостоятельно. Ошибки остаются в повторении.';
  save();render();return true;
 }
@@ -587,7 +680,7 @@ async function checkForm(){
  p.answers.push(answer);
  if(p.needsAnother){
   p.task=engine.choose(card.word,p.task.index);
-  p.taskCount++;p.misses=0;p.draft='';p.needsAnother=false;p.helpOpen=false;
+  p.taskCount++;p.misses=0;p.draft='';p.needsAnother=false;p.helpOpen=false;resetTappedPrompt(p);
   p.note=p.task.russianSentence?'Исправление принято! Теперь переведи другое русское предложение с тем же словом.':'Исправление принято! Теперь составь другое предложение с тем же словом.';
   save();render();return true;
  }
@@ -711,5 +804,5 @@ function recordSpeech(){
  }catch{recognizing=false;d.feedback='Микрофон не запустился. Проверь разрешение браузера.';save();render();return false}
 }
 function checkSpeaking(){const d=ensure();return d?.speechText?assess('speaking',d.speechText):false}
-window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,showFormHint,showUnknownWordHelp,listenUnknownWord,studyVerifiedExample,reviewFormError,checkForm,recordForm,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation,progress,answerMini,listenMini,revealMiniWord,continueMini});
+window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,showFormHint,showUnknownWordHelp,listenUnknownWord,tapUnknownWord,listenTappedWord,studyVerifiedExample,reviewFormError,checkForm,recordForm,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation,progress,answerMini,listenMini,revealMiniWord,continueMini});
 })();
