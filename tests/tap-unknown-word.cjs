@@ -31,7 +31,7 @@ rec.formPractice={started:true,done:false,task,draft:'Klokka',note:'',misses:0,h
  app.render();
  for(const word of ['Часы','висят','на','стене'])
   assert(views.at(-1).includes('Перевести слово '+word),'Sentence token must be tappable: '+word);
- assert(!views.at(-1).includes('henger — висят'),'Hint hidden until selected');
+ assert(!views.at(-1).includes('henger</b> — висят'),'Hint hidden until selected');
  assert.equal(await app.tapUnknownWord(1),true);
  assert(views.at(-1).includes('henger — висят'));
  assert(views.at(-1).includes('henge'),'The lemma is shown for study');
@@ -50,7 +50,7 @@ rec.formPractice={started:true,done:false,task,draft:'Klokka',note:'',misses:0,h
  assert.equal(requests.length,0,'Reviewed examples should reveal immediately without a network call');
  assert.equal(await app.tapUnknownWord(3),true);
  assert.equal(state.dailyDictionary.vegg.translation_ru,'стена');
- assert(views.at(-1).includes('veggen — стене'),'Contextual form must show beside clicked word');
+ assert(views.at(-1).includes('veggen</b> — стене'),'Contextual form must show beside clicked word');
  rec.formPractice.task={...task,russianSentence:'Сегодня я лежу здесь.',modelAnswer:'I dag ligger jeg her.'};
  rec.formPractice.wordTapHints={};rec.formPractice.wordTap=null;
  app.render();
@@ -61,7 +61,7 @@ rec.formPractice={started:true,done:false,task,draft:'Klokka',note:'',misses:0,h
  assert.equal(requests[0].body.selected_word,'лежу');
  assert.equal(requests[0].body.reference_no,'I dag ligger jeg her.');
  assert.equal(state.dailyDictionary.ligge.translation_ru,'лежать');
- assert(views.at(-1).includes('ligger — лежу'));
+ assert(views.at(-1).includes('ligger</b> — лежу'));
  assert.equal(await app.tapUnknownWord(2),true);
  assert.equal(requests.length,1,'Same word lookup should be cached in exercise state');
  rec.formPractice.task={...task,russianSentence:'Сегодня я отдыхаю дома.',modelAnswer:'I dag slapper jeg av hjemme.'};
