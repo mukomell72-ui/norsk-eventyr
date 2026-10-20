@@ -310,7 +310,7 @@ function tappedPrompt(task,practice){
    else if(detail.status==='ready'){
     const word=detail.entry;
     pop='<span role="status" style="display:inline-block;margin:3px 5px;padding:7px;border:1px solid #66c8bc;border-radius:9px;background:rgba(13,90,92,.22);font-size:.85em">'+
-     '<b lang="nb">'+esc(word.form_no)+'</b> — '+esc(part.toLocaleLowerCase('ru-RU'))+
+     '<b lang="nb">'+esc(word.form_no)+'</b> — '+esc(word.source_ru||part.toLocaleLowerCase('ru-RU'))+
      (word.lemma_no!==word.form_no?' · <b lang="nb">'+esc(word.lemma_no)+'</b> — '+esc(word.translation_ru):
       ' · '+esc(word.translation_ru))+
      (word.grammar_ru?' · '+esc(word.grammar_ru):'')+
@@ -356,6 +356,20 @@ function render(){
   // Upgrade the CURRENT task in place, preserving the student's translation and retries.
   const oldPractice=d.formPractice;
   const refreshedTasks=oldPractice?.started?window.NECardFormPractice?.taskList?.(word)||[]:[];
+  // Repair the misleading legacy clock wording even for an in-progress card.
+  // Preserve the learner's draft, attempts and current exercise index.
+  if(oldPractice?.started&&!oldPractice.done&&
+     oldPractice.task?.russianSentence==='У меня есть наручные часы.'&&
+     oldPractice.task?.modelAnswer==='Jeg har ei klokke.'){
+    const corrected=refreshedTasks.find(t=>t.index===oldPractice.task.index&&
+      t.russianSentence==='У меня есть часы.');
+    if(corrected){
+      oldPractice.task=corrected;
+      resetTappedPrompt(oldPractice);
+      oldPractice.note='Уточнён перевод: «У меня есть часы». Начатый ответ сохранён.';
+      save();
+    }
+  }
   // Keep an already-started card, but replace an old unverified free-writing
   // prompt when a newly verified paradigm and specific translation now exist.
   const staleVerifiedTask=oldPractice?.task?.kind==='sentence'&&
