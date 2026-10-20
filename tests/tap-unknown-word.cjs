@@ -100,6 +100,59 @@ rec.formPractice={started:true,done:false,task,draft:'Klokka',note:'',misses:0,h
  assert(state.wordPracticeQueue.klokke,'Clock noun is retained for review');
  assert.equal(requests.length,before,'Curated Russian words do not need flaky remote AI');
  assert.equal(rec.formPractice.draft,'Jeg har');
+ // Screenshot regression: no online failure for "Часы показывают разное время."
+ const clockTasks=E.taskList(entry);
+ assert.equal(clockTasks.length,4);
+ const wordSets=[
+  ['у','меня','есть','часы'],
+  ['часы','висят','на','стене'],
+  ['в','магазине','несколько','часов'],
+  ['часы','показывают','разное','время']
+ ];
+ for(let i=0;i<clockTasks.length;i++){
+  assert.equal(wordSets[i].join(' '),
+   (clockTasks[i].russianSentence.match(/[А-Яа-яЁё]+/gu)||[]).join(' ').toLocaleLowerCase('ru-RU'));
+  for(const russian of wordSets[i])
+   assert(E.tappedWordGloss(clockTasks[i],russian)?.lemma_no,
+    'No verified offline gloss: '+clockTasks[i].russianSentence+' / '+russian);
+ }
+ rec.formPractice.task=clockTasks[3];
+ rec.formPractice.draft='Klokkene';
+ rec.formPractice.wordTap={index:0,status:'error'};
+ rec.formPractice.wordTapHints={};
+ app.render();
+ assert.equal(rec.formPractice.wordTap,null,'Obsolete failed lookup must disappear on update');
+ assert(!views.at(-1).includes('Перевод не подтверждён'));
+ const remoteBefore=requests.length;
+ for(const [index,lemma,form,ru] of [
+  [0,'klokke','klokkene','часы'],[1,'vise','viser','показывать'],
+  [2,'forskjellig','forskjellig','разный'],[3,'tid','tid','время']
+ ]){
+  assert.equal(await app.tapUnknownWord(index),true,
+   'Tap must work offline for index '+index);
+  assert.equal(rec.formPractice.wordTap.entry.form_no,form);
+  assert.equal(state.dailyDictionary[lemma].translation_ru,ru);
+  assert(state.wordPracticeQueue[lemma],'New word '+lemma+' must be queued for repeat');
+ }
+ assert.equal(requests.length,remoteBefore,'All clock prompt tokens bypass flaky network');
+ assert.equal(rec.formPractice.draft,'Klokkene','Partial text must survive multiple taps');
+ assert.equal(rec.formPractice.done,false,'Hints do not count as completion');
+ rec.formPractice.task=clockTasks[2];
+ rec.formPractice.wordTap=null;
+ rec.formPractice.wordTapHints={};
+ assert.equal(await app.tapUnknownWord(3),true);
+ assert.equal(rec.formPractice.wordTap.entry.form_no,'klokker',
+  'Several clocks means plural clocks, never hours of time');
+ assert.equal(requests.length,remoteBefore);
+ // Another saved-word variant from older generated day packs used to escape repair.
+ rec.active[0]={word:'klokka',translation:'В ... часов',key:'klokka'};
+ state.learningV8.livingVocabulary.active[0]={word:'klokka',translation:'в ... часов',key:'klokka'};
+ rec.cardFeedback={correct:false,answer:'неверно'};
+ app.render();
+ assert.equal(rec.active[0].translation,'часы');
+ assert(!views.at(-1).includes('Правильный перевод: В ... часов'),
+  'Old standalone inflected klokke card cannot show the incorrect hours gloss');
+ assert(views.at(-1).includes('Правильный перевод: часы'));
  assert(saves>5);
  const sw=read('sw.js');
  assert(sw.includes('/living-words.js?v=8.3.0-lesson24-translate4-wordhelp1-tap1-watch1-taponly1'));
