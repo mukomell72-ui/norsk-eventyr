@@ -3,7 +3,7 @@ const fs=require('node:fs'),assert=require('node:assert/strict'),vm=require('nod
 const root=path.resolve(__dirname,'..'),read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const currentCache=read('sw.js').match(/^const CACHE="([^"]+)";/m)[1];
 const currentBuild=currentCache.replace(/^norsk-eventyr-v(\d+)-(\d+)-(\d+)/,'$1.$2.$3');
-const elements=Object.fromEntries(['neBuildCurrent','neBuildCache','neBuildServer','neBuildCheck'].map(id=>[id,{textContent:''}]));
+const elements=Object.fromEntries(['neBuildCurrent','neBuildCache','neBuildServer','neBuildCheck','neBuildTimestamp'].map(id=>[id,{textContent:''}]));
 const handlers={},swHandlers={};let updateCalls=0,lastNotice=0;
 const portCache=currentCache;
 const controller={postMessage(message,ports){
@@ -26,7 +26,9 @@ const document={
 const window={addEventListener(){}};const ctx={
  window,document,navigator:{onLine:true,serviceWorker},MessageChannel,
  location:{href:'http://localhost/',reload(){throw Error('Unrequested reload')}},
- fetch:async url=>({ok:true,async text(){return 'const CACHE="'+currentCache+'";'}}),
+ fetch:async url=>url==='/api/release-info'
+  ?{ok:true,async json(){return {ok:true,published_at:'2026-10-20T09:20:00Z',time_basis:'verified_vercel_status'}}}
+  :{ok:true,async text(){return 'const CACHE="'+currentCache+'";'}},
  URL,Date,Error,JSON,String,Array,Object,RegExp,Promise,
  setTimeout,clearTimeout,setInterval:()=>42,localStorage:{setItem(){throw Error('User data must not change')}},
  getComputedStyle:()=>({display:'block',visibility:'visible'})
@@ -36,8 +38,16 @@ vm.runInNewContext(read('updates.js'),ctx,{filename:'updates.js'});
  assert(window.NEUpdates,'Version detector must expose a callable UI API');
  assert.equal(window.NEUpdates.runningBuild(),currentBuild);
  assert.equal(window.NEUpdates.buildFromCache(currentCache),currentBuild);
+ assert.equal(window.NEUpdates.formatReleaseTime('2026-10-20T09:20:00Z'),'20.10.2026, 11:20',
+  'Oslo must apply CEST in October before the transition');
+ assert.equal(window.NEUpdates.formatReleaseTime('2026-12-20T09:20:00Z'),'20.12.2026, 10:20',
+  'Oslo must apply CET in winter');
+ assert.equal(window.NEUpdates.formatReleaseTime('2026-10-20T09:20:00'),null,
+  'A timezone-free timestamp cannot prove the release time');
  await window.NEUpdates.refreshInfo();
  assert(elements.neBuildCache.textContent.includes(currentBuild),'PWA version must be reported from ACTIVE worker');
+ assert(elements.neBuildTimestamp.textContent.includes('20.10.2026, 11:20 (Осло)'),
+  'Version panel must show verified release date and time');
  await window.NEUpdates.checkNow();
  assert(elements.neBuildCheck.textContent.includes('Версии страницы, кеша и сервера совпадают'),
    'True three-way match must be confirmed');
@@ -45,6 +55,7 @@ vm.runInNewContext(read('updates.js'),ctx,{filename:'updates.js'});
  assert(updateCalls>0,'Check button must request SW update');
  assert.equal(lastNotice,0,'No false update banner for an up-to-date app');
  assert(read('ui-v8.js').includes('id="neVersionCard"'),'Version card must appear on profile');
+ assert(read('ui-v8.js').includes('id="neBuildTimestamp"'),'Release date row must appear in version card');
  assert(read('ui-v8.js').includes('NEUpdates.checkNow()'),'Version check button must be functional');
  assert(read('ui-v7.js').includes('daysLabelV7(state.streak)'),'Streak must inflect days correctly');
  const html=read('index.html'),sw=read('sw.js'),access=read('access.js');
