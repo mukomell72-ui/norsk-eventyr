@@ -33,7 +33,7 @@ rec.formPractice={started:true,done:false,task,draft:'Klokka',note:'',misses:0,h
   assert(views.at(-1).includes('Перевести слово '+word),'Sentence token must be tappable: '+word);
  assert(!views.at(-1).includes('henger</b> — висят'),'Hint hidden until selected');
  assert.equal(await app.tapUnknownWord(1),true);
- assert(views.at(-1).includes('henger — висят'));
+ assert(views.at(-1).includes('henger</b> — висят'));
  assert(views.at(-1).includes('henge'),'The lemma is shown for study');
  assert(views.at(-1).includes('В словаре'),'Saved status visible beside selected word');
  assert.equal(state.dailyDictionary.henge.translation_ru,'висеть');
