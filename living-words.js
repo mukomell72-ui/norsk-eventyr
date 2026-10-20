@@ -14,8 +14,9 @@ const norm=x=>key(x).replace(/[.!?]+$/,'');
 function correctTranslation(word,translation){
  const lemma=key(word).replace(/^(?:en|ei|et)\s+/,'');
  const ru=String(translation||'').trim();
- return lemma==='klokke'&&/^в\s+.{0,30}час(?:а|ов)?(?:\s|$)/iu.test(ru)
-  ?'часы / наручные часы':ru;
+ return ['klokke','klokka','klokken','klokker','klokkene'].includes(lemma)&&
+  /^в\s+.{0,30}час(?:а|ов)?(?:\s|$)/iu.test(ru)
+  ?'часы':ru;
 }
 function repairTranslations(s,p){
  let changed=false;
@@ -306,7 +307,8 @@ function tappedPrompt(task,practice){
   let pop='';
   if(detail){
    if(detail.status==='loading')pop='<span role="status" style="display:inline-block;margin:3px 5px;padding:6px;border:1px solid #6595ad;border-radius:9px;font-size:.85em">Ищу перевод…</span>';
-   else if(detail.status==='error')pop='<span role="status" style="display:inline-block;margin:3px 5px;padding:6px;border:1px solid #a98577;border-radius:9px;font-size:.85em">Перевод не подтверждён. Ничего не сохранено.</span>';
+   else if(detail.status==='error')pop='<span role="status" style="display:inline-block;margin:3px 5px;padding:6px;border:1px solid #a98577;border-radius:9px;font-size:.85em">Для этого слова нет подтверждённого перевода в предложении. Ничего не сохранено.</span>';
+   else if(detail.status==='unavailable')pop='<span role="status" style="display:inline-block;margin:3px 5px;padding:6px;border:1px solid #a98577;border-radius:9px;font-size:.85em">Онлайн-перевод временно недоступен. Повтори нажатие позже. Ничего не сохранено.</span>';
    else if(detail.status==='ready'){
     const word=detail.entry;
     pop='<span role="status" style="display:inline-block;margin:3px 5px;padding:7px;border:1px solid #66c8bc;border-radius:9px;background:rgba(13,90,92,.22);font-size:.85em">'+
@@ -400,6 +402,16 @@ function render(){
    (feedback.correct?'Верно!':'Нужно повторить.')+'</b> Правильный перевод: '+esc(word.translation)+
    (feedback.correct?'':' · Слово сохранено в повторении.')+'</div>':'';
   const practice=d.formPractice;
+  // A saved failed lookup can now have a verified, offline translation.
+  // Clear only the stale error bubble: require a new word tap and preserve
+  // the learner's answer, review history and other hint state.
+  if(practice?.wordTap?.status==='error'){
+    const failedToken=russianTokens(practice.task?.russianSentence)[practice.wordTap.index];
+    if(failedToken&&window.NECardFormPractice?.tappedWordGloss?.(practice.task,failedToken)){
+      practice.wordTap=null;
+      save();
+    }
+  }
   // Previous builds stored a separate expanded translation panel. Remove its
   // obsolete state once, without discarding the learner's draft or help score.
   if(practice?.helpOpen){
@@ -536,6 +548,7 @@ async function tapUnknownWord(index){
  if(p.wordTap?.index===index&&p.wordTap?.status==='loading')return false;
  p.wordTap={index,status:'loading'};save();render();
  let result=window.NECardFormPractice?.tappedWordGloss?.(task,token)||null;
+ let failure='error';
  if(!result){
   try{
    const response=await fetch('/api/evaluate',{method:'POST',credentials:'same-origin',
@@ -545,7 +558,8 @@ async function tapUnknownWord(index){
    });
    const data=await response.json().catch(()=>({}));
    if(response.ok&&data?.ok===true)result=data;
-  }catch{}
+   else if(!response.ok&&response.status!==422)failure='unavailable';
+  }catch{failure='unavailable'}
  }
  if(ensure()!==d||d.formPractice!==p||p.task!==task||p.done||d.stage!=='cards')return false;
  const valid=result&&rememberTappedWord(d,result);
@@ -557,7 +571,7 @@ async function tapUnknownWord(index){
   p.hadMistake=true;p.needsAnother=true;
  }
  if(p.wordTap?.index===index){
-  p.wordTap=valid?{index,status:'ready',entry:p.wordTapHints[lower]}:{index,status:'error'};
+  p.wordTap=valid?{index,status:'ready',entry:p.wordTapHints[lower]}:{index,status:failure};
  }
  save();render();return !!valid;
 }
