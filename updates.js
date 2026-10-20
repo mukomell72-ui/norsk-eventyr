@@ -46,7 +46,7 @@
     if(!timestampRequest){
       timestampRequest=(async()=>{
         try{
-          const response=await fetch('/api/release-info',{credentials:'same-origin',cache:'no-store'});
+          const response=await fetch('/api/health?release=1',{credentials:'same-origin',cache:'no-store'});
           if(!response.ok)return null;
           const info=await response.json();
           if(info?.ok!==true||info.time_basis!=='verified_vercel_status'||!formatReleaseTime(info.published_at))return null;
