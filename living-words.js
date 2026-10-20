@@ -633,8 +633,11 @@ async function checkForm(){
   p.note='Напиши законченное предложение. Два слова могут быть достаточны, если мысль понятна.';
   save();render();return false;
  }
+ const precise=engine?.diagnoseErrors?.(p.task,answer,card.word)||'';
+ if(precise)return fail(precise);
  if(!engine?.containsWord?.(p.task,answer,card.word)){
-  return fail('В предложении нет нужного слова в заданной форме. '+(engine?.hint?.(p.task,p.misses+1)||'Проверь слово и его форму.'));
+  return fail('Не найдена форма «'+String(p.task.requiredForm||p.task.word||card.word.word)+'». '+
+   (engine?.hint?.(p.task,p.misses+1)||'Проверь форму слова.')+ ' Если написана другая грамматическая конструкция, Нора пока не может подтвердить её автоматически.');
  }
  // A translation prompt requires the same meaning, so repeating the previous
  // answer is allowed. The no-repeat rule applies only to free-writing tasks.
@@ -655,7 +658,7 @@ async function checkForm(){
     (p.task.requiredForm?'Требуемая грамматическая форма: '+p.task.label+' («'+p.task.requiredForm+'»). ':'')+
     'Проверь порядок слов, уместность, время, род/число и наличие законченной мысли. '+
     'Нельзя засчитывать одно слово, случайный набор слов или смысловую ошибку. '+
-    'Уровень '+d.level+'. Тема: '+topic+'. Дай короткую конкретную подсказку по-русски при ошибке.';
+    'Уровень '+d.level+'. Тема: '+topic+'. При ошибке в explanation_ru укажи конкретный ошибочный фрагмент из ответа в кавычках, правильную форму и короткое правило. Если ошибок несколько, объясни каждую, максимум три. Не пиши шаблонные замечания вроде «проверь число и артикль» и не утверждай, что предложение неполное, когда в нём есть подлежащее и сказуемое. Не придумывай ошибки в допустимых вариантах Bokmål.';
   const response=typeof window.aiEvaluate==='function'?await window.aiEvaluate({
    answer,question:p.task.prompt,goal:rubric,level:d.level,mode:'writing'
   }):{ok:false};
