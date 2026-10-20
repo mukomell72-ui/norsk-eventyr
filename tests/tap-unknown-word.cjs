@@ -155,7 +155,7 @@ rec.formPractice={started:true,done:false,task,draft:'Klokka',note:'',misses:0,h
  assert(views.at(-1).includes('Правильный перевод: часы'));
  assert(saves>5);
  const sw=read('sw.js');
- assert(sw.includes('/living-words.js?v=8.3.0-lesson24-translate4-wordhelp1-tap1-watch1-taponly1'));
- assert(sw.includes('/card-form-practice.js?v=8.3.0-lesson24-translate4-wordhelp1-tap1-watch1-taponly1'));
+ assert(sw.includes('/living-words.js?v=8.3.0-lesson24-translate4-wordhelp1-tap1-watch1-taponly1-clock1'));
+ assert(sw.includes('/card-form-practice.js?v=8.3.0-lesson24-translate4-wordhelp1-tap1-watch1-taponly1-clock1'));
  console.log('PASS inline word taps: instant help, contextual API, dictionary, pronunciation, retry, no guessing and progress preserved');
 })().catch(e=>{console.error(e);process.exitCode=1});
