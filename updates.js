@@ -2,6 +2,7 @@
 // Never remove caches or restart a learner's unfinished exercise automatically.
 (() => {
   let registration=null,approved=false,changed=false,reloading=false,checking=false;
+  let timestampRequest=null,timestampCache=null,timestampCheckedAt=0;
   const swSupported='serviceWorker' in navigator;
   const initiallyControlled=swSupported&&!!navigator.serviceWorker.controller;
   const buildFromCache=cache=>{
@@ -18,6 +19,48 @@
   function paint(id,message){
     const node=document.getElementById(id);
     if(node)node.textContent=message;
+  }
+  // Format the *verified deployment status* in Norwegian civil time (CET/CEST).
+  // Never infer a publication date from the phone clock or the current request.
+  function formatReleaseTime(iso){
+    if(typeof iso!=='string'||!/(?:Z|[+-]\\d{2}:\\d{2})$/i.test(iso))return null;
+    const date=new Date(iso);
+    if(!Number.isFinite(date.getTime()))return null;
+    const parts=new Intl.DateTimeFormat('en-GB',{
+      timeZone:'Europe/Oslo',day:'2-digit',month:'2-digit',year:'numeric',
+      hour:'2-digit',minute:'2-digit',hourCycle:'h23'
+    }).formatToParts(date);
+    const get=type=>parts.find(p=>p.type===type)?.value;
+    if(!['day','month','year','hour','minute'].every(get))return null;
+    return get('day')+'.'+get('month')+'.'+get('year')+', '+get('hour')+':'+get('minute');
+  }
+  async function refreshReleaseTime(){
+    if(!navigator.onLine){
+      paint('neBuildTimestamp','Дата публикации: недоступна без интернета.');
+      return null;
+    }
+    if(timestampCache&&Date.now()-timestampCheckedAt<120000){
+      paint('neBuildTimestamp','Дата публикации на Vercel: '+formatReleaseTime(timestampCache.published_at)+' (Осло)');
+      return timestampCache;
+    }
+    if(!timestampRequest){
+      timestampRequest=(async()=>{
+        try{
+          const response=await fetch('/api/health?release=1',{credentials:'same-origin',cache:'no-store'});
+          if(!response.ok)return null;
+          const info=await response.json();
+          if(info?.ok!==true||info.time_basis!=='verified_vercel_status'||!formatReleaseTime(info.published_at))return null;
+          return info;
+        }catch{return null}
+      })().finally(()=>{timestampRequest=null});
+    }
+    const release=await timestampRequest;
+    timestampCache=release;
+    timestampCheckedAt=Date.now();
+    paint('neBuildTimestamp',release
+      ?'Дата публикации на Vercel: '+formatReleaseTime(release.published_at)+' (Осло)'
+      :'Дата публикации: нет подтверждённых данных.');
+    return release;
   }
   async function activeCache(){
     if(!swSupported||!navigator.serviceWorker.controller||typeof MessageChannel==='undefined')return null;
@@ -56,6 +99,7 @@
     paint('neBuildCurrent','Запущенная сборка: '+(running||'не определена'));
     const active=await activeCache();
     paint('neBuildCache','Активный кеш: '+(buildFromCache(active)||'нет данных (или нет Service Worker)'));
+    await refreshReleaseTime();
     return {running,active};
   }
   function visible(element){
@@ -141,7 +185,7 @@
       }
     }finally{checking=false}
   }
-  window.NEUpdates=Object.freeze({checkNow,refreshInfo,runningBuild,buildFromCache});
+  window.NEUpdates=Object.freeze({checkNow,refreshInfo,runningBuild,buildFromCache,formatReleaseTime});
   if(!swSupported)return;
   navigator.serviceWorker.addEventListener('controllerchange',()=>{
     if(!initiallyControlled&&!approved)return;
