@@ -48,7 +48,31 @@ const wordHints=new Map([
 ]);
 // Per-token, hand-checked alignments. A word's dictionary lemma is distinct
 // from the inflected form that must appear in the requested sentence.
+// Russian «у меня есть» is translated as a single Norwegian construction.
+// A wristwatch can be «et armbåndsur», while the lesson deliberately practices
+// the more general «ei klokke»; those are not falsely aligned word for word.
+const watchPossession=Object.freeze({
+ lemma_no:'ha',form_no:'jeg har',source_ru:'у меня есть',
+ translation_ru:'иметь',grammar_ru:'Всё выражение «у меня есть» передаётся как «jeg har» («я имею»).'
+});
+const watchGeneric=Object.freeze({
+ lemma_no:'klokke',form_no:'ei klokke',source_ru:'часы',
+ translation_ru:'часы',grammar_ru:'Существительное «klokke» с неопределённым артиклем «ei».'
+});
+const wristwatchSpecific=Object.freeze({
+ lemma_no:'armbåndsur',form_no:'et armbåndsur',source_ru:'наручные часы',
+ translation_ru:'наручные часы',grammar_ru:'Конкретно наручные часы. В упражнении со словом «klokke» употреблено общее слово «часы».'
+});
 const tappedWordGlosses=new Map([
+ ['У меня есть часы.',{
+  'у':watchPossession,'меня':watchPossession,'есть':watchPossession,'часы':watchGeneric
+ }],
+ // Compatibility with exercises already saved before the corrected prompt.
+ ['У меня есть наручные часы.',{
+  'у':watchPossession,'меня':watchPossession,'есть':watchPossession,
+  'наручные':wristwatchSpecific,'часы':watchGeneric
+ }],
+
  ['Часы висят на стене.',{
   'часы':{lemma_no:'klokke',form_no:'klokka',translation_ru:'часы',grammar_ru:'Определённая форма единственного числа.'},
   'висят':{lemma_no:'henge',form_no:'henger',translation_ru:'висеть',grammar_ru:'Настоящее время (presens).'},
@@ -109,7 +133,7 @@ const contextualNouns=new Map([
   ['У меня было несколько похожих случаев на работе.','Jeg har hatt flere lignende erfaringer på jobben.'],
   ['Эти случаи многому меня научили.','Erfaringene har lært meg mye.']]],
  ['klokke',[
-  ['У меня есть наручные часы.','Jeg har ei klokke.'],
+  ['У меня есть часы.','Jeg har ei klokke.'],
   ['Часы висят на стене.','Klokka henger på veggen.'],
   ['В магазине несколько часов.','Det er flere klokker i butikken.'],
   ['Часы показывают разное время.','Klokkene viser forskjellig tid.']]],
