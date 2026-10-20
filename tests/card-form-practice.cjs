@@ -103,6 +103,27 @@ assert.equal(E.spellingHint(superlative,superlative.modelAnswer),'','A correct t
 assert.equal(E.spellingHint(superlative,'Dette er det største bordet i stua.'),'',
  'An independently valid alternative is left to semantic grading');
 
+// Screenshot regression: a full sentence can contain two simultaneous mistakes.
+// Explain each one (where, correction and why), not "write a complete sentence".
+const clockTask=E.taskList({word:'klokke'})[2];
+assert.equal(clockTask.modelAnswer,'Det er flere klokker i butikken.');
+const errorNote=E.diagnoseErrors(clockTask,'Det er flere klokka i butiken',{word:'klokke'});
+assert(errorNote.includes('«klokka» → «klokker»'),errorNote);
+assert(errorNote.includes('«butiken» → «butikken»'),errorNote);
+assert(errorNote.includes('после «flere»'),errorNote);
+assert(!errorNote.includes('нужно полное предложение'),errorNote);
+assert.equal(E.diagnoseErrors(clockTask,clockTask.modelAnswer,{word:'klokke'}),'');
+assert.equal(E.diagnoseErrors(clockTask,'Det er flere klokker i butikkene.',{word:'klokke'}),'',
+ 'Valid inflected alternative must not be labeled a misspelling');
+assert.equal(E.diagnoseErrors(clockTask,'Det finnes flere klokker i butikken.',{word:'klokke'}),'',
+ 'A natural synonymous sentence must not be forced to match word-for-word');
+assert(E.diagnoseErrors(clockTask,'Det er flere klokker i butiken',{word:'klokke'}).includes('butikken'),
+ 'Single typo is diagnosed without needing a form error');
+assert(E.diagnoseErrors(clockTask,'Det er flere klokka i butikken',{word:'klokke'}).includes('klokker'),
+ 'Single wrong noun form is diagnosed without needing a typo');
+assert(!E.hint(clockTask,1).includes('Недостаточно написать одно слово'),
+ 'No generic "one word" reprimand for a submitted full sentence');
+
 assert(!E.containsWord(superlative,'Dette er et stort bord i rommet.',{word:'stor'}));
 assert(E.containsWord(E.taskList({word:'begynner'})[4],'I morgen skal jeg begynne på jobb.',{word:'begynner'}));
 const phrase={word:'etter hvert',pos:'phrase',translation:'постепенно'};

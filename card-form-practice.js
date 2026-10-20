@@ -386,6 +386,10 @@ function spellingHint(task,sentence){
  // "Det er store hus" must reach meaning-based grading, not be 'corrected' to "Dette".
  const validVariants=new Set(['det','dette','den','denne','de','disse','her','der','er','har','var','kan','skal','vil','blir']);
  if(validVariants.has(wrong)||validVariants.has(correct))return '';
+ // A definite plural noun in -ene can be a legitimate alternative to a
+ // model with singular definite -en (butikkene vs butikken). Grade meaning
+ // rather than suggesting a spelling change.
+ if(correct.endsWith('en')&&wrong===correct+'e')return '';
  if(wrong.length<3||correct.length<4||Math.abs(wrong.length-correct.length)>2)return '';
  let prefix=0;
  while(prefix<wrong.length&&prefix<correct.length&&wrong[prefix]===correct[prefix])prefix++;
@@ -399,6 +403,52 @@ function spellingHint(task,sentence){
  }
  if(distances[correct.length]>2)return '';
  return 'Проверь написание слова «'+wrong+'»: правильно «'+correct+'». Исправь это слово и проверь перевод снова.';
+}
+// Return only mistakes supported by the exact learner answer and verified
+// word forms. Never flag a valid alternative merely for differing from the model.
+function nearEditDistance(a,b){
+ let prev=Array.from({length:b.length+1},(_,i)=>i);
+ for(let i=1;i<=a.length;i++){const next=[i];for(let j=1;j<=b.length;j++)
+  next[j]=Math.min(next[j-1]+1,prev[j]+1,prev[j-1]+(a[i-1]===b[j-1]?0:1));prev=next}
+ return prev[b.length];
+}
+function diagnoseErrors(task,sentence,word){
+ if(!task?.russianSentence||!task.modelAnswer||!norm(sentence))return '';
+ const actual=norm(sentence).split(' ').filter(Boolean);
+ const ref=norm(task.modelAnswer).split(' ').filter(Boolean);
+ const grammar=window.NECardGrammar?.describe?.(word);
+ const found=[],seen=new Set();
+ const add=(wrong,message)=>{if(!seen.has(wrong)){seen.add(wrong);found.push(message)}};
+ const wanted=norm(task.requiredForm||'');
+ if(grammar?.type==='noun'&&wanted&&!hasRequiredForm(task,sentence,word)){
+  for(const row of grammar.forms||[]){
+   const wrong=norm(row.form);
+   if(!wrong||wrong===wanted||!includesSequence(sentence,wrong))continue;
+   if(wrong.split(' ').length>1&&!ref.includes(wrong.split(' ').at(-1)))continue;
+   const rule=task.index===2&&actual.includes('flere')
+    ?'после «flere» нужна форма множественного числа без определённого окончания'
+    :'здесь требуется форма «'+task.label.toLowerCase()+'»';
+   add(wrong,'«'+wrong+'» → «'+task.requiredForm+'»: это '+String(row.label).toLowerCase()+'; '+rule+'.');
+   break;
+  }
+ }
+ // Only correct near-identical words when at most two aligned tokens differ.
+ // Word-order and freely chosen synonymous sentences are evaluated separately.
+ if(actual.length===ref.length&&actual.length>=3){
+  const changed=[];
+  for(let i=0;i<actual.length;i++)if(actual[i]!==ref[i])changed.push(i);
+  if(changed.length&&changed.length<=2&&actual.length-changed.length>=Math.ceil(actual.length/2)){
+   const inflections=new Set((grammar?.forms||[]).map(x=>norm(x.form)));
+   for(const i of changed){
+    const wrong=actual[i],right=ref[i];let prefix=0;
+    while(prefix<wrong.length&&prefix<right.length&&wrong[prefix]===right[prefix])prefix++;
+    if(seen.has(wrong)||inflections.has(wrong)||wrong.length<3||right.length<4||
+       prefix<3||wrong.slice(-2)!==right.slice(-2)||Math.abs(wrong.length-right.length)>2||nearEditDistance(wrong,right)>2)continue;
+    add(wrong,'Опечатка: «'+wrong+'» → «'+right+'». Проверь написание этого слова.');
+   }
+  }
+ }
+ return found.join(' ');
 }
 function hint(task,misses){
  const modalNote=task?.lemma==='kunne'
@@ -416,9 +466,9 @@ function hint(task,misses){
       ?'после определённого существительного используется форма «'+task.requiredForm+'e».'
       :'проверь слово и его форму; полный ответ пока не показывается.')
     :' Подсказка: подходящая форма — «'+task.requiredForm+'». Теперь употреби её в собственном предложении.');
- return modalNote+morphology+' Недостаточно написать одно слово: нужно полное предложение.';
+ return modalNote+morphology+' Исправь именно ошибочную форму в своём предложении; полный ответ пока не показывается.';
 }
 window.NECardFormPractice=Object.freeze({
- taskList,choose,variants,hasRequiredForm,containsWord,hint,spellingHint,norm,authoredTranslation,tappedWordGloss
+ taskList,choose,variants,hasRequiredForm,containsWord,hint,spellingHint,diagnoseErrors,norm,authoredTranslation,tappedWordGloss
 });
 })();
