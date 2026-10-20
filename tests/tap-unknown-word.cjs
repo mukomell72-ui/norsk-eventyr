@@ -69,6 +69,8 @@ rec.formPractice={started:true,done:false,task,draft:'Klokka',note:'',misses:0,h
  networkResponse={ok:false,word:{error:'WORD_NOT_ALIGNED'}};
  assert.equal(await app.tapUnknownWord(2),false);
  assert(views.at(-1).includes('Ничего не сохранено'));
+ assert(views.at(-1).includes('Онлайн-перевод временно недоступен'),
+  'Server outage must not masquerade as an incorrect Norwegian translation');
  assert.equal(state.dailyDictionary.slappe,undefined,'Rejected uncertain hints must never enter dictionary');
  // Regression from a real saved card: the old wording implied a wristwatch
  // even though the verified Bokmål reference only said "ei klokke".
