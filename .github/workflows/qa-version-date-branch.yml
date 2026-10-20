@@ -1,0 +1,27 @@
+name: Version date QA (branch only)
+on:
+  push:
+    branches:
+      - feature/version-release-time-20261020
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: tests/package-lock.json
+      - name: Install dependencies
+        working-directory: tests
+        run: npm ci
+      - name: Install Chromium
+        working-directory: tests
+        run: npx playwright install --with-deps chromium
+      - name: Run complete QA suite (no deployment)
+        working-directory: tests
+        run: npm test
