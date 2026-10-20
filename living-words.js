@@ -458,13 +458,16 @@ function render(){
   const stageLabel='<div class="eyebrow" role="status">'+
    (feedback?'ШАГ 2 ИЗ 2 · ПРИМЕНИ СЛОВО В ПРЕДЛОЖЕНИИ':'ШАГ 1 ИЗ 2 · НАПИШИ ПЕРЕВОД НА РУССКОМ')+'</div>';
   const grammar=window.NECardGrammar?.describe?.(word)||{headword:word.word,typeRu:'Слово',forms:[],help:'Формы не определены.',verified:false};
-  const rows=(grammar.forms||[]).map(row=>'<tr><td>'+esc(row.label)+'</td><td lang="nb"><b>'+esc(row.form)+'</b></td></tr>').join('');
+  const rows=(grammar.forms||[]).map(row=>'<tr><td>'+esc(row.label)+'</td><td><b lang="nb">'+esc(row.form)+'</b>'+
+   (row.translationRu?'<small lang="ru" style="display:block;color:#b4c9e4;font-size:13px;line-height:1.4;margin-top:4px">'+esc(row.translationRu)+'</small>':'')+
+   '</td></tr>').join('');
   const dictLink='<a href="'+esc(grammar.url||'https://ordbokene.no/')+'" target="_blank" rel="noopener noreferrer">Проверить в Bokmålsordboka ↗</a>';
   // Grammar is initially collapsed to encourage recall; answer feedback opens it.
   const morphology='<details class="card" style="margin-top:12px;padding:14px"'+(feedback?' open':'')+'>'+
    '<summary style="cursor:pointer;font-weight:600">'+esc(grammar.typeRu)+' · Начальная форма и склонение / времена</summary>'+
    (rows?'<table class="forms-table" style="margin-top:10px;width:100%"><tbody>'+rows+'</tbody></table>':
     '<p class="muted">Подтверждённых форм пока нет. Не будем придумывать окончания.</p>')+
+   (grammar.type==='verb'&&grammar.verified?'<p class="muted" style="font-size:12px">Русский перевод зависит от контекста; для перфекта нет отдельной формы в русском языке.</p>':'')+
    (grammar.example?'<p><b>В речи:</b> <span lang="nb">'+esc(grammar.example.no)+'</span></p><p class="muted">'+esc(grammar.example.ru)+'</p>':'')+
    '<p class="muted">'+esc(grammar.help||'')+'</p>'+dictLink+'</details>';
   const result=feedback?'<div class="notice" role="status"><b>'+

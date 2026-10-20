@@ -36,4 +36,13 @@ assert.equal(adj.forms.length,0,'Unknown adjectives cannot receive fabricated de
 const phrase=G.describe({word:'etter hvert',translation:'постепенно',pos:'phrase'});
 assert.equal(phrase.type,'other');assert.equal(phrase.forms.length,0,'Multiword expressions do not need an article');
 assert.equal(G.describe({word:'en bil'}).forms.length,4);
+assert.equal(G.knownCount.translatedVerbs,G.knownCount.verbs,'Every curated verb must have Russian translations');
+for(const lemma of ['kunne','gå','være','komme','skrive','begynne','jobbe','hente']){
+ const result=G.describe({word:'å '+lemma});
+ assert.equal(result.forms.length,5);
+ for(const row of result.forms)assert(row.translationRu&&row.translationRu.length>2,lemma+' '+row.label);
+}
+assert.deepEqual(Array.from(G.describe({word:'kunne',pos:'modal'}).forms,row=>row.translationRu),
+ ['мочь / уметь','могу / умею','мог / могла; мог(ла) бы','смог / смогла; имел(а) возможность','смогу / буду в состоянии']);
+console.log('PASS Russian translations on every verified verb form');
 console.log('PASS article/infinitive/tense grammar: written paradigms, irregular forms, safe unknown fallback and contextual examples');
