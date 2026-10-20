@@ -322,7 +322,7 @@ function tappedPrompt(task,practice){
   return '<button type="button" lang="ru" aria-label="Перевести слово '+esc(part)+'" aria-pressed="'+(selected?'true':'false')+'" onclick="NELivingWords.tapUnknownWord('+slot+')" style="display:inline;color:inherit;background:transparent;border:0;border-bottom:2px dotted #80c5dc;padding:0 1px;font:inherit;font-weight:inherit;cursor:pointer">'+esc(part)+'</button>'+pop;
  }).join('');
 }
-function resetTappedPrompt(practice){practice.wordTap=null;practice.wordTapHints={}}
+function resetTappedPrompt(practice){practice.wordTap=null;practice.wordTapHints={};practice.noraExplanation=null}
 function rememberTappedWord(record,entry){
  const source=getState(),lemma=String(entry?.lemma_no||'').trim(),
   form=String(entry?.form_no||'').trim(),ru=String(entry?.translation_ru||'').trim();
@@ -343,6 +343,75 @@ function rememberTappedWord(record,entry){
   translation:prior.translation||ru,level:prior.level||record.level,due:now};
  source.wordPracticeQueue[k]=now;
  return true;
+}
+
+
+function noraExplainPanel(p){
+ const e=p?.noraExplanation;
+ if(!e?.open)return '';
+ const heading='<div style="font-weight:750;margin-bottom:8px">Нора объясняет</div>';
+ if(e.status==='loading')return '<section class="notice" role="status" aria-live="polite" style="margin-top:12px">'+heading+
+  '<p>Разбираю правило и подбираю пример для твоего уровня…</p></section>';
+ const steps=Array.isArray(e.steps_ru)?e.steps_ru.slice(0,3).map(t=>'<li>'+esc(t)+'</li>').join(''):'';
+ const example=e.example_no?'<p><b>Другой пример:</b> <span lang="nb">'+esc(e.example_no)+'</span>'+
+  (e.example_ru?' — '+esc(e.example_ru):'')+'</p>':'';
+ return '<section class="notice" role="region" aria-label="Объяснение Норы" style="margin-top:12px">'+heading+
+  (e.offline?'<p class="muted">Сейчас доступна краткая подсказка без ИИ. Индивидуальный разбор появится после восстановления связи.</p>':'')+
+  (e.explanation_ru?'<p>'+esc(e.explanation_ru)+'</p>':'')+
+  (e.rule_ru?'<p><b>Правило:</b> '+esc(e.rule_ru)+'</p>':'')+
+  (steps?'<ol style="padding-left:22px">'+steps+'</ol>':'')+example+
+  (e.next_step_ru?'<p><b>Твоя очередь:</b> '+esc(e.next_step_ru)+'</p>':'')+
+  '<p class="muted">Объяснение не засчитывает задание. Ответ нужно написать самостоятельно.</p></section>';
+}
+function offlineNoraExplanation(task){
+ const isPerfect=/perfekt|перфект/iu.test(String(task?.label||''));
+ return {
+  status:'ready',open:true,offline:true,
+  explanation_ru:(task?.lemma==='kunne'?'Сравни формы: kan — могу (настоящее), kunne — мог/мог бы, har kunnet — имел возможность. После kan/kunne следующий глагол без å. ':'')+(isPerfect?'Перфект показывает уже совершившееся действие или прошлый опыт, связанный с настоящим. В русском языке отдельной формы перфекта нет.':'Определи смысл русского предложения, затем выбери нужную грамматическую форму норвежского слова.'),
+  rule_ru:isPerfect?'Перфект в Bokmål: har + причастие прошедшего времени (perfektum partisipp).':'Сначала найди подлежащее и сказуемое, затем проверь время и порядок слов.',
+  steps_ru:isPerfect?['Определи, кто выполняет действие.','После подлежащего поставь har.','Выбери причастие нужного глагола и дополни смысл.']:['Найди основное действие в предложении.','Вспомни нужное время и форму.','Проверь порядок слов и смысл всего предложения.'],
+  example_no:isPerfect?'Jeg har jobbet.':'Jeg lærer norsk.',
+  example_ru:isPerfect?'Я поработал.':'Я учу норвежский.',
+  next_step_ru:'Теперь самостоятельно выполни текущее задание — пример выше относится к другой ситуации.'
+ };
+}
+async function explainForm(){
+ const d=ensure(),p=d?.formPractice,card=d&&currentCard(d);
+ if(!d||d.stage!=='cards'||!card||!p?.started||p.done||formBusy)return false;
+ const attempted=Number(p.misses||0)>0;
+ if(p.noraExplanation?.status==='loading')return false;
+ if(p.noraExplanation?.status==='ready'&&p.noraExplanation.afterAttempt===attempted){
+  p.noraExplanation.open=!p.noraExplanation.open;save();render();return true;
+ }
+ // Preserve text even if the learner clicked before the last input event.
+ const input=document.getElementById('livingFormAnswer');
+ if(input&&typeof input.value==='string')p.draft=input.value.slice(0,280);
+ const task=p.task;
+ p.noraExplanation={status:'loading',open:true,afterAttempt:attempted};
+ save();render();
+ let detail=null;
+ try{
+  const result=typeof window.aiEvaluate==='function'?await window.aiEvaluate({
+   action:'explain_task',level:d.level,topic:window.NELivingDay?.details?.().title||'',
+   task:{russianSentence:task.russianSentence||'',prompt:task.prompt||'',label:task.label||'',
+    word:task.word||card.word.word,lemma:task.lemma||'',reference_no:task.modelAnswer||''},
+   attempts:Math.min(10,Math.max(0,Number(p.misses)||0)),
+   learner_answer:attempted?String(p.draft||'').slice(0,280):''
+  }):{ok:false};
+  if(result?.ok&&result.data?.kind==='explain_task'&&typeof result.data.explanation_ru==='string'&&result.data.explanation_ru.trim()){
+   const info=result.data;
+   detail={status:'ready',open:true,offline:false,afterAttempt:attempted,
+    explanation_ru:String(info.explanation_ru).slice(0,700),
+    rule_ru:String(info.rule_ru||'').slice(0,350),
+    steps_ru:Array.isArray(info.steps_ru)?info.steps_ru.slice(0,3).map(x=>String(x).slice(0,180)):[],
+    example_no:String(info.example_no||'').slice(0,180),example_ru:String(info.example_ru||'').slice(0,180),
+    next_step_ru:String(info.next_step_ru||'').slice(0,250)};
+  }
+ }catch{}
+ // A slow response must never attach an old task's help to a new exercise.
+ if(ensure()!==d||d.stage!=='cards'||d.formPractice!==p||p.task!==task||p.done)return false;
+ p.noraExplanation=detail||{...offlineNoraExplanation(task),afterAttempt:attempted};
+ save();render();return !!detail;
 }
 
 function render(){
@@ -428,8 +497,9 @@ function render(){
     '<input class="input" id="livingFormAnswer" lang="nb" maxlength="280" autocomplete="off" value="'+esc(practice.draft||'')+
     '" placeholder="Например: Jeg ..." oninput="NELivingWords.draftForm(this.value)" onkeydown="if(event.key===\'Enter\'){event.preventDefault();NELivingWords.checkForm()}">'+
     '<div class="row"><button class="btn" onclick="NELivingWords.checkForm()">Проверить предложение</button>'+
-    '<button class="btn secondary" onclick="NELivingWords.showFormHint()">Объяснить задание</button>'+
+    '<button class="btn secondary" type="button" onclick="NELivingWords.explainForm()">Нора, объясни мне</button>'+
     '<button class="btn secondary" onclick="NELivingWords.recordForm()">🎤 Сказать предложение</button></div>'+
+    noraExplainPanel(practice)+
     (practice.note?'<div class="notice" role="status">'+esc(practice.note)+'</div>':'')+
     (practice.misses>=2?'<div class="row"><button class="btn secondary" onclick="NELivingWords.reviewFormError()">'+
       (practice.task.modelAnswer&&practice.task.russianSentence?
@@ -582,12 +652,7 @@ function listenTappedWord(){
  return true;
 }
 
-function showFormHint(){
- const d=ensure(),p=d?.formPractice,engine=window.NECardFormPractice;
- if(!d||d.stage!=='cards'||!p?.started||p.done||!engine?.hint)return false;
- p.note='Подсказка: '+engine.hint(p.task,3);
- save();render();return true;
-}
+function showFormHint(){return explainForm()}
 // After repeated failures, show only a verified example, then require a NEW
 // independently solved task. Revealed answers never count as correct work.
 function reviewFormError(){
@@ -807,5 +872,5 @@ function recordSpeech(){
  }catch{recognizing=false;d.feedback='Микрофон не запустился. Проверь разрешение браузера.';save();render();return false}
 }
 function checkSpeaking(){const d=ensure();return d?.speechText?assess('speaking',d.speechText):false}
-window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,showFormHint,tapUnknownWord,listenTappedWord,reviewFormError,checkForm,recordForm,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation,progress,answerMini,listenMini,revealMiniWord,continueMini});
+window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,showFormHint,explainForm,tapUnknownWord,listenTappedWord,reviewFormError,checkForm,recordForm,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation,progress,answerMini,listenMini,revealMiniWord,continueMini});
 })();

@@ -194,8 +194,8 @@ function sentence(task){
   assert.equal(restored.task.requiredForm,'kunne');
   assert.equal(restored.draft,'Jeg kan hjelpe deg');
   assert.equal(restored.misses,1);
-  assert(await page.getByRole('button',{name:'Объяснить задание'}).isVisible());
-  await page.getByRole('button',{name:'Объяснить задание'}).click();
+  assert(await page.getByRole('button',{name:'Нора, объясни мне'}).isVisible());
+  await page.getByRole('button',{name:'Нора, объясни мне'}).click();
   assert((await page.locator('#app').innerText()).includes('kan — могу'),
    'Hint must explain kan / kunne before a learner submits an error');
   await page.locator('#livingFormAnswer').fill('Jeg kan hjelpe deg.');
