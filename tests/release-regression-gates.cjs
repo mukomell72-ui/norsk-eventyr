@@ -81,7 +81,7 @@ for(const asset of assets){
    (ruFormsSuffix&&['/access.js','/card-grammar.js','/living-words.js'].includes(pathname)?ruFormsSuffix:'')+
    (skulleSuffix&&['/access.js','/card-grammar.js','/card-form-practice.js'].includes(pathname)?skulleSuffix:'')+
    (teacherSuffix&&['/access.js','/course-methodology.js','/adaptive-teacher.js','/app.js','/guided-speaking.js','/living-day.js','/ui-v7.js'].includes(pathname)?teacherSuffix:'')+
-   (coachSuffix&&['/access.js','/app.js','/lesson-coach.js','/lesson-coach.css','/living-words.js'].includes(pathname)?coachSuffix:'');
+   (coachSuffix&&['/access.js','/app.js','/lesson-coach.js','/lesson-coach.css','/language-bridge.js','/language-bridge.css','/living-words.js'].includes(pathname)?coachSuffix:'');
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
 }
 }
@@ -147,7 +147,7 @@ for(const filename of scripts){
    (ruFormsSuffix&&['card-grammar.js','living-words.js'].includes(filename)?ruFormsSuffix:'')+
    (skulleSuffix&&['card-grammar.js','card-form-practice.js'].includes(filename)?skulleSuffix:'')+
    (teacherSuffix&&['course-methodology.js','adaptive-teacher.js','app.js','guided-speaking.js','living-day.js','ui-v7.js'].includes(filename)?teacherSuffix:'')+
-   (coachSuffix&&['lesson-coach.js','app.js','living-words.js'].includes(filename)?coachSuffix:'');
+   (coachSuffix&&['lesson-coach.js','language-bridge.js','app.js','living-words.js'].includes(filename)?coachSuffix:'');
  assert(assetSet.has('/'+filename+'?v='+v+patch+suffix),'PWA must cache bootstrapped script '+filename);
 }
 for(const m of index.matchAll(/\b(?:src|href)="(\/[^"]+)"/g)){
@@ -256,5 +256,10 @@ if(coachSuffix){
  assert(index.includes('src="/access.js?v='+v+assetRevision+'"'),'Tutor release must bust the HTML loader cache');
  assert(scripts.indexOf('lesson-coach.js')<scripts.indexOf('app.js'),'Tutor must load before the lesson UI');
  assert(app.includes('NELessonCoach?.render(l)'),'Grammar step must mount tutor');
+ assert(app.includes('NELanguageBridge?.controlHtml?.()'),'Language bridge must offer an opt-out on the homepage');
+ assert(assets.includes('/language-bridge.js?v='+v+coachSuffix),'PWA must precache the language bridge');
+ assert(assets.includes('/language-bridge.css?v='+v+coachSuffix),'PWA must precache bridge styles');
+ assert(scripts.indexOf('language-bridge.js')>scripts.indexOf('lesson-coach.js')&&
+  scripts.indexOf('language-bridge.js')<scripts.indexOf('app.js'),'Language bridge must initialize before the app UI');
  assert(app.includes('btn.closest("article.card")?.querySelectorAll(".choice")'),'Scored choices must be isolated from tutor buttons');
 }

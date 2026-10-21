@@ -1,0 +1,7 @@
+.ne-bridge-settings{margin:14px 0;padding:18px}
+.ne-bridge-settings h3{margin:0 0 8px}
+.ne-bridge-settings p{line-height:1.55;margin:0 0 12px}
+.ne-bridge-word{display:inline;color:inherit;background:rgba(60,178,185,.12);border:0;border-bottom:2px dotted #58b5c3;border-radius:4px;padding:0 2px;font:inherit;font-weight:700;cursor:pointer;line-height:inherit;white-space:normal}
+.ne-bridge-word:hover,.ne-bridge-word:focus-visible{background:rgba(60,178,185,.25);outline:2px solid #67b9cc;outline-offset:2px}
+.ne-bridge-gloss{display:inline-block;vertical-align:baseline;margin:2px 4px;padding:3px 8px;border:1px solid #5aa5b5;border-radius:9px;background:#123b4c;color:#fff;font-size:.85em;font-weight:500;line-height:1.45}
+@media(max-width:480px){.ne-bridge-settings{padding:14px}.ne-bridge-gloss{font-size:.82em}}
