@@ -49,6 +49,10 @@ for(const m of [20,30,45,60,75]){
  assert(plan.parts.every(p=>p.minutes>=0));
 }
 assert.deepEqual(Array.from(M.dailyPlan(60).parts,x=>x.minutes),[10,12,13,20,5]);
+const struggling=M.dailyPlan(60,{vocabulary:80,grammar:80,listening:77,reading:81,writing:75,speaking:42});
+assert.equal(struggling.parts.reduce((sum,p)=>sum+p.minutes,0),60);
+assert(struggling.parts[3].minutes>20,'Verified speaking weakness receives additional time without extending the hour');
+assert.deepEqual(Array.from(M.dailyPlan(60,{vocabulary:35,grammar:35,listening:35,reading:35,writing:35,speaking:35}).parts,x=>x.minutes),[10,12,13,20,5]);
 assert(M.dailyPlan(60).parts[3].minutes>M.dailyPlan(60).parts[1].minutes,'Oral practice must receive more time than formal grammar');
 const access=read('access.js'),sw=read('sw.js'),adaptive=read('adaptive-teacher.js'),generate=read('api/generate.js'),coursePage=read('ui-v7.js'),settings=read('ui-v8.js');
 assert(access.includes("'curriculum-v8.js','course-methodology.js','verified-learning-resources.js','practice-foundations.js'"),'Course plan must load after curriculum and before adaptive teacher');
