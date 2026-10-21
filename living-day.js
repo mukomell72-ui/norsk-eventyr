@@ -138,7 +138,7 @@ function open(){
  const s=learner(),d=current();clockStart();clockPulse();
  if(!d)return window.navigate?.('teacher');
  if(!d.finished&&window.NELivingWords&&!window.NELivingWords.isReady())return window.NELivingWords.render();
- const info=details(),module=window.NECurriculum?.moduleById(d.moduleId);
+ const info=details(),module=window.NECurriculum?.moduleById(d.moduleId),pacing=window.NECourseMethod?.dailyPlan(d.plannedMinutes,s.learningV8?.levelSkills?.[d.level]);
  const pending=lessonPending(s);
  // One tap resumes the saved *same* lesson rather than creating another copy.
  if(pending?._adaptive?.livingDayId===d.id&&pending._adaptive?.livingScene===d.scene)
@@ -162,6 +162,7 @@ function open(){
  '<div class="progress" aria-label="Прогресс сегодняшнего занятия"><i style="width:'+Math.round(d.scene/SCENES*100)+'%"></i></div>'+
  '<p><b>'+(complete?'Занятие завершено':esc(SCENE_LABELS[d.scene]))+'</b> · '+d.scene+' из '+SCENES+' ситуаций отработано</p>'+
  '<p class="muted">Цель: '+(d.plannedMinutes||60)+' мин активной работы. Учтено на экране занятия: <b id="neLivingActiveMinutes">'+Math.floor((Number(d.activeMs)||0)/60000)+' мин</b>. Неактивность более 3 минут и закрытая вкладка не учитываются. Прогресс зависит от самостоятельных ответов, а не от таймера.</p>'+
+ (pacing?'<details class="card" style="margin:12px 0"><summary>Личный план занятия · '+pacing.minutes+' мин</summary>'+pacing.parts.map(part=>'<div class="metric"><span>'+esc(part.label)+'</span><strong>'+part.minutes+' мин</strong></div>').join('')+'<small class="muted">Время распределено по текущему профилю навыков; это план, а не гарантированная длительность.</small></details>':'')+
  (d.feedback?'<div class="notice">'+esc(d.feedback)+'</div>':'')+
  '<p class="muted">'+esc(hint)+'</p>'+action+
  (complete?'<button class="btn secondary" onclick="navigate(\'course\',\''+esc(d.level)+'\')">К программе уровня</button>':'')+
