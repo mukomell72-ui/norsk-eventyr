@@ -128,7 +128,7 @@
       teacherDone=state.learningV8?.lastSessionDate===day&&!pending,
       mission=window.NEAdaptive?NEAdaptive.nextMission(state):null;
     const focus=pending?.title||mission?.module?.title||"Следующий модуль курса";
-    const plan=window.NECourseMethod?.dailyPlan(state.elite?.dailyMinutes||20);
+    const plan=window.NECourseMethod?.dailyPlan(state.elite?.dailyMinutes||20,state.learningV8?.levelSkills?.[state.level]);
     const minutes=i=>plan?.parts?.[i]?.minutes||[10,15,15,15,5][i];
     const steps=[
       {id:"teacher",title:pending?"Продолжить незаконченный урок":"Урок с Норой",sub:focus,mins:minutes(1),done:teacherDone,route:pending?"lesson":"teacher",data:pending?.id},
