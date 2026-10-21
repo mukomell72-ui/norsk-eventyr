@@ -80,6 +80,8 @@ function skillForStep(step,mode){
 function recordAttempt(state,input={}){
  const p=ensure(state),skill=ALL.includes(input.skill)?input.skill:'vocabulary',score=clamp(input.score),weight=input.transfer?0.28:0.18;
  const id=String(input.moduleId||input.lessonId||'general').slice(0,90),moduleInfo=window.NECurriculum?.moduleById(id),level=['A1','A2','B1','B2'].includes(input.level)?input.level:(moduleInfo?.level||state.level||'A1'),profile=levelProfile(p,level);
+ // Archived lessons are practice copies, not evidence for unlocking the CEFR curriculum.
+ if(id.startsWith('archive:'))return clamp(profile[skill]);
  const old=clamp(profile[skill]);profile[skill]=clamp(old*(1-weight)+score*weight);if(level===state.level)p.skills[skill]=profile[skill];
  // Placement answers adjust the tentative profile but are not lesson mastery
  // or spaced-repetition evidence until tested independently.
@@ -212,6 +214,7 @@ function assessment(state,level,score,skillScores={}){
  p.assessments.push({date:new Date().toISOString(),level,score:s,skills:skillScores});p.assessments=p.assessments.slice(-50);
 }
 function completeLesson(state,lesson,sessionScore){
+ if(lesson?._adaptive?.kind==='archive_replay')return null;
  const p=ensure(state),id=lesson?._adaptive?.moduleId||lesson?.id||'lesson',m=moduleState(p,id);m.lastCompleted=dayKey();m.completions=(m.completions||0)+1;if(lesson?._adaptive)p.lastSessionDate=dayKey();
  if(lesson?._adaptive?.kind==='review'&&lesson._adaptive.reviewKey&&p.reviews[lesson._adaptive.reviewKey])p.reviews[lesson._adaptive.reviewKey].completedAt=new Date().toISOString();
  if(lesson?._adaptive?.kind==='remediation'){
@@ -238,7 +241,7 @@ function learningBlocker(gate){
 }
 function startAdaptiveTeacher(){
  ensure(state);const mission=nextMission(state),gate=levelGate(state,state.level),p=state.learningV8,attempts=p.attempts.length;
- const m=mission.module,course=window.NECourseMethod,unit=course?.modulePlan(m,state),day=course?.dailyPlan(Math.max(45,state.elite?.dailyMinutes||60)),levelStudy=course?.levelPlan(state.level),pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id],reason=(pending?'Есть незавершённое занятие. Продолжим с места остановки. ':mission.reason)+(m?' Цель: '+m.canDo[0]+'.':'');
+ const m=mission.module,course=window.NECourseMethod,unit=course?.modulePlan(m,state),day=course?.dailyPlan(Math.max(45,state.elite?.dailyMinutes||60),p.levelSkills?.[state.level]),levelStudy=course?.levelPlan(state.level),pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id],reason=(pending?'Есть незавершённое занятие. Продолжим с места остановки. ':mission.reason)+(m?' Цель: '+m.canDo[0]+'.':'');
  shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Адаптивный преподаватель · '+esc(state.level)+'</div><h2 style="margin:0">Нора ведёт занятие</h2></div></div>'+
  '<section class="grid"><article class="card"><div class="eyebrow">Следующий шаг</div><h2>'+esc(pending?.title||m?.title||'Диагностика')+'</h2><p>'+esc(reason)+'</p><div class="row"><span class="tag">'+esc(LABEL[mission.skill]||mission.skill)+'</span><span class="tag">'+(pending?'Продолжение':mission.kind==='review'?'Повторение':'Новый материал')+'</span></div><br><button class="btn" onclick="teacherStartMission()">'+(pending?'Продолжить с места остановки':'Начать занятие')+'</button></article>'+
  '<article class="card"><div class="eyebrow">Допуск к '+esc(state.level)+'</div><h2>'+gate.avg+'% профиль</h2><p class="muted">'+esc(learningBlocker(gate))+' Для перехода нужны четыре навыка и отложенная проверка.</p><div class="metric"><span>Освоено модулей</span><strong>'+gate.mastered+'/'+gate.total+'</strong></div><div class="metric"><span>Отложенных подтверждений</span><strong>'+gate.delayed+'/4</strong></div><div class="metric"><span>Статус</span><strong>'+(gate.pass?'Пройден':'Есть работа')+'</strong></div></article></section>'+

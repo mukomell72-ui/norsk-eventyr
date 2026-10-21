@@ -5,23 +5,38 @@
 const LEVEL_WEEKS=Object.freeze({A1:16,A2:20,B1:28,B2:36});
 const DAY_PARTS=[
  ['Повторение через интервалы',10],
- ['Новая тема и грамматика',15],
- ['Аудирование и понимание',15],
- ['Разговор с Норой',15],
+ ['Новая тема и грамматика',12],
+ ['Аудирование, чтение и понимание',13],
+ ['Разговор с Норой и обратная связь',20],
  ['Письмо и выводы',5]
 ];
 const STAGES=[
- {key:'introduce',title:'1. Знакомство с ситуацией',instruction:'Разбери ситуацию, ключевые фразы и грамматическую основу. Дай опору, затем проверь понимание, не показывая готовый ответ.'},
- {key:'understand',title:'2. Осмысленное понимание',instruction:'Верни знакомые конструкции в новом диалоге и тексте. Проверь главную мысль и детали, не угадывание по совпадающим словам.'},
- {key:'produce',title:'3. Самостоятельная практика',instruction:'Попроси самостоятельно сформулировать ответ устно и письменно, исправь ошибки с коротким объяснением. Опирайся на ту же цель модуля.'},
- {key:'transfer',title:'4. Применение без подсказок',instruction:'Создай новую жизненную ситуацию с теми же коммуникативными целями. Проверь независимое применение, а не повтор ранее показанного образца.'}
+ {key:'introduce',title:'1. Знакомство с ситуацией',instruction:'Разбери ситуацию, ключевые фразы и грамматическую основу. Дай короткую опору на русском, затем попроси ученика ответить вслух простой полезной фразой и изменить её для себя. Не показывай готовый ответ в проверке.'},
+ {key:'understand',title:'2. Осмысленное понимание',instruction:'Верни знакомые конструкции в новом диалоге и тексте. Проверь главную мысль и детали, затем попроси ученика устно уточнить информацию или ответить собеседнику. Подсказки давай только после самостоятельной попытки.'},
+ {key:'produce',title:'3. Самостоятельная практика',instruction:'Проведи связанный разговор в роли реального собеседника: ученик самостоятельно отвечает, задаёт уточняющий вопрос и перефразирует мысль, затем пишет короткий ответ. Исправь главную ошибку и попроси повторить исправленную мысль в новом контексте.'},
+ {key:'transfer',title:'4. Применение без подсказок',instruction:'Создай неожиданную, но жизненную ситуацию с той же целью. Потребуй самостоятельную устную реакцию, уточнение и поддержание разговора без шаблона, а затем короткий письменный итог. Проверяй перенос навыка после паузы, не узнавание готового образца.'}
 ];
 const HOURS=Object.freeze(Object.fromEntries(Object.entries(LEVEL_WEEKS).map(([level,weeks])=>[level,weeks*6])));
-function dailyPlan(minutes=60){
+function dailyPlan(minutes=60,skillProfile=null){
  const chosen=Number.isFinite(Number(minutes))?Math.round(Number(minutes)):60;
  const total=Math.max(20,Math.min(90,chosen));
  const points=DAY_PARTS.map((p,i)=>({label:p[0],minutes:i===4?0:Math.floor(p[1]*total/60)}));
  points[4].minutes=total-points.slice(0,4).reduce((sum,x)=>sum+x.minutes,0);
+ const mapping={vocabulary:0,grammar:1,listening:2,reading:2,speaking:3,writing:4};
+ const scores=Object.keys(mapping).map(k=>({skill:k,score:Number(skillProfile?.[k])}));
+ // Do not personalize a cold-start learner on arbitrary default 35/100 scores:
+ // only shift time when one skill is clearly behind the others.
+ if(scores.every(x=>Number.isFinite(x.score)&&x.score>=0&&x.score<=100)){
+  scores.sort((a,b)=>a.score-b.score);
+  const weak=scores[0],runnerUp=scores[1];
+  if(runnerUp.score-weak.score>=8){
+   const target=mapping[weak.skill],donor=target===1?2:target===4?2:1;
+   const requested=weak.skill==='speaking'?4:weak.skill==='writing'?2:3;
+   const reserve=donor===1?Math.max(3,Math.round(total*0.12)):Math.max(4,Math.round(total*0.15));
+   const shifted=Math.max(0,Math.min(requested,points[donor].minutes-reserve));
+   points[donor].minutes-=shifted;points[target].minutes+=shifted;
+  }
+ }
  return {minutes:total,daysPerWeek:6,parts:points};
 }
 function levelPlan(level){
