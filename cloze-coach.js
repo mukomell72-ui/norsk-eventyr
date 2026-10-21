@@ -19,8 +19,44 @@
   'bli':{ru:'становиться',forms:{bli:'инфинитив',blir:'настоящее время',ble:'прошедшее время',blitt:'причастие'}},
   'vurdere':{ru:'оценивать, рассматривать',forms:{vurdere:'инфинитив',vurderer:'настоящее время',vurderte:'прошедшее время',vurdert:'причастие',vurderes:'пассивная форма'}},
  });
- const first={lemma:'lære',meaning:'изучать, учить'};
- const contexts=Object.freeze({'a1-presens-1':'Каждый день я изучаю норвежский язык.'});
+ const meanings=Object.freeze({
+ 'a1-presens-1':['å lære','изучать, учить','Каждый день я изучаю норвежский язык.'],
+ 'a1-presens-2':['å bo','жить','Она живёт в Конгсберге.'],
+ 'a1-plural-1':['en bok','книга','У нас три книги.'],
+ 'a1-singular':['et hus','дом','У меня есть дом.'],
+ 'a1-adjective':['stor','большой','Это большой дом.'],
+ 'a1-negation':['å drikke','пить','Я не пью кофе.'],
+ 'a1-question':['å snakke','говорить','Ты говоришь по-норвежски?'],
+ 'a1-plural-2':['en bil','машина','У меня две машины.'],
+ 'a2-preteritum-1':['å jobbe','работать','Вчера я работал.'],
+ 'a2-preteritum-2':['å være','быть','На прошлой неделе я болел.'],
+ 'a2-perfektum':['å bo','жить','Я живу в Норвегии уже два года.'],
+ 'a2-infinitiv':['å besøke','посещать, навещать','Завтра я собираюсь посетить врача.'],
+ 'a2-plural':['et eple','яблоко','Она купила два яблока.'],
+ 'a2-strong':['å gå','идти','Вчера мы ходили в город.'],
+ 'a2-letter':['å sende','отправлять','В понедельник мы отправили заявление.'],
+ 'a2-auxiliary':['å ha','иметь (вспомогательный глагол)','Я никогда не был в этом офисе.'],
+ 'b1-condition':['å ville','хотеть; выражать намерение','Если я получу выходной, я навещу семью.'],
+ 'b1-v2':['å gå','идти','После работы я иду домой.'],
+ 'b1-reason':['å ha','иметь','Я ищу работу, потому что у меня есть опыт.'],
+ 'b1-concession':['å gå','идти','Хотя идёт дождь, мы идём гулять.'],
+ 'b1-passive':['å bli','становиться; вспомогательный глагол пассива','Документы были отправлены вчера.'],
+ 'b1-duration':['i','в течение (о длительности)','Я жду уже три недели.'],
+ 'b1-reported':['å kunne','мочь','Он рассказал, что не мог прийти.'],
+ 'b1-plural':['en søknad','заявление, заявка','Было рассмотрено несколько заявлений.'],
+ 'b2-passiv':['å sende','отправлять','Письмо следует отправить до установленного срока.'],
+ 'b2-conditional':['å ville','хотеть; намереваться','Если вопрос не будет решён, я попрошу обоснование.'],
+ 'b2-counterfactual':['å ha','иметь (вспомогательный глагол)','Предложение было бы лучше, если бы мы сначала оценили затраты.'],
+ 'b2-review':['å vurdere','рассматривать, оценивать','Решение необходимо пересмотреть.'],
+ 'b2-subordinate':['å bli','становиться; вспомогательный глагол пассива','Крайне важно, чтобы все стороны были выслушаны.'],
+ 'b2-relative':['å være','быть','Прилагаемая документация описывает проблему.'],
+ 'b2-hypothetical':['å ville','хотеть; условная конструкция','Если бы отчёт был готов, мы отправили бы его вчера.'],
+ 'b2-precision':['presis','точный','Нам нужен более точный ответ.']
+ });
+ function infoFor(task){
+  const data=meanings[task?.id];
+  return data?{lemma:data[0],translation:data[1],sentenceRu:data[2]}:null;
+ }
  function expectedVerb(task){
   if(task?.id==='a1-presens-1')return 'lære';
   const match=String(task?.sentence||'').match(/\(å\s+([a-zæøå]+)\)/i);
@@ -31,7 +67,7 @@
  }
  function diagnose(task,attempt){
   const word=norm(attempt),correct=norm(task?.answer);
-  if(!word)return {kind:'empty',message:'Попробуй ввести слово. Если не знаешь его, нажми «Не знаю — объясни».'};
+  if(!word)return {kind:'empty',message:'Попробуй ввести слово. Если не знаешь его, нажми «Не знаю слово».'};
   if(word===correct)return {kind:'correct',message:'Верно.'};
   const lemma=expectedVerb(task),expected=verbForms[lemma];
   const other=Object.entries(verbForms).find(([_,info])=>word in info.forms);
@@ -46,40 +82,39 @@
   }
   return {kind:'unverified',lemma,word,message:'Этот вариант пока нельзя подтвердить для данного задания. '+(expected?'Нужное действие — «å '+lemma+'» («'+expected.ru+'»). ':'')+rule+' Проверь значение и форму. Если ты имел в виду другую конструкцию, она может быть правильной в ином предложении.'};
  }
- function help(task,stage){
-  const lemma=expectedVerb(task),entry=verbForms[lemma];
-  const meaning=entry?'«å '+lemma+'» — '+entry.ru+'. ':'Смотри на смысл предложения и указанное правило. ';
-  if(stage===1)return 'Подсказка 1 · Значение. '+(contexts[task?.id]||'')+' '+meaning+'Попробуй подобрать слово самостоятельно.';
-  if(stage===2)return 'Подсказка 2 · Грамматика. '+String(task?.rule||'Найди подходящую грамматическую форму.');
-  if(stage>=3){
-   const example=String(task?.sentence||'').replace('___',String(task?.answer||''));
-   return 'Разбор · '+example+'. '+String(task?.rule||'')+' Готовый образец — помощь, а не самостоятельное подтверждение знания. Слово вернётся в повторение.';
-  }
-  return '';
+ function help(task){
+  const record=infoFor(task),fullNo=String(task?.sentence||'').replace('___',String(task?.answer||''));
+  return {sentenceNo:fullNo,
+   sentenceRu:record?.sentenceRu||'Перевод всего предложения пока не проверен.',
+   lemma:record?.lemma||'',
+   translation:record?.translation||'',
+   requiredForm:String(task?.answer||''),
+   rule:String(task?.rule||'Проверь форму слова.'),
+   message:record?'Помощь записана. Слово появится в повторении.':'Для этого упражнения нет подтверждённой словарной записи.'
+  };
  }
  function queueReview(task,state){
-  if(!state||!task)return false;
-  const lemma=expectedVerb(task),info=verbForms[lemma];
-  if(!lemma||!info)return false;
-  const now=Date.now(),k=lemma;
+  const item=infoFor(task);if(!item||!state)return false;
+  const lemma=item.lemma,normalized=norm(lemma),now=Date.now();
   state.dailyDictionary=state.dailyDictionary||{};
   state.srs=state.srs||{};
   state.wordPracticeQueue=state.wordPracticeQueue||{};
-  const existing=Object.keys(state.dailyDictionary).find(key=>norm(state.dailyDictionary[key]?.lemma||state.dailyDictionary[key]?.word)===lemma);
-  const storeKey=existing||k,old=state.dailyDictionary[storeKey]||{};
-  if(!existing){
-   // Review vocabulary must not consume one of the five new daily words.
-   state.dailyDictionary[storeKey]={...old,lemma:'å '+lemma,translation_ru:info.ru,
-    level:state.level||'A1',correct:0,wrong:0,strength:0,firstDate:new Date(now).toISOString().slice(0,10),source:'cloze_explanation'};
-  }
-  const record=state.dailyDictionary[storeKey];record.nextDue=now;
-  record.lastClozeExplanation=new Date(now).toISOString();
-  const stored=Object.entries(state.srs).find(([key,item])=>norm(item?.word||key)===lemma);
-  const srsKey=stored?.[0]||storeKey;
-  if(!state.srs[srsKey])state.srs[srsKey]={word:'å '+lemma,translation:info.ru,level:state.level||'A1',stage:0,seen:0,correct:0};
-  state.srs[srsKey].due=now;
-  state.wordPracticeQueue[k]=now;
+  const found=Object.entries(state.dailyDictionary).find(([k,v])=>norm(v?.lemma||v?.word||k)===normalized);
+  const dk=found?.[0]||normalized,existing=found?.[1];
+  if(!existing)state.dailyDictionary[dk]={
+   lemma,translation_ru:item.translation,level:state.level||'A1',correct:0,wrong:0,
+   strength:0,firstDate:new Date(now).toISOString().slice(0,10),source:'cloze_help'
+  };
+  const record=state.dailyDictionary[dk];
+  record.nextDue=now;record.lastClozeHelp=new Date(now).toISOString();
+  const savedSrs=Object.entries(state.srs).find(([k,v])=>norm(v?.word||k)===normalized);
+  const sk=savedSrs?.[0]||dk;
+  if(!state.srs[sk])state.srs[sk]={
+   word:lemma,translation:item.translation,level:state.level||'A1',stage:0,seen:0,correct:0
+  };
+  state.srs[sk].due=now;
+  state.wordPracticeQueue[normalized]=now;
   return true;
  }
- window.NEClozeCoach=Object.freeze({diagnose,help,queueReview,expectedVerb,context:task=>contexts[task?.id]||'',norm});
+ window.NEClozeCoach=Object.freeze({diagnose,help,queueReview,expectedVerb,infoFor,norm});
 })();
