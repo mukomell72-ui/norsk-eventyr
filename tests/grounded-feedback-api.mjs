@@ -32,7 +32,7 @@ let serial=0;
 async function evaluate(fakeResults){
  outcomes=fakeResults;calls=0;
  const req={method:'POST',url:'/api/evaluate',headers:{
-  host:'localhost','x-forwarded-for':'qa-grounded-'+(++serial),
+  host:'localhost',cookie:'ne_access=qa','x-forwarded-for':'qa-grounded-'+(++serial),
   'x-ne-device-id':'device_qa_grounded_20261022',
   'x-ne-device-name':'QA'
  },body:{answer,question,goal:question,level:'A1',mode:'writing'}};
