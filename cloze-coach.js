@@ -92,14 +92,20 @@
  const targetRussian=Object.freeze({
   'a1-presens-1':'изучаю','a1-presens-2':'живёт','a1-plural-1':'книги','a1-singular':'дом',
   'a1-adjective':'большой','a1-negation':'пью','a1-question':'говоришь','a1-plural-2':'машины',
-  'a2-preteritum-1':'работал','a2-preteritum-2':'болел','a2-perfektum':'живу','a2-infinitiv':'посетить',
-  'a2-plural':'яблока','a2-strong':'ходили','a2-letter':'отправили','a2-auxiliary':'был',
+  'a2-preteritum-1':'работал','a2-preteritum-2':'болел','a2-perfektum':'живу уже два года (после har)','a2-infinitiv':'посетить',
+  'a2-plural':'яблока','a2-strong':'ходили','a2-letter':'отправили','a2-auxiliary':'вспомогательный глагол для perfektum (не переводится отдельно)',
   'b1-condition':'хочу','b1-v2':'иду','b1-reason':'есть','b1-concession':'идём',
-  'b1-passive':'были','b1-duration':'в течение','b1-reported':'мог','b1-plural':'заявлений',
-  'b2-passiv':'отправить','b2-conditional':'намереваюсь','b2-counterfactual':'бы','b2-review':'пересмотрено',
-  'b2-subordinate':'были','b2-relative':'есть','b2-hypothetical':'могли бы','b2-precision':'точный'
+  'b1-passive':'были отправлены (пассив)','b1-duration':'в течение','b1-reported':'мог','b1-plural':'заявлений',
+  'b2-passiv':'отправить (пассив)','b2-conditional':'намереваюсь','b2-counterfactual':'вспомогательный глагол для условия в прошлом','b2-review':'пересмотрено',
+  'b2-subordinate':'были выслушаны (пассив)','b2-relative':'прилагается (вспомогательный глагол)','b2-hypothetical':'вспомогательный глагол в условной конструкции','b2-precision':'точный'
  });
  function targetRu(task){return targetRussian[task?.id]||''}
+ function instruction(task){
+  const ru=targetRu(task)||infoFor(task)?.translation||'';
+  return /вспомогательный глагол|пассив|после har|условия в прошлом/.test(ru)
+    ?'Определи подходящую форму по русскому смыслу: «'+ru+'».'
+    :'Переведи и вставь слово: «'+ru+'».';
+ }
  function practiceMode(task){
   if(isOpen(task))return 'free';
   return task?.mode==='review'?'review':'guided';
@@ -240,5 +246,5 @@
   state.wordPracticeQueue[normalized]=now;
   return true;
  }
- window.NEClozeCoach=Object.freeze({diagnose,help,queueReview,expectedVerb,infoFor,norm,isOpen,checkLocal,verifyUnknown,freeCatalog,practiceMode,targetRu,plan,dailyPlan});
+ window.NEClozeCoach=Object.freeze({diagnose,help,queueReview,expectedVerb,infoFor,norm,isOpen,checkLocal,verifyUnknown,freeCatalog,practiceMode,targetRu,instruction,plan,dailyPlan});
 })();
