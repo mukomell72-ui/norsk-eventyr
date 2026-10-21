@@ -21,10 +21,12 @@ assert.equal(revision,v,'Access bootstrap must fetch the published revision');
 const baseCache='norsk-eventyr-v'+v.replaceAll('.','-');
 const actualCache=(sw.match(/^const CACHE="([^"]+)";/m)||[])[1];
 const assetRevision=actualCache?.startsWith(baseCache)?actualCache.slice(baseCache.length):null;
-assert(assetRevision!==null&&(/^(?:-(?:ui|auth|lesson)[1-9][0-9]*(?:-listening[1-9][0-9]*)?(?:-translate[1-9][0-9]*)?(?:-wordhelp[1-9][0-9]*)?(?:-stamp[1-9][0-9]*)?(?:-tap[1-9][0-9]*)?(?:-watch[1-9][0-9]*)?(?:-taponly[1-9][0-9]*)?(?:-clock[1-9][0-9]*)?(?:-feedback[1-9][0-9]*)?(?:-explain[1-9][0-9]*)?(?:-ruforms[1-9][0-9]*)?(?:-skulle[1-9][0-9]*)?)?$/).test(assetRevision),
+assert(assetRevision!==null&&(/^(?:-(?:ui|auth|lesson)[1-9][0-9]*(?:-listening[1-9][0-9]*)?(?:-translate[1-9][0-9]*)?(?:-wordhelp[1-9][0-9]*)?(?:-stamp[1-9][0-9]*)?(?:-tap[1-9][0-9]*)?(?:-watch[1-9][0-9]*)?(?:-taponly[1-9][0-9]*)?(?:-clock[1-9][0-9]*)?(?:-feedback[1-9][0-9]*)?(?:-explain[1-9][0-9]*)?(?:-ruforms[1-9][0-9]*)?(?:-skulle[1-9][0-9]*)?(?:-teacher[1-9][0-9]*)?)?$/).test(assetRevision),
   'PWA cache must match the release version or a numbered patch revision');
-const skulleSuffix=(assetRevision?.match(/(-skulle[1-9][0-9]*)$/)||[])[1]||'';
-const withoutSkulle=assetRevision?.slice(0,assetRevision.length-skulleSuffix.length)||'';
+const teacherSuffix=(assetRevision?.match(/(-teacher[1-9][0-9]*)$/)||[])[1]||'';
+const withoutTeacher=assetRevision?.slice(0,assetRevision.length-teacherSuffix.length)||'';
+const skulleSuffix=(withoutTeacher.match(/(-skulle[1-9][0-9]*)$/)||[])[1]||'';
+const withoutSkulle=withoutTeacher.slice(0,withoutTeacher.length-skulleSuffix.length);
 const ruFormsSuffix=(withoutSkulle.match(/(-ruforms[1-9][0-9]*)$/)||[])[1]||'';
 const withoutRuForms=withoutSkulle.slice(0,withoutSkulle.length-ruFormsSuffix.length);
 const explainSuffix=(withoutRuForms.match(/(-explain[1-9][0-9]*)$/)||[])[1]||'';
@@ -75,7 +77,8 @@ for(const asset of assets){
    (feedbackSuffix&&['/access.js','/card-form-practice.js','/living-words.js'].includes(pathname)?feedbackSuffix:'')+
    (explainSuffix&&['/access.js','/living-words.js'].includes(pathname)?explainSuffix:'')+
    (ruFormsSuffix&&['/access.js','/card-grammar.js','/living-words.js'].includes(pathname)?ruFormsSuffix:'')+
-   (skulleSuffix&&['/access.js','/card-grammar.js','/card-form-practice.js'].includes(pathname)?skulleSuffix:'');
+   (skulleSuffix&&['/access.js','/card-grammar.js','/card-form-practice.js'].includes(pathname)?skulleSuffix:'')+
+   (teacherSuffix&&['/access.js','/course-methodology.js','/adaptive-teacher.js','/app.js','/guided-speaking.js','/living-day.js','/ui-v7.js'].includes(pathname)?teacherSuffix:'');
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
 }
 }
@@ -110,7 +113,8 @@ if(assetRevision?.startsWith('-lesson')){
    (!feedbackSuffix||access.includes("'"+feedbackSuffix+"'"))&&
    (!explainSuffix||access.includes("'"+explainSuffix+"'"))&&
    (!ruFormsSuffix||access.includes("'"+ruFormsSuffix+"'"))&&
-   (!skulleSuffix||access.includes("'"+skulleSuffix+"'")), 
+   (!skulleSuffix||access.includes("'"+skulleSuffix+"'"))&&
+   (!teacherSuffix||access.includes("'"+teacherSuffix+"'")), 
     'Access bootstrap and offline cache must agree on lesson patch revision');
 }
 if(skulleSuffix)assert.equal(skulleSuffix,'-skulle1','Unexpected modal grammar revision');
@@ -138,7 +142,8 @@ for(const filename of scripts){
    (feedbackSuffix&&['card-form-practice.js','living-words.js'].includes(filename)?feedbackSuffix:'')+
    (explainSuffix&&filename==='living-words.js'?explainSuffix:'')+
    (ruFormsSuffix&&['card-grammar.js','living-words.js'].includes(filename)?ruFormsSuffix:'')+
-   (skulleSuffix&&['card-grammar.js','card-form-practice.js'].includes(filename)?skulleSuffix:'');
+   (skulleSuffix&&['card-grammar.js','card-form-practice.js'].includes(filename)?skulleSuffix:'')+
+   (teacherSuffix&&['course-methodology.js','adaptive-teacher.js','app.js','guided-speaking.js','living-day.js','ui-v7.js'].includes(filename)?teacherSuffix:'');
  assert(assetSet.has('/'+filename+'?v='+v+patch+suffix),'PWA must cache bootstrapped script '+filename);
 }
 for(const m of index.matchAll(/\b(?:src|href)="(\/[^"]+)"/g)){
@@ -165,7 +170,7 @@ if(translationSuffix==='-translate3'){
 if(translationSuffix==='-translate4'){
  for(const pathname of ['/ui-v7.js','/ui-v8.js','/updates.js']){
   const rev=pathname==='/ui-v7.js'?baseRevision:'';
-  assert(assetSet.has(pathname+'?v='+v+rev+translationSuffix+(stampSuffix&&['/ui-v8.js','/updates.js'].includes(pathname)?stampSuffix:'')),'Installed PWA must fetch fresh version UI: '+pathname);
+  assert(assetSet.has(pathname+'?v='+v+rev+translationSuffix+(stampSuffix&&['/ui-v8.js','/updates.js'].includes(pathname)?stampSuffix:'')+(teacherSuffix&&pathname==='/ui-v7.js'?teacherSuffix:'')),'Installed PWA must fetch fresh version UI: '+pathname);
  }
  assert(sw.includes('NE_GET_VERSION')&&sw.includes('cache:CACHE'),
    'Installed SW must reveal its actual active cache revision via MessageChannel');
