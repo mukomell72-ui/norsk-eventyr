@@ -32,6 +32,14 @@ const read=x=>fs.readFileSync(path.join(root,x),'utf8');
   await page.getByRole('button',{name:'Вставить слово'}).click();
   await page.getByRole('button',{name:'Начать тренировку'}).click();
   assert(await page.getByText('Задание 1 из 8',{exact:false}).isVisible());
+  assert(await page.getByText('Переведи и вставь слово:',{exact:false}).isVisible());
+  assert((await page.locator('.applied-note').last().innerText()).includes('изучаю'));
+  await page.locator('#appliedAnswer').fill('snakker');
+  await page.getByRole('button',{name:'Проверить ответ'}).click();
+  assert(await page.getByText('Проверь значение слова',{exact:false}).isVisible(),
+    'snakker is a valid Norwegian verb but does not translate the requested изучаю');
+  assert(await page.getByText('«snakker»',{exact:false}).isVisible(),
+    'Nora explains the difference instead of reporting a generic mistake');
   await page.locator('#appliedAnswer').fill('lærer');
   await page.getByRole('button',{name:'Проверить ответ'}).click();
   assert(await page.getByText('Верно!',{exact:true}).isVisible());
@@ -47,6 +55,24 @@ const read=x=>fs.readFileSync(path.join(root,x),'utf8');
   await page.locator('#appliedAnswer').fill('bor');
   await page.getByRole('button',{name:'Проверить ответ'}).click();
   assert(await page.getByText('Следующее').isVisible(),'Learner can correct after explanation');
+  const day=new Date().toISOString().slice(0,10);
+  const plan=await page.evaluate(date=>window.NEFunctionalPractice.getPracticePlan('A1',date),day);
+  assert.equal(plan.length,8);
+  for(let i=2;i<7;i++){
+   await page.getByRole('button',{name:'Следующее'}).click();
+   await page.locator('#appliedAnswer').fill(plan[i].answer);
+   await page.getByRole('button',{name:'Проверить ответ'}).click();
+   assert(await page.getByText('Следующее').isVisible(),'Question '+i+' must accept its requested form');
+  }
+  await page.getByRole('button',{name:'Следующее'}).click();
+  assert(await page.getByText('Свободная практика:',{exact:false}).isVisible(),'Open practice must be labeled');
+  const free=plan[7];
+  const chosen=free.id==='free-a1-norsk'?'snakker':'jobber';
+  assert.notEqual(chosen,free.answer);
+  await page.locator('#appliedAnswer').fill(chosen);
+  await page.getByRole('button',{name:'Проверить ответ'}).click();
+  assert(await page.getByText('Верно!',{exact:true}).isVisible(),
+   'A different contextually valid word must be accepted, not forced to match the template');
   const noOverflow=await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth+2);
   assert(noOverflow,'The learning screen must fit a 390px mobile viewport');
   await page.evaluate(()=>window.NEFunctionalPractice.open('forms','B2'));

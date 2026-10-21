@@ -93,10 +93,9 @@
  }
  function startCloze(redo){
   const level=session?.mode==='cloze'?session.level:safeLevel();
-  const pool=cloze.filter(x=>x.level===level);
-  const p=progress(),weight=x=>Number(p.weaknesses[level+':'+x.tag]||0);
-  const questions=(Array.isArray(redo)&&redo.length?pool.filter(x=>redo.includes(x.id)):pool.slice().sort((a,b)=>weight(b)-weight(a))).slice(0,8);
-  session={mode:'cloze',level,kind:'quiz',questions,index:0,results:[],locked:false,helped:false,missed:false,draft:'',help:null,last:null};
+  const pool=window.NEClozeCoach?.plan?.(cloze,level,new Date().toISOString().slice(0,10))||cloze.filter(x=>x.level===level);
+  const questions=(Array.isArray(redo)&&redo.length?pool.filter(x=>redo.includes(x.id)):pool).slice(0,8);
+  session={mode:'cloze',level,kind:'quiz',questions,index:0,results:[],locked:false,helped:false,missed:false,draft:'',help:null,last:null,pending:false};
   renderCloze();
  }
  function renderCloze(){
@@ -109,7 +108,7 @@
    s.kind='done';s.misses=misses;
    wrap('<article class="applied-sheet"><h3>Тренировка завершена</h3><p class="applied-score">'+n+' из '+total+' · '+score+'%</p><p>Неверные ответы: '+misses.length+'. Этот результат записан как дополнительная практика и сам по себе не открывает следующий уровень.</p><div class="applied-actions">'+(misses.length?'<button class="btn" onclick="NEFunctionalPractice.redoMistakes()">Повторить ошибки</button>':'')+'<button class="btn secondary" onclick="NEFunctionalPractice.open(\'cloze\',\''+s.level+'\')">К заданиям</button></div></article>');return;
   }
-  const checked=s.locked,ok=s.last?.ok,helper=s.help;
+  const checked=s.locked,ok=s.last?.ok,helper=s.help,open=window.NEClozeCoach?.isOpen?.(item)===true;
   const note=s.last?'<div class="applied-feedback '+(ok?'good':'bad')+'" role="status"><b>'+(ok?'Верно!':s.last.kind==='wrong-form'?'Форма слова не подходит':s.last.kind==='wrong-word'?'Проверь значение слова':'Разберём ответ')+'</b><p>'+html(s.last.message)+'</p></div>':'';
   const expl=helper?'<div class="applied-feedback" role="status"><b>Нора объясняет</b>'+
    '<p><b>Предложение:</b> <span lang="nb">'+html(helper.sentenceNo)+'</span></p>'+
@@ -117,9 +116,13 @@
    '<p><b>Слово:</b> '+html(helper.lemma)+' — '+html(helper.translation)+'</p>'+
    '<p><b>Нужная форма:</b> '+html(helper.requiredForm)+'</p>'+
    '<p><b>Почему:</b> '+html(helper.rule)+'</p>'+
-   '<p>Добавлено в словарь и повторение. Этот ответ уже не считается самостоятельным.</p></div>':'';
+   '<p>'+html(helper.message||'Слово добавлено в повторение. Этот ответ не считается самостоятельным.')+'</p></div>':'';
   wrap('<article class="applied-sheet"><small>Задание '+(s.index+1)+' из '+s.questions.length+' · '+html(s.level)+' · '+html(item.tag)+'</small>'+
    '<div class="applied-prompt">'+html(item.sentence).replace('___','<span class="applied-gap">______</span>')+'</div>'+
+   (open?'<p class="applied-note"><b>Свободная практика:</b> впиши любой грамматически и по смыслу подходящий глагол. Правильных вариантов несколько.</p>':
+    window.NEClozeCoach?.practiceMode?.(item)==='review'
+      ?'<p class="applied-note"><b>Закрепление:</b> используй изученное слово <b>'+html(window.NEClozeCoach?.infoFor?.(item)?.lemma||'')+'</b> в нужной форме.</p>'
+      :'<p class="applied-note"><b>'+html(window.NEClozeCoach?.instruction?.(item)||'Переведи и вставь подходящее слово.')+'</b> Выбери форму, которая подходит к предложению.</p>')+
    '<label for="appliedAnswer">Недостающее слово</label><input id="appliedAnswer" type="text" maxlength="70" autocomplete="off" autocapitalize="off" spellcheck="false" '+(checked?'disabled':'')+' value="'+html(s.draft||'')+'" placeholder="Введи слово" aria-label="Недостающее слово">'+
    note+expl+
    '<div class="applied-actions">'+(checked?'<button class="btn" onclick="NEFunctionalPractice.nextCloze()">Следующее →</button>':
@@ -127,33 +130,53 @@
     '<button class="btn secondary" onclick="NEFunctionalPractice.explainCloze()">Не знаю слово</button>')+'</div></article>');
   if(!checked){const input=document.getElementById('appliedAnswer');input?.addEventListener('keydown',e=>{if(e.key==='Enter')checkCloze()});}
  }
- function checkCloze(){
-  const s=session;if(!s||s.kind!=='quiz'||s.locked)return;
-  const input=document.getElementById('appliedAnswer'),value=String(input?.value||'').trim();if(!value){input?.focus();return}
-  const item=s.questions[s.index],ok=clean(value)===clean(item.answer),coach=window.NEClozeCoach;
-  s.draft=value;
-  if(!ok){
-   s.missed=true;
-   const diagnosis=coach?.diagnose?.(item,value);
-   s.last={ok:false,kind:diagnosis?.kind||'unverified',
-    message:diagnosis?.message||'Проверь значение и форму. '+item.rule};
-   renderCloze();return;
-  }
-  // Only the very first correct, unassisted attempt counts as independent recall.
+ function acceptCloze(s,item,reason){
   s.results.push({id:item.id,tag:item.tag,ok:!s.helped&&!s.missed});
   s.locked=true;
-  s.last={ok:true,message:s.helped?'Правильно заполнено после объяснения. Слово ещё будет повторяться.':'Ответ правильный — это самостоятельное применение слова.'};
+  s.last={ok:true,message:reason||
+   (s.helped?'Правильно заполнено после объяснения. Слово ещё будет повторяться.':'Ответ правильный — это самостоятельное применение слова.')};
+  renderCloze();
+ }
+ function checkCloze(){
+  const s=session;if(!s||s.kind!=='quiz'||s.locked||s.pending)return;
+  const input=document.getElementById('appliedAnswer'),value=String(input?.value||'').trim();
+  if(!value){input?.focus();return}
+  const item=s.questions[s.index],coach=window.NEClozeCoach;
+  s.draft=value;
+  if(clean(value)===clean(item.answer)){acceptCloze(s,item);return}
+  const local=coach?.checkLocal?.(item,value);
+  if(local?.accepted===true){acceptCloze(s,item,local.message);return}
+  if(local?.accepted===null&&coach?.isOpen?.(item)===true){
+   s.pending=true;s.last={ok:false,kind:'checking',message:'Нора проверяет грамматику и смысл твоего варианта…'};
+   renderCloze();
+   Promise.resolve(coach.verifyUnknown(item,value)).then(result=>{
+    if(session!==s||s.locked||s.questions[s.index]!==item)return;
+    if(result?.accepted===true){acceptCloze(s,item,result.message);return}
+    if(result?.accepted===false)s.missed=true;
+    s.last={ok:false,kind:result?.kind||'unverified',message:result?.message||'Не удалось подтвердить ответ.'};
+    renderCloze();
+   }).catch(()=>{
+    if(session!==s||s.locked)return;
+    s.last={ok:false,kind:'unavailable',message:'Не удалось проверить ответ. Он не считается ошибкой.'};
+    renderCloze();
+   }).finally(()=>{s.pending=false});
+   return;
+  }
+  s.missed=true;
+  const diagnosis=local?.accepted===false&&local?.message?local:coach?.diagnose?.(item,value);
+  s.last={ok:false,kind:diagnosis?.kind||'unverified',
+   message:diagnosis?.message||'Проверь значение и форму. '+item.rule};
   renderCloze();
  }
  function explainCloze(){
-  const s=session;if(!s||s.kind!=='quiz'||s.locked)return false;
+  const s=session;if(!s||s.kind!=='quiz'||s.locked||s.pending)return false;
   const item=s.questions[s.index],coach=window.NEClozeCoach;if(!item||!coach)return false;
   s.draft=String(document.getElementById('appliedAnswer')?.value||s.draft||'').slice(0,70);
   s.help=coach.help(item);s.helped=true;
   if(coach.queueReview(item,state))saveState();
   renderCloze();return true;
  }
- function nextCloze(){if(!session||session.kind!=='quiz'||!session.locked)return;session.index++;session.locked=false;session.last=null;session.help=null;session.helped=false;session.missed=false;session.draft='';renderCloze()}
+ function nextCloze(){if(!session||session.kind!=='quiz'||!session.locked)return;session.index++;session.locked=false;session.last=null;session.help=null;session.helped=false;session.missed=false;session.draft='';session.pending=false;renderCloze()}
  function redoMistakes(){if(!session||session.kind!=='done'||!session.misses?.length)return;startCloze(session.misses)}
  function startForm(id){
   const f=forms.find(x=>x.id===id);if(!f)return;
@@ -193,5 +216,7 @@
  }
  window.NEFunctionalPractice={open,startCloze,checkCloze,explainCloze,nextCloze,redoMistakes,startForm,submitForm,
   getCatalog:()=>({cloze:cloze.map(x=>({...x})),forms:forms.map(x=>({...x,fields:x.fields.map(y=>({...y}))}))}),
+  getClozePlan:(level,date)=>window.NEClozeCoach?.dailyPlan?.(cloze,level,date)||[],
+  getPracticePlan:(level,date)=>window.NEClozeCoach?.plan?.(cloze,level,date)||[],
   normalize:clean};
 })();

@@ -139,6 +139,8 @@ function isReady(){
  return ensure()?.ready===true;
 }
 function clozeSet(level,date){
+ const guided=window.NEFunctionalPractice?.getClozePlan?.(level,date);
+ if(Array.isArray(guided)&&guided.length===3)return guided;
  const all=window.NEFunctionalPractice?.getCatalog?.().cloze?.filter(x=>x.level===level)||[];
  if(!all.length)return [];
  const n=Number(String(date).replaceAll('-',''))||0,shift=n%all.length;
@@ -547,7 +549,7 @@ function render(){
    result+fields+morphology+'</div>',d);
  }
  if(d.stage==='cloze'){
-  const tasks=clozeSet(d.level,d.date),task=tasks[d.clozeIndex],help=d.clozeHelp;
+  const tasks=clozeSet(d.level,d.date),task=tasks[d.clozeIndex],help=d.clozeHelp,coach=window.NEClozeCoach;
   if(!task){d.stage='writing';d.feedback='';save();return render()}
   const helpPanel=help?'<div class="notice" role="status"><b>Нора объясняет</b>'+
    '<p><b>Предложение:</b> <span lang="nb">'+esc(help.sentenceNo)+'</span></p>'+
@@ -555,9 +557,12 @@ function render(){
    '<p><b>Слово:</b> '+esc(help.lemma)+' — '+esc(help.translation)+'</p>'+
    '<p><b>Нужная форма:</b> '+esc(help.requiredForm)+'</p>'+
    '<p><b>Почему:</b> '+esc(help.rule)+'</p>'+
-   '<p>Слово внесено в словарь и очередь повторения. Это не зачтено как самостоятельное знание.</p></div>':'';
+   '<p>'+esc(help.message||'Слово внесено в повторение, ответ не считается самостоятельным.')+'</p></div>':'';
   return wrapper('<p class="muted">Практическая грамматика · вопрос '+(d.clozeIndex+1)+' из '+tasks.length+'. Вставь подходящую форму слова.</p>'+
    '<h2 lang="nb">'+esc(task.sentence)+'</h2>'+
+   (coach?.isOpen?.(task)?'<p><b>Свободная практика:</b> вставь любое подходящее по смыслу и форме слово.</p>':
+    coach?.practiceMode?.(task)==='review'?'<p><b>Закрепление:</b> примени слово '+esc(coach?.infoFor?.(task)?.lemma||'')+' в нужной форме.</p>':
+    '<p><b>'+esc(coach?.instruction?.(task)||'Переведи и вставь подходящее слово.')+'</b></p>')+
    '<label class="field-label" for="livingCloze">Пропущенное слово</label><input class="input" id="livingCloze" autocomplete="off" lang="nb" maxlength="90" value="'+esc(d.clozeDraft||'')+'" placeholder="Напиши по-норвежски" oninput="NELivingWords.draftCloze(this.value)">'+
    '<div class="row"><button class="btn" onclick="NELivingWords.checkCloze()">Проверить</button>'+
    '<button class="btn secondary" onclick="NELivingWords.explainCloze()">Не знаю слово</button></div>'+
@@ -836,7 +841,7 @@ function draftCloze(value){const d=ensure();if(d?.stage==='cloze'){d.clozeDraft=
 function explainCloze(){
  const d=ensure();if(d?.stage!=='cloze')return false;
  const task=clozeSet(d.level,d.date)[d.clozeIndex],coach=window.NEClozeCoach;
- if(!task||!coach)return false;
+ if(!task||!coach||clozeChecking)return false;
  d.clozeDraft=String(document.getElementById('livingCloze')?.value||d.clozeDraft||'').slice(0,90);
  d.clozeHelp=coach.help(task);
  const state=getState();coach.queueReview(task,state);
@@ -844,21 +849,40 @@ function explainCloze(){
  if(!d.clozeAssisted.includes(task.id))d.clozeAssisted.push(task.id);
  d.feedback='';save();render();return true;
 }
+function advanceCorrectCloze(d,task){
+ d.checkedCloze.push(task.id);d.clozeIndex++;d.feedback='';d.clozeMisses=0;d.clozeHelp=null;d.clozeDraft='';
+ save();render();return true;
+}
+let clozeChecking=false;
 function checkCloze(){
- const d=ensure();if(!d||d.stage!=='cloze')return false;
+ const d=ensure();if(!d||d.stage!=='cloze'||clozeChecking)return false;
  const task=clozeSet(d.level,d.date)[d.clozeIndex];
  const answer=String(document.getElementById('livingCloze')?.value||d.clozeDraft||'').trim();
  const value=norm(answer);
  if(!task||!value)return false;
  d.clozeDraft=answer;
- if(value!==norm(task.answer)){
-  d.clozeMisses++;
-  const detail=window.NEClozeCoach?.diagnose?.(task,answer);
-  d.feedback=detail?.message||('Проверь значение и форму слова. '+task.rule);
-  save();render();return false;
+ const coach=window.NEClozeCoach;
+ if(value===norm(task.answer))return advanceCorrectCloze(d,task);
+ const local=coach?.checkLocal?.(task,answer);
+ if(local?.accepted===true)return advanceCorrectCloze(d,task);
+ if(local?.accepted===null&&coach?.isOpen?.(task)){
+  clozeChecking=true;
+  d.feedback='Нора проверяет выбранное слово в контексте всего предложения…';save();render();
+  return Promise.resolve(coach.verifyUnknown(task,answer)).then(result=>{
+   if(ensure()!==d||d.stage!=='cloze'||clozeSet(d.level,d.date)[d.clozeIndex]?.id!==task.id)return false;
+   if(result?.accepted===true)return advanceCorrectCloze(d,task);
+   if(result?.accepted===null){d.feedback=result.message;save();render();return false}
+   d.clozeMisses++;d.feedback=result?.message||('Проверь значение и форму. '+task.rule);
+   save();render();return false;
+  }).catch(()=>{
+   d.feedback='Не удалось проверить этот вариант. Это не ошибка. Проверь подключение и попробуй ещё раз.';
+   save();render();return false;
+  }).finally(()=>{clozeChecking=false});
  }
- d.checkedCloze.push(task.id);d.clozeIndex++;d.feedback='';d.clozeMisses=0;d.clozeHelp=null;d.clozeDraft='';
- save();render();return true;
+ d.clozeMisses++;
+ const detail=local?.accepted===false&&local?.message?local:coach?.diagnose?.(task,answer);
+ d.feedback=detail?.message||('Проверь значение и форму слова. '+task.rule);
+ save();render();return false;
 }
 let busy=false;
 async function assess(mode,answer){

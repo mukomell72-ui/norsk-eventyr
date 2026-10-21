@@ -54,13 +54,17 @@ assert(!JSON.stringify(state.functionalPractice).includes(values.melding),'Form 
 api.open('cloze','A1');
 assert(markup.includes('8 предложений'));
 api.startCloze();
-const a1=catalog.cloze.filter(x=>x.level==='A1');
+const a1=api.getPracticePlan('A1',new Date().toISOString().slice(0,10));
+assert.equal(a1.length,8);
+assert.equal(a1[0].mode,'guided');
+assert(markup.includes('Переведи и вставь слово:')&&markup.includes('изучаю'),'A1 opens with a clearly specified Russian word');
+assert.equal(a1.filter(x=>x.mode==='free').length,1,'A1 includes one genuine free word task');
 for(let i=0;i<8;i++){
  const match=markup.match(/Задание (\d+) из 8/);
  assert(match,'Cloze screen should have a numbered exercise');
  values.answer='definitely_wrong';
  api.checkCloze();
- assert(markup.includes('Разберём ответ'),'Wrong answer explains uncertainty instead of auto-revealing the answer');
+ assert(markup.includes('Разберём ответ')||markup.includes('Форма слова не подходит'),'Wrong answer explains the issue instead of revealing the planned answer');
  api.nextCloze();
  assert(markup.includes('Задание '+(i+1)+' из 8'),'Cannot advance without correcting the exercise');
  if(i===0){
@@ -70,12 +74,18 @@ for(let i=0;i<8;i++){
   assert(state.wordPracticeQueue?.lære,'Help schedules forgotten vocabulary');
   assert.equal(state.srs?.lære?.correct,0,'Assisted response cannot count as independent vocabulary mastery');
  }
- values.answer=a1[i].answer;
+ if(a1[i].mode==='free'){
+  const alternatives=Object.keys(a1[i].examples).filter(x=>x!==a1[i].answer);
+  values.answer=alternatives[0];
+ }else values.answer=a1[i].answer;
  api.checkCloze();
  assert(markup.includes('Следующее'),'User can correct and continue after explanation');
  api.nextCloze();
 }
 assert.equal(state.functionalPractice.attempts.at(-1).score,0);
+assert.equal(api.getPracticePlan('A2','2026-10-21').filter(x=>x.mode==='free').length,2);
+assert.equal(api.getPracticePlan('B1','2026-10-21').filter(x=>x.mode==='free').length,3);
+assert.equal(api.getPracticePlan('B2','2026-10-21').filter(x=>x.mode==='free').length,4);
 assert.equal(state.functionalPractice.attempts.at(-1).kind,'cloze');
 assert(state.functionalPractice.weaknesses['A1:presens']>0);
 assert(saved>0&&studied>0,'Practice results should be persisted and credited as study activity');

@@ -39,4 +39,36 @@ assert.equal(coach.queueReview({id:'a1-plural-1',sentence:'Vi har tre ___. (en b
 assert.equal(state.dailyDictionary['en bok'].translation_ru,'книга','Nouns also enter the dictionary using lemma');
 assert.equal(state.srs['en bok'].correct,0);
 assert.equal(coach.queueReview({id:'unknown'},state),false,'Unverified content cannot create arbitrary vocabulary entries');
+const g=coach.plan([
+ {id:'a1-presens-1',level:'A1',answer:'lærer',sentence:'Hver dag ___ jeg norsk.',tag:'presens'},
+ {id:'a1-presens-2',level:'A1',answer:'bor',sentence:'Hun ___ i Kongsberg.',tag:'presens'},
+ ...Array.from({length:6},(_,i)=>({id:'a1-'+i,level:'A1',answer:'test'+i,tag:'presens'}))
+],'A1','2026-10-21');
+assert.equal(g.length,8);
+assert.equal(g[0].mode,'guided');
+assert.equal(coach.targetRu(g[0]),'изучаю');
+assert.equal(g.filter(x=>x.mode==='review').length,1);
+assert.equal(g.filter(x=>x.mode==='free').length,1);
+const free=g.find(x=>x.mode==='free');
+assert(coach.isOpen(free));
+assert(coach.checkLocal(free,free.answer).accepted===true);
+assert(coach.checkLocal(free,free.id==='free-a1-norsk'?'snakker':'jobber').accepted===true,
+ 'Alternative in open practice must pass without matching the reference');
+assert(coach.checkLocal(free,'lærte').accepted===false || coach.checkLocal(free,'lærte').accepted===null,
+ 'Past tense cannot get automatic credit for A1 present practice');
+assert.equal(coach.checkLocal({...g[0]},'snakker').accepted,false,
+ 'The same alternative must NOT satisfy a targeted Russian translation');
+assert.equal(coach.diagnose(g[0],'snakker').kind,'wrong-word');
+assert.equal(coach.help(free).sentenceRu.startsWith('Перевод'),false,
+ 'Free practice should include a checked Russian example');
+for(const level of ['A1','A2','B1','B2']){
+ const prompts=coach.freeCatalog(level);
+ assert(prompts.length>=1&&prompts.every(x=>coach.isOpen(x)&&coach.infoFor(x)?.sentenceRu),
+  'Each free prompt needs verified examples and translation: '+level);
+ const distribution=coach.plan(Array.from({length:8},(_,i)=>({id:'course-'+level+'-'+i,level,answer:'har'})),level,'2026-10-21');
+ assert.equal(distribution.length,8);
+ assert.equal(distribution.filter(x=>x.mode==='free').length,{A1:1,A2:2,B1:3,B2:4}[level]);
+ assert.equal(distribution.filter(x=>x.mode==='review').length,1);
+}
+
 console.log('PASS Nora cloze tutoring: 32 verified translations, form/tense/meaning diagnostics, immediate dictionary and spaced reviews without free mastery');
