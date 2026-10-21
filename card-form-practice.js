@@ -243,6 +243,13 @@ function authoredTranslation(g,task){
   return {russianSentence:ru[i],modelAnswer:no[i]};
  }
  // Modal verbs require hand-authored contexts: generic verb templates may be misleading.
+ if(g.type==='verb'&&word==='skulle'){
+  const models={
+   1:{russianSentence:'Я собираюсь позвонить тебе завтра.',modelAnswer:'Jeg skal ringe deg i morgen.'},
+   2:{russianSentence:'Я собирался позвонить тебе вчера.',modelAnswer:'Jeg skulle ringe deg i går.'}
+  };
+  return models[i]||null;
+ }
  if(g.type==='verb'&&word==='kunne'){
   const russian=[
    'Полезно уметь говорить по-норвежски.',
@@ -283,7 +290,11 @@ const norm=x=>String(x||'').normalize('NFKC').toLocaleLowerCase('nb-NO')
 function taskList(word){
  const g=window.NECardGrammar?.describe?.(word);
  if(g?.verified===true&&Array.isArray(g.forms)&&g.forms.length>1){
-  return g.forms.map((f,i)=>{
+  // Practise useful modal forms on A1, not rare "har skullet".
+  const targets=g.lemma==='skulle'
+    ?g.forms.map((f,i)=>({f,i})).filter(({i})=>i===1||i===2)
+    :g.forms.map((f,i)=>({f,i}));
+  return targets.map(({f,i})=>{
    const target={index:i,requiredForm:f.form},authored=authoredTranslation(g,target);
    return {
     kind:'sentence',index:i,type:g.type,label:forms[g.type]?.[i]||String(f.label),

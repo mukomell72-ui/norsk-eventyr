@@ -142,4 +142,13 @@ const access=load('access.js'),sw=load('sw.js'),pkg=JSON.parse(load('tests/packa
 assert(access.includes("'card-grammar.js','card-form-practice.js','mini-path.js','living-words.js'"));
 assert(sw.includes('/card-form-practice.js?v=8.3.0-lesson24-translate4'));
 assert(pkg.scripts.test.includes('node card-form-practice.cjs'));
+// Regression: "skulle" must no longer fall back to unverified free writing.
+for(const spelling of ['skulle','skal']){
+ const word={word:spelling,pos:'other',translation:'собираться'};
+ const tasks=E.taskList(word);
+ assert.deepEqual(Array.from(tasks,t=>t.requiredForm),['skal','skulle']);
+ assert(tasks.every(t=>t.kind==='sentence'&&t.russianSentence&&t.modelAnswer));
+ assert(tasks.every(t=>E.containsWord(t,t.modelAnswer,word)), 'Modal answers must pass morphology: '+spelling);
+ assert(!tasks.some(t=>t.requiredForm==='har skullet'),'No rare perfect drills on A1');
+}
 console.log('PASS contextual practice: per-word sentences, verified inflections, meaningful situations, feminine alternatives, safety for unknown words');
