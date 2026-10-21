@@ -102,7 +102,7 @@
   const found=Object.entries(state.dailyDictionary).find(([k,v])=>norm(v?.lemma||v?.word||k)===normalized);
   const dk=found?.[0]||normalized,existing=found?.[1];
   if(!existing)state.dailyDictionary[dk]={
-   lemma,translation_ru:item.translation,level:state.level||'A1',correct:0,wrong:0,
+   lemma,translation_ru:item.translation,level:task.level||state.level||'A1',correct:0,wrong:0,
    strength:0,firstDate:new Date(now).toISOString().slice(0,10),source:'cloze_help'
   };
   const record=state.dailyDictionary[dk];
@@ -110,7 +110,7 @@
   const savedSrs=Object.entries(state.srs).find(([k,v])=>norm(v?.word||k)===normalized);
   const sk=savedSrs?.[0]||dk;
   if(!state.srs[sk])state.srs[sk]={
-   word:lemma,translation:item.translation,level:state.level||'A1',stage:0,seen:0,correct:0
+   word:lemma,translation:item.translation,level:task.level||state.level||'A1',stage:0,seen:0,correct:0
   };
   state.srs[sk].due=now;
   state.wordPracticeQueue[normalized]=now;
