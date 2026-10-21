@@ -17,11 +17,26 @@ const STAGES=[
  {key:'transfer',title:'4. Применение без подсказок',instruction:'Создай неожиданную, но жизненную ситуацию с той же целью. Потребуй самостоятельную устную реакцию, уточнение и поддержание разговора без шаблона, а затем короткий письменный итог. Проверяй перенос навыка после паузы, не узнавание готового образца.'}
 ];
 const HOURS=Object.freeze(Object.fromEntries(Object.entries(LEVEL_WEEKS).map(([level,weeks])=>[level,weeks*6])));
-function dailyPlan(minutes=60){
+function dailyPlan(minutes=60,skillProfile=null){
  const chosen=Number.isFinite(Number(minutes))?Math.round(Number(minutes)):60;
  const total=Math.max(20,Math.min(90,chosen));
  const points=DAY_PARTS.map((p,i)=>({label:p[0],minutes:i===4?0:Math.floor(p[1]*total/60)}));
  points[4].minutes=total-points.slice(0,4).reduce((sum,x)=>sum+x.minutes,0);
+ const mapping={vocabulary:0,grammar:1,listening:2,reading:2,speaking:3,writing:4};
+ const scores=Object.keys(mapping).map(k=>({skill:k,score:Number(skillProfile?.[k])}));
+ // Do not personalize a cold-start learner on arbitrary default 35/100 scores:
+ // only shift time when one skill is clearly behind the others.
+ if(scores.every(x=>Number.isFinite(x.score)&&x.score>=0&&x.score<=100)){
+  scores.sort((a,b)=>a.score-b.score);
+  const weak=scores[0],runnerUp=scores[1];
+  if(runnerUp.score-weak.score>=8){
+   const target=mapping[weak.skill],donor=target===1?2:target===4?2:1;
+   const requested=weak.skill==='speaking'?4:weak.skill==='writing'?2:3;
+   const reserve=donor===1?Math.max(3,Math.round(total*0.12)):Math.max(4,Math.round(total*0.15));
+   const shifted=Math.max(0,Math.min(requested,points[donor].minutes-reserve));
+   points[donor].minutes-=shifted;points[target].minutes+=shifted;
+  }
+ }
  return {minutes:total,daysPerWeek:6,parts:points};
 }
 function levelPlan(level){
