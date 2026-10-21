@@ -80,6 +80,8 @@ function skillForStep(step,mode){
 function recordAttempt(state,input={}){
  const p=ensure(state),skill=ALL.includes(input.skill)?input.skill:'vocabulary',score=clamp(input.score),weight=input.transfer?0.28:0.18;
  const id=String(input.moduleId||input.lessonId||'general').slice(0,90),moduleInfo=window.NECurriculum?.moduleById(id),level=['A1','A2','B1','B2'].includes(input.level)?input.level:(moduleInfo?.level||state.level||'A1'),profile=levelProfile(p,level);
+ // Archived lessons are practice copies, not evidence for unlocking the CEFR curriculum.
+ if(id.startsWith('archive:'))return clamp(profile[skill]);
  const old=clamp(profile[skill]);profile[skill]=clamp(old*(1-weight)+score*weight);if(level===state.level)p.skills[skill]=profile[skill];
  // Placement answers adjust the tentative profile but are not lesson mastery
  // or spaced-repetition evidence until tested independently.
@@ -212,6 +214,7 @@ function assessment(state,level,score,skillScores={}){
  p.assessments.push({date:new Date().toISOString(),level,score:s,skills:skillScores});p.assessments=p.assessments.slice(-50);
 }
 function completeLesson(state,lesson,sessionScore){
+ if(lesson?._adaptive?.kind==='archive_replay')return null;
  const p=ensure(state),id=lesson?._adaptive?.moduleId||lesson?.id||'lesson',m=moduleState(p,id);m.lastCompleted=dayKey();m.completions=(m.completions||0)+1;if(lesson?._adaptive)p.lastSessionDate=dayKey();
  if(lesson?._adaptive?.kind==='review'&&lesson._adaptive.reviewKey&&p.reviews[lesson._adaptive.reviewKey])p.reviews[lesson._adaptive.reviewKey].completedAt=new Date().toISOString();
  if(lesson?._adaptive?.kind==='remediation'){
