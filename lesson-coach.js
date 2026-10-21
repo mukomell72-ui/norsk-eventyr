@@ -65,7 +65,7 @@
   const {topic,progress}=ctx,question=topic.questions[progress.index];
   if(progress.done)return '<div class="ne-coach-result"><b>Два примера разобраны.</b><p>Если в задании ниже будет трудно, снова открой правило и повтори практику.</p><button type="button" class="btn secondary" onclick="NELessonCoach.restart()">Повторить мини-тест</button></div>';
   const passed=progress.passed>progress.index;
-  const options=question.opts.map((o,i)=>'<button type="button" class="choice '+(progress.incorrect.includes(i)?'bad':'')+'" '+(progress.incorrect.includes(i)||passed?'disabled':'')+' onclick="NELessonCoach.answer('+i+')">'+escapeHtml(o)+'</button>').join('');
+  const options=question.opts.map((o,i)=>'<button type="button" class="ne-coach-option '+(progress.incorrect.includes(i)?'bad':'')+'" '+(progress.incorrect.includes(i)||passed?'disabled':'')+' onclick="NELessonCoach.answer('+i+')">'+escapeHtml(o)+'</button>').join('');
   return '<div class="ne-coach-prompt" lang="nb">'+escapeHtml(question.q)+'</div><div class="choice-list">'+options+'</div>'+
    (progress.hint?'<div class="ne-coach-hint">Подсказка: вернись к правилу и подумай, какая форма глагола нужна именно после слова перед пропуском.</div>':'<button type="button" class="btn ghost" onclick="NELessonCoach.hint()">Подсказка</button>')+
    (progress.last?'<div class="feedback '+(progress.last.correct?'good':'bad')+'"><b>'+(progress.last.correct?'Правильно. Почему именно так:':'Разберём ошибку:')+'</b><p>'+escapeHtml(progress.last.text)+'</p>'+(progress.last.correct?'<p lang="nb">'+escapeHtml(question.sentence)+'</p><button type="button" class="btn secondary" onclick="NELessonCoach.speak()">▶ Послушать пример</button>':'<p>Попробуй другой вариант — правило осталось открытым.</p>')+'</div>':'')+
