@@ -9,6 +9,8 @@ vm.runInContext(read('course-methodology.js'),context);
 const plan=context.window.NECourseMethod.dailyPlan(60);
 assert.deepEqual(Array.from(plan.parts,p=>p.minutes),[10,12,13,20,5]);
 assert(plan.parts[3].minutes>plan.parts[1].minutes,'Speaking gets more time than explanation');
+const speechGap=context.window.NECourseMethod.dailyPlan(60,{vocabulary:75,grammar:74,listening:76,reading:73,writing:72,speaking:40});
+assert(speechGap.parts[3].minutes>=24,'The user's weakest oral skill should receive adaptive extra time');
 const scenario={id:'a1-foundation',level:'A1',title:'Знакомство',canDo:['Представиться и задать вопрос']};
 const s={level:'A1',elite:{dailyMinutes:60},learningV8:{modules:{},attempts:[]},generatedLessons:{}};
 const pages=[],resumes=[];
