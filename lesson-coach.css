@@ -1,0 +1,21 @@
+/* Norsk Eventyr: compact tutor, intentionally isolated from scored lesson components. */
+.ne-lesson-coach{margin-bottom:16px;border:1px solid #bed4e3!important;background:#eef6fb!important;color:#153248!important}
+.ne-lesson-coach h3{margin:6px 0 9px;color:#163b55;font-size:20px}
+.ne-lesson-coach p{color:#24465b;line-height:1.55}
+.ne-lesson-coach .muted{color:#47687b!important}
+.ne-coach-count{font-size:12px;font-weight:800;letter-spacing:.04em;color:#4b6d7f;text-transform:uppercase;margin:15px 0 8px}
+.ne-coach-prompt{font-size:23px;font-weight:800;line-height:1.45;letter-spacing:.01em;margin:8px 0 14px;color:#12354c}
+.ne-lesson-coach .choice-list{display:grid;gap:10px}
+.ne-lesson-coach .choice{color:#15384c!important;background:white!important;border:1px solid #b0cbdc!important;text-align:left;padding:12px 14px;min-height:48px;border-radius:11px}
+.ne-lesson-coach .choice:hover:not(:disabled){border-color:#257cc0!important}
+.ne-lesson-coach .choice.bad{background:#ffeef0!important;border-color:#c66b79!important;color:#79323d!important}
+.ne-lesson-coach .feedback{margin-top:13px;padding:12px 14px;background:white!important;border:1px solid #aecad9;border-radius:12px;color:#173346!important;line-height:1.55}
+.ne-lesson-coach .feedback.bad{background:#fff0f2!important;border-color:#dba5b0;color:#6b2630!important}
+.ne-lesson-coach .feedback.good{background:#e6f8ef!important;border-color:#91d5af;color:#19513a!important}
+.ne-lesson-coach .feedback p{margin:8px 0;color:inherit}
+.ne-coach-hint{padding:10px 12px;margin-top:8px;background:#fff5d9;color:#674e19;border-radius:9px}
+.ne-coach-result{background:#e6f8ef;color:#19513a;border-radius:12px;padding:14px}
+.ne-coach-result p{color:inherit}
+.ne-lesson-coach button{touch-action:manipulation}
+.ne-lesson-coach .lesson-next-v8{margin-top:12px}
+@media(max-width:620px){.ne-coach-prompt{font-size:21px}.ne-lesson-coach h3{font-size:18px}}
