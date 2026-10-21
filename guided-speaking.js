@@ -227,10 +227,11 @@ function freeExGuided(l){
  transcript.join('')+
  (progress.flowNotice?'<div class="notice" role="status">Диалог обновлён: продолжим с вежливой фразы знакомства. Предыдущие реплики сохранены до этого шага.</div>':'')+
  '<div class="guided-task"><b>Нора · твой следующий шаг</b><p>'+esc(step.task)+'</p></div>'+
- '<div class="guided-language">Говори по-норвежски. При ошибке Нора предложит исправление; собеседник ответит после правильной реплики.</div>'+
+ '<div class="guided-language">Сначала попробуй ответить своими словами и вслух. Нора объяснит не только что исправить, но и почему так строится норвежская фраза. После объяснения ответь ещё раз самостоятельно.</div>'+
  '<textarea id="freeAnswer" class="input" rows="2" autocomplete="off" placeholder="Твой ответ по-норвежски…" oninput="this.dataset.fromVoice=\'false\'"></textarea>'+
  '<div class="row guided-controls speech-actions-v831"><button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>'+
  '<button id="guidedSend" class="btn" onclick="checkFree(\'speaking\')">✓ Ответить</button></div>'+
+ '<button class="btn ghost" type="button" onclick="neGuidedExplain()">Не понимаю: почему так и что делать?</button>'+
  '<small class="muted">Текст можно использовать для тренировки, но он не засчитывается как подтверждение навыка устной речи. Проверяется смысл расшифровки, не произношение.</small>'+
  '<div id="freeFb" aria-live="polite"></div></article>';
 }
@@ -274,7 +275,8 @@ async function guidedCheck(){
   box.innerHTML='<div class="feedback bad"><b>Пока не засчитано. Попробуй ещё раз.</b>'+
    (e.explanation_ru?'<br>'+esc(e.explanation_ru):'')+
    (e.micro_rule_ru?'<br><b>Правило:</b> '+esc(e.micro_rule_ru):'')+
-   (e.corrected?'<br><b>Естественнее:</b> '+esc(e.corrected):'')+'</div>';
+   (e.corrected?'<br><b>Естественнее:</b> '+esc(e.corrected):'')+
+ '<br><button class="btn secondary" type="button" onclick="neGuidedExplain()">Нора, объясни подробнее</button></div>';
   input.focus();return;
  }
  progress.pending={answer:a,spoken};
@@ -284,6 +286,18 @@ async function guidedCheck(){
   '<div class="guided-reply">'+actorMessage(scene,reply,index)+'</div>'+
   '<button class="btn lesson-next-v8" onclick="neGuidedNext()">'+(index===scene.steps.length-1?'Завершить разговор →':'Следующая реплика →')+'</button>';
  if(typeof window.speakText==='function'){try{window.speakText(reply,.86)}catch{}}
+}
+function neGuidedExplain(){
+ const s=window.neLessonSession,d=s?.lesson&&ensure(s.lesson);
+ const input=document.getElementById('helpQuestionV7');
+ const panel=document.getElementById('helpPanelV7');
+ if(typeof window.v7OpenHelp==='function'&&panel?.hidden)window.v7OpenHelp();
+ const field=document.getElementById('helpQuestionV7')||input;
+ if(!field)return;
+ const task=d?.scene?.steps?.[d.progress.index]?.task||'текущий вопрос';
+ field.value='Объясни по-русски простыми словами, почему в этом задании нужно именно так строить фразу: '+String(task).slice(0,350)+'. Что я должен сделать по шагам? Приведи ДРУГОЙ короткий пример и объясни его. Не давай готового ответа на моё текущее задание.';
+ if(typeof window.v7AskHelp==='function')window.v7AskHelp();
+ else field.focus();
 }
 function neGuidedNext(){
  const s=window.neLessonSession,d=s?.lesson&&ensure(s.lesson);
@@ -303,6 +317,7 @@ window.checkFree=function(mode){
  return nativeCheck(mode);
 };
 window.neGuidedNext=neGuidedNext;
+window.neGuidedExplain=neGuidedExplain;
 window.neGuidedSpeak=neGuidedSpeak;
 window.NEGuidedSpeaking=Object.freeze({definition,sceneIds:Object.keys(SCENES),normalizeModule});
 })();
