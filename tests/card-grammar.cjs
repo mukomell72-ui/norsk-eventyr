@@ -37,6 +37,16 @@ const phrase=G.describe({word:'etter hvert',translation:'постепенно',p
 assert.equal(phrase.type,'other');assert.equal(phrase.forms.length,0,'Multiword expressions do not need an article');
 assert.equal(G.describe({word:'en bil'}).forms.length,4);
 assert.equal(G.knownCount.translatedVerbs,G.knownCount.verbs,'Every curated verb must have Russian translations');
+assert.equal(G.knownCount.translatedNouns,G.knownCount.nouns,'Every curated noun must have reviewed Russian glosses');
+for(const noun of ['en bil','et hus','ei klokke','en time','et barn','en erfaring','en avtale','et rom']){
+ const described=G.describe({word:noun});
+ assert.equal(described.forms.length,4,noun);
+ for(const row of described.forms)assert(row.translationRu&&row.translationRu.trim().length>=3,
+   'Every noun form should show Russian translation: '+noun+' '+row.form);
+}
+assert.deepEqual(Array.from(G.describe({word:'ei klokke'}).forms,row=>row.translationRu),
+ ['часы (одни)','эти часы (одни, конкретные)','часы (несколько)','эти часы (несколько конкретных)']);
+assert.equal(G.describe({word:'en avdeling'}).forms.length,0,'Unknown nouns must not receive invented translations');
 for(const lemma of ['kunne','gå','være','komme','skrive','begynne','jobbe','hente']){
  const result=G.describe({word:'å '+lemma});
  assert.equal(result.forms.length,5);

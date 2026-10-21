@@ -31,7 +31,9 @@ const fs=require('node:fs'),path=require('node:path'),assert=require('node:asser
   await page.getByRole('button',{name:'Проверить перевод'}).click();
   assert.equal(await details.evaluate(x=>x.open),true,'Forms are shown automatically after feedback');
   const text=await page.locator('#app').innerText();
-  for(const value of ['bilen','biler','bilene','Jeg har en bil.'])assert(text.includes(value),value);
+  for(const value of ['bilen','biler','bilene','Jeg har en bil.','эта машина','машины','эти машины'])assert(text.includes(value),value);
+  assert(await page.locator('details .forms-table small[lang="ru"]').count()>=4,
+   'Each Norwegian noun form must display a Russian gloss on mobile');
   assert.equal(await page.evaluate(()=>window.NELivingWords.nextCard()),false,'Form practice cannot be skipped');
   await page.getByRole('button',{name:'Задание с этим словом'}).click();
   assert(await page.locator('#livingFormAnswer').isVisible(),'Every card receives form practice');

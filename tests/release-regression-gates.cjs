@@ -110,7 +110,7 @@ if(assetRevision?.startsWith('-lesson')){
     'Access bootstrap and offline cache must agree on lesson patch revision');
 }
 if(ruFormsSuffix){
- assert(ruFormsSuffix==='-ruforms1','Unexpected Russian morphology patch revision');
+ assert(ruFormsSuffix==='-ruforms2','Unexpected Russian morphology patch revision');
  for(const filename of ['card-grammar.js','living-words.js'])
   assert(assets.some(asset=>asset.startsWith('/'+filename+'?v=')&&asset.endsWith(ruFormsSuffix)),
    'Russian form translations must be precached: '+filename);
