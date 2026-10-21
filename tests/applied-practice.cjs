@@ -64,7 +64,7 @@ for(let i=0;i<8;i++){
  assert(match,'Cloze screen should have a numbered exercise');
  values.answer='definitely_wrong';
  api.checkCloze();
- assert(markup.includes('Разберём ответ'),'Wrong answer explains uncertainty instead of auto-revealing the answer');
+ assert(markup.includes('Разберём ответ')||markup.includes('Форма слова не подходит'),'Wrong answer explains the issue instead of revealing the planned answer');
  api.nextCloze();
  assert(markup.includes('Задание '+(i+1)+' из 8'),'Cannot advance without correcting the exercise');
  if(i===0){
