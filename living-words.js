@@ -113,7 +113,7 @@ function choose(level,moduleId,date){
  const active=[...current,...newWords].slice(-MAX);
  const record={date,level,moduleId,newWords,active,cardsSeen:0,revealed:false,stage:'cards',
   cardQueue:active.map((_,i)=>i),cardDraft:'',cardFeedback:null,formPractice:null,cardAttempted:{},deferredWords:[],miniRound:null,miniRounds:{},
-  clozeIndex:0,clozeMisses:0,writingOK:false,speakingOK:false,ready:false,feedback:'',speechText:'',
+  clozeIndex:0,clozeMisses:0,clozeHelp:null,clozeDraft:'',clozeAssisted:[],writingOK:false,speakingOK:false,ready:false,feedback:'',speechText:'',
   writingDraft:'',checkedCloze:[],completedAt:null};
  p.days[date]=record;p.active=active.map(x=>({word:x.word,translation:x.translation,key:key(x.word),pos:x.pos||'',gender:x.gender||''}));
  const now=Date.now();s.dailyDictionary=s.dailyDictionary||{};s.srs=s.srs||{};
@@ -547,12 +547,21 @@ function render(){
    result+fields+morphology+'</div>',d);
  }
  if(d.stage==='cloze'){
-  const tasks=clozeSet(d.level,d.date),task=tasks[d.clozeIndex];
+  const tasks=clozeSet(d.level,d.date),task=tasks[d.clozeIndex],help=d.clozeHelp;
   if(!task){d.stage='writing';d.feedback='';save();return render()}
-  return wrapper('<p class="muted">Практическая грамматика · вопрос '+(d.clozeIndex+1)+' из '+tasks.length+'. Введи пропущенное слово самостоятельно.</p>'+
+  const helpPanel=help?'<div class="notice" role="status"><b>Нора объясняет</b>'+
+   '<p><b>Предложение:</b> <span lang="nb">'+esc(help.sentenceNo)+'</span></p>'+
+   '<p><b>Перевод:</b> '+esc(help.sentenceRu)+'</p>'+
+   '<p><b>Слово:</b> '+esc(help.lemma)+' — '+esc(help.translation)+'</p>'+
+   '<p><b>Нужная форма:</b> '+esc(help.requiredForm)+'</p>'+
+   '<p><b>Почему:</b> '+esc(help.rule)+'</p>'+
+   '<p>Слово внесено в словарь и очередь повторения. Это не зачтено как самостоятельное знание.</p></div>':'';
+  return wrapper('<p class="muted">Практическая грамматика · вопрос '+(d.clozeIndex+1)+' из '+tasks.length+'. Вставь подходящую форму слова.</p>'+
    '<h2 lang="nb">'+esc(task.sentence)+'</h2>'+
-   '<label class="field-label" for="livingCloze">Пропущенное слово</label><input class="input" id="livingCloze" autocomplete="off" lang="nb" maxlength="90" placeholder="Напиши по-норвежски">'+
-   '<button class="btn" onclick="NELivingWords.checkCloze()">Проверить</button>',d);
+   '<label class="field-label" for="livingCloze">Пропущенное слово</label><input class="input" id="livingCloze" autocomplete="off" lang="nb" maxlength="90" value="'+esc(d.clozeDraft||'')+'" placeholder="Напиши по-норвежски" oninput="NELivingWords.draftCloze(this.value)">'+
+   '<div class="row"><button class="btn" onclick="NELivingWords.checkCloze()">Проверить</button>'+
+   '<button class="btn secondary" onclick="NELivingWords.explainCloze()">Не знаю слово</button></div>'+
+   helpPanel,d);
  }
  if(d.stage==='writing'){
   return wrapper('<h2>Составь собственное предложение</h2><p>Используй одно или несколько активных слов в новой жизненной ситуации. Не копируй готовый образец.</p>'+
@@ -823,15 +832,33 @@ function recordTranslation(){
   rec.start();return true;
  }catch{translationRecognition=null;d.feedback='Микрофон не запустился. Проверь разрешения браузера.';save();render();return false}
 }
+function draftCloze(value){const d=ensure();if(d?.stage==='cloze'){d.clozeDraft=String(value||'').slice(0,90);save()}}
+function explainCloze(){
+ const d=ensure();if(d?.stage!=='cloze')return false;
+ const task=clozeSet(d.level,d.date)[d.clozeIndex],coach=window.NEClozeCoach;
+ if(!task||!coach)return false;
+ d.clozeDraft=String(document.getElementById('livingCloze')?.value||d.clozeDraft||'').slice(0,90);
+ d.clozeHelp=coach.help(task);
+ const state=getState();coach.queueReview(task,state);
+ d.clozeAssisted=Array.isArray(d.clozeAssisted)?d.clozeAssisted:[];
+ if(!d.clozeAssisted.includes(task.id))d.clozeAssisted.push(task.id);
+ d.feedback='';save();render();return true;
+}
 function checkCloze(){
  const d=ensure();if(!d||d.stage!=='cloze')return false;
- const task=clozeSet(d.level,d.date)[d.clozeIndex],value=norm(document.getElementById('livingCloze')?.value||'');
+ const task=clozeSet(d.level,d.date)[d.clozeIndex];
+ const answer=String(document.getElementById('livingCloze')?.value||d.clozeDraft||'').trim();
+ const value=norm(answer);
  if(!task||!value)return false;
+ d.clozeDraft=answer;
  if(value!==norm(task.answer)){
-  d.clozeMisses++;d.feedback='Пока неверно. '+task.rule+' Попробуй заполнить пропуск ещё раз.';
+  d.clozeMisses++;
+  const detail=window.NEClozeCoach?.diagnose?.(task,answer);
+  d.feedback=detail?.message||('Проверь значение и форму слова. '+task.rule);
   save();render();return false;
  }
- d.checkedCloze.push(task.id);d.clozeIndex++;d.feedback='';d.clozeMisses=0;save();render();return true;
+ d.checkedCloze.push(task.id);d.clozeIndex++;d.feedback='';d.clozeMisses=0;d.clozeHelp=null;d.clozeDraft='';
+ save();render();return true;
 }
 let busy=false;
 async function assess(mode,answer){
@@ -889,5 +916,5 @@ function recordSpeech(){
  }catch{recognizing=false;d.feedback='Микрофон не запустился. Проверь разрешение браузера.';save();render();return false}
 }
 function checkSpeaking(){const d=ensure();return d?.speechText?assess('speaking',d.speechText):false}
-window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,showFormHint,explainForm,tapUnknownWord,listenTappedWord,reviewFormError,checkForm,recordForm,checkCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation,progress,answerMini,listenMini,revealMiniWord,continueMini});
+window.NELivingWords=Object.freeze({ensure,isReady,render,reveal,nextCard,deferCard,draftTranslation,checkTranslation,recordTranslation,listenCard,beginCardPractice,draftForm,showFormHint,explainForm,tapUnknownWord,listenTappedWord,reviewFormError,checkForm,recordForm,checkCloze,draftCloze,explainCloze,draft,checkWriting,recordSpeech,checkSpeaking,clozeSet,acceptedTranslation,progress,answerMini,listenMini,revealMiniWord,continueMini});
 })();

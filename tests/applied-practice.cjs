@@ -15,6 +15,7 @@ const document={
 const window={};
 const context={window,state,document,shell:(html)=>{markup=html},saveState:()=>{saved++},touchStudy:()=>{studied++},Date,Intl};
 vm.createContext(context);
+vm.runInContext(read('cloze-coach.js'),context,{filename:'cloze-coach.js'});
 vm.runInContext(read('functional-practice.js'),context,{filename:'functional-practice.js'});
 const api=window.NEFunctionalPractice;
 assert(api,'Module must initialize');
@@ -53,12 +54,25 @@ assert(!JSON.stringify(state.functionalPractice).includes(values.melding),'Form 
 api.open('cloze','A1');
 assert(markup.includes('8 предложений'));
 api.startCloze();
+const a1=catalog.cloze.filter(x=>x.level==='A1');
 for(let i=0;i<8;i++){
  const match=markup.match(/Задание (\d+) из 8/);
  assert(match,'Cloze screen should have a numbered exercise');
  values.answer='definitely_wrong';
  api.checkCloze();
- assert(markup.includes('Правильный ответ'),'Wrong answer shows correction');
+ assert(markup.includes('Разберём ответ'),'Wrong answer explains uncertainty instead of auto-revealing the answer');
+ api.nextCloze();
+ assert(markup.includes('Задание '+(i+1)+' из 8'),'Cannot advance without correcting the exercise');
+ if(i===0){
+  assert.equal(api.explainCloze(),true,'One-tap help must be available');
+  assert(markup.includes('Нора объясняет')&&markup.includes('Перевод:')&&markup.includes('Нужная форма:'),
+   'Help must show the full Norwegian sentence, its Russian translation and target form');
+  assert(state.wordPracticeQueue?.lære,'Help schedules forgotten vocabulary');
+  assert.equal(state.srs?.lære?.correct,0,'Assisted response cannot count as independent vocabulary mastery');
+ }
+ values.answer=a1[i].answer;
+ api.checkCloze();
+ assert(markup.includes('Следующее'),'User can correct and continue after explanation');
  api.nextCloze();
 }
 assert.equal(state.functionalPractice.attempts.at(-1).score,0);
