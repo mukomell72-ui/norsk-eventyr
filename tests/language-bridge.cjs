@@ -14,7 +14,7 @@ const state={level:'A1',learningV8:{},dailyDictionary:{
 },srs:{today:{word:'i dag',stage:3,correct:3,due:now+86400000}},wordPracticeQueue:{}};
 let saves=0;
 const w={neLearnerState:state,saveState:()=>saves++};
-vm.runInNewContext(source,{window:w,document:{readyState:'loading',addEventListener(){}},Date,Math,Number,Object,String,JSON,Set,WeakMap});
+vm.runInNewContext(source,{window:w,document:{readyState:'loading',addEventListener(){},getElementById(){return null}},Date,Math,Number,Object,String,JSON,Set,WeakMap});
 const bridge=w.NELanguageBridge;
 assert(bridge,'Bridge API available');
 assert.equal(bridge.entries().length,1,'Do not replace newly seen or poorly recalled vocabulary');
