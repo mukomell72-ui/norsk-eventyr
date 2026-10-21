@@ -122,7 +122,7 @@
    (open?'<p class="applied-note"><b>Свободная практика:</b> впиши любой грамматически и по смыслу подходящий глагол. Правильных вариантов несколько.</p>':
     window.NEClozeCoach?.practiceMode?.(item)==='review'
       ?'<p class="applied-note"><b>Закрепление:</b> используй изученное слово <b>'+html(window.NEClozeCoach?.infoFor?.(item)?.lemma||'')+'</b> в нужной форме.</p>'
-      :'<p class="applied-note"><b>Переведи и вставь слово:</b> «'+html(window.NEClozeCoach?.targetRu?.(item)||window.NEClozeCoach?.infoFor?.(item)?.translation||'')+'». Выбери форму, которая подходит к предложению.</p>')+
+      :'<p class="applied-note"><b>'+html(window.NEClozeCoach?.instruction?.(item)||'Переведи и вставь подходящее слово.')+'</b> Выбери форму, которая подходит к предложению.</p>')+
    '<label for="appliedAnswer">Недостающее слово</label><input id="appliedAnswer" type="text" maxlength="70" autocomplete="off" autocapitalize="off" spellcheck="false" '+(checked?'disabled':'')+' value="'+html(s.draft||'')+'" placeholder="Введи слово" aria-label="Недостающее слово">'+
    note+expl+
    '<div class="applied-actions">'+(checked?'<button class="btn" onclick="NEFunctionalPractice.nextCloze()">Следующее →</button>':
