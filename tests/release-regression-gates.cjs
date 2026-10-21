@@ -21,10 +21,12 @@ assert.equal(revision,v,'Access bootstrap must fetch the published revision');
 const baseCache='norsk-eventyr-v'+v.replaceAll('.','-');
 const actualCache=(sw.match(/^const CACHE="([^"]+)";/m)||[])[1];
 const assetRevision=actualCache?.startsWith(baseCache)?actualCache.slice(baseCache.length):null;
-assert(assetRevision!==null&&(/^(?:-(?:ui|auth|lesson)[1-9][0-9]*(?:-listening[1-9][0-9]*)?(?:-translate[1-9][0-9]*)?(?:-wordhelp[1-9][0-9]*)?(?:-stamp[1-9][0-9]*)?(?:-tap[1-9][0-9]*)?(?:-watch[1-9][0-9]*)?(?:-taponly[1-9][0-9]*)?(?:-clock[1-9][0-9]*)?(?:-feedback[1-9][0-9]*)?(?:-explain[1-9][0-9]*)?(?:-ruforms[1-9][0-9]*)?(?:-skulle[1-9][0-9]*)?(?:-teacher[1-9][0-9]*)?)?$/).test(assetRevision),
+assert(assetRevision!==null&&(/^(?:-(?:ui|auth|lesson)[1-9][0-9]*(?:-listening[1-9][0-9]*)?(?:-translate[1-9][0-9]*)?(?:-wordhelp[1-9][0-9]*)?(?:-stamp[1-9][0-9]*)?(?:-tap[1-9][0-9]*)?(?:-watch[1-9][0-9]*)?(?:-taponly[1-9][0-9]*)?(?:-clock[1-9][0-9]*)?(?:-feedback[1-9][0-9]*)?(?:-explain[1-9][0-9]*)?(?:-ruforms[1-9][0-9]*)?(?:-skulle[1-9][0-9]*)?(?:-teacher[1-9][0-9]*)?(?:-coach[1-9][0-9]*)?)?$/).test(assetRevision),
   'PWA cache must match the release version or a numbered patch revision');
-const teacherSuffix=(assetRevision?.match(/(-teacher[1-9][0-9]*)$/)||[])[1]||'';
-const withoutTeacher=assetRevision?.slice(0,assetRevision.length-teacherSuffix.length)||'';
+const coachSuffix=(assetRevision?.match(/(-coach[1-9][0-9]*)$/)||[])[1]||'';
+const withoutCoach=assetRevision?.slice(0,assetRevision.length-coachSuffix.length)||'';
+const teacherSuffix=(withoutCoach.match(/(-teacher[1-9][0-9]*)$/)||[])[1]||'';
+const withoutTeacher=withoutCoach.slice(0,withoutCoach.length-teacherSuffix.length);
 const skulleSuffix=(withoutTeacher.match(/(-skulle[1-9][0-9]*)$/)||[])[1]||'';
 const withoutSkulle=withoutTeacher.slice(0,withoutTeacher.length-skulleSuffix.length);
 const ruFormsSuffix=(withoutSkulle.match(/(-ruforms[1-9][0-9]*)$/)||[])[1]||'';
@@ -78,7 +80,8 @@ for(const asset of assets){
    (explainSuffix&&['/access.js','/living-words.js'].includes(pathname)?explainSuffix:'')+
    (ruFormsSuffix&&['/access.js','/card-grammar.js','/living-words.js'].includes(pathname)?ruFormsSuffix:'')+
    (skulleSuffix&&['/access.js','/card-grammar.js','/card-form-practice.js'].includes(pathname)?skulleSuffix:'')+
-   (teacherSuffix&&['/access.js','/course-methodology.js','/adaptive-teacher.js','/app.js','/guided-speaking.js','/living-day.js','/ui-v7.js'].includes(pathname)?teacherSuffix:'');
+   (teacherSuffix&&['/access.js','/course-methodology.js','/adaptive-teacher.js','/app.js','/guided-speaking.js','/living-day.js','/ui-v7.js'].includes(pathname)?teacherSuffix:'')+
+   (coachSuffix&&['/access.js','/app.js','/lesson-coach.js','/lesson-coach.css'].includes(pathname)?coachSuffix:'');
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
 }
 }
@@ -143,14 +146,15 @@ for(const filename of scripts){
    (explainSuffix&&filename==='living-words.js'?explainSuffix:'')+
    (ruFormsSuffix&&['card-grammar.js','living-words.js'].includes(filename)?ruFormsSuffix:'')+
    (skulleSuffix&&['card-grammar.js','card-form-practice.js'].includes(filename)?skulleSuffix:'')+
-   (teacherSuffix&&['course-methodology.js','adaptive-teacher.js','app.js','guided-speaking.js','living-day.js','ui-v7.js'].includes(filename)?teacherSuffix:'');
+   (teacherSuffix&&['course-methodology.js','adaptive-teacher.js','app.js','guided-speaking.js','living-day.js','ui-v7.js'].includes(filename)?teacherSuffix:'')+
+   (coachSuffix&&['lesson-coach.js','app.js'].includes(filename)?coachSuffix:'');
  assert(assetSet.has('/'+filename+'?v='+v+patch+suffix),'PWA must cache bootstrapped script '+filename);
 }
 for(const m of index.matchAll(/\b(?:src|href)="(\/[^"]+)"/g)){
  const url=m[1];
  if(url.includes('?v='))assert(assetSet.has(url),'PWA must cache HTML dependency '+url);
 }
-const ordered=['data.js','curriculum-v8.js','course-methodology.js','verified-learning-resources.js','practice-foundations.js','foundation-extensions.js','advanced-b1.js','advanced-b2.js','adaptive-teacher.js','app.js','voice-pack.js','v3.js','guided-speaking.js','ui-v8.js'];
+const ordered=['data.js','curriculum-v8.js','course-methodology.js','verified-learning-resources.js','practice-foundations.js','foundation-extensions.js','advanced-b1.js','advanced-b2.js','adaptive-teacher.js','lesson-coach.js','app.js','voice-pack.js','v3.js','guided-speaking.js','ui-v8.js'];
 for(let i=1;i<ordered.length;i++){
  assert(scripts.indexOf(ordered[i-1])>=0&&scripts.indexOf(ordered[i])>scripts.indexOf(ordered[i-1]),
   'Bootstrap dependency order changed: '+ordered[i-1]+' -> '+ordered[i]);
@@ -244,3 +248,13 @@ const tests=JSON.parse(read('tests/package.json')).scripts.test;
 for(const name of ['a1-key-prompt-8.2.8.cjs','silent-mic-8.2.7.cjs','tts-audio-8.2.6.cjs','browser.cjs','mobile-mic-browser.cjs','updates.cjs','access-browser.cjs','release-regression-gates.cjs','premium-preparation.cjs','deep-listening-adaptation-8.3.cjs','staging-preflight-8.3.cjs'])
  assert(tests.includes(name),'Mandatory test missing from premerge QA: '+name);
 console.log('PASS release gate: microphone, audio, opt-in translation, progress and QA coverage contracts');
+
+// Tutor release: no stale bootstrap, missing offline assets, or accidental scoring coupling.
+if(coachSuffix){
+ assert(assets.includes('/lesson-coach.js?v='+v+coachSuffix),'PWA must precache the interactive grammar tutor');
+ assert(assets.includes('/lesson-coach.css?v='+v+coachSuffix),'PWA must precache tutor styles');
+ assert(index.includes('src="/access.js?v='+v+assetRevision+'"'),'Tutor release must bust the HTML loader cache');
+ assert(scripts.indexOf('lesson-coach.js')<scripts.indexOf('app.js'),'Tutor must load before the lesson UI');
+ assert(app.includes('NELessonCoach?.render(l)'),'Grammar step must mount tutor');
+ assert(app.includes('btn.closest("article.card")?.querySelectorAll(".choice")'),'Scored choices must be isolated from tutor buttons');
+}
