@@ -82,6 +82,7 @@ const nounRussianTranslations=Object.freeze({
 const verb={
  'være':['er','var','vært','Jeg er hjemme.','Я дома.'],
  'kunne':['kan','kunne','kunnet','Jeg kan hjelpe deg.','Я могу тебе помочь.'],
+ 'skulle':['skal','skulle','skullet','Jeg skulle ringe deg.','Я собирался тебе позвонить.'],
  'ha':['har','hadde','hatt','Jeg har en bok.','У меня есть книга.'],
  'gjøre':['gjør','gjorde','gjort','Jeg gjør en oppgave.','Я выполняю задание.'],
  'gå':['går','gikk','gått','Jeg går på jobb.','Я иду на работу.'],
@@ -150,6 +151,12 @@ const verbRussianTranslations=Object.freeze({
   "мог / могла; мог(ла) бы",
   "смог / смогла; имел(а) возможность",
   "смогу / буду в состоянии"
+ ],
+ "skulle": [
+  "собираться / быть должным",
+  "собираюсь / должен",
+  "собирался / должен был",
+  "собирался / должен был (редкая форма)"
  ],
  "ha": [
   "иметь",
@@ -418,7 +425,7 @@ const verbRussianTranslations=Object.freeze({
   "открою / буду открывать"
  ]
 });
-const verbAliases={begynner:'begynne',begynte:'begynne',begynt:'begynne',kan:'kunne',kunnet:'kunne'};
+const verbAliases={begynner:'begynne',begynte:'begynne',begynt:'begynne',kan:'kunne',kunnet:'kunne',skal:'skulle',skullet:'skulle'};
 const nounAliases={nøkkelen:'nøkkel',klokka:'klokke',boka:'bok',boken:'bok',huset:'hus',jobben:'jobb',
  skolen:'skole',rommet:'rom',spørsmålet:'spørsmål',eplet:'eple',brødet:'brød',barnet:'barn'};
 const normalize=x=>String(x||'').normalize('NFKC').toLocaleLowerCase('nb-NO').trim().replace(/\s+/g,' ');
@@ -447,14 +454,19 @@ function describe(entry){
     help:'Учи существительное с артиклем. Определённость часто передаётся по-русски контекстом: «этот/эта/эти» — смысловая подсказка, а не обязательный дословный перевод.'+
      (mapped==='klokke'?' В выражении «Klokka er tre» klokka сообщает время («сейчас три часа»).':'')};
  }
- if(Object.hasOwn(verb,verbLemma)&&(raw.startsWith('å ')||pos==='verb'||pos==='modal'||!pos)){
+ if(Object.hasOwn(verb,verbLemma)&&(raw.startsWith('å ')||pos==='verb'||pos==='modal'||!pos||verbLemma==='skulle')){
   const [pres,past,perfect,no,ru]=verb[verbLemma];
   const tr=verbRussianTranslations[verbLemma];
+  const paradigm=[form('Инфинитив','å '+verbLemma,tr?.[0]),form('Настоящее · presens',pres,tr?.[1]),
+    form('Прошедшее · preteritum',past,tr?.[2]),
+    form(verbLemma==='skulle'?'Перфект · редко':'Перфект · perfektum','har '+perfect,tr?.[3])];
+  // "skal" expresses plans and obligations; do not make up the "skal skulle" future.
+  if(verbLemma!=='skulle')paradigm.push(form('Будущее · конструкция','skal '+verbLemma,tr?.[4]));
   return {type:'verb',typeRu:'Глагол',headword:'å '+verbLemma,lemma:verbLemma,
-    forms:[form('Инфинитив','å '+verbLemma,tr?.[0]),form('Настоящее · presens',pres,tr?.[1]),
-     form('Прошедшее · preteritum',past,tr?.[2]),form('Перфект · perfektum','har '+perfect,tr?.[3]),
-     form('Будущее · конструкция','skal '+verbLemma,tr?.[4])],
-    example:{no,ru},verified:true,url,help:verbLemma==='kunne'?'Модальный глагол: kan — могу сейчас, kunne — мог раньше или мог бы (вежливая просьба), har kunnet — мог до настоящего момента. После kan/kunne следующий глагол употребляется без å: Jeg kan hjelpe deg.':'Запомни три разные формы: presens, preteritum и причастие после har. Будущее с skal — конструкция.'};
+    forms:paradigm,
+    example:{no,ru},verified:true,url,help:verbLemma==='skulle'
+      ?'Модальный глагол: skal — собираюсь / должен, skulle — собирался / должен был или вежливая условная форма. После skal/skulle идёт инфинитив без å: Jeg skulle ringe deg. Форма har skullet встречается редко; её не нужно отрабатывать на уровне A1.'
+      :verbLemma==='kunne'?'Модальный глагол: kan — могу сейчас, kunne — мог раньше или мог бы (вежливая просьба), har kunnet — мог до настоящего момента. После kan/kunne следующий глагол употребляется без å: Jeg kan hjelpe deg.':'Запомни три разные формы: presens, preteritum и причастие после har. Будущее с skal — конструкция.'};
  }
  if(Object.hasOwn(adjective,lemma)&&(pos==='adjective'||!pos)){
   const [neuter,plural,comparative,superlative,no,ru]=adjective[lemma];
