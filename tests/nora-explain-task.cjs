@@ -67,6 +67,6 @@ record.formPractice={started:true,done:false,task:{
  assert(api.includes('action==="explain_task"'));
  assert(api.includes('EXPLANATION_REVEALS_ANSWER'));
  assert(api.includes('reference_example:reveal?reference:null'));
- assert(read('sw.js').includes('feedback1-explain1'),'Updated PWA cache');
+ assert(read('sw.js').includes('feedback2-explain1'),'Updated PWA cache');
  console.log('PASS Nora explanations: before-attempt protection, AI/offline modes, drafts, no artificial completion');
 })().catch(e=>{console.error(e);process.exitCode=1});
