@@ -22,7 +22,7 @@ function guardIssue(issue,{answer,question,goal}){
  if(/\bvi kunne møtes\b/iu.test(answer)&&/\bkunne\b/iu.test(fragment)&&
     issue.category==='verb_form'&&/\bkan\b/iu.test(issue.explanation_ru))return null;
  // The written "i morgen" is not a misspelling of "mørgen".
- if(issue.category==='spelling'&&/\bi morgen\b/iu.test(fragment)&&
+ if(issue.category==='spelling'&&/^(?:i )?morgen$/iu.test(fragment)&&
     /\bi morgen\b/iu.test(answer)&&!/\bmørgen\b/iu.test(answer))return null;
  return {category:issue.category,source_fragment:fragment,requirement_quote:'',
   deduction:issue.deduction,explanation_ru:line(issue.explanation_ru,350),
