@@ -64,6 +64,26 @@ const D=w.NELivingWords;
  assert.equal(D.acceptedTranslation('автомобиль','машина'),true,'A common correct synonym is accepted without AI');
  assert.equal(D.acceptedTranslation('приятель','друг'),true,'A known close Russian synonym is accepted');
  assert.equal(D.acceptedTranslation('ручка','машина'),false,'Unrelated Russian words must remain rejected');
+ // A Norwegian infinitive must accept both Russian infinitive aspects,
+ // even when an old persisted daily pack incorrectly says "начинаю".
+ assert.equal(D.acceptedTranslation('начать','начинаю','å begynne'),true,'Infinitive å begynne must accept начать despite stale present gloss');
+ assert.equal(D.acceptedTranslation('начинать','начинаю','begynne'),true,'Infinitive begynne must accept начинать');
+ assert.equal(D.acceptedTranslation('закончить','заканчиваю','å slutte'),true,'Infinitive å slutte must accept закончить');
+ assert.equal(D.acceptedTranslation('заканчивать','заканчиваю','slutte'),true,'Infinitive slutte must accept заканчивать');
+ assert.equal(D.acceptedTranslation('прекратить','заканчиваю / прекращаю','å slutte'),true,'Infinitive slutte must accept прекратить');
+ assert.equal(D.acceptedTranslation('перестать','заканчиваю','slutte'),true,'Infinitive slutte must accept перестать');
+ assert.equal(D.acceptedTranslation('начать','начинаю','begynner'),false,'Present-tense begynner must not be mislabeled infinitive');
+ assert.equal(D.acceptedTranslation('закончить','заканчиваю','slutter'),false,'Present-tense slutter must not be mislabeled infinitive');
+ assert.equal(D.acceptedTranslation('закончить','начинаю','begynne'),false,'Unrelated meanings must not be accepted');
+ // Simulate a long-lived user whose saved translations predate the fix.
+ s.srs.__infinitive_test={word:'å begynne',translation:'начинаю'};
+ s.dailyPacks.__infinitive_test={words:[{lemma:'å slutte',translation_ru:'заканчиваю / прекращаю'}]};
+ s.dailyDictionary.__infinitive_test={lemma:'å begynne',translation_ru:'начинаю'};
+ D.ensure();
+ assert.equal(s.srs.__infinitive_test.translation,'начинать / начать','Persisted SRS infinitive must be repaired');
+ assert.equal(s.dailyPacks.__infinitive_test.words[0].translation_ru,'заканчивать / закончить / прекращать / прекратить / перестать','Saved daily pack infinitive must be repaired');
+ assert.equal(s.dailyDictionary.__infinitive_test.translation_ru,'начинать / начать','Saved dictionary infinitive must be repaired');
+ delete s.srs.__infinitive_test;delete s.dailyPacks.__infinitive_test;delete s.dailyDictionary.__infinitive_test;
  D.render();
  assert(views.at(-1).includes('id="livingTranslate"')&&views.at(-1).includes('Ответить голосом'),
   'Text field and microphone must be visible within each card');
