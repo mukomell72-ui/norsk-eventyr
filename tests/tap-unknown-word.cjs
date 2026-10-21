@@ -146,6 +146,46 @@ rec.formPractice={started:true,done:false,task,draft:'Klokka',note:'',misses:0,h
  assert.equal(rec.formPractice.wordTap.entry.form_no,'klokker',
   'Several clocks means plural clocks, never hours of time');
  assert.equal(requests.length,remoteBefore);
+ // Screenshot regression: the A1 ha exercise must translate every tapped word
+ // instantly, even while the /api/evaluate provider is returning an error.
+ const haCard={word:'ha',translation:'иметь',key:'ha',newToday:true};
+ const haTasks=E.taskList(haCard);
+ assert.equal(haTasks.length,5);
+ assert.equal(haTasks[0].russianSentence,'Я стараюсь иметь время.');
+ assert.equal(haTasks[3].modelAnswer,'Jeg har allerede hatt tid.',
+  'Russian already (уже) must be preserved in the Norwegian reference');
+ rec.active[0]=haCard;
+ const haWordSets=[
+  ['я','стараюсь','иметь','время'],
+  ['сегодня','у','меня','есть','время'],
+  ['вчера','у','меня','было','время'],
+  ['у','меня','уже','было','время'],
+  ['завтра','я','собираюсь','иметь','время']
+ ];
+ const apiCallsBeforeHa=requests.length;
+ for(let i=0;i<haTasks.length;i++){
+  const taskHa=haTasks[i],words=haWordSets[i];
+  assert.equal(words.join(' '),(taskHa.russianSentence.match(/[А-Яа-яЁё]+/gu)||[]).join(' ').toLocaleLowerCase('ru-RU'));
+  rec.formPractice.task=taskHa;
+  rec.formPractice.draft='Jeg';
+  rec.formPractice.wordTap=null;rec.formPractice.wordTapHints={};
+  for(let j=0;j<words.length;j++){
+   const gloss=E.tappedWordGloss(taskHa,words[j]);
+   assert(gloss?.lemma_no&&gloss?.form_no,'Missing safe offline gloss for '+words[j]+' in '+taskHa.russianSentence);
+   assert.equal(await app.tapUnknownWord(j),true,'Offline tap failed for '+words[j]);
+   assert.equal(rec.formPractice.wordTap.status,'ready');
+   assert.equal(rec.formPractice.draft,'Jeg','Never reset an unfinished answer');
+   assert.equal(rec.formPractice.done,false,'Word help never completes the exercise');
+  }
+ }
+ assert.equal(requests.length,apiCallsBeforeHa,'ha word help must not call the unreliable API');
+ assert(state.dailyDictionary.prøve,'prøver should be added to the personal dictionary');
+ assert(state.dailyDictionary.tid,'time should be added to the personal dictionary');
+ assert.equal(rec.formPractice.needsAnother,true,'Help never counts as independent mastery');
+ rec.formPractice.task=haTasks[0];rec.formPractice.wordTapHints={};
+ rec.formPractice.wordTap={index:1,status:'unavailable'};
+ app.render();
+ assert.equal(rec.formPractice.wordTap,null,'A saved provider outage clears when an offline answer becomes available');
  // Another saved-word variant from older generated day packs used to escape repair.
  rec.active[0]={word:'klokka',translation:'В ... часов',key:'klokka'};
  state.learningV8.livingVocabulary.active[0]={word:'klokka',translation:'в ... часов',key:'klokka'};
