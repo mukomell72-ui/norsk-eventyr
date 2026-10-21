@@ -562,7 +562,7 @@ function render(){
    '<h2 lang="nb">'+esc(task.sentence)+'</h2>'+
    (coach?.isOpen?.(task)?'<p><b>Свободная практика:</b> вставь любое подходящее по смыслу и форме слово.</p>':
     coach?.practiceMode?.(task)==='review'?'<p><b>Закрепление:</b> примени слово '+esc(coach?.infoFor?.(task)?.lemma||'')+' в нужной форме.</p>':
-    '<p><b>Переведи и вставь слово:</b> «'+esc(coach?.targetRu?.(task)||coach?.infoFor?.(task)?.translation||'')+'».</p>')+
+    '<p><b>'+esc(coach?.instruction?.(task)||'Переведи и вставь подходящее слово.')+'</b></p>')+
    '<label class="field-label" for="livingCloze">Пропущенное слово</label><input class="input" id="livingCloze" autocomplete="off" lang="nb" maxlength="90" value="'+esc(d.clozeDraft||'')+'" placeholder="Напиши по-норвежски" oninput="NELivingWords.draftCloze(this.value)">'+
    '<div class="row"><button class="btn" onclick="NELivingWords.checkCloze()">Проверить</button>'+
    '<button class="btn secondary" onclick="NELivingWords.explainCloze()">Не знаю слово</button></div>'+
