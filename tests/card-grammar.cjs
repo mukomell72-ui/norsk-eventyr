@@ -54,5 +54,15 @@ for(const lemma of ['kunne','gå','være','komme','skrive','begynne','jobbe','he
 }
 assert.deepEqual(Array.from(G.describe({word:'kunne',pos:'modal'}).forms,row=>row.translationRu),
  ['мочь / уметь','могу / умею','мог / могла; мог(ла) бы','смог / смогла; имел(а) возможность','смогу / буду в состоянии']);
+// Regression: a card with "skulle" and even a generic POS must show verified forms.
+for(const word of ['skulle','skal','skullet','å skulle']){
+ const result=G.describe({word,pos:'other',translation:'собираться'});
+ assert.equal(result.type,'verb',word);
+ assert.equal(result.headword,'å skulle',word);
+ assert.equal(result.verified,true,word);
+ assert.deepEqual(Array.from(result.forms,row=>row.form),['å skulle','skal','skulle','har skullet'],word);
+ assert(result.forms.every(row=>row.translationRu),'Every modal form needs a Russian gloss');
+ assert(!result.forms.some(row=>row.form==='skal skulle'),'Do not invent modal future');
+}
 console.log('PASS Russian translations on every verified verb form');
 console.log('PASS article/infinitive/tense grammar: written paradigms, irregular forms, safe unknown fallback and contextual examples');
