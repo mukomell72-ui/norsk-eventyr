@@ -138,7 +138,7 @@ function open(){
  const s=learner(),d=current();clockStart();clockPulse();
  if(!d)return window.navigate?.('teacher');
  if(!d.finished&&window.NELivingWords&&!window.NELivingWords.isReady())return window.NELivingWords.render();
- const info=details(),module=window.NECurriculum?.moduleById(d.moduleId),pacing=window.NECourseMethod?.dailyPlan(d.plannedMinutes,s.learningV8?.levelSkills?.[d.level]);
+ const info=details(),module=window.NECurriculum?.moduleById(d.moduleId),pacing=window.NECourseMethod?.dailyPlan?.(d.plannedMinutes,s.learningV8?.levelSkills?.[d.level]);
  const pending=lessonPending(s);
  // One tap resumes the saved *same* lesson rather than creating another copy.
  if(pending?._adaptive?.livingDayId===d.id&&pending._adaptive?.livingScene===d.scene)
