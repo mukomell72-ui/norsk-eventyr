@@ -50,6 +50,43 @@ const wristwatchSpecific=Object.freeze({
  translation_ru:'наручные часы',grammar_ru:'Конкретно наручные часы. В упражнении со словом «klokke» употреблено общее слово «часы».'
 });
 const tappedWordGlosses=new Map([
+  // Reviewed offline alignments for the five A1 ha (= have) exercises.
+  // Russian possession ("у меня есть") is a construction, not word-for-word.
+  // Match the complete sentence to prevent a wrong translation in other contexts.
+  ['Я стараюсь иметь время.',{
+   'я':{lemma_no:'jeg',form_no:'Jeg',translation_ru:'я'},
+   'стараюсь':{lemma_no:'prøve',form_no:'prøver',translation_ru:'стараться',grammar_ru:'Настоящее время (presens).'},
+   'иметь':{lemma_no:'ha',form_no:'å ha',translation_ru:'иметь',grammar_ru:'Инфинитив с å после prøver.'},
+   'время':{lemma_no:'tid',form_no:'tid',translation_ru:'время'}
+  }],
+  ['Сегодня у меня есть время.',{
+   'сегодня':{lemma_no:'i dag',form_no:'I dag',translation_ru:'сегодня'},
+   'у':{lemma_no:'ha',form_no:'har jeg',source_ru:'у меня есть',translation_ru:'иметь',grammar_ru:'В норвежском «у меня есть» — jeg har; после I dag глагол har стоит перед jeg (V2).'},
+   'меня':{lemma_no:'ha',form_no:'har jeg',source_ru:'у меня есть',translation_ru:'иметь',grammar_ru:'Это единая конструкция, а не дословный перевод.'},
+   'есть':{lemma_no:'ha',form_no:'har jeg',source_ru:'у меня есть',translation_ru:'иметь',grammar_ru:'Настоящее время глагола ha (har).'},
+   'время':{lemma_no:'tid',form_no:'tid',translation_ru:'время'}
+  }],
+  ['Вчера у меня было время.',{
+   'вчера':{lemma_no:'i går',form_no:'I går',translation_ru:'вчера'},
+   'у':{lemma_no:'ha',form_no:'hadde jeg',source_ru:'у меня было',translation_ru:'иметь',grammar_ru:'Прошедшее время: hadde. После I går порядок hadde jeg.'},
+   'меня':{lemma_no:'ha',form_no:'hadde jeg',source_ru:'у меня было',translation_ru:'иметь'},
+   'было':{lemma_no:'ha',form_no:'hadde jeg',source_ru:'у меня было',translation_ru:'иметь',grammar_ru:'Preteritum: hadde.'},
+   'время':{lemma_no:'tid',form_no:'tid',translation_ru:'время'}
+  }],
+  ['У меня уже было время.',{
+   'у':{lemma_no:'jeg',form_no:'Jeg',source_ru:'у меня',translation_ru:'я',grammar_ru:'Норвежская конструкция с подлежащим jeg («я»).'},
+   'меня':{lemma_no:'jeg',form_no:'Jeg',source_ru:'у меня',translation_ru:'я'},
+   'уже':{lemma_no:'allerede',form_no:'allerede',translation_ru:'уже'},
+   'было':{lemma_no:'ha',form_no:'hatt',translation_ru:'иметь',grammar_ru:'Перфект: har allerede hatt.'},
+   'время':{lemma_no:'tid',form_no:'tid',translation_ru:'время'}
+  }],
+  ['Завтра я собираюсь иметь время.',{
+   'завтра':{lemma_no:'i morgen',form_no:'I morgen',translation_ru:'завтра'},
+   'я':{lemma_no:'jeg',form_no:'jeg',translation_ru:'я'},
+   'собираюсь':{lemma_no:'skulle',form_no:'skal',translation_ru:'собираться; планировать',grammar_ru:'Будущее намерение выражается skal + инфинитив без å.'},
+   'иметь':{lemma_no:'ha',form_no:'ha',translation_ru:'иметь',grammar_ru:'После skal употребляется инфинитив без å.'},
+   'время':{lemma_no:'tid',form_no:'tid',translation_ru:'время'}
+  }],
  ['У меня есть часы.',{
   'у':watchPossession,'меня':watchPossession,'есть':watchPossession,'часы':watchGeneric
  }],
@@ -231,7 +268,7 @@ function authoredTranslation(g,task){
    ru[1]='Сегодня я дома.';ru[2]='Вчера я был дома.';ru[3]='Я уже был дома.';
   }
   if(word==='ha'){
-   ru[1]='Сегодня у меня есть время.';ru[2]='Вчера у меня было время.';ru[3]='У меня уже было время.';
+   ru[1]='Сегодня у меня есть время.';ru[2]='Вчера у меня было время.';ru[3]='У меня уже было время.';no[3]='Jeg har allerede hatt tid.';
   }
   if(word==='ligge'){
    ru[1]='Сегодня я лежу здесь.';ru[2]='Вчера я лежал здесь.';ru[3]='Я уже лежал здесь.';

@@ -477,7 +477,7 @@ function render(){
   // A saved failed lookup can now have a verified, offline translation.
   // Clear only the stale error bubble: require a new word tap and preserve
   // the learner's answer, review history and other hint state.
-  if(practice?.wordTap?.status==='error'){
+  if(['error','unavailable'].includes(practice?.wordTap?.status)){
     const failedToken=russianTokens(practice.task?.russianSentence)[practice.wordTap.index];
     if(failedToken&&window.NECardFormPractice?.tappedWordGloss?.(practice.task,failedToken)){
       practice.wordTap=null;
