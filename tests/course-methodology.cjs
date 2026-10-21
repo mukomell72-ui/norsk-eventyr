@@ -48,7 +48,8 @@ for(const m of [20,30,45,60,75]){
  assert.equal(plan.parts.reduce((s,p)=>s+p.minutes,0),m);
  assert(plan.parts.every(p=>p.minutes>=0));
 }
-assert.deepEqual(Array.from(M.dailyPlan(60).parts,x=>x.minutes),[10,15,15,15,5]);
+assert.deepEqual(Array.from(M.dailyPlan(60).parts,x=>x.minutes),[10,12,13,20,5]);
+assert(M.dailyPlan(60).parts[3].minutes>M.dailyPlan(60).parts[1].minutes,'Oral practice must receive more time than formal grammar');
 const access=read('access.js'),sw=read('sw.js'),adaptive=read('adaptive-teacher.js'),generate=read('api/generate.js'),coursePage=read('ui-v7.js'),settings=read('ui-v8.js');
 assert(access.includes("'curriculum-v8.js','course-methodology.js','verified-learning-resources.js','practice-foundations.js'"),'Course plan must load after curriculum and before adaptive teacher');
 assert(sw.includes('/course-methodology.js?v=8.3.0-lesson24'),'PWA must pre-cache course plan');
