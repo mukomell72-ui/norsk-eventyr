@@ -201,14 +201,15 @@
              ' связанных ситуаций освоено; переход подтверждается ответами</small></div>'+
            '<em>'+(living.finished?'Готово':'Продолжить')+'</em></button></div>'+
         '<p class="muted">Полное дневное занятие может занять больше времени, чем один мини-этап. Уровень определяется проверкой навыков, а не количеством нажатий.</p>'+
-        '<button class="btn secondary" onclick="v7ContinueToday()">Продолжить с сохранённого места →</button>'+
+        '<button class="btn secondary" onclick="v7ContinueToday()">Продолжить с сохранённого места →</button>'+ 
+   '<button class="btn ghost" onclick="navigate(\'lessonarchive\')">Архив пройденных уроков →</button>'+
       '</section>':null;
     shell(
       '<section class="home-v7">'+
         '<section class="hero-v7">'+
           '<div class="hero-overlay-v7"></div><div class="nora-cutout-v7" aria-hidden="true"></div>'+
           '<div class="hero-copy-v7"><small>'+h(district)+' · '+daypart+'</small><h1>'+h(heroTitle)+'</h1><p>'+h(heroText)+'</p><div class="home-focus-v81"><span>Сегодня с Норой</span><strong>'+h(living?.title||j.steps[0]?.sub||"Практика норвежского")+'</strong></div>'+
-          '<button class="cta-v7" onclick="v7ContinueToday()">Продолжить день <b>→</b></button></div>'+
+          '<button class="cta-v7" onclick="v7ContinueToday()">'+(living?.finished?'Урок завершён':'Урок с Норой · '+(living?.plannedMinutes||60)+' мин')+' <b>→</b></button></div>'+
           '<div class="hero-note-v7">Små steg<br>store eventyr ♡</div>'+
         '</section>'+
         (window.NENordicQuest?.homeTile?.()||'')+
@@ -408,6 +409,7 @@
           hubTileV7("✦","Северный компас","Приключение и карта маршрута","adventure")+
           hubTileV7("⌖","Истории Fjordvik","Сюжет и выбор","story")+
           hubTileV7("N","Нора","Адаптивный преподаватель","teacher")+
+          hubTileV7("▤","Архив уроков","Повторение пройденных занятий","lessonarchive")+
           hubTileV7("↻","Повторение","Интервалы и закрепление","review",due?String(due):"✓")+
           hubTileV7("▤","Выученные слова","Поиск · повтор · задания","learnedwords")+
           hubTileV7("✎","Домашнее задание","Изучение и практика","daily")+
@@ -439,6 +441,7 @@
       else if(target==="course")r=renderCourseV7(data||state.level);
       else if(target==="adventure")r=window.NENordicQuest?.open?.()||renderHomeV7();
       else if(target==="livingday")r=window.NELivingDay?.open?.();
+      else if(target==="lessonarchive")r=window.NELivingDay?.archive?.();
       else if(target==="chat")r=renderChatV7();
       else if(target==="story")r=renderStoryV7(data);
       else if(target==="hub")r=renderHubV7();
