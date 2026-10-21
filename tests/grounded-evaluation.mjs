@@ -39,6 +39,6 @@ assert.equal(perfect.assessment.improvements_ru.length,0);
 assert.equal(groundAssessment(result(65,null),context).error,'MISSING_EVIDENCE');
 assert.equal(groundAssessment(result(90,[issue('word_order','I dag jeg møtes',10,'Ошибка порядка слов.')],false),context).error,'CONTRADICTORY_DECISION');
 assert.equal(groundAssessment(result(90,[issue('word_order','I dag jeg møtes',10,'Ошибка порядка слов.'),issue('word_order','I dag jeg møtes',10,'Та же ошибка.')]),context).error,'DUPLICATE_ISSUE');
-assert.equal(groundAssessment(result(90,[issue('spelling','morgen',10,'Ошибка написания',{})]),context).ok,true,
- 'A valid excerpt alone does not prove the model grammar judgment: separate verifier is still needed');
+assert.equal(groundAssessment(result(90,[issue('spelling','morgen',10,'Слово morgen написано неправильно.')]),context).error,'UNGROUNDED_ISSUE',
+ 'Correctly spelled i morgen must never be penalized even if only morgen was excerpted');
 console.log('PASS: grounding rejects invented mørgen, invented uppercase, arbitrary kunne penalty, unquoted task omission and inconsistent deductions; real word-order error preserved');
