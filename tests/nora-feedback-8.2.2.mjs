@@ -89,8 +89,18 @@ const gapTrue=await query(evaluate,"/api/evaluate",{
  {candidates:[{target_lemma:"kunne",translation_ru:"мочь",kind:"modal",
  confidence:0.99,useful_now:true,reason_ru:"Недостающий модальный глагол"}]});
 assert.equal(gapTrue.response.candidates.length,1,'Explicit true remains accepted');
-const evalFail=await query(evaluate,"/api/evaluate",{answer:"Lotten! Takk",question:"Bestill kaffe",goal:"Закажи кофе по-норвежски",level:"A1",mode:"dialogue"},{accepted:false,score:91,explanation_ru:"Непонятно, что вы хотите заказать.",corrected:"Jeg vil ha en kaffe.",error_tag:"task"});
-assert.equal(evalFail.status,200);assert.equal(evalFail.response.accepted,false);assert.equal(evalFail.response.score,49);
+const evalFail=await query(evaluate,"/api/evaluate",{answer:"Lotten! Takk",question:"Bestill kaffe",goal:"Закажи кофе по-норвежски",level:"A1",mode:"dialogue"},{
+ accepted:false,score:40,
+ issues:[
+ {category:"task",source_fragment:"",requirement_quote:"Bestill kaffe",deduction:40,explanation_ru:"Не сформулирована просьба заказать кофе."},
+ {category:"vocabulary",source_fragment:"Lotten! Takk",deduction:20,explanation_ru:"Эта фраза не выражает понятный заказ кофе."}
+ ],
+ corrected:"Jeg vil ha en kaffe."
+});
+assert.equal(evalFail.status,200);assert.equal(evalFail.response.accepted,false);
+assert.equal(evalFail.response.score,40);
+assert(evalFail.response.score_reason_ru.includes("Bestill kaffe"));
+assert(evalFail.response.score_reason_ru.includes("Lotten! Takk"));
 const ui=fs.readFileSync(new URL("../ui-v7.js",import.meta.url),"utf8");
 const app=fs.readFileSync(new URL("../app.js",import.meta.url),"utf8");
 assert(ui.includes("v7NoraFeedback(meta)")&&ui.includes("Почему такая оценка:"));
