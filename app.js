@@ -152,7 +152,7 @@ function startLesson(id){
  const saved=state.activeLesson?.id===l.id?state.activeLesson:null;
  const max=l._adaptive?lessonSteps(l).length:7;
  const introReview=l.id==='a1-1'?(saved?saved.introReview===true:(state.noraMemory?.introduced===true||state.completed?.[l.id]===true)):false;
- lessonSession={lesson:l,coach:saved?.coach||null,introReview:introReviewVariant:saved?.introReviewVariant??(Number(state.introVariant)||0),step:saved&&Number.isInteger(saved.step)&&saved.step>=0&&saved.step<max?saved.step:0,
+ lessonSession={lesson:l,coach:saved?.coach||null,introReview,introReviewVariant:saved?.introReviewVariant??(Number(state.introVariant)||0),step:saved&&Number.isInteger(saved.step)&&saved.step>=0&&saved.step<max?saved.step:0,
   dialogueIndex:saved?.dialogueIndex||0,vocabIndex:saved?.vocabIndex||0,remediation:saved?.remediation||null,
   locked:false,choiceMiss:saved?.choiceMiss===true,listeningIndex:saved?.listeningIndex||0,speakingFollowup:saved?.speakingFollowup===true,guidedSpeech:saved?.guidedSpeech||null,xpScores:[]};
  persistLessonCheckpoint();renderLesson();
