@@ -854,7 +854,7 @@ function advanceCorrectCloze(d,task){
  save();render();return true;
 }
 let clozeChecking=false;
-async function checkCloze(){
+function checkCloze(){
  const d=ensure();if(!d||d.stage!=='cloze'||clozeChecking)return false;
  const task=clozeSet(d.level,d.date)[d.clozeIndex];
  const answer=String(document.getElementById('livingCloze')?.value||d.clozeDraft||'').trim();
@@ -865,20 +865,22 @@ async function checkCloze(){
  if(value===norm(task.answer))return advanceCorrectCloze(d,task);
  const local=coach?.checkLocal?.(task,answer);
  if(local?.accepted===true)return advanceCorrectCloze(d,task);
- let diagnosis=local;
  if(local?.accepted===null&&coach?.isOpen?.(task)){
   clozeChecking=true;
   d.feedback='Нора проверяет выбранное слово в контексте всего предложения…';save();render();
-  try{
-   const result=await coach.verifyUnknown(task,answer);
+  return Promise.resolve(coach.verifyUnknown(task,answer)).then(result=>{
    if(ensure()!==d||d.stage!=='cloze'||clozeSet(d.level,d.date)[d.clozeIndex]?.id!==task.id)return false;
    if(result?.accepted===true)return advanceCorrectCloze(d,task);
    if(result?.accepted===null){d.feedback=result.message;save();render();return false}
-   diagnosis=result;
-  }finally{clozeChecking=false}
+   d.clozeMisses++;d.feedback=result?.message||('Проверь значение и форму. '+task.rule);
+   save();render();return false;
+  }).catch(()=>{
+   d.feedback='Не удалось проверить этот вариант. Это не ошибка. Проверь подключение и попробуй ещё раз.';
+   save();render();return false;
+  }).finally(()=>{clozeChecking=false});
  }
  d.clozeMisses++;
- const detail=diagnosis?.message?diagnosis:coach?.diagnose?.(task,answer);
+ const detail=local?.accepted===false&&local?.message?local:coach?.diagnose?.(task,answer);
  d.feedback=detail?.message||('Проверь значение и форму слова. '+task.rule);
  save();render();return false;
 }
