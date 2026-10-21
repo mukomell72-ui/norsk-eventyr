@@ -84,6 +84,7 @@
   if(!word)return {accepted:false,kind:'empty',message:'Введи подходящее слово.'};
   if(word===norm(task?.answer))return {accepted:true,kind:'reference',message:'Верно. Это подходящее слово и нужная форма.'};
   if(!isOpen(task))return {accepted:false,kind:'restricted'};
+  if(!/^[a-zæøå]{2,45}$/iu.test(word))return {accepted:false,kind:'wrong-form',message:'Впиши один норвежский глагол в нужной форме, без других слов и знаков.'};
   const meaning=openPrompts[task.id][word];
   if(meaning)return {accepted:true,kind:'alternative',
    message:'Верно! «'+answer.trim()+'» ('+meaning+') — грамматически подходящий вариант. Твой ответ отличается от примера, но он правильный.'};
@@ -94,6 +95,19 @@
     return {accepted:false,kind:'wrong-form',message:'«'+answer.trim()+'» — '+form+' глагола «å '+recognized[0]+'». Здесь нужна форма настоящего времени (presens).'};
   }
   return {accepted:null,kind:'needs-review',message:'Это другой вариант. Нора проверит грамматику и смысл всего предложения.'};
+ }
+ async function verifyUnknown(task,answer){
+  if(!isOpen(task))return {accepted:false,kind:'restricted',message:'В этом задании указан конкретный грамматический материал.'};
+  const local=checkLocal(task,answer);if(local.accepted!==null)return local;
+  if(typeof window.aiEvaluate!=='function')
+    return {accepted:null,kind:'unavailable',message:'Не удалось проверить этот вариант автоматически. Это не считается ошибкой. Проверь подключение и попробуй ещё раз.'};
+  try{
+    const response=await window.aiEvaluate({action:'validate_open_cloze',task_id:task.id,word:String(answer||'').trim()});
+    if(!response?.ok||response.data?.kind!=='open_cloze'||typeof response.data.accepted!=='boolean')
+      return {accepted:null,kind:'unavailable',message:'Сейчас не удалось проверить этот вариант. Ответ не засчитан как ошибка, повтори проверку при наличии связи.'};
+    return {accepted:response.data.accepted,kind:response.data.accepted?'alternative':'context-error',
+      message:String(response.data.explanation_ru||'').slice(0,360)||'Нора не смогла подробно объяснить ответ.'};
+  }catch{return {accepted:null,kind:'unavailable',message:'Нет связи с проверкой. Ответ пока не оценён и не считается ошибкой.'}}
  }
  function diagnose(task,attempt){
   const word=norm(attempt),correct=norm(task?.answer);
@@ -151,5 +165,5 @@
   state.wordPracticeQueue[normalized]=now;
   return true;
  }
- window.NEClozeCoach=Object.freeze({diagnose,help,queueReview,expectedVerb,infoFor,norm,isOpen,checkLocal});
+ window.NEClozeCoach=Object.freeze({diagnose,help,queueReview,expectedVerb,infoFor,norm,isOpen,checkLocal,verifyUnknown});
 })();
