@@ -81,7 +81,7 @@ for(const asset of assets){
    (ruFormsSuffix&&['/access.js','/card-grammar.js','/living-words.js'].includes(pathname)?ruFormsSuffix:'')+
    (skulleSuffix&&['/access.js','/card-grammar.js','/card-form-practice.js'].includes(pathname)?skulleSuffix:'')+
    (teacherSuffix&&['/access.js','/course-methodology.js','/adaptive-teacher.js','/app.js','/guided-speaking.js','/living-day.js','/ui-v7.js'].includes(pathname)?teacherSuffix:'')+
-   (coachSuffix&&['/access.js','/app.js','/lesson-coach.js','/lesson-coach.css'].includes(pathname)?coachSuffix:'');
+   (coachSuffix&&['/access.js','/app.js','/lesson-coach.js','/lesson-coach.css','/living-words.js'].includes(pathname)?coachSuffix:'');
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
 }
 }
@@ -124,7 +124,7 @@ if(skulleSuffix)assert.equal(skulleSuffix,'-skulle1','Unexpected modal grammar r
 if(ruFormsSuffix){
  assert(ruFormsSuffix==='-ruforms2','Unexpected Russian morphology patch revision');
  for(const filename of ['card-grammar.js','living-words.js'])
-  assert(assets.some(asset=>asset.startsWith('/'+filename+'?v=')&&asset.endsWith(ruFormsSuffix+(filename==='card-grammar.js'?skulleSuffix:''))),
+  assert(assets.some(asset=>asset.startsWith('/'+filename+'?v=')&&asset.endsWith(ruFormsSuffix+(filename==='card-grammar.js'?skulleSuffix:coachSuffix))),
    'Russian form translations must be precached: '+filename);
 }
 const assetSet=new Set(assets);
@@ -147,7 +147,7 @@ for(const filename of scripts){
    (ruFormsSuffix&&['card-grammar.js','living-words.js'].includes(filename)?ruFormsSuffix:'')+
    (skulleSuffix&&['card-grammar.js','card-form-practice.js'].includes(filename)?skulleSuffix:'')+
    (teacherSuffix&&['course-methodology.js','adaptive-teacher.js','app.js','guided-speaking.js','living-day.js','ui-v7.js'].includes(filename)?teacherSuffix:'')+
-   (coachSuffix&&['lesson-coach.js','app.js'].includes(filename)?coachSuffix:'');
+   (coachSuffix&&['lesson-coach.js','app.js','living-words.js'].includes(filename)?coachSuffix:'');
  assert(assetSet.has('/'+filename+'?v='+v+patch+suffix),'PWA must cache bootstrapped script '+filename);
 }
 for(const m of index.matchAll(/\b(?:src|href)="(\/[^"]+)"/g)){
