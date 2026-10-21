@@ -65,10 +65,45 @@
   const answer=norm(task?.answer);
   return Object.keys(verbForms).find(lemma=>answer in verbForms[lemma].forms)||'';
  }
+ // These prompts do not prescribe a particular verb or Russian meaning.
+ // Accept a verified local set immediately; ask the tutor for other plausible verbs.
+ const openPrompts=Object.freeze({
+  'a1-presens-1':Object.freeze({
+   lærer:'изучаю',snakker:'говорю',studerer:'изучаю',leser:'читаю',skriver:'пишу',
+   bruker:'использую',forstår:'понимаю',praktiserer:'практикую'
+  }),
+  'a1-presens-2':Object.freeze({
+   bor:'живёт',jobber:'работает',arbeider:'работает',studerer:'учится',
+   lever:'живёт',sover:'спит',handler:'делает покупки',trener:'тренируется',
+   underviser:'преподаёт',lærer:'учится',oppholder:'находится'
+  })
+ });
+ function isOpen(task){return Object.prototype.hasOwnProperty.call(openPrompts,task?.id)}
+ function checkLocal(task,answer){
+  const word=norm(answer);
+  if(!word)return {accepted:false,kind:'empty',message:'Введи подходящее слово.'};
+  if(word===norm(task?.answer))return {accepted:true,kind:'reference',message:'Верно. Это подходящее слово и нужная форма.'};
+  if(!isOpen(task))return {accepted:false,kind:'restricted'};
+  const meaning=openPrompts[task.id][word];
+  if(meaning)return {accepted:true,kind:'alternative',
+   message:'Верно! «'+answer.trim()+'» ('+meaning+') — грамматически подходящий вариант. Твой ответ отличается от примера, но он правильный.'};
+  const recognized=Object.entries(verbForms).find(([lemma,info])=>word in info.forms&&lemma!=='ville');
+  if(recognized){
+   const form=recognized[1].forms[word];
+   if(!/настоящее время/.test(form))
+    return {accepted:false,kind:'wrong-form',message:'«'+answer.trim()+'» — '+form+' глагола «å '+recognized[0]+'». Здесь нужна форма настоящего времени (presens).'};
+  }
+  return {accepted:null,kind:'needs-review',message:'Это другой вариант. Нора проверит грамматику и смысл всего предложения.'};
+ }
  function diagnose(task,attempt){
   const word=norm(attempt),correct=norm(task?.answer);
   if(!word)return {kind:'empty',message:'Попробуй ввести слово. Если не знаешь его, нажми «Не знаю слово».'};
   if(word===correct)return {kind:'correct',message:'Верно.'};
+  if(isOpen(task)){
+   const verdict=checkLocal(task,attempt);
+   if(verdict.kind!=='needs-review')return verdict;
+   return {kind:'unverified',message:'В этом предложении может быть несколько правильных глаголов. '+verdict.message};
+  }
   const lemma=expectedVerb(task),expected=verbForms[lemma];
   const other=Object.entries(verbForms).find(([_,info])=>word in info.forms);
   const rule=String(task?.rule||'').slice(0,400);
@@ -116,5 +151,5 @@
   state.wordPracticeQueue[normalized]=now;
   return true;
  }
- window.NEClozeCoach=Object.freeze({diagnose,help,queueReview,expectedVerb,infoFor,norm});
+ window.NEClozeCoach=Object.freeze({diagnose,help,queueReview,expectedVerb,infoFor,norm,isOpen,checkLocal});
 })();
