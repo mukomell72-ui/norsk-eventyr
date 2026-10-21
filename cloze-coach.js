@@ -125,8 +125,21 @@
   const free=freeCatalog(level)[seed%Math.max(1,freeCatalog(level).length)];
   return [guided,review,free].filter(Boolean);
  }
+ const freeMeanings=Object.freeze({
+  'free-a1-norsk':['å lære','изучать','Каждый день я изучаю норвежский язык.'],
+  'free-a1-city':['å bo','жить','Она живёт в Конгсберге.'],
+  'free-a2-home':['å jobbe','работать','Вчера я работал дома.'],
+  'free-a2-tomorrow':['å jobbe','работать','Завтра я буду работать дома.'],
+  'free-b1-return':['å gå','идти','После встречи я пошёл домой.'],
+  'free-b1-rain':['å bli','оставаться','Если будет дождь, я останусь дома.'],
+  'free-b1-opinion':['å diskutere','обсуждать','После разговора мы продолжили обсуждать вопрос.'],
+  'free-b2-solution':['å finne','находить','Если план изменится, мы найдём новое решение.'],
+  'free-b2-case':['å vurdere','рассматривать','Дело было тщательно рассмотрено.'],
+  'free-b2-report':['å sende','отправлять','Отчёт следует отправить до встречи.'],
+  'free-b2-proposal':['å utvikle','разрабатывать','Предложение можно доработать.']
+ });
  function infoFor(task){
-  const data=meanings[task?.id];
+  const data=meanings[task?.id]||freeMeanings[task?.id];
   return data?{lemma:data[0],translation:data[1],sentenceRu:data[2]}:null;
  }
  function expectedVerb(task){
@@ -196,12 +209,12 @@
   const record=infoFor(task),fullNo=String(task?.sentence||'').replace('___',String(task?.answer||''));
   const isFree=isOpen(task);
   return {sentenceNo:fullNo,
-   sentenceRu:record?.sentenceRu||(isFree?'Это один возможный вариант перевода.':'Перевод всего предложения пока не проверен.'),
+   sentenceRu:record?.sentenceRu||'Перевод всего предложения пока не проверен.',
    lemma:record?.lemma||'',
    translation:record?.translation||'',
    requiredForm:String(task?.answer||''),
    rule:String(task?.rule||'Проверь форму слова.'),
-   message:record?'Помощь записана. Слово появится в повторении.':'Для этого упражнения нет подтверждённой словарной записи.'
+   message:record?(isFree?'Показан только один пример: другие правильные варианты тоже допускаются. Образец добавлен в повторение.':'Помощь записана. Слово появится в повторении.'):'Для этого упражнения нет подтверждённой словарной записи.'
   };
  }
  function queueReview(task,state){
