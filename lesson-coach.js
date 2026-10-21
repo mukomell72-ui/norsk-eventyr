@@ -31,7 +31,7 @@
    title:'Презенс: привычки и настоящее',rule:'Для привычных действий в настоящем времени используют presens. У многих правильных глаголов эта форма оканчивается на -r.',
    questions:[
     {q:'Hver dag □ jeg norsk.',sentence:'Hver dag lærer jeg norsk.',opts:['lære','lært','lærer','å lære'],ok:2,why:['lære — инфинитив без формы настоящего времени.','lært — причастие, не presens.','lærer — presens от lære, для привычного действия.','å lære — инфинитив с å, а здесь требуется сказуемое в настоящем времени.']},
-    {q:'Han □ kaffe hver morgen.',sentence:'Han drikker kaffe hver morgen.',opts:['drikker','drakke','drukket','drikke'],ok:0,why:['drikker — presens для регулярного действия.','drakke — неверная форма глагола drikke.','drukket — причастие, а не настоящее время.','drikke — инфинитив; после han здесь нужна форма presens.']}
+    {q:'Han □ kaffe hver morgen.',sentence:'Han drikker kaffe hver morgen.',opts:['drikker','drakk','drukket','drikke'],ok:0,why:['drikker — presens для регулярного действия.','drakk — форма прошедшего времени, а здесь речь о ежедневной привычке.','drukket — причастие, а не настоящее время.','drikke — инфинитив; после han здесь нужна форма presens.']}
    ]},
   {id:'leddsetning',match:/leddsetning|придаточн|подчинённ|fordi.*ikke|место.*ikke/i,
    title:'Придаточное предложение: место ikke',rule:'В обычном придаточном предложении после at или fordi слово ikke ставится перед спрягаемым глаголом: at han ikke kommer.',
@@ -84,18 +84,18 @@
   ctx.progress.last={correct,text:q.why[i]};
   if(correct)ctx.progress.passed=ctx.progress.index+1;
   else ctx.progress.incorrect.push(i);
-  refresh();
+  window.nePersistCoach?.();refresh();
  }
- function hint(){const ctx=context();if(ctx){ctx.progress.hint=true;refresh()}}
+ function hint(){const ctx=context();if(ctx){ctx.progress.hint=true;window.nePersistCoach?.();refresh()}}
  function next(){
   const ctx=context();if(!ctx||ctx.progress.passed<=ctx.progress.index)return;
   if(ctx.progress.index+1>=ctx.topic.questions.length){ctx.progress.done=true;}
   else{ctx.progress.index++;ctx.progress.incorrect=[];ctx.progress.last=null;ctx.progress.hint=false;}
   const count=document.querySelector('.ne-coach-count');
   if(count)count.textContent=ctx.progress.done?'Мини-проверка завершена':'Пример '+(ctx.progress.index+1)+' из '+ctx.topic.questions.length;
-  refresh();
+  window.nePersistCoach?.();refresh();
  }
- function restart(){const ctx=context();if(!ctx)return;ctx.session.coach={topic:ctx.topic.id,index:0,incorrect:[],hint:false,passed:0,done:false};const count=document.querySelector('.ne-coach-count');if(count)count.textContent='Пример 1 из '+ctx.topic.questions.length;refresh()}
+ function restart(){const ctx=context();if(!ctx)return;ctx.session.coach={topic:ctx.topic.id,index:0,incorrect:[],hint:false,passed:0,done:false};const count=document.querySelector('.ne-coach-count');if(count)count.textContent='Пример 1 из '+ctx.topic.questions.length;window.nePersistCoach?.();refresh()}
  function speak(){const ctx=context();if(!ctx)return;const q=ctx.topic.questions[ctx.progress.index];if(ctx.progress.passed>ctx.progress.index&&typeof window.speakText==='function')window.speakText(q.sentence,.85)}
  window.NELessonCoach={render,answer,hint,next,restart,speak};
 })();
