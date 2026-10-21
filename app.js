@@ -141,7 +141,7 @@ function renderCourse(level=state.level){
 function persistLessonCheckpoint(){
  const session=lessonSession;
  if(!session?.lesson)return;
- state.activeLesson={id:session.lesson.id,step:session.step,dialogueIndex:session.dialogueIndex||0,vocabIndex:session.vocabIndex||0,remediation:session.remediation||null,choiceMiss:session.choiceMiss===true,listeningIndex:session.listeningIndex||0,speakingFollowup:session.speakingFollowup===true,guidedSpeech:session.guidedSpeech||null,introReview:session.introReview===true,introReviewVariant:session.introReviewVariant||0,savedAt:new Date().toISOString()};
+ state.activeLesson={id:session.lesson.id,step:session.step,dialogueIndex:session.dialogueIndex||0,vocabIndex:session.vocabIndex||0,remediation:session.remediation||null,choiceMiss:session.choiceMiss===true,listeningIndex:session.listeningIndex||0,speakingFollowup:session.speakingFollowup===true,guidedSpeech:session.guidedSpeech||null,coach:session.coach||null,introReview:session.introReview===true,introReviewVariant:session.introReviewVariant||0,savedAt:new Date().toISOString()};
  saveState();
 }
 function startLesson(id){
@@ -152,7 +152,7 @@ function startLesson(id){
  const saved=state.activeLesson?.id===l.id?state.activeLesson:null;
  const max=l._adaptive?lessonSteps(l).length:7;
  const introReview=l.id==='a1-1'?(saved?saved.introReview===true:(state.noraMemory?.introduced===true||state.completed?.[l.id]===true)):false;
- lessonSession={lesson:l,introReview,introReviewVariant:saved?.introReviewVariant??(Number(state.introVariant)||0),step:saved&&Number.isInteger(saved.step)&&saved.step>=0&&saved.step<max?saved.step:0,
+ lessonSession={lesson:l,coach:saved?.coach||null,introReview:introReviewVariant:saved?.introReviewVariant??(Number(state.introVariant)||0),step:saved&&Number.isInteger(saved.step)&&saved.step>=0&&saved.step<max?saved.step:0,
   dialogueIndex:saved?.dialogueIndex||0,vocabIndex:saved?.vocabIndex||0,remediation:saved?.remediation||null,
   locked:false,choiceMiss:saved?.choiceMiss===true,listeningIndex:saved?.listeningIndex||0,speakingFollowup:saved?.speakingFollowup===true,guidedSpeech:saved?.guidedSpeech||null,xpScores:[]};
  persistLessonCheckpoint();renderLesson();
@@ -308,7 +308,7 @@ function continueAdaptiveVocab(ok){
  else{lessonSession.vocabIndex=0;lessonSession.vocabItems=null;lessonNext(ok?12:6)}
 }
 function grammarPrompt(l){const q=String(l?.grammarQ||"").trim();if(/^(?:velg|choose|выбери(?:те)?)\s+(?:riktig(?:e)?|korrekt(?:e)?|correct|правильн\w*)\s+(?:setning(?:en)?|alternativ(?:et)?|sentence|предложен\w*|вариант\w*)[.!?]?$/i.test(q))return "Выберите грамматически правильное предложение.";return q||l?.grammarTitle||"Выберите грамматически правильный вариант."}
-function grammarEx(l){const c=Number(l.grammarCorrect)||0;return `<article class="card"><div class="eyebrow">Грамматика · применение</div><div class="prompt">${esc(grammarPrompt(l))}</div><div class="choice-list">${l.grammarOpts.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${c},'${escJs(l.grammarRuleRu||l.grammar||"Проверь правило и попробуй снова.")}','grammar')">${esc(x)}</button>`).join("")}</div><details class="grammar-fold-v6"><summary>Короткое правило</summary><p>${esc(l.grammarRuleRu||l.grammar||"")}</p></details><div id="fb"></div></article>`}
+function grammarEx(l){const c=Number(l.grammarCorrect)||0;return (window.NELessonCoach?.render(l)||'')+`<article class="card"><div class="eyebrow">Грамматика · применение</div><div class="prompt">${esc(grammarPrompt(l))}</div><div class="choice-list">${l.grammarOpts.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${c},'${escJs(l.grammarRuleRu||l.grammar||"Проверь правило и попробуй снова.")}','grammar')">${esc(x)}</button>`).join("")}</div><details class="grammar-fold-v6"><summary>Короткое правило</summary><p>${esc(l.grammarRuleRu||l.grammar||"")}</p></details><div id="fb"></div></article>`}
 function listenEx(l){
  if(l?._adaptive&&typeof l.listeningAudio==="string"&&Array.isArray(l.listeningOpts)&&l.listeningOpts.length===4){
   const sets=Array.isArray(l.listeningSets)&&l.listeningSets.length?l.listeningSets:null,
@@ -455,7 +455,7 @@ function startTimer(){stopTimer();timerHandle=setInterval(()=>{if(!examSession)r
 function updateTimer(){const e=document.getElementById("timer");if(!e||!examSession)return;const m=Math.floor(examSession.remaining/60),s=examSession.remaining%60;e.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")}
 function stopTimer(){if(timerHandle){clearInterval(timerHandle);timerHandle=null}}
 
-Object.assign(window,{navigate,renderCourse,lessonNext,lessonChoice,checkDialogue,continueCheckedDialogue,continueAdaptiveVocab,checkFree,continueListeningStep,continueSpeakingFollowup,speakText,toggle,toggleMic,answerTest,answerTestFree,testNext,answerExamObj,answerExamFree,examNext,exitExam,resetProgress,xpRewardStatus,xpRewardCatalog});
+Object.assign(window,{nePersistCoach:persistLessonCheckpoint,navigate,renderCourse,lessonNext,lessonChoice,checkDialogue,continueCheckedDialogue,continueAdaptiveVocab,checkFree,continueListeningStep,continueSpeakingFollowup,speakText,toggle,toggleMic,answerTest,answerTestFree,testNext,answerExamObj,answerExamFree,examNext,exitExam,resetProgress,xpRewardStatus,xpRewardCatalog});
 Object.defineProperties(window,{neLessonSession:{get:()=>lessonSession},neLearnerState:{get:()=>state}});
 renderHome();
 // Service worker registration and update notices are handled by updates.js.
