@@ -34,7 +34,7 @@ const read=x=>fs.readFileSync(path.join(root,x),'utf8');
   assert(await page.getByText('Задание 1 из 8',{exact:false}).isVisible());
   await page.locator('#appliedAnswer').fill('lærer');
   await page.getByRole('button',{name:'Проверить ответ'}).click();
-  assert(await page.getByText('Верно',{exact:true}).isVisible());
+  assert(await page.getByText('Верно!',{exact:true}).isVisible());
   await page.getByRole('button',{name:'Следующее'}).click();
   await page.locator('#appliedAnswer').fill('not_a_norwegian_word');
   await page.getByRole('button',{name:'Проверить ответ'}).click();
