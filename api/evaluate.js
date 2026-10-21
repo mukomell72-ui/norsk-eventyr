@@ -1,5 +1,6 @@
 import {guard} from "./_guard.js";
 import {normalizeAssessment} from "./_feedback.js";
+import {groundAssessment} from "./_grounded-evaluation.js";
 
 function parseJson(text){
   const clean=String(text||"").replace(/^\x60\x60\x60json\s*/i,"").replace(/\x60\x60\x60\s*$/,"").trim();
@@ -235,14 +236,22 @@ export default async function handler(req,res){
     "Учитывай естественные эквивалентные ответы: не требуй совпадения с образцом. Правильный нестандартный вариант не наказывай только за отличие от шаблона.",
     "Определи, является ли задание ответом на реплику, переводом русского предложения на Bokmål или свободным письмом: проверяй именно требуемое действие.",
     "Не принимай набор бессмысленных слов за уместный ответ: отклоняй ответы, которые не выполняют смысловую цель даже при наличии норвежских слов.",
-    "Каждое снижение score ниже 100 должно иметь КОНКРЕТНУЮ причину: процитируй ошибочный фрагмент, укажи исправление и объясни, за что снижены баллы. Если объективных недостатков нет, ставь 100.",
+    "ОЦЕНКА ПО ДОКАЗАТЕЛЬСТВАМ. Возвращай issues: список конкретных ошибок с точной цитатой source_fragment из ответа ученика и deduction за неё (1–40). Ни одна ошибка не может ссылаться на слово, отсутствующее в исходном ответе.",
+    "Для невыполненной части задания используй category=task, оставь source_fragment пустым, а в requirement_quote точно процитируй условие из текста задания/цели. Не додумывай требования, которых там нет.",
+    "Не дублируй штрафы за одну ошибку. Score = 100 минус сумма issues[].deduction. Если issues пуст, score=100; нельзя снижать баллы только за отличие от красивого образца.",
+    "Обычные допустимые варианты НЕ ошибка: Vi kunne møtes в вежливом предложении (мы могли бы встретиться) и Vi kan møtes (мы можем встретиться). i morgen пишется раздельно; I morgen в начале предложения также может быть правильно.",
+    "Для каждого замечания проверь буквальную цитату по исходному ответу: не подменяй morgen на mø rgen или mørgen, klokka tre на klokka fire, kan на kunne и не придумывай буквы или слова.",
+    "Форма «jeg kunne møtes» сама по себе не обязательно ошибка; отличай грамматику от более естественного предложения. Рекомендацию по стилю можно дать без штрафа.",
+    "Каждое снижение score ниже 100 должно иметь конкретную проверяемую причину. Нельзя снижать баллы за ошибки, которых нет в исходном ответе.",
     "Если ученик вставил русское слово или фрагмент внутрь норвежской фразы, считай это лексическим пробелом: сохрани понятный смысл, замени русский фрагмент естественным Bokmål в corrected и используй error_tag=vocabulary. Не приписывай незнание уже правильно использованного норвежского слова.",
     "Для устной речи оценивай текст распознанной речи; не делай выводов о произношении, которого ты не слышишь.",
     "Для экзамена это только тренировочная оценка, не официальный результат Norskprøven.","",
     "Верни только один JSON-объект:",
-    '{"accepted":true,"score":0,"cefr_estimate":"'+target+'","breakdown":{"meaning":0,"grammar":0,"vocabulary":0,"coherence":0},"corrected":"","explanation_ru":"","strengths_ru":[""],"improvements_ru":[""],"error_tag":"","error_fragment_ru":"","score_reason_ru":"","micro_rule_ru":"","retry_prompt_no":"","next_action_ru":""}',"",
-    "score и breakdown: целые 0–100. score_reason_ru: почему именно столько баллов, включая конкретный штраф (например, минус 5 за пропуск i в i like måte). Нельзя снижать балл без объяснения.",
-    "error_fragment_ru: точный короткий фрагмент ответа ученика, в котором обнаружена ошибка; если ошибки нет, оставь пустым.",
+    '{"accepted":true,"score":100,"issues":[{"category":"word_order","source_fragment":"буквальная цитата из ответа","requirement_quote":"","deduction":15,"explanation_ru":"конкретная причина на русском","corrected_fragment":"исправленная часть"}],"cefr_estimate":"'+target+'","breakdown":{"meaning":0,"grammar":0,"vocabulary":0,"coherence":0},"corrected":"","strengths_ru":[""],"retry_prompt_no":"","next_action_ru":""}',"",
+    "issues: максимум 5 замечаний, только категории spelling, word_order, verb_form, agreement, article, preposition, vocabulary, coherence, task. У каждого deduction целое от 1 до 40. Если ошибок и пропусков нет, issues=[] и score=100.",
+    "source_fragment — ТОЧНАЯ подстрока ответа, включая исходные символы, регистр и норвежские буквы. requirement_quote — ТОЧНАЯ подстрока задания только для category=task; остальные категории не могут иметь придуманную цитату.",
+    "В поле explanation_ru внутри issues объясни ошибку по-русски; corrected_fragment — исправленную форму. Отдельные произвольные причины снижения оценки не пиши.",
+    "Перед ответом мысленно проверь каждое замечание по оригиналу. Не считай вежливое или стилистическое отличие грамматической ошибкой.",
     "Проверка контекста обязательна: грамматика, лексика, орфография, естественность и уместность в диалоге. Отличай неправильную реплику от правильной, но менее естественной.",
     "accepted=true, если ответ выполняет задачу и в целом понятен на целевом уровне; мелкие ошибки не должны автоматически давать отказ.",
     "corrected: естественный улучшенный вариант на норвежском.",
@@ -258,16 +267,37 @@ export default async function handler(req,res){
     speaking?"Не оценивай фонетику: доступен только текст распознавания.":""
   ].filter(Boolean).join("\n");
   try{
-    const parsed=parseJson(await ask(prompt,700,"none"));
+    // A model can produce convincing but fabricated corrections. Require every
+    // deduction to be anchored in the actual answer or a literal task requirement.
+    // One retry is allowed; otherwise mark evaluation unavailable, not incorrect.
+    let verified=null,validationError="NO_VERIFIED_ASSESSMENT";
+    for(let attempt=0;attempt<2;attempt++){
+      const raw=await ask(prompt+(attempt?
+        "\nПРЕДЫДУЩИЙ ОТВЕТ НЕ ПРОШЁЛ ПРОВЕРКУ ПО ЦИТАТАМ ИЛИ БАЛЛАМ. Верни только реально существующие фрагменты. Не выдумывай штрафы.":""),
+        1200,"none");
+      const grounded=groundAssessment(parseJson(raw),{answer,question,goal:goal||question});
+      if(grounded.ok){verified=grounded.assessment;break}
+      validationError=grounded.error;
+    }
+    if(!verified)return res.status(422).json({
+      error:"FEEDBACK_NOT_VERIFIED",code:"FEEDBACK_NOT_VERIFIED",
+      message_ru:"Нора не смогла подтвердить свои замечания по твоему ответу. Оценка не выставлена и прогресс не изменён."
+    });
+    const parsed=verified;
     parsed.score=Math.max(0,Math.min(100,Math.round(Number(parsed.score)||0)));
     if(!parsed.breakdown||typeof parsed.breakdown!=="object")parsed.breakdown={};
-    for(const k of ["meaning","grammar","vocabulary","coherence"])parsed.breakdown[k]=Math.max(0,Math.min(100,Math.round(Number(parsed.breakdown[k])||0)));
-    // Only an explicit JSON boolean can approve a learner's answer. "false" is not true.
-    parsed.accepted=parsed.accepted===true;parsed.cefr_estimate=String(parsed.cefr_estimate||target);
-    parsed.corrected=String(parsed.corrected||"").slice(0,1800);parsed.explanation_ru=String(parsed.explanation_ru||"").slice(0,1600);
+    for(const k of ["meaning","grammar","vocabulary","coherence"])
+      parsed.breakdown[k]=Math.max(0,Math.min(100,Math.round(Number(parsed.breakdown[k])||0)));
+    parsed.accepted=parsed.accepted===true;
+    parsed.cefr_estimate=String(parsed.cefr_estimate||target);
+    parsed.corrected=String(parsed.corrected||"").slice(0,1800);
+    parsed.explanation_ru=String(parsed.explanation_ru||"").slice(0,1600);
     parsed.strengths_ru=Array.isArray(parsed.strengths_ru)?parsed.strengths_ru.slice(0,2):[];
     parsed.improvements_ru=Array.isArray(parsed.improvements_ru)?parsed.improvements_ru.slice(0,2):[];
-    parsed.error_tag=String(parsed.error_tag||"").slice(0,50);parsed.micro_rule_ru=String(parsed.micro_rule_ru||"").slice(0,500);parsed.retry_prompt_no=String(parsed.retry_prompt_no||"").slice(0,500);parsed.next_action_ru=String(parsed.next_action_ru||"").slice(0,500);
+    parsed.error_tag=String(parsed.error_tag||"").slice(0,50);
+    parsed.micro_rule_ru=String(parsed.micro_rule_ru||"").slice(0,500);
+    parsed.retry_prompt_no=String(parsed.retry_prompt_no||"").slice(0,500);
+    parsed.next_action_ru=String(parsed.next_action_ru||"").slice(0,500);
     return res.status(200).json(normalizeAssessment(parsed));
   }catch(e){
     return res.status(502).json({error:"AI_EVALUATE_FAILED",code:e?.code||"AI_EVALUATE_FAILED"});
