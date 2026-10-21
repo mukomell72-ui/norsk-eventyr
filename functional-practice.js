@@ -93,9 +93,8 @@
  }
  function startCloze(redo){
   const level=session?.mode==='cloze'?session.level:safeLevel();
-  const pool=cloze.filter(x=>x.level===level);
-  const p=progress(),weight=x=>Number(p.weaknesses[level+':'+x.tag]||0);
-  const questions=(Array.isArray(redo)&&redo.length?pool.filter(x=>redo.includes(x.id)):pool.slice().sort((a,b)=>weight(b)-weight(a))).slice(0,8);
+  const pool=window.NEClozeCoach?.plan?.(cloze,level,new Date().toISOString().slice(0,10))||cloze.filter(x=>x.level===level);
+  const questions=(Array.isArray(redo)&&redo.length?pool.filter(x=>redo.includes(x.id)):pool).slice(0,8);
   session={mode:'cloze',level,kind:'quiz',questions,index:0,results:[],locked:false,helped:false,missed:false,draft:'',help:null,last:null,pending:false};
   renderCloze();
  }
@@ -117,10 +116,13 @@
    '<p><b>Слово:</b> '+html(helper.lemma)+' — '+html(helper.translation)+'</p>'+
    '<p><b>Нужная форма:</b> '+html(helper.requiredForm)+'</p>'+
    '<p><b>Почему:</b> '+html(helper.rule)+'</p>'+
-   '<p>Добавлено в словарь и повторение. Этот ответ уже не считается самостоятельным.</p></div>':'';
+   '<p>'+html(helper.message||'Слово добавлено в повторение. Этот ответ не считается самостоятельным.')+'</p></div>':'';
   wrap('<article class="applied-sheet"><small>Задание '+(s.index+1)+' из '+s.questions.length+' · '+html(s.level)+' · '+html(item.tag)+'</small>'+
    '<div class="applied-prompt">'+html(item.sentence).replace('___','<span class="applied-gap">______</span>')+'</div>'+
-   (open?'<p class="applied-note">Свободное задание: можно вставить любой грамматически подходящий глагол. Правильных ответов несколько.</p>':'<p class="applied-note">Здесь проверяется указанное слово или грамматическая форма.</p>')+
+   (open?'<p class="applied-note"><b>Свободная практика:</b> впиши любой грамматически и по смыслу подходящий глагол. Правильных вариантов несколько.</p>':
+    window.NEClozeCoach?.practiceMode?.(item)==='review'
+      ?'<p class="applied-note"><b>Закрепление:</b> используй изученное слово <b>'+html(window.NEClozeCoach?.infoFor?.(item)?.lemma||'')+'</b> в нужной форме.</p>'
+      :'<p class="applied-note"><b>Переведи и вставь слово:</b> «'+html(window.NEClozeCoach?.targetRu?.(item)||window.NEClozeCoach?.infoFor?.(item)?.translation||'')+'». Выбери форму, которая подходит к предложению.</p>')+
    '<label for="appliedAnswer">Недостающее слово</label><input id="appliedAnswer" type="text" maxlength="70" autocomplete="off" autocapitalize="off" spellcheck="false" '+(checked?'disabled':'')+' value="'+html(s.draft||'')+'" placeholder="Введи слово" aria-label="Недостающее слово">'+
    note+expl+
    '<div class="applied-actions">'+(checked?'<button class="btn" onclick="NEFunctionalPractice.nextCloze()">Следующее →</button>':
@@ -214,5 +216,7 @@
  }
  window.NEFunctionalPractice={open,startCloze,checkCloze,explainCloze,nextCloze,redoMistakes,startForm,submitForm,
   getCatalog:()=>({cloze:cloze.map(x=>({...x})),forms:forms.map(x=>({...x,fields:x.fields.map(y=>({...y}))}))}),
+  getClozePlan:(level,date)=>window.NEClozeCoach?.dailyPlan?.(cloze,level,date)||[],
+  getPracticePlan:(level,date)=>window.NEClozeCoach?.plan?.(cloze,level,date)||[],
   normalize:clean};
 })();
