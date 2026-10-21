@@ -9,11 +9,21 @@ const save=()=>window.saveState?.();
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const key=x=>String(x||'').trim().normalize('NFKC').toLocaleLowerCase('nb-NO').replace(/^å\s+/,'').replace(/[.,!?;:"'()[\]{}]/g,'').replace(/\s+/g,' ');
 const norm=x=>key(x).replace(/[.!?]+$/,'');
-// Fix only the confirmed semantic confusion: ei klokke is a clock/watch,
-// whereas "klokka åtte" means "at eight o'clock".
+// The Norwegian lemma (including the infinitive with å) must be matched
+// against Russian infinitives, never only a first-person present gloss.
+const infinitiveGlosses=Object.freeze({
+ begynne:['начинать','начать'],
+ slutte:['заканчивать','закончить','прекращать','прекратить','перестать']
+});
 function correctTranslation(word,translation){
  const lemma=key(word).replace(/^(?:en|ei|et)\s+/,'');
  const ru=String(translation||'').trim();
+ // Repair stale AI/generated/saved word records without rewriting conjugated
+ // Norwegian words, custom contextual glosses, or other verb paradigms.
+ if(lemma==='begynne'&&/^начинаю$/iu.test(ru))return 'начинать / начать';
+ if(lemma==='slutte'&&/^(?:заканчиваю|прекращаю)(?:\s*(?:\/|;|,|\||или)\s*(?:заканчиваю|прекращаю))*$/iu.test(ru))
+  return 'заканчивать / закончить / прекращать / прекратить / перестать';
+ // Separate clock/watch from the Russian time expression "at eight o'clock".
  return ['klokke','klokka','klokken','klokker','klokkene'].includes(lemma)&&
   /^в\s+.{0,30}час(?:а|ов)?(?:\s|$)/iu.test(ru)
   ?'часы':ru;
@@ -140,7 +150,7 @@ function ruNorm(value){
  return String(value||'').normalize('NFKC').toLocaleLowerCase('ru-RU').replace(/ё/g,'е')
   .replace(/[«»“”"'.!?]/g,' ').replace(/\s+/g,' ').trim();
 }
-function acceptedTranslation(answer,translation){
+function acceptedTranslation(answer,translation,word=''){
  const value=ruNorm(answer);
  if(!value)return false;
  const expected=String(translation||'');
@@ -148,6 +158,10 @@ function acceptedTranslation(answer,translation){
   .map(s=>s.replace(/\s*\([^)]*\)\s*/g,' ').trim())
   .filter(Boolean);
  if(variants.some(x=>ruNorm(x)===value))return true;
+ // Accept both Russian infinitive aspects even for older cards whose stored
+ // translation is the erroneous present-tense "начинаю"/"заканчиваю".
+ const lemma=key(word);
+ if((infinitiveGlosses[lemma]||[]).includes(value))return true;
  // Only a short, explicitly curated set of clearly equivalent Russian translations.
  // Do not infer new synonyms from spelling or let AI silently grade vocabulary recall.
  const synonyms={'машина':['автомобиль'],'автомобиль':['машина'],
@@ -566,7 +580,7 @@ function checkTranslation(){
  const answer=String(document.getElementById('livingTranslate')?.value||d.cardDraft||'').trim();
  if(!answer){d.feedback='Напиши перевод или используй микрофон.';save();render();return false}
  d.cardDraft=answer;
- const correct=acceptedTranslation(answer,card.word.translation);
+ const correct=acceptedTranslation(answer,card.word.translation,card.word.word);
  if(!correct)markWrong(d,card);
  else{
   const s=getState(),entry=s?.dailyDictionary?.[key(card.word.word)];
