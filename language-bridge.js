@@ -49,8 +49,8 @@
  // Switch the whole clause only when every Norwegian component is mastered.
  // Distinct buttons preserve individual translation and review for each word.
  const PHRASES=Object.freeze([
-  {ru:'сегодня ты работаешь',pieces:[['I dag','i dag','сегодня'],['jobber','jobbe','работаешь'],['du','du','ты']]},
-  {ru:'завтра ты работаешь',pieces:[['I morgen','i morgen','завтра'],['jobber','jobbe','работаешь'],['du','du','ты']]},
+  {ru:'сегодня ты работаешь',pieces:[['i dag','i dag','сегодня'],['jobber','jobbe','работаешь'],['du','du','ты']]},
+  {ru:'завтра ты работаешь',pieces:[['i morgen','i morgen','завтра'],['jobber','jobbe','работаешь'],['du','du','ты']]},
   {ru:'ты работаешь',pieces:[['du','du','ты'],['jobber','jobbe','работаешь']]},
   {ru:'можешь встретиться',pieces:[['kan','kunne','можешь'],['møtes','møtes','встретиться']]}
  ]);
@@ -173,11 +173,14 @@
    if(hit.term.pieces){
     hit.term.pieces.forEach(([no,lemma,ru],i)=>{
      if(i)out.push({text:' '});
-     out.push({no,lemma,ru,source:ru});
+     const upper=i===0&&/^[А-ЯЁ]/u.test(text[hit.start]);
+     out.push({no:upper?no[0].toLocaleUpperCase('nb-NO')+no.slice(1):no,lemma,ru,source:ru});
     });
     used+=hit.term.pieces.length;
    }else{
-    out.push({no:hit.term.no,ru:hit.term.translation,lemma:hit.term.lemma||hit.term.no,
+    const capFirst=/^[А-ЯЁ]/u.test(text[hit.start]);
+    const rendered=capFirst?hit.term.no[0].toLocaleUpperCase('nb-NO')+hit.term.no.slice(1):hit.term.no;
+    out.push({no:rendered,ru:hit.term.translation,lemma:hit.term.lemma||hit.term.no,
      source:text.slice(hit.start,hit.end)});
     used++;
    }
