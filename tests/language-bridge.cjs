@@ -41,11 +41,14 @@ state.dailyDictionary.unverifiedVerb={lemma:'å begynne',translation_ru:'нач�
 state.dailyDictionary.unmasteredNoun={lemma:'en elev',translation_ru:'ученик',pos:'noun',correct:0,exposures:1,wrong:0};
 const fromDictionary=bridge.entries();
 assert(fromDictionary.some(x=>x.no==='telefon'&&x.ru==='телефон'),'Mastered nouns outside static set are derived from the real dictionary');
-assert(!fromDictionary.some(x=>x.no==='begynne'),'Do not paste infinitives into conjugated Russian text');
+assert(fromDictionary.some(x=>x.ru==='начинаю'&&x.no==='begynner'&&x.lemma==='å begynne'),
+ 'Known infinitive enables a verified corresponding present-tense form');
+assert(!fromDictionary.some(x=>x.no==='begynne'),'Do not paste raw infinitives where a present form was expected');
 assert(!fromDictionary.some(x=>x.no==='elev'),'Newly seen words are not treated as learned');
 assert(!fromDictionary.some(x=>x.no==='barnehage'),'Ambiguous multiword or inflected translations require curated mappings');
 assert(bridge.controlHtml().includes('Подтверждено слов:'),'Learner can see why bridging may not yet appear');
 assert(bridge.queueForgotten('en telefon'),'Tap must work with article-prefixed dictionary entries');
+assert(bridge.queueForgotten('å begynne'),'Tap on a conjugated bridge form queues the known base verb');
 assert(state.wordPracticeQueue.telefon,'Dynamic dictionary word must enter the existing review queue');
 assert.equal(state.dailyDictionary.phone.correct,4,'Lookup does not award mastery credit');
 
