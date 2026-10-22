@@ -87,7 +87,7 @@ for(const asset of assets){
    (teacherSuffix&&['/access.js','/course-methodology.js','/adaptive-teacher.js','/app.js','/guided-speaking.js','/living-day.js','/ui-v7.js'].includes(pathname)?teacherSuffix:'')+
    (coachSuffix&&['/access.js','/app.js','/lesson-coach.js','/lesson-coach.css','/language-bridge.js','/language-bridge.css','/cloze-coach.js','/functional-practice.js','/living-words.js'].includes(pathname)?coachSuffix:'')+
    (freshnessSuffix&&['/access.js','/adaptive-teacher.js'].includes(pathname)?freshnessSuffix:'')+
-   (bridgeSuffix&&['/access.js','/adaptive-teacher.js','/app.js','/language-bridge.js'].includes(pathname)?bridgeSuffix:'');
+   (bridgeSuffix&&['/access.js','/adaptive-teacher.js','/app.js','/language-bridge.js','/ui-v7.js'].includes(pathname)?bridgeSuffix:'');
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
 }
 }
@@ -127,7 +127,7 @@ if(assetRevision?.startsWith('-lesson')){
    (!freshnessSuffix||access.includes("'"+freshnessSuffix+"'")), 
     'Access bootstrap and offline cache must agree on lesson patch revision');
 }
-if(bridgeSuffix)assert.equal(bridgeSuffix,'-bridge1','Unexpected language bridge revision');
+if(bridgeSuffix)assert.equal(bridgeSuffix,'-bridge2','Unexpected language bridge revision');
 if(skulleSuffix)assert.equal(skulleSuffix,'-skulle1','Unexpected modal grammar revision');
 if(ruFormsSuffix){
  assert(ruFormsSuffix==='-ruforms2','Unexpected Russian morphology patch revision');
@@ -157,7 +157,7 @@ for(const filename of scripts){
    (teacherSuffix&&['course-methodology.js','adaptive-teacher.js','app.js','guided-speaking.js','living-day.js','ui-v7.js'].includes(filename)?teacherSuffix:'')+
    (coachSuffix&&['lesson-coach.js','language-bridge.js','cloze-coach.js','functional-practice.js','app.js','living-words.js'].includes(filename)?coachSuffix:'')+
    (freshnessSuffix&&filename==='adaptive-teacher.js'?freshnessSuffix:'')+
-   (bridgeSuffix&&['adaptive-teacher.js','app.js','language-bridge.js'].includes(filename)?bridgeSuffix:'');
+   (bridgeSuffix&&['adaptive-teacher.js','app.js','language-bridge.js','ui-v7.js'].includes(filename)?bridgeSuffix:'');
  assert(assetSet.has('/'+filename+'?v='+v+patch+suffix),'PWA must cache bootstrapped script '+filename);
 }
 for(const m of index.matchAll(/\b(?:src|href)="(\/[^"]+)"/g)){
