@@ -56,5 +56,5 @@ assert(gen.includes('Устная практика — приоритет'),'Tea
 const cache=read('sw.js'),access=read('access.js'),index=read('index.html');
 for(const name of ['course-methodology.js','guided-speaking.js','living-day.js','ui-v7.js'])
  assert(cache.includes('/'+name+'?v=8.3.0-lesson24')&&access.includes("'-teacher2'"),'Versioned offline lessons required: '+name);
-assert(index.includes('-teacher2-coach6" defer></script>'),'App bootstrap must invalidate old lesson cache for the tutor release');
+assert(index.includes('-teacher2-coach6-fresh1" defer></script>'),'App bootstrap must invalidate old lesson cache for the tutor release');
 console.log('PASS teacher-led day: 60-minute plan, extra speaking, idle-safe clock, retained archive and safe replay');
