@@ -43,7 +43,7 @@ export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY"});
   if(!await guard(req,res,{limit:24}))return;
   if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED"});
-  const {kind="lesson",level="A1",topic="",goal="",weakSkills=[],reviewWords=[],moduleId="",skillFocus="",canDo=[],grammarFocus="",lexiconFocus="",mastery={},errorPatterns=[],targetErrorTag="",teacherMode=false,reviewMode=false,scenarioVariation="",recentLessons=[],courseStage="",courseStageTitle="",courseObjective="",courseInstruction=""}=req.body||{};
+  const {kind="lesson",level="A1",topic="",goal="",weakSkills=[],reviewWords=[],moduleId="",skillFocus="",canDo=[],grammarFocus="",lexiconFocus="",mastery={},errorPatterns=[],targetErrorTag="",teacherMode=false,reviewMode=false,scenarioVariation="",recentLessons=[],learningLoad="normal",courseStage="",courseStageTitle="",courseObjective="",courseInstruction=""}=req.body||{};
   if(!["A1","A2","B1","B2"].includes(level))return res.status(400).json({error:"BAD_LEVEL"});
   const priorScenes=pastLessonSnippets(recentLessons);
   const reinforcement=Array.isArray(reviewWords)?reviewWords.slice(0,15).map(x=>String(x).slice(0,100)).filter(Boolean):[];
@@ -62,6 +62,7 @@ export default async function handler(req,res){
     teacherMode?"Устная практика — приоритет: придумай диалог с реальным собеседником, требующий содержательного ответа, уточняющего вопроса и самостоятельного перефразирования. speaking должен обозначать конкретную коммуникативную цель, не просто 'скажи что-нибудь'. На A1 короткие реплики; на A2 связанные ответы; на B1 объяснение причин; на B2 спонтанная аргументация и ответ на уточнение.":"",
     teacherMode?"Если ученик ошибается или не понимает, Нора сначала объясняет по-русски ПОЧЕМУ правило работает, на каком месте нарушен порядок слов или форма, показывает другой пример и приглашает повторить самому. Не превращай подсказки в готовый ответ на текущую задачу.":"",
     teacherMode?"Тема повторяется в новых жизненных ситуациях, с отложенным самостоятельным ответом и закреплением слов прошлых дней. Каждый следующий разговор чуть сложнее предыдущего, но понятен без неподготовленного прыжка в уровень.":"",
+    teacherMode&&learningLoad==="ease"?"Ученик недавно часто ошибался или открывал перевод знакомых слов. СОХРАНИ тему и число блоков урока, но снизь одновременно новую лексику (не более двух новых слов), используй одно главное правило, знакомые конструкции и короткие реплики. Дай одну исправляемую ошибку за раз; сначала позволь ответить самому. Не добавляй дополнительные задания или время.":"",
     "Не подсказывай ответ формулировкой вопроса. Сначала требуй самостоятельное производство языка, а не узнавание по вариантам, кроме этапов чтения/аудирования/грамматики.",
     "Делай материал жизненным: работа, жильё, услуги, здоровье, транспорт, общение, новости и реальные общественные ситуации. Избегай детских и искусственных тем.",
     "Сложность должна быть чуть выше устойчивого текущего результата, но не превращаться в угадывание. Слабый навык получит больше нагрузки, сильный — меньше.",
