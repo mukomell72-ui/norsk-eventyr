@@ -1,4 +1,4 @@
-// Språkbro 2.1 — gradual Russian-to-Bokmål transition through securely learned words.
+// Språkbro 2.2 — contextual learner vocabulary, natural mixed instructions and one-tap review.
 // Never change test questions, answers or unlearned vocabulary; taps queue review.
 (() => {
  'use strict';
@@ -43,7 +43,18 @@
   ['понимать','å forstå','forstå'],['понимаю','forstår','forstå'],
   ['могу','kan','kunne'],['может','kan','kunne'],
   ['хочу','vil','ville'],['хочет','vil','ville'],
-  ['собираюсь','skal','skulle']
+  ['собираюсь','skal','skulle'],
+  // Clear-context forms frequently used in Nora's Russian lesson directions.
+  ['когда','når','når'],['и','og','og'],['или','eller','eller'],
+  ['почему','hvorfor','hvorfor'],['потом','etterpå','etterpå'],
+  ['вторник','tirsdag','tirsdag'],['коллега','kollega','kollega'],
+  ['спрашивает','spør','spørre'],['спроси','spør','spørre'],
+  ['встречаться','å møtes','møtes'],['встретиться','møtes','møtes'],
+  ['свободен','ledig','ledig'],['свободна','ledig','ledig'],['свободны','ledig','ledig'],
+  ['хотите','vil','ville'],['хочешь','vil','ville'],
+  ['скажи','si','si'],['ответь','svar','svare'],
+  ['изменить','å endre','endre'],['измени','endre','endre'],
+  ['называется','heter','hete'],['говори','snakk','snakke']
  ]);
  const TERMS=FIXED.map(([ru,no,lemma])=>({ru,no,lemma:lemma||no,translation:ru}));
  // Switch the whole clause only when every Norwegian component is mastered.
@@ -52,7 +63,13 @@
   {ru:'сегодня ты работаешь',pieces:[['i dag','i dag','сегодня'],['jobber','jobbe','работаешь'],['du','du','ты']]},
   {ru:'завтра ты работаешь',pieces:[['i morgen','i morgen','завтра'],['jobber','jobbe','работаешь'],['du','du','ты']]},
   {ru:'ты работаешь',pieces:[['du','du','ты'],['jobber','jobbe','работаешь']]},
-  {ru:'можешь встретиться',pieces:[['kan','kunne','можешь'],['møtes','møtes','встретиться']]}
+  {ru:'можешь встретиться',pieces:[['kan','kunne','можешь'],['møtes','møtes','встретиться']]},
+  {ru:'вы работаете',pieces:[['du','du','вы'],['jobber','jobbe','работаете']]},
+  {ru:'вы свободны',pieces:[['du','du','вы'],['er','være','есть'],['ledig','ledig','свободны']]},
+  {ru:'когда вы свободны',pieces:[['når','når','когда'],['du','du','вы'],['er','være','есть'],['ledig','ledig','свободны']]},
+  {ru:'во вторник',pieces:[['på','på','во'],['tirsdag','tirsdag','вторник']]},
+  {ru:'ты можешь',pieces:[['du','du','ты'],['kan','kunne','можешь']]},
+  {ru:'когда можешь встретиться',pieces:[['når','når','когда'],['du','du','ты'],['kan','kunne','можешь'],['møtes','møtes','встретиться']]}
  ]);
  const getState=()=>window.neLearnerState||null;
  const normNo=x=>String(x||'').normalize('NFKC').toLocaleLowerCase('nb-NO').trim()
@@ -76,13 +93,19 @@
  let root=null,observer=null,busy=false;
  const processed=new WeakMap();
 
+ function dictHasEarlyRecall(d){
+  return !!(d&&Number(d.correct)>=1&&Number(d.exposures)>=2&&Number(d.wrong||0)===0);
+ }
  function isMastered(dictionary,srs){
   const goodDict=dictionary&&Number(dictionary.correct)>=2&&Number(dictionary.exposures)>=2&&
    Number(dictionary.correct)>Number(dictionary.wrong||0);
   const strongDict=dictionary&&Number(dictionary.correct)>=1&&Number(dictionary.exposures)>=2&&
    Number(dictionary.strength)>=65&&Number(dictionary.correct)>=Number(dictionary.wrong||0);
   const goodSrs=srs&&Number(srs.stage)>=2&&Number(srs.correct)>=2;
-  return !!(goodDict||strongDict||goodSrs);
+  // A word previously recalled correctly on two separate exposures can
+  // appear with on-tap help before reaching full SRS mastery.
+  const recalled=dictHasEarlyRecall(dictionary);
+  return !!(goodDict||strongDict||goodSrs||recalled);
  }
  function knownWords(){
   const s=getState(),dict=s?.dailyDictionary||{},reps=s?.srs||{},map=new Map();
@@ -189,6 +212,45 @@
   if(from<text.length)out.push({text:text.slice(from)});
   return out.length?out:[{text}];
  }
+
+ // A tap on any Norwegian word is useful evidence: mastered words become due;
+ // an unfamiliar word enters the same review queue without earning proficiency.
+ // Only a short explicit Russian gloss can create a new graded dictionary card.
+ function noteWordLookup(word,translation='',context=''){
+  const s=getState(),key=normNo(word),now=Date.now();
+  if(!s||!key||! /^(?:[a-zæøå]+(?:[-'][a-zæøå]+)*)(?:\s+[a-zæøå]+){0,2}$/iu.test(key))return {queued:false};
+  if(queueForgotten(key))return {queued:true,known:true};
+  s.learningV8=s.learningV8||{};
+  s.wordPracticeQueue=s.wordPracticeQueue||{};
+  s.wordPracticeQueue[key]=now;
+  const raw=String(translation||'').trim();
+  // Prefer the structured translation field. Free-form AI explanations are
+  // retained for a human-readable review note, never interpreted as answers.
+  const short=/^[а-яё][а-яё\s-]{1,65}$/iu.test(raw)&&raw.split(/\s+/).length<=4?raw:'';
+  s.learningV8.bridgePendingLookups=s.learningV8.bridgePendingLookups||{};
+  s.learningV8.bridgePendingLookups[key]={word:String(word).slice(0,80),translation_ru:short,
+   explanation_ru:raw.slice(0,240),context:String(context).slice(0,180),due:now};
+  if(short){
+   s.dailyDictionary=s.dailyDictionary||{};
+   // Never classify a tapped new word as mastered.
+   s.dailyDictionary[key]={lemma:String(word).trim(),translation_ru:short,level:s.level||'A1',
+    correct:0,exposures:1,wrong:0,strength:0,firstDate:new Date(now).toISOString().slice(0,10),
+    nextDue:now,lookupOnly:true};
+   s.srs=s.srs||{};
+   if(!s.srs[key])s.srs[key]={word:String(word).trim(),translation:short,stage:0,due:now,seen:0,correct:0};
+  }
+  const prior=Array.isArray(s.learningV8.bridgeLookupEvents)?s.learningV8.bridgeLookupEvents:[];
+  s.learningV8.bridgeLookupEvents=[...prior.filter(t=>Number.isFinite(t)&&t>=now-7*86400000),now].slice(-30);
+  window.saveState?.();
+  return {queued:true,known:false,cardCreated:!!short};
+ }
+ function knownGloss(word){
+  const s=getState(),key=normNo(word);
+  if(!key)return '';
+  const d=Object.values(s?.dailyDictionary||{}).find(x=>normNo(x?.lemma||x?.word)===key);
+  const r=Object.values(s?.srs||{}).find(x=>normNo(x?.word)===key);
+  return String(d?.translation_ru||r?.translation||'').trim().slice(0,100);
+ }
  function queueForgotten(no){
   const state=getState(),key=normNo(no),now=Date.now();
   if(!state||!key)return false;
@@ -276,7 +338,7 @@
  function controlHtml(){
   const known=knownWords().length,covered=entries().length,on=enabled();
   return '<section class="card ne-bridge-settings" data-no-bridge>'+
-   '<h3>Språkbro 2.0 · Языковой мост</h3>'+
+   '<h3>Språkbro 2.2 · Языковой мост</h3>'+
    '<p>Знакомые слова постепенно переходят на норвежский в объяснениях и инструкциях Норы. Нажми на слово, чтобы увидеть русский перевод и добавить его в повторение. Подсказки не меняют контрольные тесты.</p>'+
    '<p class="muted">Подтверждено слов: <b>'+known+'</b>. Безопасных замен: <b>'+covered+'</b>. Уровень: <b>'+esc(getState()?.level||'A1')+'</b>. '+
    (covered?'Замены появляются там, где встречается подходящее русское слово.':'По мере закрепления слов доступные замены появятся автоматически.')+'</p>'+
@@ -307,7 +369,7 @@
   observer=new MutationObserver(()=>process());observer.observe(root,{subtree:true,childList:true});
   process();
  }
- window.NELanguageBridge=Object.freeze({controlHtml,toggle,process,segments,queueForgotten,
+ window.NELanguageBridge=Object.freeze({controlHtml,toggle,process,segments,queueForgotten,noteWordLookup,knownGloss,
   entries,knownWords,extractTranslation,dynamicTerm,isMastered,density,recentPeeks,eligibleBlock});
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});
  else mount();
