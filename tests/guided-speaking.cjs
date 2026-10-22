@@ -98,6 +98,25 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  w.neGuidedNext();
  assert.equal(finishes,1,'finish only after all valid turns');
  assert.equal(scores.length,9,'each evaluated attempt should contribute evidence');
+ // Dynamic replies are used only AFTER the learner passes the scored step.
+ // They must survive rerender, while a chat outage falls back to authored text.
+ session.lesson=keyHome;session.guidedSpeech=null;session.locked=false;field.value='Hvor er nøkkelen?';
+ let chatCalls=0;
+ w.neApiPost=async(path,payload)=>{chatCalls++;assert.equal(path,'/api/chat');assert.equal(payload.mode,'roleplay');return {ok:true,data:{accepted:true,feedback_status:'correct',reply_no:'Nøkkelen ligger under stolen. Ser du den?'}}};
+ await w.checkFree('speaking');
+ assert.equal(chatCalls,1);
+ assert.match(feedback.innerHTML,/Nøkkelen ligger under stolen/);
+ w.neGuidedNext();
+ assert.equal(session.guidedSpeech.turns[0].reply,'Nøkkelen ligger under stolen. Ser du den?');
+ assert.match(w.freeEx(keyHome,'speaking'),/Nøkkelen ligger under stolen/,'Generated replies must be preserved on screen re-render');
+ field.value='Jeg ser den ved døren.';
+ w.neApiPost=async()=>({ok:false,error:'NETWORK'});
+ await w.checkFree('speaking');
+ assert.match(feedback.innerHTML,/Nei, bordet står ved vinduet/,'Offline fallback must preserve lesson');
+ w.neGuidedNext();
+ assert.equal(session.guidedSpeech.index,2);
+ delete w.neApiPost;
+ session.lesson=lesson;session.guidedSpeech=null;session.locked=false;
  // An old seven-turn checkpoint cannot skip the new courtesy stage.
  const stale={lessonId:lesson.id,index:5,turns:Array.from({length:5},(_,i)=>({answer:'old '+i,spoken:true}))};
  session.guidedSpeech=stale;session.locked=false;
