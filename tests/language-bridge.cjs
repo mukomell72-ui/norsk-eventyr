@@ -31,13 +31,32 @@ assert.equal(bridge.queueForgotten('ord'),false,'Do not create fictitious dictio
 assert.equal(saves,1);
 bridge.toggle();assert.equal(state.learningV8.languageBridgeEnabled,false,'Bridge is user-disableable');
 bridge.toggle();assert.equal(state.learningV8.languageBridgeEnabled,true,'Bridge can be re-enabled');
+const dictionaryExtra={
+ lemma:'en telefon',translation_ru:'телефон',pos:'noun',correct:4,exposures:5,
+ wrong:0,strength:75,nextDue:Date.now()+86400000
+};
+state.dailyDictionary.phone=dictionaryExtra;
+state.dailyDictionary.wordFromLesson={lemma:'en barnehage',translation_ru:'детский сад',pos:'substantiv',correct:4,exposures:5,wrong:0};
+state.dailyDictionary.unverifiedVerb={lemma:'å begynne',translation_ru:'начать',pos:'verb',correct:5,exposures:6,wrong:0};
+state.dailyDictionary.unmasteredNoun={lemma:'en elev',translation_ru:'ученик',pos:'noun',correct:0,exposures:1,wrong:0};
+const fromDictionary=bridge.entries();
+assert(fromDictionary.some(x=>x.no==='telefon'&&x.ru==='телефон'),'Mastered nouns outside static set are derived from the real dictionary');
+assert(!fromDictionary.some(x=>x.no==='begynne'),'Do not paste infinitives into conjugated Russian text');
+assert(!fromDictionary.some(x=>x.no==='elev'),'Newly seen words are not treated as learned');
+assert(!fromDictionary.some(x=>x.no==='barnehage'),'Ambiguous multiword or inflected translations require curated mappings');
+assert(bridge.controlHtml().includes('Подтверждено слов:'),'Learner can see why bridging may not yet appear');
+assert(bridge.queueForgotten('en telefon'),'Tap must work with article-prefixed dictionary entries');
+assert(state.wordPracticeQueue.telefon,'Dynamic dictionary word must enter the existing review queue');
+assert.equal(state.dailyDictionary.phone.correct,4,'Lookup does not award mastery credit');
+
 (async()=>{
  const browser=await chromium.launch({headless:true});
  try{
   const page=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});
-  await page.setContent('<html lang="ru"><body><main id="app"><div class="shell"><p id="prose">Сегодня мы учим слова. Завтра повторим.</p><section class="exercise"><p id="graded">Сегодня выбери верный ответ.</p></section></div></main></body></html>');
+  await page.setContent('<html lang="ru"><body><main id="app"><div class="shell"><p id="prose">Сегодня мы учим слова. Завтра повторим.</p><p id="dictionary">Этот телефон уже знаком.</p><div class="exercise"><p id="graded">Сегодня выбери верный ответ.</p><div class="ne-lesson-coach"><p id="nora">Нора объясняет, почему сегодня важно повторять.</p></div></div><div lang="nb"><p id="norwegian">Телефон</p></div></div></main></body></html>');
   await page.evaluate(()=>{
    window.neLearnerState={level:'A1',learningV8:{},dailyDictionary:{today:{lemma:'i dag',translation_ru:'сегодня',correct:4,exposures:5,wrong:0,nextDue:Date.now()+90000000}},srs:{today:{word:'i dag',stage:3,correct:3}},wordPracticeQueue:{}};
+   window.neLearnerState.dailyDictionary.phone={lemma:'en telefon',translation_ru:'телефон',pos:'noun',correct:3,exposures:4,wrong:0};
    window.saveState=()=>{window.__bridgeSaved=(window.__bridgeSaved||0)+1};
   });
   await page.addScriptTag({content:source});
@@ -45,6 +64,10 @@ bridge.toggle();assert.equal(state.learningV8.languageBridgeEnabled,true,'Bridge
   assert.equal(await page.locator('#prose .ne-bridge-word').count(),1);
   assert.equal(await page.locator('#prose .ne-bridge-word').innerText(),'i dag');
   assert((await page.locator('#graded').innerText()).includes('Сегодня'),'Assessed instruction remains in Russian');
+  assert.equal(await page.locator('#dictionary .ne-bridge-word').innerText(),'telefon','A dictionary-only word is inserted in a new prose paragraph');
+  assert.equal(await page.locator('#nora .ne-bridge-word').count(),1,'Tutor explanations are translated even inside an exercise container');
+  assert.equal(await page.locator('#norwegian .ne-bridge-word').count(),0,'Norwegian examples are never rewritten');
+
   await page.locator('#prose .ne-bridge-word').click();
   assert((await page.locator('#prose .ne-bridge-gloss').innerText()).includes('сегодня'),'Tap immediately shows Russian translation');
   assert((await page.locator('#prose .ne-bridge-gloss').innerText()).includes('добавлено в повторение'));
@@ -61,6 +84,7 @@ bridge.toggle();assert.equal(state.learningV8.languageBridgeEnabled,true,'Bridge
   assert((await page.locator('#prose').innerText()).includes('Сегодня'));
   await page.evaluate(()=>window.NELanguageBridge.toggle());
   await page.waitForSelector('#prose .ne-bridge-word');
+  assert.equal(await page.locator('#dictionary .ne-bridge-word').count(),1,'Re-enabled bridge restores dictionary-driven substitutions');
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   assert.deepEqual(errors,[]);
   console.log('PASS Språkbro: mastery gate, A1 cap, safe exercise isolation, tap translation, queued repetition, opt-out');
