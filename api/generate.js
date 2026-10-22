@@ -13,7 +13,7 @@ function validateShape(kind,x){
   return Array.isArray(x.vocab)&&x.vocab.length>=6&&x.vocab.every(v=>Array.isArray(v)&&v.length===2&&v.every(w=>typeof w==="string"&&w.trim()))&&validChoice(x.opts,x.correct)&&validChoice(x.grammarOpts,x.grammarCorrect)&&validGrammarQuestion(x.grammarQ)&&validChoice(x.listeningOpts,x.listeningCorrect)&&typeof x.phrase==="string"&&x.phrase.trim()&&typeof x.listeningAudio==="string"&&x.listeningAudio.trim()&&typeof x.listeningQ==="string"&&x.listeningQ.trim()&&typeof x.read==="string"&&x.read.trim()&&typeof x.writing==="string"&&x.writing.trim()&&typeof x.speaking==="string"&&x.speaking.trim();
 }
 const FRESH_SCENE_KEYS=['phrase','listeningAudio','read','grammarQ','writing','speaking','dialogueTask'];
-function normalizedSceneText(value){return String(value||'').normalize('NFKC').toLowerCase().replace(/[^\\p{L}\\p{N}]+/gu,' ').trim().replace(/\\s+/g,' ')}
+function normalizedSceneText(value){return String(value||'').normalize('NFKC').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim().replace(/\s+/g,' ')}
 function pastLessonSnippets(raw){
   if(!Array.isArray(raw))return[];
   return raw.slice(0,5).filter(x=>x&&typeof x==='object'&&!Array.isArray(x)).map(x=>
