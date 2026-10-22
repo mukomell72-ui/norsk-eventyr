@@ -51,12 +51,28 @@ assert(bridge.queueForgotten('en telefon'),'Tap must work with article-prefixed 
 assert(bridge.queueForgotten('å begynne'),'Tap on a conjugated bridge form queues the known base verb');
 assert(state.wordPracticeQueue.telefon,'Dynamic dictionary word must enter the existing review queue');
 assert.equal(state.dailyDictionary.phone.correct,4,'Lookup does not award mastery credit');
+assert.equal(bridge.tapGloss('ПЕРЕВОД: вторник. ФОРМА: tirsdag'),'вторник');
+assert.equal(bridge.queueNorwegianLookup('tirsdag','ПЕРЕВОД: вторник. ФОРМА: tirsdag'),true);
+assert.equal(state.dailyDictionary.tirsdag.translation_ru,'вторник','Norwegian-first tap creates a reviewed glossary entry');
+assert.equal(state.dailyDictionary.tirsdag.correct,0,'Looking up a new source word never counts as correct recall');
+assert.equal(state.srs.tirsdag.stage,0,'A new lookup starts at the first review stage');
+assert(state.wordPracticeQueue.tirsdag>0,'An unknown Norwegian word must be added to the real review queue');
+assert.equal(bridge.knownNorwegian('TIRSDAG').translation,'вторник','Known Norwegian lookups work regardless of case');
+assert.equal(bridge.knownWords().some(x=>x.key==='tirsdag'),false,'Looking up a word alone cannot certify mastery');
+assert.equal(bridge.queueNorwegianLookup('blabla','Unknown or unreliable translation'),false,'Do not invent or save an unverified word');
+const tapCount=state.dailyDictionary.tirsdag.exposures;
+assert.equal(bridge.queueNorwegianLookup('tirsdag',''),true,'A forgotten word can be requeued offline');
+assert.equal(state.dailyDictionary.tirsdag.exposures,tapCount,'Repeated tap cannot falsely increase learning evidence');
+const uiV7=fs.readFileSync(path.join(__dirname,'../ui-v7.js'),'utf8');
+assert(uiV7.includes('.dialogue-scene-v83 p,.dialogue-task-v83 p'),'Norwegian tokens must be tappable in both scene and task');
+assert(uiV7.includes('queueNorwegianLookup?.(word,translation)'),'Source Norwegian taps must join the review system');
 // Natural phrase order is kept when every component has been learned.
 // An unseen word or too-low load budget must block the full substitution.
 for(const [id,lemma] of [
  ['you','du'],['job','å jobbe'],['can','å kunne'],['meet','å møtes'],
  ['reply','å svare'],['say','å si'],['loud','høyt'],['tomorrow','i morgen'],
- ['thankyou','takk'],['home','hus'],['water','vann'],['friend','venn']]){
+ ['thankyou','takk'],['home','hus'],['water','vann'],['friend','venn'],
+ ['colleague','en kollega'],['ask','å spørre'],['when','når']]){
  state.dailyDictionary[id]={lemma,translation_ru:'подтвержденное',correct:4,exposures:5,wrong:0};
 }
 const learned=bridge.entries(),phrase=bridge.segments('Сегодня ты работаешь.',learned,3);
@@ -64,6 +80,9 @@ assert.equal(phrase.filter(x=>x.no).map(x=>x.no).join(' '),'I dag jobber du','Ma
 assert.equal(bridge.segments('Сегодня ты работаешь.',learned,2).filter(x=>x.no).map(x=>x.no).join(' '),'I dag jobber','Under small load, use independent known words instead of a broken multiword phrase');
 assert(learned.some(x=>x.ru==='ответь'&&x.no==='svar'),'Known imperative is used, not a present-tense form');
 assert(learned.some(x=>x.ru==='можешь'&&x.no==='kan'),'Previously learned modal may appear in mixed directions');
+assert(learned.some(x=>x.ru==='коллега'&&x.no==='kollega'),'Workplace scene uses a studied colleague noun');
+assert(learned.some(x=>x.ru==='спрашивает'&&x.no==='spør'),'Vetted present-tense question verb is available');
+assert(learned.some(x=>x.ru==='когда'&&x.no==='når'),'Known question word is available across explanations');
 assert.equal(bridge.segments('Сегодня ты работаешь.',bridge.entries().filter(x=>x.source!=='phrase'),3).filter(x=>x.no).map(x=>x.no).join(' '),'I dag jobber','Low-context replacement still uses a correct conjugated verb');
 const normalDensity=bridge.density('Сегодня ты работаешь. Ответь Анне вслух и скажи, когда можешь встретиться.');
 state.learningV8.bridgeLookupEvents=[Date.now(),Date.now(),Date.now(),Date.now(),Date.now(),Date.now()];
@@ -108,7 +127,7 @@ state.learningV8.bridgeLookupEvents=[];
   assert.equal(await page.locator('#dictionary .ne-bridge-word').count(),1,'Re-enabled bridge restores dictionary-driven substitutions');
   // Exercise instructions are now bridged; graded prompts and translations are not.
   await page.evaluate(()=>{
-   const s=window.neLearnerState,lemmas=['du','å jobbe','å kunne','å møtes','å svare','å si','høyt','i morgen','takk','hus','vann','venn','her','alltid'];
+   const s=window.neLearnerState,lemmas=['du','å jobbe','å kunne','å møtes','å svare','å si','høyt','i morgen','takk','hus','vann','venn','her','alltid','en kollega','å spørre','når'];
    for(const lemma of lemmas)s.dailyDictionary[lemma]={lemma,translation_ru:'выучено',correct:5,exposures:6,wrong:0};
    document.querySelector('.shell').insertAdjacentHTML('beforeend',
     '<section class="exercise"><div class="dialogue-task-v83"><p id="spokenInstruction">Сегодня ты работаешь. Ответь Анне вслух и скажи, когда можешь встретиться.</p></div>'+
@@ -121,6 +140,13 @@ state.learningV8.bridgeLookupEvents=[];
   assert((await page.locator('#writtenInstruction .ne-bridge-word').count())>0,'Marked free-response instruction is bridged');
   assert.equal(await page.locator('#protectedQuestion .ne-bridge-word').count(),0,'Untargeted graded prompts stay unchanged');
   assert.equal(await page.locator('#protectedTranslation .ne-bridge-word').count(),0,'Assessed translations are protected');
+  await page.evaluate(()=>{
+   document.querySelector('.shell').insertAdjacentHTML('beforeend',
+    '<section class="lesson-exercise-v6"><div class="dialogue-scene-v83"><p id="workScene">Коллега спрашивает, когда вы работаете.</p></div></section>');
+  });
+  await page.waitForSelector('#workScene .ne-bridge-word');
+  assert((await page.locator('#workScene .ne-bridge-word').count())>=2,'The scene description mixes studied Norwegian with Russian');
+  assert((await page.locator('#workScene').innerText()).toLowerCase().includes('kollega'),'Scenario includes previously studied Norwegian noun');
   await page.locator('#spokenInstruction .ne-bridge-word').filter({hasText:'jobber'}).click();
   assert((await page.locator('#spokenInstruction .ne-bridge-gloss').innerText()).includes('работаешь'),'Tapped conjugation shows Russian meaning');
   const lookup=await page.evaluate(()=>({

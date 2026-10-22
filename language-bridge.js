@@ -1,4 +1,4 @@
-// Språkbro 2.1 — gradual Russian-to-Bokmål transition through securely learned words.
+// Språkbro 2.2 — graded bilingual reading with touch-to-translate and review.
 // Never change test questions, answers or unlearned vocabulary; taps queue review.
 (() => {
  'use strict';
@@ -35,7 +35,14 @@
   ['учу','lærer','lære'],['изучаю','lærer','lære'],['изучает','lærer','lære'],
   ['говорить','å snakke','snakke'],['говорю','snakker','snakke'],['говорит','snakker','snakke'],
   ['говори','snakk','snakke'],['ответь','svar','svare'],['скажи','si','si'],
-  ['работаешь','jobber','jobbe'],['можешь','kan','kunne'],
+  ['работаешь','jobber','jobbe'],['работаете','jobber','jobbe'],
+  ['спрашивает','spør','spørre'],['спроси','spør','spørre'],
+  ['коллега','kollega','kollega'],['когда','når','når'],
+  ['вторник','tirsdag','tirsdag'],['понедельник','mandag','mandag'],
+  ['встречу','møte','møte'],['встрече','møte','møte'],
+  ['договориться','å avtale','avtale'],['затем','etterpå','etterpå'],
+  ['назови','si','si'],['повтори','gjenta','gjenta'],['измени','endre','endre'],
+  ['можешь','kan','kunne'],
   ['встретиться','møtes','møtes'],['вслух','høyt','høyt'],
   ['читать','å lese','lese'],['читаю','leser','lese'],['читает','leser','lese'],
   ['писать','å skrive','skrive'],['пишу','skriver','skrive'],['пишет','skriver','skrive'],
@@ -82,7 +89,12 @@
   const strongDict=dictionary&&Number(dictionary.correct)>=1&&Number(dictionary.exposures)>=2&&
    Number(dictionary.strength)>=65&&Number(dictionary.correct)>=Number(dictionary.wrong||0);
   const goodSrs=srs&&Number(srs.stage)>=2&&Number(srs.correct)>=2;
-  return !!(goodDict||strongDict||goodSrs);
+  // Previously practised vocabulary is eligible at low density as well; a
+  // merely introduced word (one exposure, no correct recall) remains excluded.
+  const familiarDict=dictionary&&Number(dictionary.exposures)>=2&&Number(dictionary.correct)>=1&&
+    Number(dictionary.correct)>=Number(dictionary.wrong||0);
+  const familiarSrs=srs&&Number(srs.seen)>=2&&Number(srs.correct)>=1;
+  return !!(goodDict||strongDict||goodSrs||familiarDict||familiarSrs);
  }
  function knownWords(){
   const s=getState(),dict=s?.dailyDictionary||{},reps=s?.srs||{},map=new Map();
@@ -189,6 +201,43 @@
   if(from<text.length)out.push({text:text.slice(from)});
   return out.length?out:[{text}];
  }
+ function knownNorwegian(word){
+  const key=normNo(word),state=getState();
+  if(!key||!state)return null;
+  const d=Object.values(state.dailyDictionary||{}).find(x=>normNo(x?.lemma||x?.word)===key);
+  const r=Object.values(state.srs||{}).find(x=>normNo(x?.word)===key);
+  if(!d&&!r)return null;
+  const translation=String(d?.translation_ru||r?.translation||'').trim();
+  return {lemma:d?.lemma||d?.word||r?.word||word,translation};
+ }
+ // A word tapped in source Norwegian text is a genuine study lookup. If it
+ // was not previously in the dictionary, add an *unmastered* review entry.
+ // Never award correctness, XP, stage or a level on a translation lookup.
+ function tapGloss(detail){
+  const clean=String(detail||'').replace(/\s+/g,' ').trim().slice(0,240);
+  if(!clean)return '';
+  const matched=clean.match(/(?:перевод(?:ится как)?|означает|значит|—|:)\s*[«"“]?([а-яё]+(?:[ -][а-яё]+){0,3})/iu);
+  if(matched)return matched[1].trim().slice(0,85);
+  if(/^[а-яё]+(?:[ -][а-яё]+){0,3}[.!?]?$/iu.test(clean))return clean.replace(/[.!?]$/,'');
+  return '';
+ }
+ function queueNorwegianLookup(word,explanation=''){
+  const state=getState(),source=String(word||'').trim();
+  if(!state||!source||source.length>55||!/^[a-zæøå]+(?:[-’'][a-zæøå]+)*$/iu.test(source))return false;
+  const known=knownNorwegian(source);
+  if(known)return queueForgotten(known.lemma);
+  const translation=tapGloss(explanation);
+  if(!translation)return false; // Do not save a speculative or malformed gloss.
+  const key=normNo(source),now=Date.now();
+  state.dailyDictionary=state.dailyDictionary||{};
+  state.srs=state.srs||{};
+  const level=['A1','A2','B1','B2'].includes(state.level)?state.level:'A1';
+  state.dailyDictionary[key]={lemma:source.toLocaleLowerCase('nb-NO'),translation_ru:translation,
+   level,correct:0,wrong:0,exposures:1,strength:0,firstDate:new Date(now).toISOString().slice(0,10),
+   nextDue:now,source:'bridge_lookup'};
+  state.srs[key]={word:source.toLocaleLowerCase('nb-NO'),translation,level,stage:0,seen:1,correct:0,due:now};
+  return queueForgotten(source);
+ }
  function queueForgotten(no){
   const state=getState(),key=normNo(no),now=Date.now();
   if(!state||!key)return false;
@@ -212,7 +261,7 @@
   '[data-no-bridge],[lang="nb"],[lang="no"],[role="alert"]';
  function eligibleBlock(block){
   if(!block.closest('.shell'))return false;
-  const instruction=block.matches('[data-bridge-instruction],.dialogue-task-v83 p,.dialogue-scene-v83 p');
+  const instruction=block.matches('[data-bridge-instruction],.dialogue-task-v83 p,.dialogue-scene-v83 p,.dialogue-task-v83 b,.dialogue-scene-v83 b,.dialogue-scene-v83 small');
   if(instruction){
    if(block.closest('form,details,button,a,[data-no-bridge],[data-bridge-exclude],.test,.exam,.quiz,.translation,.feedback,[lang="nb"],[lang="no"]'))return false;
   }else if(block.closest(skipContext))return false;
@@ -249,7 +298,7 @@
    n.parentNode.replaceChild(replacement,n);
   }
  }
- const selectors='.shell p,.shell li,.shell .ne-coach-hint,.shell .nq-nora-note,.shell .nq-nora-reaction p,.shell [data-bridge-instruction]';
+ const selectors='.shell p,.shell li,.shell .ne-coach-hint,.shell .nq-nora-note,.shell .nq-nora-reaction p,.shell .dialogue-task-v83 b,.shell .dialogue-scene-v83 b,.shell .dialogue-scene-v83 small,.shell [data-bridge-instruction]';
  function process(){
   if(busy||!root||!enabled())return;
   const terms=entries();if(!terms.length)return;
@@ -276,8 +325,8 @@
  function controlHtml(){
   const known=knownWords().length,covered=entries().length,on=enabled();
   return '<section class="card ne-bridge-settings" data-no-bridge>'+
-   '<h3>Språkbro 2.0 · Языковой мост</h3>'+
-   '<p>Знакомые слова постепенно переходят на норвежский в объяснениях и инструкциях Норы. Нажми на слово, чтобы увидеть русский перевод и добавить его в повторение. Подсказки не меняют контрольные тесты.</p>'+
+   '<h3>Språkbro 2.2 · Языковой мост</h3>'+
+   '<p>Изученные слова постепенно заменяют русский в описаниях, заданиях и подсказках. Нажми любое норвежское слово в учебном диалоге для перевода: забытое или новое слово попадёт в повторение. Контрольные тесты остаются самостоятельными.</p>'+
    '<p class="muted">Подтверждено слов: <b>'+known+'</b>. Безопасных замен: <b>'+covered+'</b>. Уровень: <b>'+esc(getState()?.level||'A1')+'</b>. '+
    (covered?'Замены появляются там, где встречается подходящее русское слово.':'По мере закрепления слов доступные замены появятся автоматически.')+'</p>'+
    '<button id="neLanguageBridgeToggle" type="button" class="btn secondary" aria-pressed="'+on+'" onclick="NELanguageBridge.toggle()">'+
@@ -308,7 +357,8 @@
   process();
  }
  window.NELanguageBridge=Object.freeze({controlHtml,toggle,process,segments,queueForgotten,
-  entries,knownWords,extractTranslation,dynamicTerm,isMastered,density,recentPeeks,eligibleBlock});
+  entries,knownWords,extractTranslation,dynamicTerm,isMastered,density,recentPeeks,eligibleBlock,
+  knownNorwegian,queueNorwegianLookup,tapGloss});
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});
  else mount();
 })();

@@ -466,12 +466,12 @@
   // Translate the selected word in its sentence without replacing the learner's answer.
   const wordTranslationsV7=new Map();
   function decorateWordsV7(){
-    document.querySelectorAll('.prompt,.bubble-v7.nora,.daily-example b,.reinforcement-row b,.reinforcement-list b').forEach(container=>{
+    document.querySelectorAll('.prompt,.bubble-v7.nora,.daily-example b,.reinforcement-row b,.reinforcement-list b,.dialogue-scene-v83 p,.dialogue-task-v83 p,.lesson-intro-v6 .dialogue-lead-v83,.lesson-intro-v6 .lesson-words-v6 b,.ne-coach-hint,.nq-nora-note').forEach(container=>{
       const sentence=container.textContent;
       const walker=document.createTreeWalker(container,NodeFilter.SHOW_TEXT),nodes=[];
       while(walker.nextNode()){
         const node=walker.currentNode;
-        if(!node.parentElement.closest('button,a,textarea,input,select,.word-translate-v7'))nodes.push(node);
+        if(!node.parentElement.closest('button,a,textarea,input,select,.word-translate-v7,.ne-bridge-gloss,[data-no-bridge]'))nodes.push(node);
       }
       for(const node of nodes){
         const parts=node.textContent.split(/([A-Za-zÆØÅæøå]+(?:[-’'][A-Za-zÆØÅæøå]+)*)/g);
@@ -506,13 +506,26 @@
     document.body.append(panel);panel.showModal();
     playWord(); // Immediate sound on the original word tap, without waiting for translation.
     const key=word.toLocaleLowerCase('nb')+'|'+sentence,result=panel.querySelector('.word-translation-result-v7');
-    if(wordTranslationsV7.has(key)){result.textContent=wordTranslationsV7.get(key);return}
+    const known=window.NELanguageBridge?.knownNorwegian?.(word);
+    if(known?.translation){
+      const queued=window.NELanguageBridge?.queueForgotten?.(known.lemma);
+      result.textContent=known.translation+(queued?' · добавлено в повторение':'');
+      return;
+    }
+    if(wordTranslationsV7.has(key)){
+      const translation=wordTranslationsV7.get(key);
+      const queued=window.NELanguageBridge?.queueNorwegianLookup?.(word,translation);
+      result.textContent=translation+(queued?' · добавлено в повторение':'');
+      return;
+    }
     try{
-      const response=await neApiPost('/api/chat',{mode:'explain',level:state.level,message:'Переведи только слово «'+word+'» с норвежского на русский в предложении ниже. Кратко: перевод, исходная форма, если отличается. Если это часть устойчивого выражения, поясни его смысл. Не отвечай на задание.',context:sentence.slice(0,1500)});
+      const response=await neApiPost('/api/chat',{mode:'explain',level:state.level,message:'Переведи только слово «'+word+'» с норвежского на русский в предложении ниже. Начни ответ строго со строки ПЕРЕВОД: <одно-три слова по-русски>. Затем кратко укажи исходную форму и контекст, если необходимо. Не решай задание.',context:sentence.slice(0,1500)});
       if(!response.ok)throw new Error('TRANSLATION_FAILED');
       const translation=response.data.explanation_ru||response.data.translation_ru;
       if(!translation)throw new Error('EMPTY_TRANSLATION');
-      wordTranslationsV7.set(key,translation);if(panel.isConnected)result.textContent=translation;
+      wordTranslationsV7.set(key,translation);
+      const queued=window.NELanguageBridge?.queueNorwegianLookup?.(word,translation);
+      if(panel.isConnected)result.textContent=translation+(queued?' · добавлено в повторение':'');
     }catch{if(panel.isConnected)result.textContent='Не удалось получить перевод. Закрой окно и нажми слово ещё раз.'}
   }
   let wordDecorationPendingV7=false;
