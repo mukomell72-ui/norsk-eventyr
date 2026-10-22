@@ -38,9 +38,9 @@
   ['писать','å skrive','skrive'],['пишу','skriver','skrive'],['пишет','skriver','skrive'],
   ['жить','å bo','bo'],['живу','bor','bo'],['живёт','bor','bo'],
   ['понимать','å forstå','forstå'],['понимаю','forstår','forstå'],
-  ['можно','kan','kunne'],['могу','kan','kunne'],['может','kan','kunne'],
+  ['могу','kan','kunne'],['может','kan','kunne'],
   ['хочу','vil','ville'],['хочет','vil','ville'],
-  ['собираться','å skulle','skulle'],['собираюсь','skal','skulle']
+  ['собираюсь','skal','skulle']
  ]);
  const TERMS=FIXED.map(([ru,no,lemma])=>({ru,no,lemma:lemma||no,translation:ru}));
  const getState=()=>window.neLearnerState||null;
