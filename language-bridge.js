@@ -1,162 +1,237 @@
-// Språkbro: safely bridge Russian explanatory prose to mastered Norwegian words.
-// This never changes questions, answers, accessible button labels, or CEFR scores.
+// Språkbro 2.0 — learner-owned dictionary, conservative morphology, accessible on-tap review.
+// Russian task instructions and assessed answers remain unchanged.
 (() => {
  'use strict';
- const TERMS=Object.freeze([
-  {ru:'сегодня',no:'i dag',translation:'сегодня'},
-  {ru:'завтра',no:'i morgen',translation:'завтра'},
-  {ru:'вчера',no:'i går',translation:'вчера'},
-  {ru:'спасибо',no:'takk',translation:'спасибо'},
-  {ru:'работа',no:'jobb',translation:'работа'},
-  {ru:'помощь',no:'hjelp',translation:'помощь'},
-  {ru:'школа',no:'skole',translation:'школа'},
-  {ru:'друг',no:'venn',translation:'друг'},
-  {ru:'хлеб',no:'brød',translation:'хлеб'},
-  {ru:'молоко',no:'melk',translation:'молоко'},
-  {ru:'слово',no:'ord',translation:'слово'},
-  {ru:'дом',no:'hjem',translation:'дом'}
+ // High-confidence invariant translations; every term is activated ONLY if its
+ // Norwegian lemma is actually mastered in this learner's own dictionary/SRS.
+ const FIXED=Object.freeze([
+  ['сегодня','i dag'],['завтра','i morgen'],['вчера','i går'],
+  ['сейчас','nå'],['потом','etterpå'],['позже','senere'],['раньше','før'],
+  ['часто','ofte'],['всегда','alltid'],['иногда','noen ganger'],['никогда','aldri'],
+  ['уже','allerede'],['скоро','snart'],['вместе','sammen'],['тоже','også'],
+  ['здесь','her'],['там','der'],['дома','hjemme'],['домой','hjem'],
+  ['спасибо','takk'],['привет','hei'],['извините','unnskyld'],
+  ['утром','om morgenen'],['вечером','om kvelden'],['ночью','om natten'],
+  ['сегодня вечером','i kveld'],['вчера вечером','i går kveld'],
+  ['следующая неделя','neste uke'],['в понедельник','på mandag'],
+  ['семья','familie'],['дом','hus'],['работа','jobb'],['друг','venn'],
+  ['школа','skole'],['хлеб','brød'],['молоко','melk'],['слово','ord'],
+  ['врач','lege'],['магазин','butikk'],['время','tid'],['книга','bok'],
+  ['автобус','buss'],['город','by'],['машина','bil'],['квартира','leilighet'],
+  ['документ','dokument'],['заявление','søknad'],['срок','frist'],
+  ['письмо','brev'],['встреча','møte'],['курс','kurs'],['учитель','lærer'],
+  ['неделя','uke'],['день','dag'],['час','time'],['язык','språk'],
+  ['кофе','kaffe'],['вода','vann'],['еда','mat'],['ребёнок','barn'],
+  ['завтрак','frokost'],['вечер','kveld'],['ночь','natt'],['утро','morgen'],
+  ['зима','vinter'],['лето','sommer'],['осень','høst'],['весна','vår']
  ]);
- const roots=new WeakMap();
- let root=null,observer=null,busy=false;
- const escapeHtml=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','"':'&quot;'}[c]));
- const key=x=>String(x||'').trim().normalize('NFKC').toLocaleLowerCase('nb-NO')
-  .replace(/^(?:å|en|ei|et)\s+/,'').replace(/[.,!?;:"'()[\]{}]/g,'').replace(/\s+/g,' ');
+ const TERMS=FIXED.map(([ru,no])=>({ru,no,translation:ru})); // compatibility
  const getState=()=>window.neLearnerState||null;
+ const normNo=x=>String(x||'').normalize('NFKC').toLocaleLowerCase('nb-NO').trim()
+  .replace(/^(?:å|en|ei|et)\s+/,'').replace(/[.,!?;:"'()[\]{}]/g,'').replace(/\s+/g,' ');
+ const normRu=x=>String(x||'').normalize('NFKC').toLocaleLowerCase('ru-RU').trim().replace(/\s+/g,' ');
+ const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const cap=(x,min,max)=>Math.max(min,Math.min(max,Number(x)||0));
  const enabled=()=>getState()?.learningV8?.languageBridgeEnabled!==false;
- function entries(){
-  const s=getState();if(!s)return [];
-  const dictionary=Object.values(s.dailyDictionary||{});
-  const srs=Object.values(s.srs||{});
-  return TERMS.filter(term=>{
-   const k=key(term.no);
-   const d=dictionary.find(x=>key(x?.lemma||x?.word)===k);
-   const sr=srs.find(x=>key(x?.word)===k);
-   const provenByDictionary=d&&Number(d.correct)>=2&&Number(d.exposures)>=2&&Number(d.correct)>Number(d.wrong||0);
-   const provenByReview=sr&&Number(sr.stage)>=2&&Number(sr.correct)>=2;
-   return provenByDictionary||provenByReview;
-  }).sort((a,b)=>b.ru.length-a.ru.length);
+ const density=()=>({A1:1,A2:2,B1:3,B2:4})[getState()?.level]||1;
+ let root=null,observer=null,busy=false;
+ const processed=new WeakMap();
+
+ function isMastered(dictionary,srs){
+  const goodDict=dictionary&&Number(dictionary.correct)>=2&&Number(dictionary.exposures)>=2&&
+   Number(dictionary.correct)>Number(dictionary.wrong||0);
+  const strongDict=dictionary&&Number(dictionary.correct)>=1&&Number(dictionary.exposures)>=2&&
+   Number(dictionary.strength)>=65&&Number(dictionary.correct)>=Number(dictionary.wrong||0);
+  const goodSrs=srs&&Number(srs.stage)>=2&&Number(srs.correct)>=2;
+  return !!(goodDict||strongDict||goodSrs);
  }
- const letter=c=>!!c&&/[\p{L}\p{M}]/u.test(c);
- function findNext(text,from,terms){
-  const folded=text.toLocaleLowerCase('ru-RU');let found=null;
-  for(const term of terms){
-   let at=folded.indexOf(term.ru,from);
-   while(at!==-1){
-    const end=at+term.ru.length;
-    if(!letter(text[at-1])&&!letter(text[end])){
-     if(!found||at<found.start||(at===found.start&&term.ru.length>found.term.ru.length))
-      found={term,start:at,end};
-     break;
-    }
-    at=folded.indexOf(term.ru,at+1);
+ function knownWords(){
+  const s=getState(),dict=s?.dailyDictionary||{},reps=s?.srs||{},map=new Map();
+  for(const item of Object.values(dict)){
+   if(!item||typeof item!=='object')continue;
+   const key=normNo(item.lemma||item.word);if(!key)continue;
+   map.set(key,{...map.get(key),dictionary:item});
+  }
+  for(const item of Object.values(reps)){
+   if(!item||typeof item!=='object')continue;
+   const key=normNo(item.word);if(!key)continue;
+   map.set(key,{...map.get(key),srs:item});
+  }
+  return [...map.entries()].filter(([_,value])=>isMastered(value.dictionary,value.srs))
+   .map(([key,value])=>({key,...value}));
+ }
+ function extractTranslation(record){
+  const translation=String(record.translation_ru||record.translation||'').trim().toLocaleLowerCase('ru-RU');
+  // Never guess conjugated Russian/Norwegian forms from a translation with disjunctions.
+  const first=translation.split(/\s*[,;/|]\s*/)[0].replace(/\s*\([^)]*\)\s*$/,'').trim();
+  return /^[а-яё]+(?:\s+[а-яё]+){0,2}$/u.test(first)?first:'';
+ }
+ function dynamicTerm(item){
+  const d=item.dictionary||{},s=item.srs||{};
+  const raw=String(d.lemma||d.word||s.word||'').trim();
+  const no=item.key,translation=extractTranslation(Object.keys(d).length?d:s);
+  if(!translation||!no||!raw)return null;
+  // Only words for which the Russian citation form does not require a
+  // grammatical transformation. Avoid infinitives, adjectives, pronouns,
+  // ambiguous prepositions, and Russian words with inflected endings.
+  const pos=String(d.pos||d.part_of_speech||'').toLowerCase();
+  const noun=/^(?:en|ei|et)\s+\S+/i.test(raw)||/\b(?:noun|substantiv|subst|существ)\b/i.test(pos);
+  const invariant=/\b(?:adverb|adv|interjection|interj|нареч|междомет)\b/i.test(pos);
+  if(!noun&&!invariant)return null;
+  if(noun&&(!/^[а-яё]+$/u.test(translation)||!/^[a-zæøå]+$/iu.test(no)))return null;
+  if(invariant&&(!/^[a-zæøå]+(?:\s+[a-zæøå]+){0,2}$/iu.test(no)))return null;
+  // RU noun endings in obvious declined forms aren't safe to map by lemmas.
+  if(noun&&/(?:а|я|ы|и|е|у|ю|ом|ем|ами|ями|ах|ях)$/u.test(translation)&&
+     !/^(?:семья|работа|школа|книга|машина|вода|еда|неделя|улица|квартира)$/u.test(translation)){
+   // Nominative words ending in these letters can of course be valid; use only
+   // the fixed vetted set for them.
+   return null;
+  }
+  return {ru:translation,no,translation,lemma:raw,source:'dictionary'};
+ }
+ function entries(){
+  const known=knownWords(),allowed=new Set(known.map(x=>x.key)),byKey=new Map(known.map(x=>[x.key,x]));
+  const list=TERMS.filter(x=>allowed.has(normNo(x.no))).map(x=>({...x,
+   lemma:String(byKey.get(normNo(x.no))?.dictionary?.lemma||byKey.get(normNo(x.no))?.srs?.word||x.no),
+   source:'fixed'}));
+  const russian=new Set(list.map(x=>normRu(x.ru)));
+  for(const w of known){
+   const term=dynamicTerm(w);
+   if(term&&!russian.has(normRu(term.ru))){
+    list.push(term);russian.add(normRu(term.ru));
    }
   }
-  return found;
+  // Longest-first: "сегодня вечером" wins over "сегодня".
+  return list.sort((a,b)=>b.ru.length-a.ru.length||a.ru.localeCompare(b.ru,'ru'));
  }
- // Exposed as pure logic for regression tests; only vetted forms may be replaced.
- function segments(text,terms,limit){
-  const out=[];let pos=0,used=0;
-  while(used<limit){
-   const hit=findNext(text,pos,terms);if(!hit)break;
-   if(hit.start>pos)out.push({text:text.slice(pos,hit.start)});
-   out.push({no:hit.term.no,ru:hit.term.translation,source:text.slice(hit.start,hit.end)});
-   used++;pos=hit.end;
+ const letter=c=>!!c&&/[\p{L}\p{M}]/u.test(c);
+ function findNext(text,start,terms){
+  const folded=text.toLocaleLowerCase('ru-RU');let best=null;
+  for(const term of terms){
+   let i=folded.indexOf(normRu(term.ru),start);
+   while(i>=0){
+    const end=i+term.ru.length;
+    if(!letter(text[i-1])&&!letter(text[end])){
+     if(!best||i<best.start||(i===best.start&&end>best.end))best={term,start:i,end};
+     break;
+    }
+    i=folded.indexOf(normRu(term.ru),i+1);
+   }
   }
-  if(pos<text.length)out.push({text:text.slice(pos)});
+  return best;
+ }
+ function segments(text,terms,limit){
+  const out=[];let from=0,used=0;
+  while(used<limit){
+   const hit=findNext(text,from,terms);if(!hit)break;
+   if(hit.start>from)out.push({text:text.slice(from,hit.start)});
+   out.push({no:hit.term.no,ru:hit.term.translation,lemma:hit.term.lemma||hit.term.no,
+    source:text.slice(hit.start,hit.end)});
+   from=hit.end;used++;
+  }
+  if(from<text.length)out.push({text:text.slice(from)});
   return out.length?out:[{text}];
  }
  function queueForgotten(no){
-  const s=getState(),k=key(no),now=Date.now();if(!s||!k)return false;
-  const daily=Object.values(s.dailyDictionary||{}).find(x=>key(x?.lemma||x?.word)===k);
-  const record=Object.values(s.srs||{}).find(x=>key(x?.word)===k);
-  if(!daily&&!record)return false; // Never invent vocabulary records from UI prose.
-  s.wordPracticeQueue=s.wordPracticeQueue||{};
-  s.wordPracticeQueue[k]=now;
-  if(daily){daily.nextDue=now;daily.lastBridgeLookup=new Date(now).toISOString();
-   daily.bridgeLookups=(Number(daily.bridgeLookups)||0)+1;}
-  if(record){record.due=now;}
-  window.saveState?.();
+  const state=getState(),key=normNo(no),now=Date.now();
+  if(!state||!key)return false;
+  const dict=Object.values(state.dailyDictionary||{}).find(x=>normNo(x?.lemma||x?.word)===key);
+  const review=Object.values(state.srs||{}).find(x=>normNo(x?.word)===key);
+  if(!dict&&!review)return false;
+  state.wordPracticeQueue=state.wordPracticeQueue||{};
+  state.wordPracticeQueue[key]=now;
+  if(dict){dict.nextDue=now;dict.lastBridgeLookup=new Date(now).toISOString();
+   dict.bridgeLookups=(Number(dict.bridgeLookups)||0)+1;}
+  if(review)review.due=now;
+  window.saveState?.();return true;
+ }
+ const skipContext='form,details,button,a,input,textarea,select,[contenteditable],'+
+  '.feedback,.prompt,.question,.quiz,.test,.exam,.applied-sheet,.applied-prompt,'+
+  '.choice-list,.translation,.lesson-exercise-v6,.exercise,.lesson-question,'+
+  '.nq-decision-scene,.nq-choice,.lesson-choices,.daily-word-card,'+
+  '[data-no-bridge],[lang="nb"],[lang="no"],[role="alert"]';
+ function eligibleBlock(block){
+  if(!block.closest('.shell')||block.closest(skipContext))return false;
+  if(block.querySelector('button,a,input,textarea,select,[contenteditable]'))return false;
+  // Do not rewrite text already tagged as Norwegian or Russian translations of
+  // graded Norwegian examples. Keep study directions stable.
+  if(block.closest('[data-bridge-exclude]'))return false;
+  if(block.closest('.ne-lesson-coach')&&block.closest('.ne-coach-result,.ne-coach-feedback'))return false;
   return true;
  }
- function skip(element){
-  if(!element.closest('.shell'))return true;
-  if(element.closest('form,details,.feedback,.choice-list,.translation,.prompt,[data-no-bridge]'))return true;
-  if(element.closest('.exercise,.lesson-exercise-v6')&&!element.closest('.ne-lesson-coach'))return true;
-  if(element.querySelector('input,textarea,button,select,[contenteditable],a'))return true;
-  return false;
- }
  function apply(block,terms){
-  if(roots.has(block)||skip(block))return;
-  const limit=({A1:1,A2:2,B1:3,B2:4})[getState()?.level]||1;
-  const walker=document.createTreeWalker(block,NodeFilter.SHOW_TEXT);
-  const texts=[];while(walker.nextNode()){
-   const node=walker.currentNode;
-   if(!node.parentElement?.closest('button,a,code,pre,kbd,[data-no-bridge],.ne-bridge-word'))texts.push(node);
+  if(processed.has(block)||!eligibleBlock(block))return;
+  const limit=density(),nodes=[],walker=document.createTreeWalker(block,NodeFilter.SHOW_TEXT);
+  while(walker.nextNode()){
+   const n=walker.currentNode,p=n.parentElement;
+   if(p&&!p.closest('button,a,code,pre,kbd,[data-no-bridge],[lang="nb"],.ne-bridge-word'))nodes.push(n);
   }
-  let count=0;
-  for(const node of texts){
-   if(count>=limit)break;
-   const parts=segments(node.nodeValue||'',terms,limit-count);
+  let used=0;
+  for(const n of nodes){
+   if(used>=limit)break;
+   const parts=segments(n.nodeValue||'',terms,limit-used);
    if(!parts.some(x=>x.no))continue;
-   if(!roots.has(block))roots.set(block,block.innerHTML);
-   const fragment=document.createDocumentFragment();
+   const replacement=document.createDocumentFragment();
+   if(!processed.has(block))processed.set(block,block.innerHTML);
    for(const part of parts){
-    if(!part.no){fragment.appendChild(document.createTextNode(part.text));continue}
-    const button=document.createElement('button');
-    button.type='button';button.className='ne-bridge-word';button.lang='nb';
-    button.textContent=part.no;
-    button.dataset.neWord=part.no;button.dataset.neTranslation=part.ru;
-    button.setAttribute('aria-label',part.no+' — показать русский перевод');
-    button.setAttribute('aria-expanded','false');
-    fragment.appendChild(button);count++;
+    if(!part.no){replacement.appendChild(document.createTextNode(part.text));continue}
+    const btn=document.createElement('button');btn.type='button';btn.className='ne-bridge-word';
+    btn.lang='nb';btn.textContent=part.no;btn.dataset.neWord=part.lemma||part.no;
+    btn.dataset.neTranslation=part.ru;
+    btn.setAttribute('aria-label',part.no+' — показать перевод и повторить');
+    btn.setAttribute('aria-expanded','false');replacement.appendChild(btn);used++;
    }
-   node.parentNode.replaceChild(fragment,node);
+   n.parentNode.replaceChild(replacement,n);
   }
  }
+ const selectors='.shell p,.shell li,.shell .ne-coach-hint,.shell .nq-nora-note,.shell .nq-nora-reaction p';
  function process(){
   if(busy||!root||!enabled())return;
   const terms=entries();if(!terms.length)return;
-  busy=true;
-  try{for(const p of root.querySelectorAll('.shell p'))apply(p,terms);}
+  busy=true;try{for(const block of root.querySelectorAll(selectors))apply(block,terms);}
   finally{busy=false}
  }
  function restore(){
   if(!root)return;
-  for(const block of root.querySelectorAll('.shell p')){
-   if(roots.has(block)){block.innerHTML=roots.get(block);roots.delete(block)}
+  for(const block of root.querySelectorAll(selectors)){
+   if(processed.has(block)){block.innerHTML=processed.get(block);processed.delete(block)}
   }
  }
  function toggle(){
   const s=getState();if(!s)return;
-  s.learningV8=s.learningV8||{};
-  s.learningV8.languageBridgeEnabled=!enabled();
+  s.learningV8=s.learningV8||{};s.learningV8.languageBridgeEnabled=!enabled();
   window.saveState?.();
-  if(!enabled())restore();else process();
-  const control=document.getElementById('neLanguageBridgeToggle');
-  if(control){
-   control.textContent=enabled()?'Выключить языковой мост':'Включить языковой мост';
-   control.setAttribute('aria-pressed',String(enabled()));
+  if(enabled())process();else restore();
+  const button=document.getElementById('neLanguageBridgeToggle');
+  if(button){
+   button.textContent=enabled()?'Выключить языковой мост':'Включить языковой мост';
+   button.setAttribute('aria-pressed',String(enabled()));
   }
  }
  function controlHtml(){
-  return '<section class="card ne-bridge-settings"><h3>Språkbro · Языковой мост</h3>'+
-   '<p>Знакомые слова постепенно появляются по-норвежски в объяснениях. Нажми на забытое слово — перевод откроется, а слово вернётся в повторение.</p>'+
-   '<button id="neLanguageBridgeToggle" type="button" class="btn secondary" aria-pressed="'+enabled()+'" onclick="NELanguageBridge.toggle()">'+
-   (enabled()?'Выключить языковой мост':'Включить языковой мост')+'</button>'+
-   '</section>';
+  const known=knownWords().length,covered=entries().length,on=enabled();
+  return '<section class="card ne-bridge-settings" data-no-bridge>'+
+   '<h3>Språkbro 2.0 · Языковой мост</h3>'+
+   '<p>Знакомые слова из твоего настоящего словаря появляются по-норвежски в учебных объяснениях и историях. Нажми на слово для перевода и повторения.</p>'+
+   '<p class="muted">Подтверждено слов: <b>'+known+'</b>. Безопасных замен: <b>'+covered+'</b>. Уровень: <b>'+esc(getState()?.level||'A1')+'</b>. '+
+   (covered?'Замены появляются там, где встречается подходящее русское слово.':'По мере закрепления слов доступные замены появятся автоматически.')+'</p>'+
+   '<button id="neLanguageBridgeToggle" type="button" class="btn secondary" aria-pressed="'+on+'" onclick="NELanguageBridge.toggle()">'+
+   (on?'Выключить языковой мост':'Включить языковой мост')+'</button></section>';
  }
  function onClick(event){
   const button=event.target?.closest?.('.ne-bridge-word');
   if(!button||!root?.contains(button))return;
   const wasOpen=button.getAttribute('aria-expanded')==='true';
-  for(const b of root.querySelectorAll('.ne-bridge-word[aria-expanded="true"]')){
-   b.setAttribute('aria-expanded','false');b.nextElementSibling?.classList?.contains('ne-bridge-gloss')&&b.nextElementSibling.remove();
+  for(const current of root.querySelectorAll('.ne-bridge-word[aria-expanded="true"]')){
+   current.setAttribute('aria-expanded','false');
+   if(current.nextElementSibling?.classList.contains('ne-bridge-gloss'))current.nextElementSibling.remove();
   }
   if(wasOpen)return;
-  const remembered=queueForgotten(button.dataset.neWord);
+  const queued=queueForgotten(button.dataset.neWord);
   const gloss=document.createElement('span');gloss.className='ne-bridge-gloss';
   gloss.setAttribute('role','status');gloss.lang='ru';
-  gloss.textContent=button.dataset.neTranslation+(remembered?' · добавлено в повторение':'');
+  gloss.textContent=(button.dataset.neWord!==button.textContent?button.dataset.neWord+' — ':'')+
+   button.dataset.neTranslation+(queued?' · добавлено в повторение':'');
   button.insertAdjacentElement('afterend',gloss);
   button.setAttribute('aria-expanded','true');
  }
@@ -164,11 +239,11 @@
   root=document.getElementById('app');
   if(!root||typeof MutationObserver!=='function')return;
   root.addEventListener('click',onClick);
-  observer=new MutationObserver(()=>process());
-  observer.observe(root,{subtree:true,childList:true});
+  observer=new MutationObserver(()=>process());observer.observe(root,{subtree:true,childList:true});
   process();
  }
- window.NELanguageBridge=Object.freeze({controlHtml,toggle,process,segments,queueForgotten,entries});
+ window.NELanguageBridge=Object.freeze({controlHtml,toggle,process,segments,queueForgotten,
+  entries,knownWords,extractTranslation,dynamicTerm,isMastered});
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});
  else mount();
 })();
