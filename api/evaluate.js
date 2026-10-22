@@ -275,7 +275,7 @@ export default async function handler(req,res){
       const raw=await ask(prompt+(attempt?
         "\nПРЕДЫДУЩИЙ ОТВЕТ НЕ ПРОШЁЛ ПРОВЕРКУ ПО ЦИТАТАМ ИЛИ БАЛЛАМ. Верни только реально существующие фрагменты. Не выдумывай штрафы.":""),
         1200,"none");
-      const grounded=groundAssessment(parseJson(raw),{answer,question,goal:goal||question});
+      const grounded=groundAssessment(parseJson(raw),{answer,question,goal:goal||question,mode});
       if(grounded.ok){verified=grounded.assessment;break}
       validationError=grounded.error;
     }

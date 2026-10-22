@@ -217,7 +217,7 @@ function freeExGuided(l){
  for(let i=0;i<progress.turns.length;i++){
   const turn=progress.turns[i];
   transcript.push('<div class="guided-bubble guided-bubble-user"><small>Ты</small><p lang="nb">'+esc(turn.answer||'')+'</p></div>');
-  transcript.push(actorMessage(scene,scene.steps[i].reply,i));
+  transcript.push(actorMessage(scene,turn.reply||scene.steps[i].reply,i));
  }
  transcript.push('</div>');
  return '<article class="card guided-speaking"><div class="eyebrow">Устная речь · диалог с собеседником</div>'+
@@ -242,18 +242,51 @@ window.freeEx=function(l,mode){
 function neGuidedSpeak(index){
  const d=window.neLessonSession&&ensure(window.neLessonSession.lesson);
  if(!d)return;
- const text=index===-1?d.scene.opening:d.scene.steps[index]?.reply;
+ const text=index===-1?d.scene.opening:(d.progress.turns[index]?.reply||d.progress.pending?.reply||d.scene.steps[index]?.reply);
  if(text&&typeof window.speakText==='function')window.speakText(text,.86);
+}
+
+async function nextSceneReply(l,scene,progress,answer,spoken,index){
+ // The scored answer has ALREADY passed /api/evaluate; a creative reply must
+ // never change the score, course evidence or the fixed next learning objective.
+ if(typeof window.neApiPost!=='function')return null;
+ // A1 name-disclosure and courtesy turns remain authored and predictable.
+ if(normalizeModule(l)==='a1-foundation'&&index<=4)return null;
+ const next=scene.steps[index+1];
+ const history=[{role:'assistant',text:scene.opening}];
+ for(const turn of progress.turns.slice(-5)){
+  history.push({role:'user',text:String(turn.answer||'').slice(0,400)});
+  history.push({role:'assistant',text:String(turn.reply||'').slice(0,400)});
+ }
+ const ac=typeof window.AbortController==='function'?new window.AbortController():null;
+ const timer=ac&&typeof window.setTimeout==='function'?window.setTimeout(()=>ac.abort(),9000):null;
+ try{
+  const r=await window.neApiPost('/api/chat',{
+   message:answer,level:l.level,mode:'roleplay',teacherMode:false,
+   inputSource:spoken?'voice_transcript':'typed_text',
+   topic:String(l.title||scene.scene).slice(0,150),
+   scenario:scene.scene+'. Собеседник: '+scene.actor+'. Ты говоришь от имени собеседника. Ответь естественно на предыдущую реплику, сохраняя согласованную информацию. '+
+    (next?'Одним коротким ответом подготовь следующее действие ученика: '+next.task+'. Не показывай его готовый ответ.':'Вежливо заверши разговор без новых заданий.'),
+   history
+  },ac?{signal:ac.signal}:{});
+  if(!r?.ok||!r.data||r.data.accepted===false||r.data.feedback_status==='unverified')return null;
+  const reply=String(r.data.reply_no||'').trim();
+  // Only one plausible Bokmål turn. Untrusted model markup or Russian replies
+  // fall back to the curated authored turn; no penalty for upstream failures.
+  if(reply.length<8||reply.length>350||/[<>\u0400-\u04ff]/u.test(reply)||!/\p{Script=Latin}/u.test(reply))return null;
+  return reply;
+ }catch{return null}
+ finally{if(timer!==null)window.clearTimeout(timer)}
 }
 async function guidedCheck(){
  const s=window.neLessonSession,l=s?.lesson,d=l&&ensure(l),input=document.getElementById('freeAnswer'),a=input?.value.trim(),box=document.getElementById('freeFb');
  if(!d||!input||!box||!a||s.locked)return;
  const {scene,progress}=d,step=scene.steps[progress.index],spoken=['true','recognition'].includes(String(input.dataset.fromVoice||'')),index=progress.index;
  s.locked=true;box.innerHTML='<div class="feedback">Нора проверяет реплику…</div>';
- const context=progress.index===0?scene.opening:scene.steps[progress.index-1].reply;
+ const context=progress.index===0?scene.opening:(progress.turns[progress.index-1]?.reply||scene.steps[progress.index-1].reply);
  const history=progress.turns.slice(-5).map((t,n,arr)=>{
   const turnIndex=progress.turns.length-arr.length+n;
-  return 'Ученик: '+String(t.answer||'').slice(0,350)+'; '+scene.actor+': '+scene.steps[turnIndex].reply;
+  return 'Ученик: '+String(t.answer||'').slice(0,350)+'; '+scene.actor+': '+String(t.reply||scene.steps[turnIndex].reply).slice(0,350);
  }).join(' | ');
  const question='Сцена: '+scene.scene+'. '+(history?'Предыдущие реплики: '+history+'. ':'')+
   'Собеседник '+scene.actor+' сказал: «'+context+'». Текущее действие ученика: '+step.task;
@@ -279,8 +312,9 @@ async function guidedCheck(){
  '<br><button class="btn secondary" type="button" onclick="neGuidedExplain()">Нора, объясни подробнее</button></div>';
   input.focus();return;
  }
- progress.pending={answer:a,spoken};
- const reply=step.reply;
+ const reply=await nextSceneReply(l,scene,progress,a,spoken,index)||step.reply;
+ if(window.neLessonSession!==s||!box.isConnected||progress.index!==index){s.locked=false;return}
+ progress.pending={answer:a,spoken,reply};
  box.innerHTML='<div class="feedback good"><b>✓ '+(spoken?'Ответ голосом':'Текстовый ответ')+' принят</b>'+
   (e.explanation_ru?'<br>'+esc(e.explanation_ru):'')+'</div>'+
   '<div class="guided-reply">'+actorMessage(scene,reply,index)+'</div>'+
@@ -303,7 +337,7 @@ function neGuidedNext(){
  const s=window.neLessonSession,d=s?.lesson&&ensure(s.lesson);
  if(!d||!s.locked||!d.progress.pending)return;
  const p=d.progress,answer=p.pending.answer,spoken=p.pending.spoken;
- p.turns.push({answer:String(answer).slice(0,700),spoken});
+ p.turns.push({answer:String(answer).slice(0,700),spoken,reply:p.pending.reply||d.scene.steps[p.index].reply});
  p.index++;delete p.pending;delete p.flowNotice;s.locked=false;
  if(p.index>=d.scene.steps.length){
   p.index=d.scene.steps.length-1;

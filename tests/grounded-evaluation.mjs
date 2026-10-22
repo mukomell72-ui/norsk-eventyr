@@ -41,4 +41,7 @@ assert.equal(groundAssessment(result(90,[issue('word_order','I dag jeg møtes',1
 assert.equal(groundAssessment(result(90,[issue('word_order','I dag jeg møtes',10,'Ошибка порядка слов.'),issue('word_order','I dag jeg møtes',10,'Та же ошибка.')]),context).error,'DUPLICATE_ISSUE');
 assert.equal(groundAssessment(result(90,[issue('spelling','morgen',10,'Слово morgen написано неправильно.')]),context).error,'UNGROUNDED_ISSUE',
  'Correctly spelled i morgen must never be penalized even if only morgen was excerpted');
+const speechContext={...context,mode:'speaking_dialogue'};
+assert.equal(groundAssessment(result(90,[issue('spelling','klokka',10,'Ошибка в написании klokka.')]),speechContext).error,'UNGROUNDED_ISSUE','Do not score ASR spelling as a spoken-language error');
+assert.equal(groundAssessment(result(85,[issue('word_order','I dag jeg møtes',15,'В предложении нарушен порядок слов.')]),speechContext).ok,true,'Grounded syntax errors still count in speech transcripts');
 console.log('PASS: grounding rejects invented mørgen, invented uppercase, arbitrary kunne penalty, unquoted task omission and inconsistent deductions; real word-order error preserved');
