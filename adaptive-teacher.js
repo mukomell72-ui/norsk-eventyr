@@ -239,15 +239,26 @@ function learningBlocker(gate){
  if(gate.delayed<4)return 'Не хватает отложенных проверок четырёх навыков.';
  return gate.pass?'Следующий уровень открыт.':'Закрепи грамматику и словарь.';
 }
+// A weekly check counts only a completed independent diagnostic, never a
+// lesson score or the first few answers from an unfinished test.
+function weeklyCheckpoint(state,level,at=new Date()){
+ const completed=(Array.isArray(state?.testHistory)?state.testHistory:[])
+  .filter(x=>x&&x.level===level&&x.complete===true&&Number.isFinite(Date.parse(x.date||'')))
+  .sort((a,b)=>Date.parse(b.date)-Date.parse(a.date));
+ const last=completed[0]||null;
+ const days=last?Math.max(0,Math.floor((at.getTime()-Date.parse(last.date))/86400000)):null;
+ return {due:days===null||days>=7,daysSince:days,nextIn:days===null||days>=7?0:7-days,lastScore:last?.score??null,lastDate:last?.date||''};
+}
 function startAdaptiveTeacher(){
  ensure(state);const mission=nextMission(state),gate=levelGate(state,state.level),p=state.learningV8,attempts=p.attempts.length;
- const m=mission.module,course=window.NECourseMethod,unit=course?.modulePlan(m,state),day=course?.dailyPlan(Math.max(45,state.elite?.dailyMinutes||60),p.levelSkills?.[state.level]),levelStudy=course?.levelPlan(state.level),pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id],reason=(pending?'Есть незавершённое занятие. Продолжим с места остановки. ':mission.reason)+(m?' Цель: '+m.canDo[0]+'.':'');
+ const check=weeklyCheckpoint(state,state.level),m=mission.module,course=window.NECourseMethod,unit=course?.modulePlan(m,state),day=course?.dailyPlan(Math.max(45,state.elite?.dailyMinutes||60),p.levelSkills?.[state.level]),levelStudy=course?.levelPlan(state.level),pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id],reason=(pending?'Есть незавершённое занятие. Продолжим с места остановки. ':mission.reason)+(m?' Цель: '+m.canDo[0]+'.':'');
  shell('<div class="screen-head"><button class="back" onclick="navigate(\'home\')">←</button><div><div class="eyebrow">Адаптивный преподаватель · '+esc(state.level)+'</div><h2 style="margin:0">Нора ведёт занятие</h2></div></div>'+
  '<section class="grid"><article class="card"><div class="eyebrow">Следующий шаг</div><h2>'+esc(pending?.title||m?.title||'Диагностика')+'</h2><p>'+esc(reason)+'</p><div class="row"><span class="tag">'+esc(LABEL[mission.skill]||mission.skill)+'</span><span class="tag">'+(pending?'Продолжение':mission.kind==='review'?'Повторение':'Новый материал')+'</span></div><br><button class="btn" onclick="teacherStartMission()">'+(pending?'Продолжить с места остановки':'Начать занятие')+'</button></article>'+
  '<article class="card"><div class="eyebrow">Допуск к '+esc(state.level)+'</div><h2>'+gate.avg+'% профиль</h2><p class="muted">'+esc(learningBlocker(gate))+' Для перехода нужны четыре навыка и отложенная проверка.</p><div class="metric"><span>Освоено модулей</span><strong>'+gate.mastered+'/'+gate.total+'</strong></div><div class="metric"><span>Отложенных подтверждений</span><strong>'+gate.delayed+'/4</strong></div><div class="metric"><span>Статус</span><strong>'+(gate.pass?'Пройден':'Есть работа')+'</strong></div></article></section>'+
  (course&&unit?'<section class="card" style="margin-top:14px"><div class="eyebrow">Последовательная программа · модуль '+(m.index+1)+'/8</div><h3>'+esc(unit.stageTitle)+'</h3><p><b>Текущая задача:</b> '+esc(unit.objective)+'</p><p class="muted">Грамматика: '+esc(unit.grammar)+'. Лексика: '+esc(unit.lexicon)+'.</p><p class="muted">Учебный цикл внутри модуля: ситуация → понимание → самостоятельная речь/письмо → перенос и отложенная проверка.</p><p class="muted">Планировочный ориентир уровня: '+levelStudy.weeks+' недель при 60 мин × 6 дней; переход определяется результатом, а не календарём.</p></section>':'')+
  (day?'<section class="card" style="margin-top:14px"><div class="eyebrow">Учебный распорядок</div><h3>'+day.minutes+' минут в день · 6 дней в неделю</h3>'+day.parts.map(part=>'<div class="metric"><span>'+esc(part.label)+'</span><strong>'+part.minutes+' мин</strong></div>').join('')+'<p class="muted">Это рекомендуемое распределение нагрузки, не учёт реально проведённых минут. Аудирование и говорение требуют отдельной самостоятельной практики.</p></section>':'')+
  '<div class="section-title"><h2>Профиль навыков</h2></div><section class="card">'+bars(state)+'</section>'+
+ '<section class="card" style="margin-top:14px"><div class="eyebrow">Контроль недели</div><h3>'+(check.due?'Пора проверить знания':'Проверка пока не требуется')+'</h3><p class="muted">'+(check.lastDate?'Последняя завершённая диагностика: '+esc(new Date(check.lastDate).toLocaleDateString('ru-RU'))+' · '+Math.round(Number(check.lastScore)||0)+'/100. ':'Завершённой диагностики уровня пока нет. ')+(check.due?'Пройди самостоятельную проверку четырёх основных навыков без подсказок.':'До следующей рекомендуемой проверки: '+check.nextIn+' дн. ')+'Это тренировочный результат, не официальный Norskprøven.</p><button class="btn secondary" onclick="navigate(\'test\',\''+escJs(state.level)+'\')">Пройти контроль</button></section>'+
  (attempts<8?'<section class="notice" style="margin-top:14px"><b>Пока мало данных.</b> Пройди контроль уровня: после нескольких ответов преподаватель будет выбирать задания точнее. <button class="btn secondary" style="margin-top:10px" onclick="navigate(\'test\',\''+escJs(state.level)+'\')">Диагностика '+esc(state.level)+'</button></section>':'')+
  '<section class="card" style="margin-top:14px"><h3>Как работает преподаватель</h3><p class="muted">Не переводит дальше только за факт прохождения. Он собирает доказательства по аудированию, чтению, письму, речи, грамматике и словарю; возвращает ошибки через интервалы; усложняет контекст; требует самостоятельного ответа и переноса навыка.</p></section>','home');
 }
@@ -332,6 +343,6 @@ async function teacherStartLivingScene(moduleId,dayId,sceneIndex,stageKey){
  return runTeacherMission(selected,{id:dayId,scene:sceneIndex});
 }
 window.teacherStartLivingScene=teacherStartLivingScene;
-window.NEAdaptive={ensure,recordAttempt,assessment,completeLesson,dueReviews,nextMission,levelGate,moduleMastery,skillForStep,errors,moduleMission,highestUnlockedLevel,learningFocus};
+window.NEAdaptive={weeklyCheckpoint,ensure,recordAttempt,assessment,completeLesson,dueReviews,nextMission,levelGate,moduleMastery,skillForStep,errors,moduleMission,highestUnlockedLevel,learningFocus};
 Object.assign(window,{startAdaptiveTeacher,teacherStartMission,teacherStartModule});
 })();
