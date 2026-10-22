@@ -28,7 +28,7 @@ const priorAnswers={...old,opts:['En','To','Tre','Fire'],grammarOpts:['Jeg','Du'
 const repeatAnswers={...fresh,opts:['Fire','Tre','To','En'],grammarOpts:['Vi','Jeg','Han','Du'],listeningOpts:['Bibliotek','Skole','Butikk','Kino']};
 assert.equal(sandbox.helpers.repeatsRecent(repeatAnswers,sandbox.helpers.pastLessonSnippets([priorAnswers])),true,'Two reused choice sets must prompt a new variant');
 const teacher=fs.readFileSync(path.join(root,'adaptive-teacher.js'),'utf8');
-assert(teacher.includes('recentLessons,teacherMode:true'),'Past exercises must actually reach the server');
+assert(teacher.includes('recentLessons,learningLoad,teacherMode:true'),'Past exercises and adaptive load must reach the server');
 const buildLesson=(details)=>({vocab:Array.from({length:6},(_,i)=>['ord'+i,'слово'+i]),
  opts:['En','To','Tre','Fire'],correct:0,grammarOpts:['Jeg','Du','Han','Vi'],grammarCorrect:0,
  listeningQ:'Hva handler lyden om?',listeningOpts:['Jobb','Mat','Hus','Tid'],listeningCorrect:0,
