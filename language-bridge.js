@@ -23,9 +23,26 @@
   ['неделя','uke'],['день','dag'],['час','time'],['язык','språk'],
   ['кофе','kaffe'],['вода','vann'],['еда','mat'],['ребёнок','barn'],
   ['завтрак','frokost'],['вечер','kveld'],['ночь','natt'],['утро','morgen'],
-  ['зима','vinter'],['лето','sommer'],['осень','høst'],['весна','vår']
+  ['зима','vinter'],['лето','sommer'],['осень','høst'],['весна','vår'],
+  // Vetted conjugated forms: only activate if the learner knows the base verb.
+  // This deliberately avoids guessing arbitrary conjugations from a dictionary.
+  ['начать','å begynne','begynne'],['начинать','å begynne','begynne'],
+  ['начинаю','begynner','begynne'],['начинает','begynner','begynne'],
+  ['закончить','å slutte','slutte'],['заканчивать','å slutte','slutte'],
+  ['заканчиваю','slutter','slutte'],['заканчивает','slutter','slutte'],
+  ['работать','å jobbe','jobbe'],['работаю','jobber','jobbe'],['работает','jobber','jobbe'],
+  ['учить','å lære','lære'],['изучать','å lære','lære'],
+  ['учу','lærer','lære'],['изучаю','lærer','lære'],['изучает','lærer','lære'],
+  ['говорить','å snakke','snakke'],['говорю','snakker','snakke'],['говорит','snakker','snakke'],
+  ['читать','å lese','lese'],['читаю','leser','lese'],['читает','leser','lese'],
+  ['писать','å skrive','skrive'],['пишу','skriver','skrive'],['пишет','skriver','skrive'],
+  ['жить','å bo','bo'],['живу','bor','bo'],['живёт','bor','bo'],
+  ['понимать','å forstå','forstå'],['понимаю','forstår','forstå'],
+  ['можно','kan','kunne'],['могу','kan','kunne'],['может','kan','kunne'],
+  ['хочу','vil','ville'],['хочет','vil','ville'],
+  ['собираться','å skulle','skulle'],['собираюсь','skal','skulle']
  ]);
- const TERMS=FIXED.map(([ru,no])=>({ru,no,translation:ru})); // compatibility
+ const TERMS=FIXED.map(([ru,no,lemma])=>({ru,no,lemma:lemma||no,translation:ru}));
  const getState=()=>window.neLearnerState||null;
  const normNo=x=>String(x||'').normalize('NFKC').toLocaleLowerCase('nb-NO').trim()
   .replace(/^(?:å|en|ei|et)\s+/,'').replace(/[.,!?;:"'()[\]{}]/g,'').replace(/\s+/g,' ');
@@ -91,8 +108,8 @@
  }
  function entries(){
   const known=knownWords(),allowed=new Set(known.map(x=>x.key)),byKey=new Map(known.map(x=>[x.key,x]));
-  const list=TERMS.filter(x=>allowed.has(normNo(x.no))).map(x=>({...x,
-   lemma:String(byKey.get(normNo(x.no))?.dictionary?.lemma||byKey.get(normNo(x.no))?.srs?.word||x.no),
+  const list=TERMS.filter(x=>allowed.has(normNo(x.lemma))).map(x=>({...x,
+   lemma:String(byKey.get(normNo(x.lemma))?.dictionary?.lemma||byKey.get(normNo(x.lemma))?.srs?.word||x.lemma),
    source:'fixed'}));
   const russian=new Set(list.map(x=>normRu(x.ru)));
   for(const w of known){
