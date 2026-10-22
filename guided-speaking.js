@@ -273,7 +273,7 @@ async function nextSceneReply(l,scene,progress,answer,spoken,index){
   const reply=String(r.data.reply_no||'').trim();
   // Only one plausible Bokmål turn. Untrusted model markup or Russian replies
   // fall back to the curated authored turn; no penalty for upstream failures.
-  if(reply.length<8||reply.length>350||/[<>\\u0400-\\u04ff]/u.test(reply)||!/\\p{Script=Latin}/u.test(reply))return null;
+  if(reply.length<8||reply.length>350||/[<>\u0400-\u04ff]/u.test(reply)||!/\p{Script=Latin}/u.test(reply))return null;
   return reply;
  }catch{return null}
  finally{if(timer!==null)window.clearTimeout(timer)}
