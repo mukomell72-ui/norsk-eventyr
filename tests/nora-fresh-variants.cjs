@@ -24,15 +24,19 @@ const fresh={...old,dialogueScene:'В библиотеке после работ
  speaking:'Spør bibliotekaren om åpningstiden på lørdag.'};
 assert.equal(sandbox.helpers.repeatsRecent(fresh,snippets),false,'Different sentences in the same course must pass');
 assert.equal(sandbox.helpers.pastLessonSnippets(Array(8).fill(old)).length,5,'Limit history and model input');
+const priorAnswers={...old,opts:['En','To','Tre','Fire'],grammarOpts:['Jeg','Du','Han','Vi'],listeningOpts:['Jobb','Mat','Hus','Tid']};
+const repeatAnswers={...fresh,opts:['Fire','Tre','To','En'],grammarOpts:['Vi','Jeg','Han','Du'],listeningOpts:['Bibliotek','Skole','Butikk','Kino']};
+assert.equal(sandbox.helpers.repeatsRecent(repeatAnswers,sandbox.helpers.pastLessonSnippets([priorAnswers])),true,'Two reused choice sets must prompt a new variant');
 const teacher=fs.readFileSync(path.join(root,'adaptive-teacher.js'),'utf8');
 assert(teacher.includes('recentLessons,teacherMode:true'),'Past exercises must actually reach the server');
-const buildLesson=(details)=>({...details,vocab:Array.from({length:6},(_,i)=>['ord'+i,'слово'+i]),
+const buildLesson=(details)=>({vocab:Array.from({length:6},(_,i)=>['ord'+i,'слово'+i]),
  opts:['En','To','Tre','Fire'],correct:0,grammarOpts:['Jeg','Du','Han','Vi'],grammarCorrect:0,
  listeningQ:'Hva handler lyden om?',listeningOpts:['Jobb','Mat','Hus','Tid'],listeningCorrect:0,
- q:'Hva forstår du fra teksten?'});
+ q:'Hva forstår du fra teksten?',...details});
 async function check(){
  let calls=0;
- const results=[buildLesson(old),buildLesson(fresh),buildLesson(fresh)];
+ const freshChoiceSets={...fresh,opts:['Bok','Kart','Avis','Billett'],grammarOpts:['Jeg søker','Du søker','Vi søker','De søker'],listeningOpts:['Bibliotek','Skole','Butikk','Kino']};
+ const results=[buildLesson(old),buildLesson(freshChoiceSets),buildLesson(freshChoiceSets)];
  sandbox.fetch=async()=>({ok:true,json:async()=>({output:[{content:[{type:'output_text',text:JSON.stringify(results[calls++])}]}]})});
  const res={status(code){this.code=code;return this},json(value){this.body=value;return value}};
  await sandbox.handler({method:'POST',body:{kind:'lesson',level:'A1',teacherMode:true,recentLessons:[old],scenarioVariation:'Новое место'}},res);
@@ -41,7 +45,7 @@ async function check(){
  assert.equal(res.body.phrase,fresh.phrase);
  // Even a reviewer returning old text cannot silently publish a duplicate.
  calls=0;
- const bad=[buildLesson(old),buildLesson(fresh),buildLesson(old)];
+ const bad=[buildLesson(old),buildLesson(freshChoiceSets),buildLesson(old)];
  sandbox.fetch=async()=>({ok:true,json:async()=>({output:[{content:[{type:'output_text',text:JSON.stringify(bad[calls++])}]}]})});
  const rejected={status(code){this.code=code;return this},json(value){this.body=value;return value}};
  await sandbox.handler({method:'POST',body:{kind:'lesson',level:'A1',teacherMode:true,recentLessons:[old]}},rejected);
