@@ -21,7 +21,7 @@ assert.equal(bridge.entries().length,1,'Do not replace newly seen or poorly reca
 assert.equal(bridge.entries()[0].no,'i dag');
 const segments=bridge.segments('Сегодня я учу слово сегодня.',bridge.entries(),1);
 assert.equal(segments.filter(x=>x.no).length,1,'A1 gets only one substitution per paragraph');
-assert.equal(segments.find(x=>x.no).no,'i dag');
+assert.equal(segments.find(x=>x.no).no,'I dag');
 assert.equal(bridge.segments('Посегодняшнему',bridge.entries(),2).some(x=>x.no),false,'Never replace inside an unrelated word');
 assert.equal(bridge.queueForgotten('i dag'),true,'Tapped mastered word is queued');
 assert(state.wordPracticeQueue['i dag']>0&&state.srs.today.due<=Date.now()&&state.dailyDictionary.today.nextDue<=Date.now(),'Both review schedules become due now');
@@ -83,7 +83,7 @@ state.learningV8.bridgeLookupEvents=[];
   await page.addScriptTag({content:source});
   await page.waitForSelector('#prose .ne-bridge-word');
   assert.equal(await page.locator('#prose .ne-bridge-word').count(),1);
-  assert.equal(await page.locator('#prose .ne-bridge-word').innerText(),'i dag');
+  assert.equal(await page.locator('#prose .ne-bridge-word').innerText(),'I dag');
   assert((await page.locator('#graded').innerText()).includes('Сегодня'),'Assessed instruction remains in Russian');
   assert.equal(await page.locator('#dictionary .ne-bridge-word').innerText(),'telefon','A dictionary-only word is inserted in a new prose paragraph');
   assert.equal(await page.locator('#nora .ne-bridge-word').count(),1,'Tutor explanations are translated even inside an exercise container');
