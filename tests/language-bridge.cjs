@@ -146,7 +146,7 @@ state.learningV8.bridgeLookupEvents=[];
   });
   await page.waitForSelector('#workScene .ne-bridge-word');
   assert((await page.locator('#workScene .ne-bridge-word').count())>=2,'The scene description mixes studied Norwegian with Russian');
-  assert((await page.locator('#workScene').innerText()).includes('kollega'),'Scenario includes previously studied Norwegian noun');
+  assert((await page.locator('#workScene').innerText()).toLowerCase().includes('kollega'),'Scenario includes previously studied Norwegian noun');
   await page.locator('#spokenInstruction .ne-bridge-word').filter({hasText:'jobber'}).click();
   assert((await page.locator('#spokenInstruction .ne-bridge-gloss').innerText()).includes('работаешь'),'Tapped conjugation shows Russian meaning');
   const lookup=await page.evaluate(()=>({
