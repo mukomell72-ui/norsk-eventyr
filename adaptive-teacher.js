@@ -291,10 +291,10 @@ async function runTeacherMission(mission,living=null){
  shell('<section class="card loading-card"><div class="spinner"></div><h2>Нора готовит занятие</h2><p class="muted">Цель — '+esc(m.canDo[0])+'. Задания будут подстроены под слабые места, а не случайно сгенерированы.</p></section>','home');
  // Send only brief prior exercise examples: the generator must preserve the skill,
  // but vary sentences and situations instead of replaying completed material.
- const recentKeys=['dialogueScene','dialogueTask','phrase','listeningAudio','read','grammarQ','writing','speaking'];
+ const recentKeys=['dialogueScene','dialogueTask','phrase','listeningAudio','read','grammarQ','writing','speaking','q','listeningQ','opts','grammarOpts','listeningOpts'];
  const recentLessons=Object.values(state.generatedLessons||{}).filter(x=>x?._adaptive?.moduleId===m.id&&x._adaptive.kind!=='archive_replay')
   .sort((a,b)=>String(b._adaptive.startedAt||'').localeCompare(String(a._adaptive.startedAt||''))).slice(0,5)
-  .map(x=>Object.fromEntries(recentKeys.filter(k=>typeof x[k]==='string'&&x[k].trim()).map(k=>[k,x[k].slice(0,260)])));
+  .map(x=>Object.fromEntries(recentKeys.filter(k=>(typeof x[k]==='string'&&x[k].trim())||(Array.isArray(x[k])&&x[k].length===4)).map(k=>[k,Array.isArray(x[k])?x[k].map(v=>String(v).slice(0,120)):x[k].slice(0,260)])));
  const targetProfile=levelProfile(p,mission.level),
  variations=['Другой собеседник, новый повод разговора.','Другая обстановка и непредвиденное уточнение.','Новая причина просьбы и ограничение по времени.','Та же цель, но другая последовательность действий.'],
  revision=(p.modules[m.id]?.completions||0)+(p.modules[m.id]?.attempts||0),
