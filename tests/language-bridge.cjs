@@ -128,7 +128,7 @@ state.learningV8.bridgeLookupEvents=[];
    score:window.neLearnerState.dailyDictionary['å jobbe']?.correct,
    peeks:window.neLearnerState.learningV8.bridgeLookupEvents?.length
   }));
-  assert(lookup.queued>0&&lookup.peeks===1&&lookup.score===5,'Tapped lemma is scheduled for review without mastery credit');
+  assert(lookup.queued>0&&lookup.peeks===2&&lookup.score===5,'Both translation peeks are counted; tapped lemma is scheduled without mastery credit');
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   assert.deepEqual(errors,[]);
   console.log('PASS Språkbro: gradual lesson instructions, natural mastered phrase, adaptive density, protected tests, tap review, opt-out');
