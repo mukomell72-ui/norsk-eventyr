@@ -147,11 +147,12 @@
  }
  const skipContext='form,details,button,a,input,textarea,select,[contenteditable],'+
   '.feedback,.prompt,.question,.quiz,.test,.exam,.applied-sheet,.applied-prompt,'+
-  '.choice-list,.translation,.lesson-exercise-v6,.exercise,.lesson-question,'+
+  '.choice-list,.translation,.lesson-question,'+
   '.nq-decision-scene,.nq-choice,.lesson-choices,.daily-word-card,'+
   '[data-no-bridge],[lang="nb"],[lang="no"],[role="alert"]';
  function eligibleBlock(block){
   if(!block.closest('.shell')||block.closest(skipContext))return false;
+  if(block.closest('.lesson-exercise-v6,.exercise')&&!block.closest('.ne-lesson-coach'))return false;
   if(block.querySelector('button,a,input,textarea,select,[contenteditable]'))return false;
   // Do not rewrite text already tagged as Norwegian or Russian translations of
   // graded Norwegian examples. Keep study directions stable.
