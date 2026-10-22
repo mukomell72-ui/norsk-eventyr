@@ -267,7 +267,7 @@ if(coachSuffix){
  assert(scripts.indexOf('lesson-coach.js')<scripts.indexOf('app.js'),'Tutor must load before the lesson UI');
  assert(app.includes('NELessonCoach?.render(l)'),'Grammar step must mount tutor');
  assert(app.includes('NELanguageBridge?.controlHtml?.()'),'Language bridge must offer an opt-out on the homepage');
- assert(assets.includes('/language-bridge.js?v='+v+coachSuffix),'PWA must precache the language bridge');
+ assert(assets.includes('/language-bridge.js?v='+v+coachSuffix+bridgeSuffix),'PWA must precache the language bridge');
  assert(assets.includes('/cloze-coach.js?v='+v+coachSuffix),'PWA must cache word explanation engine');
  assert(assets.includes('/functional-practice.js?v='+v+coachSuffix),'PWA must cache updated cloze practice');
  assert(assets.includes('/language-bridge.css?v='+v+coachSuffix),'PWA must precache bridge styles');
