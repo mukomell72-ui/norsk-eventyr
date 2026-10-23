@@ -227,7 +227,20 @@ function errors(state,level=state.level){
  const p=ensure(state),scope=LEVEL_ORDER.includes(level)?level:state.level;
  return Object.values(p.patternStats).filter(e=>e&&e.level===scope&&e.severity>0).sort((a,b)=>b.severity-a.severity||b.misses-a.misses).slice(0,6).map(e=>e.tag);
 }
-function reviewWords(state){if(typeof window.neReinforcementWords==='function')return window.neReinforcementWords(12);return[]}
+function reviewWords(state){
+ const difficult=(window.NELanguageBridge?.personalFocus?.(12)||[])
+  .filter(x=>x.difficulty>=25).slice(0,5).map(x=>x.lemma);
+ const familiar=typeof window.neReinforcementWords==='function'?window.neReinforcementWords(12):[];
+ // Weak words enter existing lesson examples and tasks *instead of* adding
+ // a second mandatory review round. Preserve up to seven varied other words.
+ const seen=new Set(),words=[];
+ for(const raw of [...difficult,...familiar]){
+  const word=String(raw||'').trim(),key=word.toLocaleLowerCase('nb-NO').replace(/^(?:å|en|ei|et)\s+/,'');
+  if(!key||seen.has(key))continue;
+  seen.add(key);words.push(word);if(words.length>=12)break;
+ }
+ return words;
+}
 function bars(state){
  const p=ensure(state),profile=levelProfile(p,state.level);return ALL.map(s=>'<div class="metric"><span>'+LABEL[s]+'</span><strong>'+clamp(profile[s])+'%</strong></div><div class="progress"><i style="width:'+clamp(profile[s])+'%"></i></div>').join('');
 }
