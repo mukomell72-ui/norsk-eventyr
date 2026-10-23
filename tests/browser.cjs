@@ -10,6 +10,53 @@ const server=http.createServer(async(req,res)=>{
  for(const route of ['home','course','chat','story','hub','dictionary','daily','review','tests','exam','progress','plan','dictation','grammarlab','pronunciation','listeninglab','cloud','settings','storyjournal','storyside','teacher']){await page.evaluate(route=>navigate(route),route);await page.waitForTimeout(160);assert(await page.locator('#app main').innerText(),route);assert(!await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),route+' overflow')}
  console.log('PASS 21 routes including adaptive teacher');
 
+ // Human Nora experience, exercised through the real authenticated 8.3 UI.
+ const humanPage=await browser.newPage({viewport:{width:390,height:844},serviceWorkers:'block'});
+ const humanErrors=[];humanPage.on('pageerror',e=>humanErrors.push(e.message));
+ await humanPage.goto('http://127.0.0.1:'+server.address().port);
+ await humanPage.waitForFunction(()=>window.NEAccess?.ready()&&window.NEExperience?.homeChoice);
+ await humanPage.evaluate(()=>navigate('home'));
+ assert.equal(await humanPage.locator('.ne-focus-card').count(),1,'Current home must show personal real-world interests');
+ assert.equal(await humanPage.locator('.ne-home-extras').count(),1,'Secondary features stay available');
+ assert.equal(await humanPage.locator('.ne-home-extras').getAttribute('open'),null,
+   'Extra rewards must not crowd the initial lesson screen');
+ await humanPage.locator('.ne-focus-picker summary').click();
+ await humanPage.locator('[data-ne-focus="work"]').click();
+ assert.equal(await humanPage.evaluate(()=>state.learningV8.noraExperience.focus),'work',
+   'Personal scenario preference must be saved in actual login-scoped state');
+ await humanPage.reload();
+ await humanPage.waitForFunction(()=>window.NEAccess?.ready()&&window.NEExperience?.homeChoice);
+ assert.equal(await humanPage.evaluate(()=>state.learningV8.noraExperience.focus),'work',
+   'Personal preference must survive real page reload');
+ await humanPage.evaluate(()=>{
+  const lesson=COURSE.find(x=>x.level==='A1');
+  if(!lesson)throw Error('Missing baseline lesson');
+  state.generatedLessons=state.generatedLessons||{};
+  const id='nora-human-qa-lesson';
+  state.generatedLessons[id]={...lesson,id,title:'Договориться о встрече',
+   dialogueScene:'Коллега ждёт ответа о времени встречи.',
+   dialogueSpeaker:'Коллега по работе',
+   dialogueTask:'Ответь, в какое время ты можешь прийти.'};
+  startLesson(id);
+ });
+ assert.equal(await humanPage.locator('.ne-mission-head').count(),1,
+   'Four-act human lesson context must render in real UI');
+ assert((await humanPage.locator('.ne-mission-head').innerText()).includes('Встречаемся'));
+ await humanPage.locator('.ne-pause-button').click();
+ assert.equal(await humanPage.evaluate(()=>state.activeLesson?.id),'nora-human-qa-lesson',
+   'Pause must preserve the exact active lesson');
+ await humanPage.evaluate(()=>startLesson('nora-human-qa-lesson'));
+ assert.equal(await humanPage.locator('.ne-mission-head').count(),1,'Resume retains mission context');
+ await humanPage.evaluate(()=>NEExperience.openFollowup());
+ assert.equal(await humanPage.evaluate(()=>state.chatPrefs.mode),'roleplay');
+ assert.equal(await humanPage.evaluate(()=>state.chatThreadId),'lesson:nora-human-qa-lesson');
+ assert.equal(await humanPage.locator('.chat-v7').count(),1,
+   'Completed life topic can become a real interactive roleplay thread');
+ assert.deepEqual(humanErrors,[],'New experience must not introduce browser runtime errors');
+ await humanPage.close();
+ console.log('PASS Nora human experience: focus, reload, saved pause, resume and contextual conversation');
+
+
  // 8.3: real Chromium DOM test for third authored listening stage and
  // post-answer transcript. Use a separate page to leave route QA isolated.
  const listeningQA=await browser.newPage({viewport:{width:390,height:844},serviceWorkers:'block'});
