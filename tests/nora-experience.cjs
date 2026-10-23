@@ -83,6 +83,11 @@ assert(ui.includes('NEExperience?.homeChoice?.(state)'),'Real home must show int
 assert(ui.includes('<details class="ne-home-extras">'),'Rewards and secondary cards are optional, not deleted');
 assert(ui.includes('v7QuickHelp'),'Fast help must be reachable on current screen');
 assert(ui.includes('renderChatV7,renderStoryV7'),'Active Nora chat renderer must be exported for integrated lesson follow-up');
+const elite=fs.readFileSync(path.join(root,'elite.js'),'utf8');
+assert(elite.includes('const saved=baseSaveState()')&&elite.includes('return saved;'),
+ 'Achievements layer must preserve the base boolean saveState result');
+assert(elite.includes('if(saved===true)scheduleCloud()'),
+ 'Cloud save must run only after successful local state persistence');
 assert(access.indexOf("'nora-experience.js'")>0&&
  access.indexOf("'nora-experience.js'")<access.indexOf("'app.js'"),
  'Experience script must load before app.js');
