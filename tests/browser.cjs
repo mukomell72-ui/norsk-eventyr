@@ -62,7 +62,11 @@ const server=http.createServer(async(req,res)=>{
   lessonSession.step=7;lessonSession.locked=true;
   state.completed[id]=true;
   if(state.activeLesson?.id===id)delete state.activeLesson;
-  if(!saveState())throw Error('Cannot persist completed lesson for follow-up QA');
+  let payload='';
+  try{payload=JSON.stringify(state)}catch(e){throw Error('QA state JSON serialization: '+e.message)}
+  try{localStorage.setItem('__ne_qa_probe',payload);localStorage.removeItem('__ne_qa_probe')}
+  catch(e){throw Error('QA browser storage: '+e.name+': '+e.message+'; bytes='+payload.length)}
+  if(!saveState())throw Error('Cannot persist completed lesson for follow-up QA; JSON bytes='+payload.length);
  });
  const followupCheck=await humanPage.evaluate(()=>{
   const l=typeof lessonSession==='object'?lessonSession?.lesson:null;
