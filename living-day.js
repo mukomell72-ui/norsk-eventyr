@@ -137,12 +137,13 @@ function lessonPending(s){
 function open(){
  const s=learner(),d=current();clockStart();clockPulse();
  if(!d)return window.navigate?.('teacher');
- if(!d.finished&&window.NELivingWords&&!window.NELivingWords.isReady())return window.NELivingWords.render();
- const info=details(),module=window.NECurriculum?.moduleById(d.moduleId),pacing=window.NECourseMethod?.dailyPlan?.(d.plannedMinutes,s.learningV8?.levelSkills?.[d.level]);
  const pending=lessonPending(s);
- // One tap resumes the saved *same* lesson rather than creating another copy.
+ // A saved checkpoint takes precedence over a fresh vocabulary warm-up.
  if(pending?._adaptive?.livingDayId===d.id&&pending._adaptive?.livingScene===d.scene)
   return window.startLesson?.(pending.id);
+ if(!pending&&!d.finished&&window.NELivingWords&&!window.NELivingWords.isReady())
+  return window.NELivingWords.render();
+ const info=details(),module=window.NECurriculum?.moduleById(d.moduleId),pacing=window.NECourseMethod?.dailyPlan?.(d.plannedMinutes,s.learningV8?.levelSkills?.[d.level]);
  const complete=d.finished===true,oldWork=pending&&pending._adaptive?.livingDayId!==d.id;
  const intro=complete
  ?'На сегодня цель выполнена. Следующий учебный день продолжит маршрут с учётом проверенных навыков.'
@@ -177,13 +178,13 @@ function resumeOlder(){
 function begin(){
  const s=learner(),d=current();clockStart();clockPulse();
  if(!s||!d||d.finished||d.scene>=SCENES)return false;
- if(window.NELivingWords&&!window.NELivingWords.isReady())return window.NELivingWords.render();
  const pending=lessonPending(s);
  if(pending){
   if(pending._adaptive?.livingDayId===d.id&&pending._adaptive?.livingScene===d.scene)
    return window.startLesson?.(pending.id);
   return resumeOlder();
  }
+ if(window.NELivingWords&&!window.NELivingWords.isReady())return window.NELivingWords.render();
  const mission=window.NEAdaptive?.moduleMission(s,d.moduleId);
  if(!mission||mission.blocked||mission.module?.id!==d.moduleId){
   d.feedback='Сначала нужно подтвердить предыдущий модуль или уровень.';

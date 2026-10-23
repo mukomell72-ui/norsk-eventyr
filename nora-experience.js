@@ -28,8 +28,11 @@
  function choose(id){
   if(!OPTIONS.some(x=>x.id===id))return false;
   const state=learner();if(!state)return false;
-  settings(state).focus=id;
-  if(typeof window.saveState==='function'&&!window.saveState())return false;
+  const prefs=settings(state),previous=prefs.focus;
+  prefs.focus=id;
+  let saved=true;
+  try{if(typeof window.saveState==='function')saved=window.saveState()===true}catch{saved=false}
+  if(!saved){prefs.focus=previous;return false}
   const label=document.getElementById('neFocusCurrent');
   if(label)label.textContent=focus(state).label;
   document.querySelectorAll('[data-ne-focus]').forEach(b=>{
@@ -53,7 +56,7 @@
    '</div><p id="neFocusFeedback" role="status" aria-live="polite"></p></details></section>';
  }
  // Four connected story acts, while retaining every underlying assessment.
- let lastLesson=null;
+ let lastLesson=null,lastLessonOwner=null;
  const ACTS=[
   {name:'Встречаемся',note:'Сначала поймём, кто говорит и зачем.'},
   {name:'Разбираемся',note:'Подготовим нужные слова и увидим, как устроена фраза.'},
@@ -82,14 +85,46 @@
   const scene=String(l.dialogueScene||'').trim().slice(0,165);
   return{stage,activity:activity(step,grammar),goal,scene,step,total};
  }
+
+ // Passively revisit actual lesson words across its stages. Passive exposure never
+ // counts as a correct answer, SRS advancement, or CEFR evidence.
+ function wordEncounter(lesson,session){
+  const data=learner(),raw=Array.isArray(lesson?.vocab)?lesson.vocab:[];
+  const normalize=x=>String(x||'').normalize('NFKC').toLocaleLowerCase('nb-NO')
+   .trim().replace(/^(?:en|ei|et|å)\s+/,'').replace(/\s+/g,' ');
+  const seen=new Set(),words=[];
+  for(const pair of raw){
+   if(!Array.isArray(pair)||typeof pair[0]!=='string'||typeof pair[1]!=='string')continue;
+   const no=pair[0].trim().slice(0,90),ru=pair[1].trim().slice(0,100),key=normalize(no);
+   if(!key||!ru||seen.has(key))continue;
+   seen.add(key);
+   const dict=data?.dailyDictionary?.[key]||data?.dailyDictionary?.[no]||{};
+   const q=data?.wordPracticeQueue||{};
+   const due=Number(dict.nextDue)>0&&Number(dict.nextDue)<=Date.now();
+   const priority=(q[key]||q[no]?100:0)+(due?35:0)+Math.min(40,(Number(dict.wrong)||0)*8);
+   words.push({no,ru,key,priority,order:words.length});
+  }
+  if(!words.length)return '';
+  words.sort((a,b)=>b.priority-a.priority||a.order-b.order);
+  const step=Math.max(0,Math.floor(Number(session?.step)||0));
+  const item=words[Math.floor(step/2)%Math.min(3,words.length)];
+  const cues=['Нора напоминает','Вспомни ещё раз','Слово возвращается',
+   'Проверь, узнаёшь ли','Ещё одна встреча со словом','Применяй по смыслу',
+   'Перед разговором вспомни'];
+  return '<p class="ne-mission-word" data-ne-word-encounter="1">'+
+   '<span>'+cues[Math.min(step,cues.length-1)]+':</span> '+
+   '<strong lang="nb">'+safe(item.no)+'</strong> '+
+   '<details><summary>Перевод</summary><span>'+safe(item.ru)+'</span></details></p>';
+ }
  function lessonHeader(lesson,session,total){
   // A completed lesson may be detached from lessonSession by old renderers.
   // Retain only a short non-sensitive reference to the lesson displayed here.
-  if(lesson&&['A1','A2','B1','B2'].includes(lesson.level))lastLesson={
-   id:String(lesson.id||'').slice(0,75),level:lesson.level,
-   title:String(lesson.title||'').slice(0,120),
-   dialogueScene:String(lesson.dialogueScene||'').slice(0,500)
-  };
+  if(lesson&&['A1','A2','B1','B2'].includes(lesson.level)){
+   lastLessonOwner=learner();
+   lastLesson={id:String(lesson.id||'').slice(0,75),level:lesson.level,
+    title:String(lesson.title||'').slice(0,120),
+    dialogueScene:String(lesson.dialogueScene||'').slice(0,500)};
+  }
   const b=brief(lesson,session,total);
   const dots=ACTS.map((a,i)=>'<span class="'+(i<b.stage.index?'done':i===b.stage.index?'now':'')+
    '" title="'+safe(a.name)+'"></span>').join('');
@@ -99,6 +134,7 @@
    '<p>'+safe(b.activity)+'. '+safe(b.stage.note)+'</p></div>'+
    '<button type="button" class="ne-pause-button" onclick="NEExperience.pause()">Пауза</button></div>'+
    (b.scene&&b.step>0?'<p class="ne-mission-story">В нашей истории: '+safe(b.scene)+'</p>':'')+
+    wordEncounter(lesson,session)+
    '<div class="ne-mission-track" aria-label="Этап '+(b.stage.index+1)+' из 4">'+dots+'</div>'+
    '<details class="ne-mission-purpose"><summary>Зачем это нужно?</summary><p>'+safe(b.goal)+
    (b.scene?'<span> Ситуация: '+safe(b.scene)+'</span>':'')+'</p></details>'+
@@ -106,9 +142,15 @@
  }
  function response(ok,kind){
   const subject=kind==='speaking'?'разговор':kind==='writing'?'письмо':kind==='dialogue'?'диалог':'задание';
+  const step=typeof lessonSession==='object'?Math.max(0,Number(lessonSession?.step)||0):0;
+  const replies=kind==='speaking'
+   ?['Ответ понятен. Дальше попробуем сказать то же более самостоятельно.','Ты выразил мысль. Продолжим беседу в новой ситуации.']
+   :kind==='writing'
+   ?['Твоя мысль передана письменно. В следующем шаге попробуем другой контекст.','С письменным ответом справился. Теперь перенесём идею в жизнь.']
+   :['Ответ подходит к ситуации. Посмотрим, как она развивается.','Это верный выбор. Следующая реплика потребует нового решения.'];
   return ok
-    ?'<p class="ne-human-response">Смысл передан. Двигаемся дальше: попробуем ту же идею в другой ситуации.</p>'
-    :'<p class="ne-human-response">В этом '+subject+' есть что поправить. Разберём одну важную ошибку и попробуем ещё раз.</p>';
+   ?'<p class="ne-human-response">'+replies[step%replies.length]+'</p>'
+   :'<p class="ne-human-response">В этом '+subject+' есть что поправить. Разберём одну важную ошибку и попробуем ещё раз.</p>';
  }
  function endNote(lesson,verified){
   const title=safe(String(lesson?.title||'текущую тему').slice(0,90));
@@ -117,16 +159,24 @@
      'Ты прошёл тему «'+title+'», но часть ответов ещё требует практики. Нора вернёт трудные места в следующих занятиях.')+
     '</p></div>';
  }
+
  function openFollowup(){
+  const data=learner();
+  // Never carry module-scoped lesson references into another learner's account.
+  if(!data||lastLessonOwner!==data)return false;
   const sessionLesson=typeof lessonSession==='object'&&lessonSession?.lesson;
   const lesson=sessionLesson||lastLesson;
-  const data=learner();
-  if(!lesson||!data||!['A1','A2','B1','B2'].includes(lesson.level))return false;
+  if(!lesson||!['A1','A2','B1','B2'].includes(lesson.level))return false;
+  const before={};
+  for(const k of ['chatThreads','chatThreadId','chatHistory','chatPrefs'])
+   before[k]={present:Object.prototype.hasOwnProperty.call(data,k),value:data[k]};
   const id='lesson:'+String(lesson.id||'unknown').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,70);
-  data.chatThreads=data.chatThreads&&typeof data.chatThreads==='object'?data.chatThreads:{};
-  data.chatThreads[data.chatThreadId||'general']=Array.isArray(data.chatHistory)?data.chatHistory:[];
+  const threads=data.chatThreads&&typeof data.chatThreads==='object'&&!Array.isArray(data.chatThreads)
+   ?{...data.chatThreads}:{};
+  threads[data.chatThreadId||'general']=Array.isArray(data.chatHistory)?data.chatHistory:[];
+  data.chatThreads=threads;
   data.chatThreadId=id;
-  data.chatHistory=Array.isArray(data.chatThreads[id])?data.chatThreads[id]:[];
+  data.chatHistory=Array.isArray(threads[id])?threads[id]:[];
   const title=String(lesson.title||'Жизненная ситуация').slice(0,120),
    scene=String(lesson.dialogueScene||'').slice(0,500);
   data.chatPrefs={...(data.chatPrefs||{}),mode:'roleplay',level:lesson.level,
@@ -134,13 +184,15 @@
    sceneContext:'Новая короткая жизненная ситуация по изученной теме. '+
     (scene?scene+' ':'')+'Продолжи настоящую беседу, но не повторяй дословно пройденное задание. '+
     'Ученик сам выбирает реплику. Не сообщай готовый ответ.'};
-  if(typeof window.saveState==='function'&&!window.saveState())return false;
+  let saved=true;
+  try{if(typeof window.saveState==='function')saved=window.saveState()===true}catch{saved=false}
+  if(!saved){
+   for(const [k,previous] of Object.entries(before)){
+    if(previous.present)data[k]=previous.value;else delete data[k];
+   }
+   return false;
+  }
   if(typeof window.navigate==='function')window.navigate('chat');
-  // The layered v3/v7/v8 routers may handle the same route differently.
-  // Guarantee the current chat renderer is mounted before attempting AI chat.
-  // The legacy auto-start resets chatHistory and re-renders the old chat.
-  // Show the current V7 conversation directly; the learner can start when
-  // ready without losing an existing thread or changing the lesson score.
   if(typeof window.renderChatV7==='function')window.renderChatV7();
   return true;
  }
@@ -148,5 +200,5 @@
   if(typeof window.persistLessonCheckpoint==='function')window.persistLessonCheckpoint();
   if(typeof window.navigate==='function')window.navigate('home');
  }
- window.NEExperience=Object.freeze({focus,settings,choose,homeChoice,brief,lessonHeader,response,endNote,pause,openFollowup,act,activity});
+ window.NEExperience=Object.freeze({focus,settings,choose,homeChoice,brief,lessonHeader,wordEncounter,response,endNote,pause,openFollowup,act,activity});
 })();
