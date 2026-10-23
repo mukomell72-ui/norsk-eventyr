@@ -82,7 +82,15 @@
     return baseNavigate(view,data);
   };
 
-  saveState=window.saveState=function(){baseSaveState();refreshAchievements(false);scheduleCloud()};
+  // Keep the boolean persistence contract established by app.js.
+  // Previously this wrapper returned undefined, so other features treated a
+  // successful save as failure and refused to open contextual conversations.
+  saveState=window.saveState=function(){
+    refreshAchievements(false);
+    const saved=baseSaveState();
+    if(saved===true)scheduleCloud();
+    return saved;
+  };
 
   if(baseSendChat){
     sendChat=window.sendChat=async function(){const before=(state.chatHistory||[]).length;await baseSendChat();if((state.chatHistory||[]).length>before)markActivity("conversation")};
