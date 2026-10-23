@@ -58,11 +58,11 @@ assert.equal(a.user.chatPrefs.mode,'roleplay','Continuation is unscripted life d
 assert.equal(a.user.chatPrefs.level,'A1','Skill level stays anchored to the lesson');
 assert(a.user.chatPrefs.sceneContext.includes('Коллега хочет встретиться'),'Nora gets the actual story context');
 assert.equal(a.log.route.at(-1),'chat');
-assert.equal(a.log.starter,1,'A new story starts an appropriate Nora turn');
+assert.equal(a.log.starter,0,'Entering a story conversation does not auto-reset or force an AI reply');
 assert.equal(b.user.chatThreadId,undefined,'Learner B never receives A thread');
 a.user.chatHistory=[{role:'assistant',text:'Hei'}];a.user.chatThreads[a.user.chatThreadId]=a.user.chatHistory;
 assert.equal(E.openFollowup(),true,'Existing story chat can be resumed');
-assert.equal(a.log.starter,1,'A resumed chat does not restart the introduction');
+assert.equal(a.log.starter,0,'A resumed chat never resets its history');
 E.pause();
 assert.equal(a.log.paused,1,'Pause persists existing lesson checkpoint');
 assert.equal(a.log.route.at(-1),'home');
