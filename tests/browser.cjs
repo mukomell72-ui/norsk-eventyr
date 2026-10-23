@@ -66,6 +66,8 @@ const server=http.createServer(async(req,res)=>{
  }));
  assert.equal(await humanPage.locator('.chat-v7').count(),1,
    'Completed life topic can become a real interactive roleplay thread: '+JSON.stringify({chatSnapshot,humanErrors}));
+ assert.equal(await humanPage.locator('.chat-welcome-v7').count(),1,
+   'Learner should choose when to begin the life-situation conversation');
  assert.deepEqual(humanErrors,[],'New experience must not introduce browser runtime errors');
  await humanPage.close();
  console.log('PASS Nora human experience: focus, reload, saved pause, resume and contextual conversation');
