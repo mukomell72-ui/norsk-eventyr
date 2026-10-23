@@ -477,7 +477,7 @@
   window.renderChat=renderChatV7;
   window.renderHub=renderHubV7;
   window.renderStoryWorld=renderStoryV7;
-  Object.assign(window,{v7ContinueToday,v7Step,v7Toggle,v7ChatSettings,v7ChatPref,v7UseTopic,v7ChatKey,v7SendChat,v7StartChat,v7ClearChat,v7OpenPlace,v7XpMission,renderStoryV7});
+  Object.assign(window,{v7ContinueToday,v7Step,v7Toggle,v7ChatSettings,v7ChatPref,v7UseTopic,v7ChatKey,v7SendChat,v7StartChat,v7ClearChat,v7OpenPlace,v7XpMission,renderChatV7,renderStoryV7});
   // Translate the selected word in its sentence without replacing the learner's answer.
   const wordTranslationsV7=new Map();
   function decorateWordsV7(){
