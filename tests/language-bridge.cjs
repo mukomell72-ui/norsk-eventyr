@@ -77,7 +77,7 @@ for(const [id,lemma] of [
 }
 const learned=bridge.entries(),phrase=bridge.segments('Сегодня ты работаешь.',learned,3);
 assert.equal(phrase.filter(x=>x.no).map(x=>x.no).join(' '),'I dag jobber du','Mastered whole phrase uses correct Bokmål inversion');
-assert.equal(bridge.segments('Сегодня ты работаешь.',learned,2).filter(x=>x.no).map(x=>x.no).join(' '),'I dag jobber','Under small load, use independent known words instead of a broken multiword phrase');
+assert.equal(bridge.segments('Сегодня ты работаешь.',learned,2).filter(x=>x.no).map(x=>x.no).join(' '),'du jobber','Under small load, use an intact mastered Bokmål clause rather than a broken multiword phrase');
 assert(learned.some(x=>x.ru==='ответь'&&x.no==='svar'),'Known imperative is used, not a present-tense form');
 assert(learned.some(x=>x.ru==='можешь'&&x.no==='kan'),'Previously learned modal may appear in mixed directions');
 assert(learned.some(x=>x.ru==='коллега'&&x.no==='kollega'),'Workplace scene uses a studied colleague noun');
