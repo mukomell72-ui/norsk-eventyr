@@ -1,4 +1,4 @@
-// Språkbro 2.2 — graded bilingual reading with touch-to-translate and review.
+// Språkbro 2.3 — personalized graded bilingual learning and difficult-word reinforcement.
 // Never change test questions, answers or unlearned vocabulary; taps queue review.
 (() => {
  'use strict';
@@ -35,6 +35,10 @@
   ['учу','lærer','lære'],['изучаю','lærer','lære'],['изучает','lærer','lære'],
   ['говорить','å snakke','snakke'],['говорю','snakker','snakke'],['говорит','snakker','snakke'],
   ['говори','snakk','snakke'],['ответь','svar','svare'],['скажи','si','si'],
+  ['напиши','skriv','skrive'],['расскажи','fortell','fortelle'],['используй','bruk','bruke'],
+  ['план','plan','plan'],['предложение','setning','setning'],['предложения','setninger','setning'],
+  ['вопрос','spørsmål','spørsmål'],['слова','ord','ord'],['действия','handlinger','handling'],
+  ['ещё','mer','mer'],['начинаешь','begynner','begynne'],['заканчиваешь','slutter','slutte'],
   ['работаешь','jobber','jobbe'],['работаете','jobber','jobbe'],
   ['спрашивает','spør','spørre'],['спроси','spør','spørre'],
   ['коллега','kollega','kollega'],['когда','når','når'],
@@ -140,22 +144,57 @@
   }
   return {ru:translation,no,translation,lemma:raw,source:'dictionary'};
  }
+ // An individual word's difficulty comes from this account's own scored
+ // recalls and lookups. Passive appearances never increase mastery.
+ function difficulty(item){
+  const d=item?.dictionary||{},r=item?.srs||{},state=getState(),key=item?.key||'';
+  const wrong=Math.max(0,Number(d.wrong)||0),right=Math.max(0,Number(d.correct)||0);
+  const peeks=Math.max(0,Number(d.bridgeLookups)||0),strength=Number(d.strength);
+  const due=(Number(d.nextDue)||Number(r.due)||Infinity)<=Date.now()||!!state?.wordPracticeQueue?.[key];
+  const stage=Math.max(0,Number(r.stage)||0);
+  return Math.min(115,Math.round(
+   Math.min(45,wrong*12)+Math.min(30,peeks*9)+(due?17:0)+
+   (Number.isFinite(strength)?Math.max(0,65-strength)*.22:0)+
+   Math.max(0,3-stage)*3+Math.max(0,wrong-right)*4));
+ }
+ // Separate learned words eligible for language mixing from the weaker words
+ // included in Norwegian practice. Never mislabel an unseen lookup as learned.
+ function personalFocus(limit=12){
+  const state=getState(),map=new Map();
+  for(const [source,items] of [['dictionary',Object.values(state?.dailyDictionary||{})],['srs',Object.values(state?.srs||{})]]){
+   for(const item of items){
+    const key=normNo(item?.lemma||item?.word);if(!key)continue;
+    map.set(key,{key,...map.get(key),[source]:item});
+   }
+  }
+  const rows=[...map.values()].filter(x=>
+   (Number(x.dictionary?.exposures)>=2||Number(x.srs?.seen)>=2||
+    Number(x.dictionary?.bridgeLookups)>0||Number(x.dictionary?.wrong)>0)
+   &&/^[a-zæøå]+(?:[\s'-][a-zæøå]+)*$/iu.test(String(x.dictionary?.lemma||x.srs?.word||'')))
+   .map(x=>({lemma:String(x.dictionary?.lemma||x.srs?.word||'').slice(0,55),
+      translation:String(x.dictionary?.translation_ru||x.srs?.translation||'').slice(0,75),
+      difficulty:difficulty(x),mastered:isMastered(x.dictionary,x.srs)}))
+   .filter(x=>x.translation&&x.lemma)
+   .sort((a,b)=>b.difficulty-a.difficulty||a.lemma.localeCompare(b.lemma,'nb'));
+  return rows.slice(0,Math.max(0,Math.min(18,Number(limit)||12)));
+ }
  function entries(){
   const known=knownWords(),allowed=new Set(known.map(x=>x.key)),byKey=new Map(known.map(x=>[x.key,x]));
   const list=TERMS.filter(x=>allowed.has(normNo(x.lemma))).map(x=>({...x,
    lemma:String(byKey.get(normNo(x.lemma))?.dictionary?.lemma||byKey.get(normNo(x.lemma))?.srs?.word||x.lemma),
-   source:'fixed'}));
+   source:'fixed',priority:difficulty(byKey.get(normNo(x.lemma)))}));
   for(const phrase of PHRASES){
    if(phrase.pieces.every(p=>allowed.has(normNo(p[1])))){
     list.push({ru:phrase.ru,no:phrase.pieces.map(p=>p[0]).join(' '),pieces:phrase.pieces,
-     translation:phrase.ru,lemma:phrase.pieces[0][1],source:'phrase'});
+     translation:phrase.ru,lemma:phrase.pieces[0][1],source:'phrase',
+     priority:Math.max(...phrase.pieces.map(p=>difficulty(byKey.get(normNo(p[1])))))});
    }
   }
   const russian=new Set(list.map(x=>normRu(x.ru)));
   for(const w of known){
    const term=dynamicTerm(w);
    if(term&&!russian.has(normRu(term.ru))){
-    list.push(term);russian.add(normRu(term.ru));
+    list.push({...term,priority:difficulty(w)});russian.add(normRu(term.ru));
    }
   }
   // Longest-first: "сегодня вечером" wins over "сегодня".
@@ -178,9 +217,39 @@
   return best;
  }
  function segments(text,terms,limit){
-  const out=[];let from=0,used=0;
-  while(used<limit){
-   const hit=findNext(text,from,terms.filter(t=>(t.pieces?.length||1)<=limit-used));if(!hit)break;
+  const max=Math.max(0,Math.min(18,Math.floor(Number(limit)||0))),out=[];
+  if(!max||!terms.length)return[{text}];
+  const lower=String(text).toLocaleLowerCase('ru-RU'),hits=[];
+  for(const term of terms){
+   const cost=term.pieces?.length||1;if(cost>max)continue;
+   const token=normRu(term.ru);if(!token)continue;
+   let from=0,seen=0;
+   while(seen<7&&from<lower.length){
+    const start=lower.indexOf(token,from);if(start<0)break;
+    const end=start+term.ru.length;
+    if(!letter(text[start-1])&&!letter(text[end])){
+     hits.push({start,end,cost,term,score:Number(term.priority)||0});
+     seen++;
+    }
+    from=start+Math.max(1,token.length);
+   }
+  }
+  const selected=[],usage=new Map();let slots=max;
+  // Prefer a weak, due, or repeatedly peeked word wherever it appears in the
+  // sentence, not simply the first easy word. A complete phrase is atomic.
+  hits.sort((a,b)=>(b.score+(b.cost>1?30:0))-(a.score+(a.cost>1?30:0))||
+   a.start-b.start||b.cost-a.cost);
+  for(const hit of hits){
+   if(hit.cost>slots||selected.some(x=>hit.start<x.end&&hit.end>x.start))continue;
+   const lemmas=hit.term.pieces?hit.term.pieces.map(x=>normNo(x[1])):[normNo(hit.term.lemma)];
+   if(lemmas.some(k=>(usage.get(k)||0)>=2))continue;
+   selected.push(hit);slots-=hit.cost;
+   for(const k of lemmas)usage.set(k,(usage.get(k)||0)+1);
+   if(!slots)break;
+  }
+  selected.sort((a,b)=>a.start-b.start);
+  let from=0;
+  for(const hit of selected){
    if(hit.start>from)out.push({text:text.slice(from,hit.start)});
    if(hit.term.pieces){
     hit.term.pieces.forEach(([no,lemma,ru],i)=>{
@@ -188,13 +257,10 @@
      const upper=i===0&&/^[А-ЯЁ]/u.test(text[hit.start]);
      out.push({no:upper?no[0].toLocaleUpperCase('nb-NO')+no.slice(1):no,lemma,ru,source:ru});
     });
-    used+=hit.term.pieces.length;
    }else{
-    const capFirst=/^[А-ЯЁ]/u.test(text[hit.start]);
-    const rendered=capFirst?hit.term.no[0].toLocaleUpperCase('nb-NO')+hit.term.no.slice(1):hit.term.no;
-    out.push({no:rendered,ru:hit.term.translation,lemma:hit.term.lemma||hit.term.no,
-     source:text.slice(hit.start,hit.end)});
-    used++;
+    const upper=/^[А-ЯЁ]/u.test(text[hit.start]),no=hit.term.no;
+    out.push({no:upper?no[0].toLocaleUpperCase('nb-NO')+no.slice(1):no,
+     ru:hit.term.translation,lemma:hit.term.lemma||no,source:text.slice(hit.start,hit.end)});
    }
    from=hit.end;
   }
@@ -325,8 +391,8 @@
  function controlHtml(){
   const known=knownWords().length,covered=entries().length,on=enabled();
   return '<section class="card ne-bridge-settings" data-no-bridge>'+
-   '<h3>Språkbro 2.2 · Языковой мост</h3>'+
-   '<p>Изученные слова постепенно заменяют русский в описаниях, заданиях и подсказках. Нажми любое норвежское слово в учебном диалоге для перевода: забытое или новое слово попадёт в повторение. Контрольные тесты остаются самостоятельными.</p>'+
+   '<h3>Språkbro 2.3 · Языковой мост</h3>'+
+   '<p>Каждому ученику — свой языковой мост: знакомые норвежские слова входят прямо в задания и описания, а трудные возвращаются чаще в новых ситуациях. Перевод по нажатию ставит слово на повторение без дополнительных обязательных заданий.</p>'+
    '<p class="muted">Подтверждено слов: <b>'+known+'</b>. Безопасных замен: <b>'+covered+'</b>. Уровень: <b>'+esc(getState()?.level||'A1')+'</b>. '+
    (covered?'Замены появляются там, где встречается подходящее русское слово.':'По мере закрепления слов доступные замены появятся автоматически.')+'</p>'+
    '<button id="neLanguageBridgeToggle" type="button" class="btn secondary" aria-pressed="'+on+'" onclick="NELanguageBridge.toggle()">'+
@@ -358,7 +424,7 @@
  }
  window.NELanguageBridge=Object.freeze({controlHtml,toggle,process,segments,queueForgotten,
   entries,knownWords,extractTranslation,dynamicTerm,isMastered,density,recentPeeks,eligibleBlock,
-  knownNorwegian,queueNorwegianLookup,tapGloss});
+  knownNorwegian,queueNorwegianLookup,tapGloss,personalFocus,difficulty});
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});
  else mount();
 })();
