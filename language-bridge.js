@@ -343,7 +343,9 @@
    if(block.closest('form,details,button,a,[data-no-bridge],[data-bridge-exclude],.test,.exam,.quiz,.translation,.feedback,[lang="nb"],[lang="no"]'))return false;
   }else if(block.closest(skipContext))return false;
   if(block.closest('.lesson-exercise-v6,.exercise')&&!instruction&&!block.closest('.ne-lesson-coach'))return false;
-  if(block.querySelector('button,a,input,textarea,select,[contenteditable]'))return false;
+  // Inline Norwegian translations have already been wrapped as word buttons.
+  // They are not answer controls: keep converting surrounding Russian text.
+  if(block.querySelector('button:not(.word-translate-v7),a,input,textarea,select,[contenteditable]'))return false;
   // Do not rewrite text already tagged as Norwegian or Russian translations of
   // graded Norwegian examples. Keep study directions stable.
   if(block.closest('[data-bridge-exclude]'))return false;
@@ -363,7 +365,10 @@
    const parts=segments(n.nodeValue||'',terms,limit-used);
    if(!parts.some(x=>x.no))continue;
    const replacement=document.createDocumentFragment();
-   if(!processed.has(block))processed.set(block,block.innerHTML);
+   // Store each original text node, preserving listeners on the already
+   // installed Norwegian translation buttons when Språkbro is switched off.
+   if(!processed.has(block))processed.set(block,[]);
+   const host=document.createElement('span');host.className='ne-bridge-fragment';
    for(const part of parts){
     if(!part.no){replacement.appendChild(document.createTextNode(part.text));continue}
     const btn=document.createElement('button');btn.type='button';btn.className='ne-bridge-word';
@@ -372,7 +377,9 @@
     btn.setAttribute('aria-label',part.no+' — показать перевод и повторить');
     btn.setAttribute('aria-expanded','false');replacement.appendChild(btn);used++;
    }
-   n.parentNode.replaceChild(replacement,n);
+   host.appendChild(replacement);
+   n.parentNode.replaceChild(host,n);
+   processed.get(block).push([host,n]);
   }
  }
  const selectors='.shell p,.shell li,.shell .ne-coach-hint,.shell .nq-nora-note,.shell .nq-nora-reaction p,.shell .dialogue-task-v83 b,.shell .dialogue-scene-v83 b,.shell .dialogue-scene-v83 small,.shell [data-bridge-instruction]';
@@ -385,7 +392,13 @@
  function restore(){
   if(!root)return;
   for(const block of root.querySelectorAll(selectors)){
-   if(processed.has(block)){block.innerHTML=processed.get(block);processed.delete(block)}
+   const originals=processed.get(block);
+   if(originals){
+    for(const [wrapper,textNode] of originals){
+     if(wrapper.parentNode)wrapper.parentNode.replaceChild(textNode,wrapper);
+    }
+    processed.delete(block);
+   }
   }
  }
  function toggle(){
