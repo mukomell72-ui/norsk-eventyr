@@ -153,7 +153,7 @@ assert(overloaded.api.segments(sameInstruction,overloaded.api.entries(),4).some(
   // Regression reproducing the real A1 writing screen with NO mastered words.
   // Inline Norwegian translation buttons are already present before the bridge.
   const fresh=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});
-  await fresh.setContent('<html lang="ru"><body><main id="app"><div class="shell">'+
+  await fresh.setContent('<html lang="ru"><body><main id="app"><div class="shell-v7">'+
    '<div class="exercise"><div class="prompt" id="a1Writing" data-bridge-instruction="true">'+
    'Напиши короткий план на один день: назови день, два времени и два действия. Используй '+
    '<button class="word-translate-v7" id="existingLevelNorwegian">minst</button> '+
@@ -173,6 +173,8 @@ assert(overloaded.api.segments(sameInstruction,overloaded.api.entries(),4).some(
   const firstTimeWords=await fresh.locator('#a1Writing .ne-bridge-word').allTextContents();
   for(const word of ['Skriv','si','dag'])
    assert(firstTimeWords.includes(word),'Level A1 must put '+word+' DIRECTLY in writing task with an empty word history');
+  assert.equal(await fresh.locator('#a1Writing .ne-bridge-word').count(),3,
+   'Current v7 shell must receive exactly three directly embedded Bokmål words at A1');
   assert.equal(await fresh.locator('#scoredA1 .ne-bridge-word').count(),0,
    'A1 graded questions stay unmodified for an unpractised learner');
   assert.equal(await fresh.locator('#a2Only .ne-bridge-word').count(),0,
