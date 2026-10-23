@@ -318,6 +318,12 @@ async function runTeacherMission(mission,living=null){
  // The generator receives only short word/gloss pairs and measured difficulty:
  // no identity, email, or full history is sent with these preferences.
  const bridgeWords=window.NELanguageBridge?.personalFocus?.(16)||[];
+ // Small teacher-instruction vocabulary is based on the actual mission CEFR
+ // level, not just on which words happen to have mastery evidence.
+ const bridgeLevelWords=(window.NELanguageBridge?.levelEntries?.(mission.level)||[])
+  .sort((a,b)=>(b.level===mission.level?1:0)-(a.level===mission.level?1:0)||
+   (Number(b.priority)||0)-(Number(a.priority)||0))
+  .slice(0,12).map(x=>({word:x.no,ru:x.translation,level:x.level}));
  const bridgeLearned=bridgeWords.filter(x=>x.mastered).slice(0,10)
   .map(x=>({word:x.lemma,ru:x.translation,weight:x.difficulty,mastered:true}));
  const bridgeDifficult=bridgeWords.filter(x=>x.difficulty>=18).slice(0,6)
@@ -325,7 +331,7 @@ async function runTeacherMission(mission,living=null){
  const targetProfile=levelProfile(p,mission.level),
  variations=['Другой собеседник, новый повод разговора.','Другая обстановка и непредвиденное уточнение.','Новая причина просьбы и ограничение по времени.','Та же цель, но другая последовательность действий.'],
  revision=(p.modules[m.id]?.completions||0)+(p.modules[m.id]?.attempts||0),
- payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...targetProfile},errorPatterns:errors(state,mission.level),targetErrorTag:mission.errorTag||'',weakSkills:ALL.filter(s=>targetProfile[s]<65),reviewWords:reviewWords(state),recentLessons,bridgeLearned,bridgeDifficult,learningLoad,teacherMode:true,reviewMode:mission.kind==='review',scenarioVariation:living?(['Первая ситуация: введение и объяснение.','Новая ситуация с другим собеседником и реальным уточнением.','Незнакомая ситуация: ученик действует самостоятельно без копирования.'][living.scene]||variations[revision%variations.length]):variations[revision%variations.length],courseStage:courseStep?.stageKey||'',courseStageTitle:courseStep?.stageTitle||'',courseObjective:courseStep?.objective||m.canDo[0],courseInstruction:(courseStep?.stageInstruction||'')+(living?' Продолжай ту же тему занятия. Не начинай знакомство заново и не повторяй старый диалог дословно. Дай самостоятельный разговор, письмо, чтение и аудирование.':'')};
+ payload={kind:'lesson',level:mission.level,topic:m.contexts,goal:m.canDo.join('; '),moduleId:m.id,skillFocus:mission.skill,canDo:m.canDo,grammarFocus:m.grammar,lexiconFocus:m.lexicon,mastery:{...targetProfile},errorPatterns:errors(state,mission.level),targetErrorTag:mission.errorTag||'',weakSkills:ALL.filter(s=>targetProfile[s]<65),reviewWords:reviewWords(state),bridgeLevelWords,recentLessons,bridgeLearned,bridgeDifficult,learningLoad,teacherMode:true,reviewMode:mission.kind==='review',scenarioVariation:living?(['Первая ситуация: введение и объяснение.','Новая ситуация с другим собеседником и реальным уточнением.','Незнакомая ситуация: ученик действует самостоятельно без копирования.'][living.scene]||variations[revision%variations.length]):variations[revision%variations.length],courseStage:courseStep?.stageKey||'',courseStageTitle:courseStep?.stageTitle||'',courseObjective:courseStep?.objective||m.canDo[0],courseInstruction:(courseStep?.stageInstruction||'')+(living?' Продолжай ту же тему занятия. Не начинай знакомство заново и не повторяй старый диалог дословно. Дай самостоятельный разговор, письмо, чтение и аудирование.':'')};
  const foundation=window.NECurated?.variant?.(m.id,revision)||window.NECurated?.get(m.id);
  const isFirstAttempt=revision===0&&(mission.kind==='learn'||mission.kind==='remediation');
  try{
