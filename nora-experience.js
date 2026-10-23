@@ -53,6 +53,7 @@
    '</div><p id="neFocusFeedback" role="status" aria-live="polite"></p></details></section>';
  }
  // Four connected story acts, while retaining every underlying assessment.
+ let lastLesson=null;
  const ACTS=[
   {name:'Встречаемся',note:'Сначала поймём, кто говорит и зачем.'},
   {name:'Разбираемся',note:'Подготовим нужные слова и увидим, как устроена фраза.'},
@@ -82,6 +83,13 @@
   return{stage,activity:activity(step,grammar),goal,scene,step,total};
  }
  function lessonHeader(lesson,session,total){
+  // A completed lesson may be detached from lessonSession by old renderers.
+  // Retain only a short non-sensitive reference to the lesson displayed here.
+  if(lesson&&['A1','A2','B1','B2'].includes(lesson.level))lastLesson={
+   id:String(lesson.id||'').slice(0,75),level:lesson.level,
+   title:String(lesson.title||'').slice(0,120),
+   dialogueScene:String(lesson.dialogueScene||'').slice(0,500)
+  };
   const b=brief(lesson,session,total);
   const dots=ACTS.map((a,i)=>'<span class="'+(i<b.stage.index?'done':i===b.stage.index?'now':'')+
    '" title="'+safe(a.name)+'"></span>').join('');
@@ -110,7 +118,8 @@
     '</p></div>';
  }
  function openFollowup(){
-  const lesson=typeof lessonSession==='object'&&lessonSession?.lesson;
+  const sessionLesson=typeof lessonSession==='object'&&lessonSession?.lesson;
+  const lesson=sessionLesson||lastLesson;
   const data=learner();
   if(!lesson||!data||!['A1','A2','B1','B2'].includes(lesson.level))return false;
   const id='lesson:'+String(lesson.id||'unknown').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,70);
