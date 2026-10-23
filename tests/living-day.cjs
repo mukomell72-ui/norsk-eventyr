@@ -44,7 +44,7 @@ assert.strictEqual(s.learningV8.livingDay,pending,'Unfinished lesson cannot be s
 D.details();assert.strictEqual(s.learningV8.livingDay,pending);
 s.activeLesson={id:'old-lesson'};s.generatedLessons['old-lesson']={id:'old-lesson',_adaptive:{moduleId:'a1-home'}};
 w.NELivingWords={isReady:()=>false,render:()=>{views.push('blocked-vocabulary');return false}};
-s.generatedLessons['old-lesson']._adaptive.livingDayId=d.id;
+s.generatedLessons['old-lesson']._adaptive.livingDayId=pending.id;
 s.generatedLessons['old-lesson']._adaptive.livingScene=pending.scene;
 D.open();assert.deepEqual(resumes,['old-lesson'],'Same-day checkpoint must override vocabulary gate');
 s.generatedLessons['old-lesson']._adaptive.livingDayId='another-day';
