@@ -15,7 +15,7 @@ function load(initial={}){
   dialogueScene:'Коллега хочет встретиться во вторник.'},step:0};
  vm.runInNewContext(src,{window,document:doc,lessonSession,Date,Number,String,Math,Object,JSON,Array,Set,Map},
   {filename:'nora-experience.js'});
- return{window,user,log,session:lessonSession,E:window.NEExperience};
+ return{window,user,log,doc,session:lessonSession,E:window.NEExperience};
 }
 const a=load(),b=load(),E=a.E;
 assert.equal(E.focus().id,'everyday','No forced personal data or preferences');
@@ -106,6 +106,24 @@ assert(E.wordEncounter(wordLesson,{step:2}).includes('en bok'),'Next task brings
 assert(E.wordEncounter(wordLesson,{step:6}).includes('en jobb'),'Weak word returns later');
 assert(!firstWord.includes('<img'),'HTML escaped');
 assert.equal(a.user.dailyDictionary.jobb.correct,0,'Sightings never grant mastery');
+
+const guide=E.functionWordGuide(l,{step:0});
+assert(guide.includes('Нора объясняет')&&guide.includes('Попробуй сам'),'Essential words must appear in real lesson header');
+assert(guide.includes('Местоимение')||guide.includes('Предлог')||guide.includes('союз'),'Word type explained, not all tokens mislabeled conjunctions');
+assert(guide.includes('lang="nb"')&&guide.includes('Как употреблять'),'Bokmål and contextual explanation should be visible on request');
+const functionLessonIds=['a1-1','a1-2','a1-3','a1-4','a1-5','a1-6','a1-7','a1-8'];
+const shown=functionLessonIds.flatMap(id=>[0,2,4,6].map(step=>E.functionWordGuide({...l,id},{step}))).join('\n');
+for(const important of ['meg','om','for','til'])
+ assert(shown.includes('>'+important+'</b>'),'A1 lessons cycle through function word '+important);
+assert(E.functionWordGuide(l,{step:1})==='','Mini-practice appears on alternate stages, not every screen');
+const feedback={textContent:''};
+a.doc.querySelector=()=>feedback;
+assert.equal(E.checkFunctionWord('meg',0),false,'Wrong form should get an explanation');
+assert(feedback.textContent.includes('hjelpe'),'Correction must explain grammatical function');
+assert.equal(E.checkFunctionWord('meg',1),true,'Correct choice gets feedback without a grade');
+assert(feedback.textContent.includes('Верно'),'Feedback is immediate');
+assert.equal(E.checkFunctionWord('meg',99),false,'Invalid choice cannot be accepted');
+
 const oldChoice=E.focus().id,oldThreads=a.user.chatThreads,oldThreadId=a.user.chatThreadId;
 const originalSave=a.window.saveState;
 a.window.saveState=()=>false;
