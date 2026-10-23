@@ -75,6 +75,8 @@ const access=fs.readFileSync(path.join(root,'access.js'),'utf8');
 const teacher=fs.readFileSync(path.join(root,'adaptive-teacher.js'),'utf8');
 const generator=fs.readFileSync(path.join(root,'api/generate.js'),'utf8');
 assert(app.includes('NEExperience?.lessonHeader?.('),'Actual app lesson must use mission UI');
+const legacyRenderSrc=fs.readFileSync(path.join(root,'v3.js'),'utf8');
+assert(legacyRenderSrc.includes('NEExperience?.lessonHeader?.('),'Legacy lesson must also show four-act mission');
 assert(app.includes('NEExperience?.endNote?.('),'End of lesson must have real-world conclusion');
 assert(app.includes('NEExperience.openFollowup()'),'Optional follow-up must connect to a real conversation');
 assert(ui.includes('NEExperience?.homeChoice?.(state)'),'Real home must show interest choice');
