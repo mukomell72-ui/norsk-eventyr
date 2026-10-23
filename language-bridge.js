@@ -212,8 +212,8 @@
  // Even a learner with no mastered vocabulary receives a few level-matched
  // Norwegian words DIRECTLY in the lesson instructions. Never grant mastery
  // from their appearance or from a translation peek.
- function levelEntries(){
-  const level=getState()?.level,levels=['A1','A2','B1','B2'];
+ function levelEntries(level=getState()?.level){
+  const levels=['A1','A2','B1','B2'];
   const max=levels.indexOf(level);
   const map=new Map();
   for(const band of levels.slice(0,max>=0?max+1:1)){
