@@ -55,7 +55,16 @@ const server=http.createServer(async(req,res)=>{
    'Pause must preserve the exact active lesson');
  await humanPage.evaluate(()=>startLesson('nora-human-qa-lesson'));
  assert.equal(await humanPage.locator('.ne-mission-head').count(),1,'Resume retains mission context');
- await humanPage.evaluate(()=>NEExperience.openFollowup());
+ // This optional chat CTA appears only AFTER a lesson is finished. Do not
+ // trigger it while a protected, pending lesson is still active.
+ await humanPage.evaluate(()=>{
+  const id=lessonSession.lesson.id;
+  lessonSession.step=7;lessonSession.locked=true;
+  if(state.activeLesson?.id===id)delete state.activeLesson;
+  saveState();
+ });
+ const openedFollowup=await humanPage.evaluate(()=>NEExperience.openFollowup());
+ assert.equal(openedFollowup,true,'A completed lesson can open the contextual conversation');
  assert.equal(await humanPage.evaluate(()=>state.chatPrefs.mode),'roleplay');
  assert.equal(await humanPage.evaluate(()=>state.chatThreadId),'lesson:nora-human-qa-lesson');
  const chatSnapshot=await humanPage.evaluate(()=>({
