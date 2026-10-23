@@ -39,8 +39,16 @@ const server=http.createServer(async(req,res)=>{
    dialogueTask:'Ответь, в какое время ты можешь прийти.'};
   startLesson(id);
  });
+ const humanSnapshot=await humanPage.evaluate(()=>({
+  hasExperience:!!window.NEExperience,hasFunction:typeof window.NEExperience?.lessonHeader,
+  lesson:typeof lessonSession!=='undefined'?lessonSession?.lesson?.id:null,
+  step:typeof lessonSession!=='undefined'?lessonSession?.step:null,
+  active:typeof state!=='undefined'?state.activeLesson?.id:null,
+  text:document.getElementById('app')?.innerText.slice(0,550),
+  html:document.querySelector('#app main')?.innerHTML.slice(0,400)
+ }));
  assert.equal(await humanPage.locator('.ne-mission-head').count(),1,
-   'Four-act human lesson context must render in real UI');
+   'Four-act human lesson context must render in real UI: '+JSON.stringify(humanSnapshot));
  assert((await humanPage.locator('.ne-mission-head').innerText()).includes('Встречаемся'));
  await humanPage.locator('.ne-pause-button').click();
  assert.equal(await humanPage.evaluate(()=>state.activeLesson?.id),'nora-human-qa-lesson',
