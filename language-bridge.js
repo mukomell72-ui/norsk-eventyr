@@ -556,7 +556,7 @@
   // Russian assistance is immediate for A1 and on-demand thereafter.
   // Tapping an unfamiliar Norwegian word is handled by word-translate-v7,
   // which schedules unmastered lookups through queueNorwegianLookup().
-  return '<div class="ne-task-direction" data-no-bridge>'+
+  return '<div class="ne-task-direction">'+
    '<p lang="nb" class="ne-task-direction-no">'+esc(row[0])+'</p>'+
    (a1?'<p lang="ru" class="ne-task-direction-ru">'+esc(row[1])+'</p>':
     '<details><summary>Русское пояснение</summary><p lang="ru">'+esc(row[1])+'</p></details>')+
