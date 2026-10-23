@@ -1,4 +1,4 @@
-// Språkbro 2.5 — CEFR-level word prompts plus personalized difficulty reinforcement.
+// Språkbro 2.6 — activate CEFR-level word prompts in the actual v7 lesson shell.
 // Scored test questions/answers remain untouched; introduced words never count as mastered.
 (() => {
  'use strict';
@@ -438,7 +438,7 @@
   return block.matches('[data-bridge-instruction],.dialogue-task-v83 p,.dialogue-scene-v83 p,.ne-coach-hint,.nq-nora-note');
  }
  function eligibleBlock(block){
-  if(!block.closest('.shell'))return false;
+  if(!block.closest('.shell,.shell-v7'))return false;
   const instruction=block.matches('[data-bridge-instruction],.dialogue-task-v83 p,.dialogue-scene-v83 p,.dialogue-task-v83 b,.dialogue-scene-v83 b,.dialogue-scene-v83 small');
   if(instruction){
    if(block.closest('form,details,button,a,[data-no-bridge],[data-bridge-exclude],.test,.exam,.quiz,.translation,.feedback,[lang="nb"],[lang="no"]'))return false;
@@ -488,7 +488,7 @@
    processed.get(block).push([host,n]);
   }
  }
- const selectors='.shell p,.shell li,.shell .ne-coach-hint,.shell .nq-nora-note,.shell .nq-nora-reaction p,.shell .dialogue-task-v83 b,.shell .dialogue-scene-v83 b,.shell .dialogue-scene-v83 small,.shell [data-bridge-instruction]';
+ const selectors='.shell p,.shell li,.shell-v7 p,.shell-v7 li,.shell-v7 .ne-coach-hint,.shell-v7 .nq-nora-note,.shell-v7 .nq-nora-reaction p,.dialogue-task-v83 b,.dialogue-scene-v83 b,.dialogue-scene-v83 small,[data-bridge-instruction]';
  function process(){
   if(busy||!root||!enabled())return;
   const mastered=entries(),starters=levelEntries();
@@ -528,7 +528,7 @@
  function controlHtml(){
   const known=knownWords().length,covered=entries().length,on=enabled();
   return '<section class="card ne-bridge-settings" data-no-bridge>'+
-   '<h3>Språkbro 2.5 · Языковой мост</h3>'+
+   '<h3>Språkbro 2.6 · Языковой мост</h3>'+
    '<p>Слова соответствующего уровня A1–B2 появляются прямо в инструкциях, даже если ещё не выучены. Нажми слово для русского перевода и добавления в повторение; личные трудные слова возвращаются чаще. Контрольные тесты не изменяются.</p>'+
    '<p class="muted">Подтверждено слов: <b>'+known+'</b>. Освоенных замен: <b>'+covered+'</b>. Слов для текущего уровня: <b>'+levelEntries().length+'</b>. Уровень: <b>'+esc(getState()?.level||'A1')+'</b>. '+
    (covered?'Замены появляются там, где встречается подходящее русское слово.':'По мере закрепления слов доступные замены появятся автоматически.')+'</p>'+
