@@ -60,8 +60,9 @@ const server=http.createServer(async(req,res)=>{
  await humanPage.evaluate(()=>{
   const id=lessonSession.lesson.id;
   lessonSession.step=7;lessonSession.locked=true;
+  state.completed[id]=true;
   if(state.activeLesson?.id===id)delete state.activeLesson;
-  saveState();
+  if(!saveState())throw Error('Cannot persist completed lesson for follow-up QA');
  });
  const followupCheck=await humanPage.evaluate(()=>{
   const l=typeof lessonSession==='object'?lessonSession?.lesson:null;
@@ -69,7 +70,11 @@ const server=http.createServer(async(req,res)=>{
   const diagnostic={lessonId:l?.id,lessonLevel:l?.level,step:lessonSession?.step,
    hasLearner:!!st,learnerLevel:st?.level,saveFunction:typeof window.saveState,
    completed:!!state.completed?.[l?.id],hasExperience:!!window.NEExperience,
-   hasChatRenderer:typeof window.renderChatV7,hasGlobalState:typeof state};
+   hasChatRenderer:typeof window.renderChatV7,hasGlobalState:typeof state,
+   sameState:st===state,
+   preSave:typeof window.saveState==='function'?window.saveState():null,
+   jsonLength:(()=>{try{return JSON.stringify(state).length}catch(e){return String(e)}})(),
+   savedBytes:localStorage.getItem('ne2_state')?.length};
   const opened=NEExperience.openFollowup();
   return{opened,diagnostic};
  });
