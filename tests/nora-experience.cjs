@@ -82,6 +82,7 @@ assert(app.includes('NEExperience.openFollowup()'),'Optional follow-up must conn
 assert(ui.includes('NEExperience?.homeChoice?.(state)'),'Real home must show interest choice');
 assert(ui.includes('<details class="ne-home-extras">'),'Rewards and secondary cards are optional, not deleted');
 assert(ui.includes('v7QuickHelp'),'Fast help must be reachable on current screen');
+assert(ui.includes('renderChatV7,renderStoryV7'),'Active Nora chat renderer must be exported for integrated lesson follow-up');
 assert(access.indexOf("'nora-experience.js'")>0&&
  access.indexOf("'nora-experience.js'")<access.indexOf("'app.js'"),
  'Experience script must load before app.js');
