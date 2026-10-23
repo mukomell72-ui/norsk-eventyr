@@ -21,10 +21,12 @@ assert.equal(revision,v,'Access bootstrap must fetch the published revision');
 const baseCache='norsk-eventyr-v'+v.replaceAll('.','-');
 const actualCache=(sw.match(/^const CACHE="([^"]+)";/m)||[])[1];
 const assetRevision=actualCache?.startsWith(baseCache)?actualCache.slice(baseCache.length):null;
+const auditSuffix=(assetRevision?.match(/(-audit[1-9][0-9]*)$/)||[])[1]||'';
+const legacyRevision=assetRevision?.slice(0,assetRevision.length-auditSuffix.length)||'';
 assert(assetRevision!==null&&(/^(?:-(?:ui|auth|lesson)[1-9][0-9]*(?:-listening[1-9][0-9]*)?(?:-translate[1-9][0-9]*)?(?:-wordhelp[1-9][0-9]*)?(?:-stamp[1-9][0-9]*)?(?:-tap[1-9][0-9]*)?(?:-watch[1-9][0-9]*)?(?:-taponly[1-9][0-9]*)?(?:-clock[1-9][0-9]*)?(?:-feedback[1-9][0-9]*)?(?:-explain[1-9][0-9]*)?(?:-ruforms[1-9][0-9]*)?(?:-skulle[1-9][0-9]*)?(?:-teacher[1-9][0-9]*)?(?:-coach[1-9][0-9]*)?(?:-fresh[1-9][0-9]*)?(?:-bridge[1-9][0-9]*)?)?$/).test(assetRevision),
   'PWA cache must match the release version or a numbered patch revision');
-const bridgeSuffix=(assetRevision?.match(/(-bridge[1-9][0-9]*)$/)||[])[1]||'';
-const withoutBridge=assetRevision?.slice(0,assetRevision.length-bridgeSuffix.length)||'';
+const bridgeSuffix=(legacyRevision.match(/(-bridge[1-9][0-9]*)$/)||[])[1]||'';
+const withoutBridge=legacyRevision.slice(0,legacyRevision.length-bridgeSuffix.length);
 const freshnessSuffix=(withoutBridge.match(/(-fresh[1-9][0-9]*)$/)||[])[1]||'';
 const withoutFresh=withoutBridge.slice(0,withoutBridge.length-freshnessSuffix.length);
 const coachSuffix=(withoutFresh.match(/(-coach[1-9][0-9]*)$/)||[])[1]||'';
@@ -87,7 +89,8 @@ for(const asset of assets){
    (teacherSuffix&&['/access.js','/course-methodology.js','/adaptive-teacher.js','/app.js','/guided-speaking.js','/living-day.js','/ui-v7.js'].includes(pathname)?teacherSuffix:'')+
    (coachSuffix&&['/access.js','/app.js','/lesson-coach.js','/lesson-coach.css','/language-bridge.js','/language-bridge.css','/cloze-coach.js','/functional-practice.js','/living-words.js'].includes(pathname)?coachSuffix:'')+
    (freshnessSuffix&&['/access.js','/adaptive-teacher.js'].includes(pathname)?freshnessSuffix:'')+
-   (bridgeSuffix&&['/access.js','/adaptive-teacher.js','/app.js','/language-bridge.js','/ui-v7.js','/v7.css','/v3.js','/elite.js','/nora-experience.js'].includes(pathname)?bridgeSuffix:'');
+   (bridgeSuffix&&['/access.js','/adaptive-teacher.js','/app.js','/language-bridge.js','/ui-v7.js','/v7.css','/v3.js','/elite.js','/nora-experience.js'].includes(pathname)?bridgeSuffix:'')+
+   (auditSuffix&&['/access.js','/v7.css','/nora-experience.js','/living-day.js'].includes(pathname)?auditSuffix:'');
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
 }
 }
