@@ -90,6 +90,7 @@
    '<div class="ne-mission-main"><div><h2>'+safe(b.stage.name)+'</h2>'+
    '<p>'+safe(b.activity)+'. '+safe(b.stage.note)+'</p></div>'+
    '<button type="button" class="ne-pause-button" onclick="NEExperience.pause()">Пауза</button></div>'+
+   (b.scene&&b.step>0?'<p class="ne-mission-story">В нашей истории: '+safe(b.scene)+'</p>':'')+
    '<div class="ne-mission-track" aria-label="Этап '+(b.stage.index+1)+' из 4">'+dots+'</div>'+
    '<details class="ne-mission-purpose"><summary>Зачем это нужно?</summary><p>'+safe(b.goal)+
    (b.scene?'<span> Ситуация: '+safe(b.scene)+'</span>':'')+'</p></details>'+
@@ -108,9 +109,30 @@
      'Ты прошёл тему «'+title+'», но часть ответов ещё требует практики. Нора вернёт трудные места в следующих занятиях.')+
     '</p></div>';
  }
+ function openFollowup(){
+  const lesson=typeof lessonSession==='object'&&lessonSession?.lesson;
+  const data=learner();
+  if(!lesson||!data||!['A1','A2','B1','B2'].includes(lesson.level))return false;
+  const id='lesson:'+String(lesson.id||'unknown').replace(/[^a-zA-Z0-9_-]/g,'').slice(0,70);
+  data.chatThreads=data.chatThreads&&typeof data.chatThreads==='object'?data.chatThreads:{};
+  data.chatThreads[data.chatThreadId||'general']=Array.isArray(data.chatHistory)?data.chatHistory:[];
+  data.chatThreadId=id;
+  data.chatHistory=Array.isArray(data.chatThreads[id])?data.chatThreads[id]:[];
+  const title=String(lesson.title||'Жизненная ситуация').slice(0,120),
+   scene=String(lesson.dialogueScene||'').slice(0,500);
+  data.chatPrefs={...(data.chatPrefs||{}),mode:'roleplay',level:lesson.level,
+   topic:title,conversationTitle:'Продолжение: '+title,
+   sceneContext:'Новая короткая жизненная ситуация по изученной теме. '+
+    (scene?scene+' ':'')+'Продолжи настоящую беседу, но не повторяй дословно пройденное задание. '+
+    'Ученик сам выбирает реплику. Не сообщай готовый ответ.'};
+  if(typeof window.saveState==='function'&&!window.saveState())return false;
+  if(typeof window.navigate==='function')window.navigate('chat');
+  if(!data.chatHistory.length&&typeof window.v7StartChat==='function')window.v7StartChat();
+  return true;
+ }
  function pause(){
   if(typeof window.persistLessonCheckpoint==='function')window.persistLessonCheckpoint();
   if(typeof window.navigate==='function')window.navigate('home');
  }
- window.NEExperience=Object.freeze({focus,settings,choose,homeChoice,brief,lessonHeader,response,endNote,pause,act,activity});
+ window.NEExperience=Object.freeze({focus,settings,choose,homeChoice,brief,lessonHeader,response,endNote,pause,openFollowup,act,activity});
 })();
