@@ -90,7 +90,21 @@
    ['неделя','uke','en uke',42,'неделя'],
    ['снова','igjen','igjen',45,'снова'],
    ['вслух','høyt','høyt',48,'вслух'],
-   ['коллега','kollega','en kollega',45,'коллега']
+   ['коллега','kollega','en kollega',45,'коллега'],
+   // Imperatives that appear in real graded-lesson directions, not answers.
+   ['сначала','først','først',74,'сначала'],
+   ['потом','etterpå','etterpå',62,'потом'],
+   ['послушай','lytt','å lytte',82,'слушать'],
+   ['выбери','velg','å velge',79,'выбирать'],
+   ['вспомни','husk','å huske',77,'помнить'],
+   ['проверь','sjekk','å sjekke',65,'проверять'],
+   ['попробуй','prøv','å prøve',72,'пробовать'],
+   ['говори','snakk','å snakke',72,'говорить'],
+   ['текст','tekst','en tekst',64,'текст'],
+   ['перевод','oversettelse','en oversettelse',58,'перевод'],
+   ['вариант','alternativ','et alternativ',59,'вариант'],
+   ['ответ','svar','et svar',63,'ответ'],
+   ['слушай','lytt','å lytte',67,'слушать']
   ],
   A2:[
    ['объясни','forklar','å forklare',75,'объяснять'],
