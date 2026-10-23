@@ -129,9 +129,10 @@
   if(typeof window.navigate==='function')window.navigate('chat');
   // The layered v3/v7/v8 routers may handle the same route differently.
   // Guarantee the current chat renderer is mounted before attempting AI chat.
-  const chatVisible=typeof document?.querySelector==='function'&&!!document.querySelector('.chat-v7');
-  if(!chatVisible&&typeof window.renderChatV7==='function')window.renderChatV7();
-  if(!data.chatHistory.length&&typeof window.v7StartChat==='function')window.v7StartChat();
+  // The legacy auto-start resets chatHistory and re-renders the old chat.
+  // Show the current V7 conversation directly; the learner can start when
+  // ready without losing an existing thread or changing the lesson score.
+  if(typeof window.renderChatV7==='function')window.renderChatV7();
   return true;
  }
  function pause(){
