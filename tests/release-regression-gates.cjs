@@ -23,7 +23,7 @@ const actualCache=(sw.match(/^const CACHE="([^"]+)";/m)||[])[1];
 const assetRevision=actualCache?.startsWith(baseCache)?actualCache.slice(baseCache.length):null;
 const auditSuffix=(assetRevision?.match(/(-audit[1-9][0-9]*)$/)||[])[1]||'';
 const legacyRevision=assetRevision?.slice(0,assetRevision.length-auditSuffix.length)||'';
-assert(assetRevision!==null&&(/^(?:-(?:ui|auth|lesson)[1-9][0-9]*(?:-listening[1-9][0-9]*)?(?:-translate[1-9][0-9]*)?(?:-wordhelp[1-9][0-9]*)?(?:-stamp[1-9][0-9]*)?(?:-tap[1-9][0-9]*)?(?:-watch[1-9][0-9]*)?(?:-taponly[1-9][0-9]*)?(?:-clock[1-9][0-9]*)?(?:-feedback[1-9][0-9]*)?(?:-explain[1-9][0-9]*)?(?:-ruforms[1-9][0-9]*)?(?:-skulle[1-9][0-9]*)?(?:-teacher[1-9][0-9]*)?(?:-coach[1-9][0-9]*)?(?:-fresh[1-9][0-9]*)?(?:-bridge[1-9][0-9]*)?)?$/).test(assetRevision),
+assert(assetRevision!==null&&(/^(?:-(?:ui|auth|lesson)[1-9][0-9]*(?:-listening[1-9][0-9]*)?(?:-translate[1-9][0-9]*)?(?:-wordhelp[1-9][0-9]*)?(?:-stamp[1-9][0-9]*)?(?:-tap[1-9][0-9]*)?(?:-watch[1-9][0-9]*)?(?:-taponly[1-9][0-9]*)?(?:-clock[1-9][0-9]*)?(?:-feedback[1-9][0-9]*)?(?:-explain[1-9][0-9]*)?(?:-ruforms[1-9][0-9]*)?(?:-skulle[1-9][0-9]*)?(?:-teacher[1-9][0-9]*)?(?:-coach[1-9][0-9]*)?(?:-fresh[1-9][0-9]*)?(?:-bridge[1-9][0-9]*)?)?$/).test(legacyRevision),
   'PWA cache must match the release version or a numbered patch revision');
 const bridgeSuffix=(legacyRevision.match(/(-bridge[1-9][0-9]*)$/)||[])[1]||'';
 const withoutBridge=legacyRevision.slice(0,legacyRevision.length-bridgeSuffix.length);
