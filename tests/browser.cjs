@@ -58,8 +58,14 @@ const server=http.createServer(async(req,res)=>{
  await humanPage.evaluate(()=>NEExperience.openFollowup());
  assert.equal(await humanPage.evaluate(()=>state.chatPrefs.mode),'roleplay');
  assert.equal(await humanPage.evaluate(()=>state.chatThreadId),'lesson:nora-human-qa-lesson');
+ const chatSnapshot=await humanPage.evaluate(()=>({
+  currentRoute:document.querySelector('.shell-v7')?.getAttribute('data-screen'),
+  chatExists:!!document.querySelector('.chat-v7'),routeType:typeof window.navigate,
+  renderer:typeof window.renderChatV7,
+  excerpt:document.getElementById('app')?.innerText.slice(0,360)
+ }));
  assert.equal(await humanPage.locator('.chat-v7').count(),1,
-   'Completed life topic can become a real interactive roleplay thread');
+   'Completed life topic can become a real interactive roleplay thread: '+JSON.stringify({chatSnapshot,humanErrors}));
  assert.deepEqual(humanErrors,[],'New experience must not introduce browser runtime errors');
  await humanPage.close();
  console.log('PASS Nora human experience: focus, reload, saved pause, resume and contextual conversation');
