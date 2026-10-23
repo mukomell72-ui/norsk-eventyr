@@ -110,7 +110,7 @@ assert.equal(a.user.dailyDictionary.jobb.correct,0,'Sightings never grant master
 const guide=E.functionWordGuide(l,{step:0});
 assert(guide.includes('Нора объясняет')&&guide.includes('Попробуй сам'),'Essential words must appear in real lesson header');
 assert(guide.includes('Местоимение')||guide.includes('Предлог')||guide.includes('союз'),'Word type explained, not all tokens mislabeled conjunctions');
-assert(guide.includes('lang="nb"')&&guide.includes('Как употреблять'),'Bokmål and contextual explanation should be visible on request');
+assert(guide.includes('lang="nb"')&&guide.includes('ne-function-word-rule')&&guide.includes('Примеры и практика:'),'Bokmål and contextual rule are shown immediately; examples and practice are on request');
 const functionLessonIds=['a1-1','a1-2','a1-3','a1-4','a1-5','a1-6','a1-7','a1-8'];
 const shown=functionLessonIds.flatMap(id=>[0,2,4,6].map(step=>E.functionWordGuide({...l,id},{step}))).join('\n');
 for(const important of ['meg','om','for','til'])
