@@ -85,13 +85,25 @@
 
   function helpMarkupV7(){
     return '<section class="card" style="margin:16px 0"><button class="btn secondary" onclick="v7OpenHelp()" aria-controls="helpPanelV7" aria-expanded="false" id="helpToggleV7">Мне непонятно</button>'+
-      '<div id="helpPanelV7" hidden><p>Задай вопрос по-русски — о задании, норвежском или другой теме. Можно уточнять ответ. Твой ответ на задание сохранится.</p><textarea class="input" id="helpQuestionV7" maxlength="1800" rows="2" placeholder="Что ты хочешь спросить?"></textarea><div class="row" style="margin-top:10px"><button class="btn" id="helpSendV7" onclick="v7AskHelp()">Спросить Нору</button><button class="btn ghost" onclick="v7OpenHelp()">Закрыть</button></div><div id="helpReplyV7" role="status" aria-live="polite" style="white-space:pre-wrap;margin-top:12px"></div></div></section>';
+      '<div id="helpPanelV7" hidden><p>Я помогу разобраться, не выполняя задание вместо тебя. Выбери быстрый вопрос или задай свой.</p><div class="ne-help-quick"><button type="button" onclick="v7QuickHelp(\'simple\')">Объясни проще</button><button type="button" onclick="v7QuickHelp(\'example\')">Похожий пример</button><button type="button" onclick="v7QuickHelp(\'why\')">Почему так?</button></div><textarea class="input" id="helpQuestionV7" maxlength="1800" rows="2" placeholder="Что ты хочешь спросить?"></textarea><div class="row" style="margin-top:10px"><button class="btn" id="helpSendV7" onclick="v7AskHelp()">Спросить Нору</button><button class="btn ghost" onclick="v7OpenHelp()">Закрыть</button></div><div id="helpReplyV7" role="status" aria-live="polite" style="white-space:pre-wrap;margin-top:12px"></div></div></section>';
   }
   function v7OpenHelp(){
     const panel=document.getElementById("helpPanelV7");if(!panel)return;
     panel.hidden=!panel.hidden;
     document.getElementById("helpToggleV7")?.setAttribute("aria-expanded",String(!panel.hidden));
     if(!panel.hidden)document.getElementById("helpQuestionV7")?.focus();
+  }
+  function v7QuickHelp(kind){
+    const input=document.getElementById('helpQuestionV7'),panel=document.getElementById('helpPanelV7');
+    if(!input||!panel)return;
+    const requests={
+      simple:'Объясни задание совсем простыми словами, без готового ответа. Скажи, что именно мне нужно сделать.',
+      example:'Покажи другой, похожий пример с другим смыслом, не раскрывая ответ на текущее упражнение.',
+      why:'Объясни, почему здесь используется такое слово или правило, и как я смогу применить это сам.'
+    };
+    if(!requests[kind])return;
+    if(panel.hidden)v7OpenHelp();
+    input.value=requests[kind];v7AskHelp();
   }
   async function v7AskHelp(){
     const input=document.getElementById("helpQuestionV7"),button=document.getElementById("helpSendV7"),box=document.getElementById("helpReplyV7");
@@ -119,7 +131,7 @@
     }catch{if(box.isConnected)box.textContent="Не удалось получить объяснение. Попробуй ещё раз."}
     finally{button.disabled=false;}
   }
-  Object.assign(window,{v7OpenHelp,v7AskHelp});
+  Object.assign(window,{v7OpenHelp,v7AskHelp,v7QuickHelp});
 
   function guidedV7(){
     const day=todayKeyV7(),wordDue=dueCountV7(),adaptiveDue=window.NEAdaptive?NEAdaptive.dueReviews(state).length:0,
@@ -212,12 +224,15 @@
           '<button class="cta-v7" onclick="v7ContinueToday()">'+(living?.finished?'Урок завершён':'Урок с Норой · '+(living?.plannedMinutes||60)+' мин')+' <b>→</b></button></div>'+
           '<div class="hero-note-v7">Små steg<br>store eventyr ♡</div>'+
         '</section>'+
-        (window.NENordicQuest?.homeTile?.()||'')+
+        (window.NEExperience?.homeChoice?.(state)||'')+
         (living?miniPath:
         '<section class="route-card-v7"><div class="section-head-v7"><div><small>Твой маршрут на сегодня · 5 занятий</small><h2>'+(j.mins?"Осталось "+(j.total-j.done)+" из "+j.total+" блоков":"Маршрут завершён")+'</h2></div><span>План '+j.planned+' мин</span></div><p class="muted">Время на каждый блок — ориентир, а не измерение фактически потраченных минут.</p><div class="route-steps-v7">'+route+'</div></section>')+
+        (window.NENordicQuest?.homeTile?.()||'')+
+        '<details class="ne-home-extras"><summary>Дополнительная практика и награды <span>по желанию</span></summary>'+
         xpJourneyV7()+
                 '<section class="card applied-home-entry"><div class="section-head-v7"><div><small>Дополнительная практика · '+h(state.level)+'</small><h2>Норвежский для жизни</h2><p>Проверь формы слов и потренируйся заполнять документы.</p></div></div><div class="applied-actions"><button class="btn" onclick="navigate(\'cloze\')">Вставить слово</button><button class="btn secondary" onclick="navigate(\'forms\')">Анкеты и заявления</button></div></section>'+
         '<section class="words-card-v7 daily-focus-v81"><div class="section-head-v7"><div><small>Короткая ежедневная практика</small><h2>Слова для реальной жизни</h2><p>Попробуй вспомнить эти слова и составить собственную фразу.</p></div><button onclick="navigate(\'daily\')">Практика →</button></div><div class="daily-words-v81">'+words.slice(0,3).map(w=>'<div class="daily-word-v81"><b>'+h(w.lemma||w.word||"")+'</b><span>'+h(w.translation_ru||w.translation||"")+'</span></div>').join("")+'</div></section>'+
+        '</details>'+ 
         '<section class="nora-note-v7"><span class="nora-avatar-v7"></span><div><small>Nora</small><p>«'+h(pending?"Продолжим с сохранённого этапа.":"Я подберу практику по твоим результатам. Говори своими словами.")+'»</p></div><button onclick="navigate(\'chat\')">Написать →</button></section>'+
       '</section>',
     "home");
