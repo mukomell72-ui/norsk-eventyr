@@ -77,7 +77,7 @@ for(const [id,lemma] of [
 }
 const learned=bridge.entries(),phrase=bridge.segments('Сегодня ты работаешь.',learned,3);
 assert.equal(phrase.filter(x=>x.no).map(x=>x.no).join(' '),'I dag jobber du','Mastered whole phrase uses correct Bokmål inversion');
-assert.equal(bridge.segments('Сегодня ты работаешь.',learned,2).filter(x=>x.no).map(x=>x.no).join(' '),'I dag jobber','Under small load, use independent known words instead of a broken multiword phrase');
+assert.equal(bridge.segments('Сегодня ты работаешь.',learned,2).filter(x=>x.no).map(x=>x.no).join(' '),'du jobber','Under small load, use an intact mastered Bokmål clause rather than a broken multiword phrase');
 assert(learned.some(x=>x.ru==='ответь'&&x.no==='svar'),'Known imperative is used, not a present-tense form');
 assert(learned.some(x=>x.ru==='можешь'&&x.no==='kan'),'Previously learned modal may appear in mixed directions');
 assert(learned.some(x=>x.ru==='коллега'&&x.no==='kollega'),'Workplace scene uses a studied colleague noun');
@@ -88,6 +88,50 @@ const normalDensity=bridge.density('Сегодня ты работаешь. От
 state.learningV8.bridgeLookupEvents=[Date.now(),Date.now(),Date.now(),Date.now(),Date.now(),Date.now()];
 assert(bridge.density('Сегодня ты работаешь. Ответь Анне вслух и скажи, когда можешь встретиться.')<normalDensity,'Repeated translation help reduces cognitive load');
 state.learningV8.bridgeLookupEvents=[];
+
+// The same Russian instruction must become different Bokmål text according to
+// each logged-in learner's memory evidence, not a global word frequency.
+function learnerBridge(profile){
+ const local={level:'A1',learningV8:{},dailyDictionary:profile,srs:{},wordPracticeQueue:{}};
+ const localWindow={neLearnerState:local,saveState:()=>{}};
+ vm.runInNewContext(source,{window:localWindow,document:{readyState:'loading',addEventListener(){}},
+  Date,Math,Number,Object,String,JSON,Set,WeakMap});
+ return {state:local,api:localWindow.NELanguageBridge};
+}
+const future=Date.now()+86400000,past=Date.now()-2000;
+const learnerA=learnerBridge({
+ easy:{lemma:'i dag',translation_ru:'сегодня',correct:8,wrong:0,exposures:12,strength:92,nextDue:future},
+ hard:{lemma:'en dag',translation_ru:'день',correct:3,wrong:2,exposures:7,strength:24,bridgeLookups:3,nextDue:past}
+});
+const learnerB=learnerBridge({
+ hard:{lemma:'i dag',translation_ru:'сегодня',correct:3,wrong:2,exposures:7,strength:24,bridgeLookups:3,nextDue:past},
+ easy:{lemma:'en dag',translation_ru:'день',correct:8,wrong:0,exposures:12,strength:92,nextDue:future}
+});
+const sameInstruction='Сегодня напиши короткий план на один день.';
+const chooseFirst=x=>x.api.segments(sameInstruction,x.api.entries(),1).find(t=>t.no)?.no;
+assert.equal(chooseFirst(learnerA),'dag','Learner A sees the personally harder word in the instruction');
+assert.equal(chooseFirst(learnerB),'I dag','Learner B sees a different personally harder word');
+assert.equal(learnerA.api.personalFocus(2)[0].lemma,'en dag','Difficult vocabulary is prioritized for Nora A');
+assert.equal(learnerB.api.personalFocus(2)[0].lemma,'i dag','Difficult vocabulary is prioritized for Nora B');
+assert.equal(learnerA.api.knownWords().length,2,'Only A-specific dictionary used');
+assert.equal(learnerB.api.knownWords().length,2,'Only B-specific dictionary used');
+learnerA.api.queueForgotten('en dag');
+assert(learnerA.state.wordPracticeQueue.dag>0,'A tapped word is due again for learner A');
+assert.equal(learnerB.state.wordPracticeQueue.dag,undefined,'A lookup for A never affects learner B');
+const sample=learnerA.api.segments(sameInstruction,learnerA.api.entries(),4).filter(t=>t.no);
+assert(sample.length>0,'Known words appear within the actual instruction, not in a separate list');
+const novice=learnerBridge({new:{lemma:'en dag',translation_ru:'день',correct:0,wrong:0,exposures:1,strength:0}});
+assert.equal(novice.api.entries().length,0,'An unseen word never appears as mastered Bokmål');
+const overloaded=learnerBridge({
+ today:{lemma:'i dag',translation_ru:'сегодня',correct:4,wrong:0,exposures:5,strength:70},
+ day:{lemma:'en dag',translation_ru:'день',correct:4,wrong:0,exposures:5,strength:70},
+ write:{lemma:'å skrive',translation_ru:'писать',correct:4,wrong:0,exposures:5,strength:70},
+ plan:{lemma:'en plan',translation_ru:'план',correct:4,wrong:0,exposures:5,strength:70}
+});
+const before=overloaded.api.density(sameInstruction);
+overloaded.state.learningV8.bridgeLookupEvents=Array(6).fill(Date.now());
+assert(overloaded.api.density(sameInstruction)<=before,'Many help requests cannot increase the language density');
+assert(overloaded.api.segments(sameInstruction,overloaded.api.entries(),4).some(t=>t.no==='skriv'),'Studied verb appears directly inside a written task');
 
 (async()=>{
  const browser=await chromium.launch({headless:true});
