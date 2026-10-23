@@ -28,18 +28,31 @@ const priorAnswers={...old,opts:['En','To','Tre','Fire'],grammarOpts:['Jeg','Du'
 const repeatAnswers={...fresh,opts:['Fire','Tre','To','En'],grammarOpts:['Vi','Jeg','Han','Du'],listeningOpts:['Bibliotek','Skole','Butikk','Kino']};
 assert.equal(sandbox.helpers.repeatsRecent(repeatAnswers,sandbox.helpers.pastLessonSnippets([priorAnswers])),true,'Two reused choice sets must prompt a new variant');
 const teacher=fs.readFileSync(path.join(root,'adaptive-teacher.js'),'utf8');
-assert(teacher.includes('recentLessons,learningLoad,teacherMode:true'),'Past exercises and adaptive load must reach the server');
+assert(teacher.includes('recentLessons,bridgeLearned,bridgeDifficult,learningLoad,teacherMode:true'),
+ 'Past exercises and personalized learner vocabulary must reach the server');
+assert(teacher.includes('personalFocus?.(16)'), 'Learner-specific difficulty must come from scoped bridge history');
 const buildLesson=(details)=>({vocab:Array.from({length:6},(_,i)=>['ord'+i,'слово'+i]),
  opts:['En','To','Tre','Fire'],correct:0,grammarOpts:['Jeg','Du','Han','Vi'],grammarCorrect:0,
  listeningQ:'Hva handler lyden om?',listeningOpts:['Jobb','Mat','Hus','Tid'],listeningCorrect:0,
  q:'Hva forstår du fra teksten?',...details});
 async function check(){
- let calls=0;
+ let calls=0,prompts=[];
  const freshChoiceSets={...fresh,opts:['Bok','Kart','Avis','Billett'],grammarOpts:['Jeg søker','Du søker','Vi søker','De søker'],listeningOpts:['Bibliotek','Skole','Butikk','Kino']};
  const results=[buildLesson(old),buildLesson(freshChoiceSets),buildLesson(freshChoiceSets)];
- sandbox.fetch=async()=>({ok:true,json:async()=>({output:[{content:[{type:'output_text',text:JSON.stringify(results[calls++])}]}]})});
+ sandbox.fetch=async(_url,options)=>{prompts.push(JSON.parse(options.body).input);
+  return {ok:true,json:async()=>({output:[{content:[{type:'output_text',text:JSON.stringify(results[calls++])}]}]})};};
  const res={status(code){this.code=code;return this},json(value){this.body=value;return value}};
- await sandbox.handler({method:'POST',body:{kind:'lesson',level:'A1',teacherMode:true,recentLessons:[old],scenarioVariation:'Новое место'}},res);
+ await sandbox.handler({method:'POST',body:{kind:'lesson',level:'A1',teacherMode:true,recentLessons:[old],
+  bridgeLearned:[{word:'å begynne',ru:'начинать',weight:90,mastered:true}],
+  bridgeDifficult:[{word:'å begynne',ru:'начинать',weight:90,mastered:true},
+   {word:'å slutte',ru:'заканчивать',weight:88,mastered:false}],
+  scenarioVariation:'Новое место'}},res);
+ assert(prompts[0].includes('ПЕРСОНАЛЬНЫЙ ЯЗЫКОВОЙ МОСТ'),'Generator sees mastered user vocabulary');
+ assert(prompts[0].includes('å begynne'),'Generator receives a weak known verb for varied contexts');
+ assert(prompts[0].includes('ЛИЧНО ТРУДНЫЕ СЛОВА'),'Generator receives the weak-word priority');
+ assert(prompts[0].includes('"mastered":false'),'Unmastered words are never mislabelled as mastered');
+ assert(prompts[0].includes('ПРЯМО ВНУТРЬ текста задания'),'Vocabulary must appear inside the task itself');
+ assert(prompts[0].includes('НЕ добавляй новых обязательных заданий'),'Repeat difficult words without extra workload');
  assert.equal(calls,3,'One repeated draft must trigger a fresh generation followed by quality review');
  assert.equal(res.code,200,'Fresh retry must reach the learner');
  assert.equal(res.body.phrase,fresh.phrase);
