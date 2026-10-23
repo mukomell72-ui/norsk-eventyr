@@ -33,7 +33,9 @@ jobs:
         run: npm ci
       - name: Install Chromium
         working-directory: tests
-        run: npx playwright install --with-deps chromium
+        # GitHub-hosted Ubuntu already includes the required shared libraries.
+        # Avoid a full apt dependency reinstall on every PR, which can stall CI.
+        run: npx playwright install chromium
       - name: Run QA suite
         working-directory: tests
         run: npm test

@@ -75,9 +75,24 @@ const server=http.createServer(async(req,res)=>{
   const field=page.locator('#freeAnswer'),mic=page.locator('#micBtn');
   assert.equal(await mic.count(),1,'Mobile speaking screen must have microphone button');
   await field.fill('Jeg skriver selv.');
+  // In emulated mobile Chromium, tap dispatch can be delayed long enough to
+  // exceed the real 1200 ms cutoff. Freeze only the first mock recording clock
+  // so this tests a truly instant stop deterministically, not machine speed.
+  await page.evaluate(()=>{
+   window.__qaRealDateNow=Date.now;
+   const frozen=Date.now();
+   Date.now=()=>frozen;
+  });
   await mic.tap();
   await page.waitForFunction(()=>document.getElementById('micBtn')?.textContent.includes('Слушаю'));
+  // The recorder fires onstop asynchronously: wait for the actual warning,
+  // not merely a button label that can change before the warning is shown.
+  const tooShortNotice=page.waitForEvent('dialog',{
+   predicate:d=>d.message().includes('слишком короткая'),timeout:5000
+  });
   await mic.tap();
+  await tooShortNotice;
+  await page.evaluate(()=>{Date.now=window.__qaRealDateNow});
   await page.waitForFunction(()=>document.getElementById('micBtn')?.textContent.includes('Говорить'));
   assert(dialogs.some(x=>x.includes('слишком короткая')),'Instant stop must explain the minimum recording duration');
   assert.equal(uploads,0,'Instant microphone stop must never reach AI');
@@ -87,7 +102,11 @@ const server=http.createServer(async(req,res)=>{
   await mic.tap();
   await page.waitForFunction(()=>document.getElementById('micBtn')?.textContent.includes('Слушаю'));
   await page.waitForTimeout(1350);
+  const silenceNotice=page.waitForEvent('dialog',{
+   predicate:d=>d.message().includes('не обнаружен звук речи'),timeout:5000
+  });
   await mic.tap();
+  await silenceNotice;
   await page.waitForFunction(()=>document.getElementById('micBtn')?.textContent.includes('Говорить'));
   assert(dialogs.some(x=>x.includes('не обнаружен звук речи')),'Sustained silence should give understandable feedback');
   assert.equal(uploads,0,'Silence must never be sent for hallucinated transcription');
