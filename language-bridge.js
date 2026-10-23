@@ -262,19 +262,19 @@
   const known=knownWords(),allowed=new Set(known.map(x=>x.key)),byKey=new Map(known.map(x=>[x.key,x]));
   const list=TERMS.filter(x=>allowed.has(normNo(x.lemma))).map(x=>({...x,
    lemma:String(byKey.get(normNo(x.lemma))?.dictionary?.lemma||byKey.get(normNo(x.lemma))?.srs?.word||x.lemma),
-   source:'fixed',priority:difficulty(byKey.get(normNo(x.lemma)))}));
+   source:'fixed',priority:95+difficulty(byKey.get(normNo(x.lemma)))}));
   for(const phrase of PHRASES){
    if(phrase.pieces.every(p=>allowed.has(normNo(p[1])))){
     list.push({ru:phrase.ru,no:phrase.pieces.map(p=>p[0]).join(' '),pieces:phrase.pieces,
      translation:phrase.ru,lemma:phrase.pieces[0][1],source:'phrase',
-     priority:Math.max(...phrase.pieces.map(p=>difficulty(byKey.get(normNo(p[1])))))});
+     priority:95+Math.max(...phrase.pieces.map(p=>difficulty(byKey.get(normNo(p[1])))))});
    }
   }
   const russian=new Set(list.map(x=>normRu(x.ru)));
   for(const w of known){
    const term=dynamicTerm(w);
    if(term&&!russian.has(normRu(term.ru))){
-    list.push({...term,priority:difficulty(w)});russian.add(normRu(term.ru));
+    list.push({...term,priority:95+difficulty(w)});russian.add(normRu(term.ru));
    }
   }
   // Longest-first: "сегодня вечером" wins over "сегодня".
