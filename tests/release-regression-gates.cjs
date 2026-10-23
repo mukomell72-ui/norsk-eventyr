@@ -127,7 +127,7 @@ if(assetRevision?.startsWith('-lesson')){
    (!freshnessSuffix||access.includes("'"+freshnessSuffix+"'")), 
     'Access bootstrap and offline cache must agree on lesson patch revision');
 }
-if(bridgeSuffix)assert.equal(bridgeSuffix,'-bridge3','Unexpected language bridge revision');
+if(bridgeSuffix)assert.equal(bridgeSuffix,'-bridge4','Unexpected language bridge revision');
 if(skulleSuffix)assert.equal(skulleSuffix,'-skulle1','Unexpected modal grammar revision');
 if(ruFormsSuffix){
  assert(ruFormsSuffix==='-ruforms2','Unexpected Russian morphology patch revision');
