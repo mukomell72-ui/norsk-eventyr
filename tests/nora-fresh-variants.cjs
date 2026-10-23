@@ -31,6 +31,7 @@ const teacher=fs.readFileSync(path.join(root,'adaptive-teacher.js'),'utf8');
 assert(teacher.includes('recentLessons,bridgeLearned,bridgeDifficult,learningLoad,teacherMode:true'),
  'Past exercises and personalized learner vocabulary must reach the server');
 assert(teacher.includes('personalFocus?.(16)'), 'Learner-specific difficulty must come from scoped bridge history');
+assert(teacher.includes("levelEntries?.(mission.level)"),'Nora must receive vocabulary scoped to actual module level');
 const buildLesson=(details)=>({vocab:Array.from({length:6},(_,i)=>['ord'+i,'слово'+i]),
  opts:['En','To','Tre','Fire'],correct:0,grammarOpts:['Jeg','Du','Han','Vi'],grammarCorrect:0,
  listeningQ:'Hva handler lyden om?',listeningOpts:['Jobb','Mat','Hus','Tid'],listeningCorrect:0,
@@ -43,11 +44,18 @@ async function check(){
   return {ok:true,json:async()=>({output:[{content:[{type:'output_text',text:JSON.stringify(results[calls++])}]}]})};};
  const res={status(code){this.code=code;return this},json(value){this.body=value;return value}};
  await sandbox.handler({method:'POST',body:{kind:'lesson',level:'A1',teacherMode:true,recentLessons:[old],
+  bridgeLevelWords:[{word:'skriv',ru:'напиши',level:'A1'},{word:'dag',ru:'день',level:'A1'}],
   bridgeLearned:[{word:'å begynne',ru:'начинать',weight:90,mastered:true}],
   bridgeDifficult:[{word:'å begynne',ru:'начинать',weight:90,mastered:true},
    {word:'å slutte',ru:'заканчивать',weight:88,mastered:false}],
   scenarioVariation:'Новое место'}},res);
  assert(prompts[0].includes('ПЕРСОНАЛЬНЫЙ ЯЗЫКОВОЙ МОСТ'),'Generator sees mastered user vocabulary');
+ assert(prompts[0].includes('СЛОВА ДЛЯ ИНСТРУКЦИЙ ТЕКУЩЕГО УРОВНЯ A1'),
+  'Nora must be given a level-based fallback with no requirement for mastery');
+ assert(prompts[0].includes('"word":"skriv"')&&prompts[0].includes('"word":"dag"'),
+  'Verified A1 task starters must be sent to the lesson generator');
+ assert(prompts[0].includes('даже если словарь выученного ученика пока пуст'),
+  'Empty learner mastery must not leave all writing tasks completely Russian');
  assert(prompts[0].includes('å begynne'),'Generator receives a weak known verb for varied contexts');
  assert(prompts[0].includes('ЛИЧНО ТРУДНЫЕ СЛОВА'),'Generator receives the weak-word priority');
  assert(prompts[0].includes('"mastered":false'),'Unmastered words are never mislabelled as mastered');

@@ -18,6 +18,20 @@ vm.runInNewContext(source,{window:w,document:{readyState:'loading',addEventListe
 const bridge=w.NELanguageBridge;
 assert(bridge,'Bridge API available');
 assert.equal(bridge.entries().length,1,'Do not replace newly seen or poorly recalled vocabulary');
+assert(bridge.levelEntries().some(x=>x.no==='skriv'),'Level fallback is available independently from personal mastered words');
+assert(bridge.levelEntries().some(x=>x.no==='si'),'Level fallback includes a validated A1 imperative');
+assert(!bridge.levelEntries().some(x=>x.no==='forklar'),'A2 instruction words are protected from A1 learners');
+assert.equal(bridge.queueLevelWord('å forklare','объясни'),false,'A1 learner cannot queue an unintroduced A2 word');
+assert.equal(bridge.queueLevelWord('инструкция','произвольный текст'),false,'Arbitrary unknown vocabulary cannot be falsely added');
+const baseLevel=state.level;
+state.level='A2';
+assert(bridge.levelEntries().some(x=>x.no==='forklar'),'At A2 the relevant explanation verb becomes available');
+assert(!bridge.levelEntries().some(x=>x.no==='begrunn'),'B1 explanatory verb remains gated at A2');
+state.level='B1';
+assert(bridge.levelEntries().some(x=>x.no==='begrunn'),'At B1 relevant argument words become available');
+state.level='B2';
+assert(bridge.levelEntries().some(x=>x.no==='vurder'),'At B2 relevant analytic verbs become available');
+state.level=baseLevel;
 assert.equal(bridge.entries()[0].no,'i dag');
 const segments=bridge.segments('Сегодня я учу слово сегодня.',bridge.entries(),1);
 assert.equal(segments.filter(x=>x.no).length,1,'A1 gets only one substitution per paragraph');
@@ -136,6 +150,61 @@ assert(overloaded.api.segments(sameInstruction,overloaded.api.entries(),4).some(
 (async()=>{
  const browser=await chromium.launch({headless:true});
  try{
+  // Regression reproducing the real A1 writing screen with NO mastered words.
+  // Inline Norwegian translation buttons are already present before the bridge.
+  const fresh=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});
+  await fresh.setContent('<html lang="ru"><body><main id="app"><div class="shell">'+
+   '<div class="exercise"><div class="prompt" id="a1Writing" data-bridge-instruction="true">'+
+   'Напиши короткий план на один день: назови день, два времени и два действия. Используй '+
+   '<button class="word-translate-v7" id="existingLevelNorwegian">minst</button> '+
+   '<button class="word-translate-v7">én</button> '+
+   '<button class="word-translate-v7">setning</button> med «begynner» eller «slutter».</div>'+
+   '<div class="prompt" id="scoredA1">Напиши правильный ответ.</div>'+
+   '<div id="a2Only" class="prompt" data-bridge-instruction="true">Объясни причину.</div>'+
+   '</div></div></main></body></html>');
+  await fresh.evaluate(()=>{
+   window.neLearnerState={level:'A1',learningV8:{},dailyDictionary:{},srs:{},wordPracticeQueue:{}};
+   window.saveState=()=>{window.__levelSaved=(window.__levelSaved||0)+1};
+   window.__existingClicks=0;
+   document.getElementById('existingLevelNorwegian').addEventListener('click',()=>window.__existingClicks++);
+  });
+  await fresh.addScriptTag({content:source});
+  await fresh.waitForSelector('#a1Writing .ne-bridge-word');
+  const firstTimeWords=await fresh.locator('#a1Writing .ne-bridge-word').allTextContents();
+  for(const word of ['Skriv','si','dag'])
+   assert(firstTimeWords.includes(word),'Level A1 must put '+word+' DIRECTLY in writing task with an empty word history');
+  assert.equal(await fresh.locator('#scoredA1 .ne-bridge-word').count(),0,
+   'A1 graded questions stay unmodified for an unpractised learner');
+  assert.equal(await fresh.locator('#a2Only .ne-bridge-word').count(),0,
+   'An A1 learner does not see an unlearned A2 word');
+  assert.equal(await fresh.evaluate(()=>window.NELanguageBridge.knownWords().length),0,
+   'Level starter exposure does not fake any mastered vocabulary');
+  await fresh.locator('#a1Writing .ne-bridge-word').filter({hasText:'Skriv'}).click();
+  const firstLookup=await fresh.evaluate(()=>({
+   dictionary:window.neLearnerState.dailyDictionary.skrive,
+   srs:window.neLearnerState.srs.skrive,
+   queued:window.neLearnerState.wordPracticeQueue.skrive,
+   saved:window.__levelSaved,
+   known:window.NELanguageBridge.knownWords().length
+  }));
+  assert(firstLookup.dictionary?.correct===0&&firstLookup.srs?.stage===0&&firstLookup.queued>0,
+   'New level word is added to personal repetition without earning a correct answer');
+  assert.equal(firstLookup.known,0,'A tap does not upgrade level vocabulary to mastered');
+  assert(firstLookup.saved>=1,'New lookup is persisted to user-scoped progress');
+  assert((await fresh.locator('#a1Writing .ne-bridge-gloss').innerText()).includes('напиши'),
+   'Level word must immediately show the selected Russian form on tap');
+  await fresh.locator('#existingLevelNorwegian').click();
+  assert.equal(await fresh.evaluate(()=>window.__existingClicks),1,
+   'Previously tappable Norwegian words remain clickable');
+  await fresh.evaluate(()=>window.NELanguageBridge.toggle());
+  assert.equal(await fresh.locator('#a1Writing .ne-bridge-word').count(),0,
+   'Opt-out restores the exact original task text');
+  await fresh.locator('#existingLevelNorwegian').click();
+  assert.equal(await fresh.evaluate(()=>window.__existingClicks),2,
+   'Opt-out does not destroy older Norwegian word click handlers');
+  await fresh.evaluate(()=>window.NELanguageBridge.toggle());
+  await fresh.waitForSelector('#a1Writing .ne-bridge-word');
+  await fresh.close();
   const page=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});
   await page.setContent('<html lang="ru"><body><main id="app"><div class="shell"><p id="prose">Сегодня мы учим слова. Завтра повторим.</p><p id="dictionary">Этот телефон уже знаком.</p><div class="exercise"><p id="graded">Сегодня выбери верный ответ.</p><div class="ne-lesson-coach"><p id="nora">Нора объясняет, почему сегодня важно повторять.</p></div></div><div lang="nb"><p id="norwegian">Телефон</p></div></div></main></body></html>');
   await page.evaluate(()=>{

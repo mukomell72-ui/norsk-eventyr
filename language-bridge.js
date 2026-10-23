@@ -1,5 +1,5 @@
-// Språkbro 2.3 — personalized graded bilingual learning and difficult-word reinforcement.
-// Never change test questions, answers or unlearned vocabulary; taps queue review.
+// Språkbro 2.5 — CEFR-level word prompts plus personalized difficulty reinforcement.
+// Scored test questions/answers remain untouched; introduced words never count as mastered.
 (() => {
  'use strict';
  // High-confidence invariant translations; every term is activated ONLY if its
@@ -65,6 +65,58 @@
   {ru:'ты работаешь',pieces:[['du','du','ты'],['jobber','jobbe','работаешь']]},
   {ru:'можешь встретиться',pieces:[['kan','kunne','можешь'],['møtes','møtes','встретиться']]}
  ]);
+ // Classroom instruction vocabulary appropriate for the current course level.
+ // This is an editorially verified pedagogical starter list, not a claim that
+ // each individual word has an official CEFR classification. Include earlier
+ // levels at higher levels, never introduce B1/B2 words into A1 instructions.
+ // [Russian surface, Norwegian surface, lemma, priority, dictionary meaning]
+ const LEVEL_WORDS=Object.freeze({
+  A1:[
+   ['напиши','skriv','å skrive',88,'писать'],
+   ['назови','si','å si',83,'сказать'],
+   ['день','dag','en dag',77,'день'],
+   ['план','plan','en plan',62,'план'],
+   ['используй','bruk','å bruke',60,'использовать'],
+   ['скажи','si','å si',67,'сказать'],
+   ['ответь','svar','å svare',65,'отвечать'],
+   ['прочитай','les','å lese',65,'читать'],
+   ['вопрос','spørsmål','et spørsmål',58,'вопрос'],
+   ['слово','ord','et ord',53,'слово'],
+   ['сегодня','i dag','i dag',51,'сегодня'],
+   ['завтра','i morgen','i morgen',50,'завтра'],
+   ['дома','hjemme','hjemme',49,'дома'],
+   ['дом','hus','et hus',47,'дом'],
+   ['работа','jobb','en jobb',48,'работа'],
+   ['неделя','uke','en uke',42,'неделя'],
+   ['снова','igjen','igjen',45,'снова'],
+   ['вслух','høyt','høyt',48,'вслух'],
+   ['коллега','kollega','en kollega',45,'коллега']
+  ],
+  A2:[
+   ['объясни','forklar','å forklare',75,'объяснять'],
+   ['опиши','beskriv','å beskrive',75,'описывать'],
+   ['сравни','sammenlign','å sammenligne',72,'сравнивать'],
+   ['почему','hvorfor','hvorfor',64,'почему'],
+   ['пример','eksempel','et eksempel',65,'пример'],
+   ['сначала','først','først',60,'сначала'],
+   ['затем','etterpå','etterpå',59,'затем'],
+   ['причина','grunn','en grunn',55,'причина']
+  ],
+  B1:[
+   ['обоснуй','begrunn','å begrunne',77,'обосновывать'],
+   ['обсуди','diskuter','å diskutere',73,'обсуждать'],
+   ['аргумент','argument','et argument',64,'аргумент'],
+   ['мнение','mening','en mening',62,'мнение'],
+   ['отличие','forskjell','en forskjell',61,'отличие']
+  ],
+  B2:[
+   ['оцени','vurder','å vurdere',78,'оценивать'],
+   ['проанализируй','analyser','å analysere',77,'анализировать'],
+   ['вывод','konklusjon','en konklusjon',65,'вывод'],
+   ['последствие','konsekvens','en konsekvens',65,'последствие'],
+   ['предположение','antakelse','en antakelse',60,'предположение']
+  ]
+ });
  const getState=()=>window.neLearnerState||null;
  const normNo=x=>String(x||'').normalize('NFKC').toLocaleLowerCase('nb-NO').trim()
   .replace(/^(?:å|en|ei|et)\s+/,'').replace(/[.,!?;:"'()[\]{}]/g,'').replace(/\s+/g,' ');
@@ -72,6 +124,11 @@
  const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const cap=(x,min,max)=>Math.max(min,Math.min(max,Number(x)||0));
  const enabled=()=>getState()?.learningV8?.languageBridgeEnabled!==false;
+ const lessonLevel=()=>{
+  const current=window.neLessonSession?.lesson?.level;
+  return ['A1','A2','B1','B2'].includes(current)?current:
+   (['A1','A2','B1','B2'].includes(getState()?.level)?getState().level:'A1');
+ };
  // A learner who remembers more words sees more Bokmål, but difficult recent
  // lookups automatically reduce substitutions without adding any new exercises.
  function recentPeeks(){
@@ -157,6 +214,23 @@
    (Number.isFinite(strength)?Math.max(0,65-strength)*.22:0)+
    Math.max(0,3-stage)*3+Math.max(0,wrong-right)*4));
  }
+ // Even a learner with no mastered vocabulary receives a few level-matched
+ // Norwegian words DIRECTLY in the lesson instructions. Never grant mastery
+ // from their appearance or from a translation peek.
+ function levelEntries(level=lessonLevel()){
+  const levels=['A1','A2','B1','B2'];
+  const max=levels.indexOf(level);
+  const map=new Map();
+  for(const band of levels.slice(0,max>=0?max+1:1)){
+   for(const [ru,no,lemma,priority,study] of LEVEL_WORDS[band]){
+    const key=normRu(ru);
+    if(!map.has(key))map.set(key,{
+     ru,no,lemma,translation:ru,study,priority,source:'level',level:band
+    });
+   }
+  }
+  return [...map.values()];
+ }
  // Separate learned words eligible for language mixing from the weaker words
  // included in Norwegian practice. Never mislabel an unseen lookup as learned.
  function personalFocus(limit=12){
@@ -193,19 +267,19 @@
   const known=knownWords(),allowed=new Set(known.map(x=>x.key)),byKey=new Map(known.map(x=>[x.key,x]));
   const list=TERMS.filter(x=>allowed.has(normNo(x.lemma))).map(x=>({...x,
    lemma:String(byKey.get(normNo(x.lemma))?.dictionary?.lemma||byKey.get(normNo(x.lemma))?.srs?.word||x.lemma),
-   source:'fixed',priority:difficulty(byKey.get(normNo(x.lemma)))}));
+   source:'fixed',priority:95+difficulty(byKey.get(normNo(x.lemma)))}));
   for(const phrase of PHRASES){
    if(phrase.pieces.every(p=>allowed.has(normNo(p[1])))){
     list.push({ru:phrase.ru,no:phrase.pieces.map(p=>p[0]).join(' '),pieces:phrase.pieces,
      translation:phrase.ru,lemma:phrase.pieces[0][1],source:'phrase',
-     priority:Math.max(...phrase.pieces.map(p=>difficulty(byKey.get(normNo(p[1])))))});
+     priority:95+Math.max(...phrase.pieces.map(p=>difficulty(byKey.get(normNo(p[1])))))});
    }
   }
   const russian=new Set(list.map(x=>normRu(x.ru)));
   for(const w of known){
    const term=dynamicTerm(w);
    if(term&&!russian.has(normRu(term.ru))){
-    list.push({...term,priority:difficulty(w)});russian.add(normRu(term.ru));
+    list.push({...term,priority:95+difficulty(w)});russian.add(normRu(term.ru));
    }
   }
   // Longest-first: "сегодня вечером" wins over "сегодня".
@@ -266,12 +340,12 @@
     hit.term.pieces.forEach(([no,lemma,ru],i)=>{
      if(i)out.push({text:' '});
      const upper=i===0&&/^[А-ЯЁ]/u.test(text[hit.start]);
-     out.push({no:upper?no[0].toLocaleUpperCase('nb-NO')+no.slice(1):no,lemma,ru,source:ru});
+     out.push({no:upper?no[0].toLocaleUpperCase('nb-NO')+no.slice(1):no,lemma,ru,source:ru,sourceType:hit.term.source});
     });
    }else{
     const upper=/^[А-ЯЁ]/u.test(text[hit.start]),no=hit.term.no;
     out.push({no:upper?no[0].toLocaleUpperCase('nb-NO')+no.slice(1):no,
-     ru:hit.term.translation,lemma:hit.term.lemma||no,source:text.slice(hit.start,hit.end)});
+     ru:hit.term.translation,lemma:hit.term.lemma||no,source:text.slice(hit.start,hit.end),sourceType:hit.term.source});
    }
    from=hit.end;
   }
@@ -315,6 +389,30 @@
   state.srs[key]={word:source.toLocaleLowerCase('nb-NO'),translation,level,stage:0,seen:1,correct:0,due:now};
   return queueForgotten(source);
  }
+ // Record a CEFR-level word only when the learner actually taps it.
+ // It enters SRS stage 0 but is NEVER marked correct or mastered.
+ function queueLevelWord(no,ru){
+  const row=levelEntries().find(x=>normNo(x.lemma)===normNo(no)&&normRu(x.translation)===normRu(ru));
+  if(!row)return false;
+  const state=getState(),key=normNo(row.lemma);
+  if(!state||!key)return false;
+  const already=Object.values(state.dailyDictionary||{}).some(x=>normNo(x?.lemma||x?.word)===key)
+   ||Object.values(state.srs||{}).some(x=>normNo(x?.word)===key);
+  if(!already){
+   const now=Date.now();
+   state.dailyDictionary=state.dailyDictionary||{};
+   state.srs=state.srs||{};
+   state.dailyDictionary[key]={
+    lemma:row.lemma,translation_ru:row.study,level:lessonLevel(),
+    correct:0,wrong:0,exposures:1,strength:0,
+    firstDate:new Date(now).toISOString().slice(0,10),nextDue:now,
+    source:'bridge_level_lookup'
+   };
+   state.srs[key]={word:row.lemma,translation:row.study,level:lessonLevel(),
+    stage:0,seen:1,correct:0,due:now};
+  }
+  return queueForgotten(row.lemma);
+ }
  function queueForgotten(no){
   const state=getState(),key=normNo(no),now=Date.now();
   if(!state||!key)return false;
@@ -336,6 +434,9 @@
   '.choice-list,.translation,.lesson-question,'+
   '.nq-decision-scene,.nq-choice,.lesson-choices,.daily-word-card,'+
   '[data-no-bridge],[lang="nb"],[lang="no"],[role="alert"]';
+ function levelInstruction(block){
+  return block.matches('[data-bridge-instruction],.dialogue-task-v83 p,.dialogue-scene-v83 p,.ne-coach-hint,.nq-nora-note');
+ }
  function eligibleBlock(block){
   if(!block.closest('.shell'))return false;
   const instruction=block.matches('[data-bridge-instruction],.dialogue-task-v83 p,.dialogue-scene-v83 p,.dialogue-task-v83 b,.dialogue-scene-v83 b,.dialogue-scene-v83 small');
@@ -354,7 +455,11 @@
  }
  function apply(block,terms){
   if(processed.has(block)||!eligibleBlock(block))return;
-  const limit=density(block.textContent||''),nodes=[],walker=document.createTreeWalker(block,NodeFilter.SHOW_TEXT);
+  const text=block.textContent||'',level=lessonLevel();
+  const floor=levelInstruction(block)?Math.min(
+   ({A1:3,A2:4,B1:5,B2:6})[level]||3,
+   Math.max(1,Math.ceil(text.trim().split(/\s+/).length/8))):0;
+  const limit=Math.max(density(text),floor),nodes=[],walker=document.createTreeWalker(block,NodeFilter.SHOW_TEXT);
   while(walker.nextNode()){
    const n=walker.currentNode,p=n.parentElement;
    if(p&&!p.closest('button,a,code,pre,kbd,[data-no-bridge],[lang="nb"],.ne-bridge-word'))nodes.push(n);
@@ -374,6 +479,7 @@
     const btn=document.createElement('button');btn.type='button';btn.className='ne-bridge-word';
     btn.lang='nb';btn.textContent=part.no;btn.dataset.neWord=part.lemma||part.no;
     btn.dataset.neTranslation=part.ru;
+    if(part.sourceType==='level')btn.dataset.neIntro='true';
     btn.setAttribute('aria-label',part.no+' — показать перевод и повторить');
     btn.setAttribute('aria-expanded','false');replacement.appendChild(btn);used++;
    }
@@ -385,8 +491,15 @@
  const selectors='.shell p,.shell li,.shell .ne-coach-hint,.shell .nq-nora-note,.shell .nq-nora-reaction p,.shell .dialogue-task-v83 b,.shell .dialogue-scene-v83 b,.shell .dialogue-scene-v83 small,.shell [data-bridge-instruction]';
  function process(){
   if(busy||!root||!enabled())return;
-  const terms=entries();if(!terms.length)return;
-  busy=true;try{for(const block of root.querySelectorAll(selectors))apply(block,terms);}
+  const mastered=entries(),starters=levelEntries();
+  if(!mastered.length&&!starters.length)return;
+  const seen=new Set(mastered.map(x=>normRu(x.ru)));
+  const instructionTerms=[...mastered,...starters.filter(x=>!seen.has(normRu(x.ru)))];
+  busy=true;try{
+   for(const block of root.querySelectorAll(selectors)){
+    apply(block,levelInstruction(block)?instructionTerms:mastered);
+   }
+  }
   finally{busy=false}
  }
  function restore(){
@@ -415,9 +528,9 @@
  function controlHtml(){
   const known=knownWords().length,covered=entries().length,on=enabled();
   return '<section class="card ne-bridge-settings" data-no-bridge>'+
-   '<h3>Språkbro 2.3 · Языковой мост</h3>'+
-   '<p>Каждому ученику — свой языковой мост: знакомые норвежские слова входят прямо в задания и описания, а трудные возвращаются чаще в новых ситуациях. Перевод по нажатию ставит слово на повторение без дополнительных обязательных заданий.</p>'+
-   '<p class="muted">Подтверждено слов: <b>'+known+'</b>. Безопасных замен: <b>'+covered+'</b>. Уровень: <b>'+esc(getState()?.level||'A1')+'</b>. '+
+   '<h3>Språkbro 2.5 · Языковой мост</h3>'+
+   '<p>Слова соответствующего уровня A1–B2 появляются прямо в инструкциях, даже если ещё не выучены. Нажми слово для русского перевода и добавления в повторение; личные трудные слова возвращаются чаще. Контрольные тесты не изменяются.</p>'+
+   '<p class="muted">Подтверждено слов: <b>'+known+'</b>. Освоенных замен: <b>'+covered+'</b>. Слов для текущего уровня: <b>'+levelEntries().length+'</b>. Уровень: <b>'+esc(getState()?.level||'A1')+'</b>. '+
    (covered?'Замены появляются там, где встречается подходящее русское слово.':'По мере закрепления слов доступные замены появятся автоматически.')+'</p>'+
    '<button id="neLanguageBridgeToggle" type="button" class="btn secondary" aria-pressed="'+on+'" onclick="NELanguageBridge.toggle()">'+
    (on?'Выключить языковой мост':'Включить языковой мост')+'</button></section>';
@@ -431,7 +544,8 @@
    if(current.nextElementSibling?.classList.contains('ne-bridge-gloss'))current.nextElementSibling.remove();
   }
   if(wasOpen)return;
-  const queued=queueForgotten(button.dataset.neWord);
+  const queued=button.dataset.neIntro==='true'?
+   queueLevelWord(button.dataset.neWord,button.dataset.neTranslation):queueForgotten(button.dataset.neWord);
   const gloss=document.createElement('span');gloss.className='ne-bridge-gloss';
   gloss.setAttribute('role','status');gloss.lang='ru';
   gloss.textContent=(button.dataset.neWord!==button.textContent?button.dataset.neWord+' — ':'')+
@@ -448,7 +562,7 @@
  }
  window.NELanguageBridge=Object.freeze({controlHtml,toggle,process,segments,queueForgotten,
   entries,knownWords,extractTranslation,dynamicTerm,isMastered,density,recentPeeks,eligibleBlock,
-  knownNorwegian,queueNorwegianLookup,tapGloss,personalFocus,difficulty});
+  knownNorwegian,queueNorwegianLookup,tapGloss,personalFocus,difficulty,levelEntries,queueLevelWord});
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});
  else mount();
 })();
