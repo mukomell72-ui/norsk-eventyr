@@ -349,3 +349,15 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-vis
 .ne-mission-word details{display:inline-block;font-size:.86rem}
 .ne-mission-word summary{cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .ne-mission-word details[open] span{display:inline;margin-left:7px}
+
+/* Compact optional explanations of frequently used Bokmål function words. */
+.ne-function-word-card{margin:10px 0;padding:11px 13px;border:1px solid rgba(100,149,151,.25);border-radius:12px;background:rgba(72,126,134,.07);font-size:.92rem}
+.ne-function-word-top{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ne-function-word-top>b{font-size:1.2rem;color:inherit}.ne-function-word-top>small{opacity:.85}
+.ne-function-word-card summary{cursor:pointer;font-weight:650;margin:8px 0 2px}
+.ne-function-word-example{display:flex;flex-direction:column;gap:2px;margin:7px 0}
+.ne-function-word-example>span{font-weight:650}.ne-function-word-example small{opacity:.82}
+.ne-function-word-question{margin-top:10px}.ne-function-word-choices{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0}
+.ne-function-word-choices button{padding:7px 13px;border:1px solid rgba(100,149,151,.45);border-radius:9px;background:transparent;color:inherit;cursor:pointer}
+.ne-task-direction{font-size:.88rem;line-height:1.5;opacity:.92;margin:6px 0 10px}
+.ne-first-grade{font-size:.88rem;margin:8px 0;padding:8px 10px;border-left:3px solid rgba(90,148,154,.75);background:rgba(70,139,140,.07)}
