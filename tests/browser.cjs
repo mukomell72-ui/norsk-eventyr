@@ -63,8 +63,18 @@ const server=http.createServer(async(req,res)=>{
   if(state.activeLesson?.id===id)delete state.activeLesson;
   saveState();
  });
- const openedFollowup=await humanPage.evaluate(()=>NEExperience.openFollowup());
- assert.equal(openedFollowup,true,'A completed lesson can open the contextual conversation');
+ const followupCheck=await humanPage.evaluate(()=>{
+  const l=typeof lessonSession==='object'?lessonSession?.lesson:null;
+  const st=window.neLearnerState;
+  const diagnostic={lessonId:l?.id,lessonLevel:l?.level,step:lessonSession?.step,
+   hasLearner:!!st,learnerLevel:st?.level,saveFunction:typeof window.saveState,
+   completed:!!state.completed?.[l?.id],hasExperience:!!window.NEExperience,
+   hasChatRenderer:typeof window.renderChatV7,hasGlobalState:typeof state};
+  const opened=NEExperience.openFollowup();
+  return{opened,diagnostic};
+ });
+ assert.equal(followupCheck.opened,true,
+  'A completed lesson can open the contextual conversation: '+JSON.stringify(followupCheck));
  assert.equal(await humanPage.evaluate(()=>state.chatPrefs.mode),'roleplay');
  assert.equal(await humanPage.evaluate(()=>state.chatThreadId),'lesson:nora-human-qa-lesson');
  const chatSnapshot=await humanPage.evaluate(()=>({
