@@ -332,3 +332,6 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-vis
 .ne-lesson-assessment .notice{margin-top:11px}
 @media(max-width:480px){.ne-mission-head{margin:10px 10px 12px;padding:12px}.ne-focus-card,.ne-home-extras{margin:12px 10px}.ne-mission-main p{font-size:12px}.ne-end-note h2{font-size:19px}}
 @media(prefers-reduced-motion:reduce){.ne-mission-head *,.ne-focus-card *{transition:none!important}}
+
+.ne-mission-story{font-size:12px;line-height:1.45;border-left:2px solid #568f97;padding:5px 0 5px 9px;color:#d0e3e7;margin:9px 0}
+.ne-lesson-followup{margin:8px 0;display:inline-block;min-height:44px;text-align:center}
