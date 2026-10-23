@@ -184,6 +184,42 @@ assert(overloaded.api.segments(sameInstruction,overloaded.api.entries(),4).some(
   assert((await page.locator('#writtenInstruction .ne-bridge-word').count())>0,'Marked free-response instruction is bridged');
   assert.equal(await page.locator('#protectedQuestion .ne-bridge-word').count(),0,'Untargeted graded prompts stay unchanged');
   assert.equal(await page.locator('#protectedTranslation .ne-bridge-word').count(),0,'Assessed translations are protected');
+  // Real screenshot regression: an already-clickable Norwegian phrase inside
+  // a mixed Russian writing task must NOT prevent learned words earlier in
+  // the same instruction from being transformed.
+  await page.evaluate(()=>{
+   const s=window.neLearnerState;
+   for(const lemma of ['å skrive','å si','en dag','en plan','å bruke'])
+    s.dailyDictionary[lemma]={lemma,translation_ru:'изучено',correct:5,exposures:7,wrong:0};
+   document.querySelector('.shell').insertAdjacentHTML('beforeend',
+    '<div class="exercise"><div class="prompt" id="mixedWrite" data-bridge-instruction="true">'+
+    'Напиши короткий план на один день: назови день, два времени и два действия. '+
+    'Используй <button type="button" class="word-translate-v7" id="oldWord">minst</button> '+
+    '<button type="button" class="word-translate-v7">én</button> '+
+    '<button type="button" class="word-translate-v7">setning</button> med «begynner» eller «slutter». '+
+    '</div><div class="prompt" id="realControls" data-bridge-instruction="true">'+
+    'Напиши день. <button class="btn" type="button">Проверить</button></div></div>');
+   window.__oldWordClickCount=0;
+   document.getElementById('oldWord').addEventListener('click',()=>window.__oldWordClickCount++);
+  });
+  await page.waitForSelector('#mixedWrite .ne-bridge-word');
+  const mixedWords=await page.locator('#mixedWrite .ne-bridge-word').allTextContents();
+  assert(mixedWords.includes('Skriv'),'Previously studied imperative must replace Напиши in the task');
+  assert(mixedWords.includes('si'),'Previously studied imperative must replace назови in the task');
+  assert(mixedWords.includes('dag'),'Previously studied noun must replace день inside the task');
+  assert.equal(await page.locator('#realControls .ne-bridge-word').count(),0,
+   'Real exercise action buttons must continue to protect the prompt from modification');
+  await page.locator('#mixedWrite #oldWord').click();
+  assert.equal(await page.evaluate(()=>window.__oldWordClickCount),1,'Existing Norwegian word remains clickable');
+  await page.evaluate(()=>window.NELanguageBridge.toggle());
+  assert.equal(await page.locator('#mixedWrite .ne-bridge-word').count(),0,
+   'Opting out restores all original Russian words, even inside a partly Norwegian prompt');
+  await page.locator('#mixedWrite #oldWord').click();
+  assert.equal(await page.evaluate(()=>window.__oldWordClickCount),2,
+   'Opting out must not destroy existing Norwegian translation click handlers');
+  await page.evaluate(()=>window.NELanguageBridge.toggle());
+  await page.waitForSelector('#mixedWrite .ne-bridge-word');
+
   await page.evaluate(()=>{
    document.querySelector('.shell').insertAdjacentHTML('beforeend',
     '<section class="lesson-exercise-v6"><div class="dialogue-scene-v83"><p id="workScene">Коллега спрашивает, когда вы работаете.</p></div></section>');
