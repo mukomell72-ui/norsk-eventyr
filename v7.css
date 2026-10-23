@@ -361,3 +361,10 @@ button:focus-visible,textarea:focus-visible,select:focus-visible,input:focus-vis
 .ne-function-word-choices button{padding:7px 13px;border:1px solid rgba(100,149,151,.45);border-radius:9px;background:transparent;color:inherit;cursor:pointer}
 .ne-task-direction{font-size:.88rem;line-height:1.5;opacity:.92;margin:6px 0 10px}
 .ne-first-grade{font-size:.88rem;margin:8px 0;padding:8px 10px;border-left:3px solid rgba(90,148,154,.75);background:rgba(70,139,140,.07)}
+
+/* Progressive language immersion: coherent Norwegian classroom directions. */
+.ne-task-direction{padding:8px 11px;margin:7px 0 10px;border-left:3px solid rgba(75,146,160,.7);background:rgba(75,146,160,.07);border-radius:7px;font-size:.92rem}
+.ne-task-direction .ne-task-direction-no{font-weight:650;margin:0 0 3px;line-height:1.65}
+.ne-task-direction .ne-task-direction-ru{font-size:.87rem;opacity:.82;margin:0}
+.ne-task-direction details{margin:5px 0}.ne-task-direction summary{cursor:pointer;font-size:.85rem}
+.ne-function-word-rule{line-height:1.5;margin:8px 0 0}
