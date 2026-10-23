@@ -163,9 +163,9 @@
   const item=words[(offset+Math.floor(step/2))%words.length];
   return '<section class="ne-function-word-card" data-no-bridge aria-label="Нора объясняет служебные слова">'+
    '<div class="ne-function-word-top"><span>Нора объясняет · маленькие слова</span>'+
-   '<b lang="nb">'+safe(item.id)+'</b><small>'+safe(item.kind)+'</small></div>'+
-   '<details><summary>Как употреблять '+safe(item.id)+'? · пример и практика</summary>'+
-   '<p>'+safe(item.rule)+'</p>'+
+   '<b lang="nb">'+safe(item.id)+'</b><small>'+safe(item.kind)+'</small></div>'+ 
+   '<p class="ne-function-word-rule">'+safe(item.rule)+'</p>'+
+   '<details><summary>Примеры и практика: '+safe(item.id)+'</summary>'+
    item.examples.map(x=>'<p class="ne-function-word-example"><span lang="nb">'+safe(x[0])+'</span><small>'+safe(x[1])+'</small></p>').join('')+
    '<p class="ne-function-word-question"><b>Попробуй сам:</b> <span lang="nb">'+safe(item.question)+'</span></p>'+
    '<div class="ne-function-word-choices">'+item.options.map((o,i)=>
@@ -197,9 +197,9 @@
   return '<section class="ne-mission-head" aria-label="Одна история, четыре действия">'+
    '<div class="ne-mission-overline">ТВОЯ СИТУАЦИЯ · '+safe(lesson?.level||'A1')+'</div>'+
    '<div class="ne-mission-main"><div><h2>'+safe(b.stage.name)+'</h2>'+
-   '<p>'+safe(b.activity)+'. '+safe(b.stage.note)+'</p></div>'+
+   '<p data-bridge-instruction="true">'+safe(b.activity)+'. '+safe(b.stage.note)+'</p></div>'+
    '<button type="button" class="ne-pause-button" onclick="NEExperience.pause()">Пауза</button></div>'+
-   (b.scene&&b.step>0?'<p class="ne-mission-story">В нашей истории: '+safe(b.scene)+'</p>':'')+
+   (b.scene&&b.step>0?'<p class="ne-mission-story" data-bridge-instruction="true">В нашей истории: '+safe(b.scene)+'</p>':'')+
     wordEncounter(lesson,session)+
     functionWordGuide(lesson,session)+
    '<div class="ne-mission-track" aria-label="Этап '+(b.stage.index+1)+' из 4">'+dots+'</div>'+
