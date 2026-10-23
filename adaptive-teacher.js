@@ -306,7 +306,7 @@ async function runTeacherMission(mission,living=null){
  // no identity, email, or full history is sent with these preferences.
  const bridgeWords=window.NELanguageBridge?.personalFocus?.(16)||[];
  const bridgeLearned=bridgeWords.filter(x=>x.mastered).slice(0,10)
-  .map(x=>({word:x.lemma,ru:x.translation,weight:x.difficulty}));
+  .map(x=>({word:x.lemma,ru:x.translation,weight:x.difficulty,mastered:true}));
  const bridgeDifficult=bridgeWords.filter(x=>x.difficulty>=18).slice(0,6)
   .map(x=>({word:x.lemma,ru:x.translation,weight:x.difficulty,mastered:x.mastered}));
  const targetProfile=levelProfile(p,mission.level),
