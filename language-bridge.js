@@ -124,6 +124,11 @@
  const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const cap=(x,min,max)=>Math.max(min,Math.min(max,Number(x)||0));
  const enabled=()=>getState()?.learningV8?.languageBridgeEnabled!==false;
+ const lessonLevel=()=>{
+  const current=window.neLessonSession?.lesson?.level;
+  return ['A1','A2','B1','B2'].includes(current)?current:
+   (['A1','A2','B1','B2'].includes(getState()?.level)?getState().level:'A1');
+ };
  // A learner who remembers more words sees more Bokmål, but difficult recent
  // lookups automatically reduce substitutions without adding any new exercises.
  function recentPeeks(){
@@ -212,7 +217,7 @@
  // Even a learner with no mastered vocabulary receives a few level-matched
  // Norwegian words DIRECTLY in the lesson instructions. Never grant mastery
  // from their appearance or from a translation peek.
- function levelEntries(level=getState()?.level){
+ function levelEntries(level=lessonLevel()){
   const levels=['A1','A2','B1','B2'];
   const max=levels.indexOf(level);
   const map=new Map();
@@ -398,12 +403,12 @@
    state.dailyDictionary=state.dailyDictionary||{};
    state.srs=state.srs||{};
    state.dailyDictionary[key]={
-    lemma:row.lemma,translation_ru:row.study,level:state.level||'A1',
+    lemma:row.lemma,translation_ru:row.study,level:lessonLevel(),
     correct:0,wrong:0,exposures:1,strength:0,
     firstDate:new Date(now).toISOString().slice(0,10),nextDue:now,
     source:'bridge_level_lookup'
    };
-   state.srs[key]={word:row.lemma,translation:row.study,level:state.level||'A1',
+   state.srs[key]={word:row.lemma,translation:row.study,level:lessonLevel(),
     stage:0,seen:1,correct:0,due:now};
   }
   return queueForgotten(row.lemma);
@@ -450,7 +455,7 @@
  }
  function apply(block,terms){
   if(processed.has(block)||!eligibleBlock(block))return;
-  const text=block.textContent||'',level=getState()?.level||'A1';
+  const text=block.textContent||'',level=lessonLevel();
   const floor=levelInstruction(block)?Math.min(
    ({A1:3,A2:4,B1:5,B2:6})[level]||3,
    Math.max(1,Math.ceil(text.trim().split(/\s+/).length/8))):0;
