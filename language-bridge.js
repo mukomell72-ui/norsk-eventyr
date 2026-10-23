@@ -176,7 +176,18 @@
       difficulty:difficulty(x),mastered:isMastered(x.dictionary,x.srs)}))
    .filter(x=>x.translation&&x.lemma)
    .sort((a,b)=>b.difficulty-a.difficulty||a.lemma.localeCompare(b.lemma,'nb'));
-  return rows.slice(0,Math.max(0,Math.min(18,Number(limit)||12)));
+  const size=Math.max(0,Math.min(18,Number(limit)||12));
+  // A backlog of newly forgotten words must not crowd all mastered words out
+  // of the language bridge. Reserve most slots for genuinely learned words.
+  const familiar=rows.filter(x=>x.mastered),struggling=rows.filter(x=>!x.mastered);
+  const selected=[...familiar.slice(0,Math.max(0,size-4)),...struggling.slice(0,Math.min(4,size))];
+  const keys=new Set(selected.map(x=>normNo(x.lemma)));
+  for(const x of rows){
+   if(selected.length>=size)break;
+   const key=normNo(x.lemma);
+   if(!keys.has(key)){selected.push(x);keys.add(key)}
+  }
+  return selected.sort((a,b)=>b.difficulty-a.difficulty||a.lemma.localeCompare(b.lemma,'nb'));
  }
  function entries(){
   const known=knownWords(),allowed=new Set(known.map(x=>x.key)),byKey=new Map(known.map(x=>[x.key,x]));
