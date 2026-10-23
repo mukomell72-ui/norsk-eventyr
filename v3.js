@@ -571,7 +571,7 @@
     if(lessonSession?.lesson?._adaptive&&typeof adaptiveRenderLesson==="function")return adaptiveRenderLesson();
     const s=lessonSession,l=s.lesson,n=["Диалог","Грамматика","Словарь","Аудирование","Чтение","Письмо","Речь"];let b="";
     if(s.step===0)b=lessonIntro(l);if(s.step===1)b=grammarEx(l);if(s.step===2)b=vocabEx(l);if(s.step===3)b=listenExV3(l);if(s.step===4)b=readEx(l);if(s.step===5)b=freeEx(l,"writing");if(s.step===6)b=freeEx(l,"speaking");
-    shell('<div class="screen-head"><button class="back" onclick="navigate(\'course\',\''+l.level+'\')">←</button><div><div class="eyebrow">'+l.level+' · '+esc(l.title)+'</div><h2 style="margin:0">'+n[s.step]+' · '+(s.step+1)+'/7</h2></div></div><div class="progress"><i style="width:'+pct(s.step,7)+'%"></i></div><section class="exercise">'+b+'</section>',"course");
+    shell('<div class="screen-head"><button class="back" onclick="navigate(\'course\',\''+l.level+'\')">←</button><div><div class="eyebrow">'+l.level+' · '+esc(l.title)+'</div><h2 style="margin:0">'+n[s.step]+' · '+(s.step+1)+'/7</h2></div></div><div class="progress"><i style="width:'+pct(s.step,7)+'%"></i></div>'+(window.NEExperience?.lessonHeader?.(l,s,7)||'')+'<section class="exercise">'+b+'</section>',"course");
   };
   lessonNext=function(xp=0){if(lessonSession?.lesson?._adaptive&&typeof adaptiveLessonNext==="function")return adaptiveLessonNext(xp);lessonSession.step++;lessonSession.locked=false;lessonSession.choiceMiss=false;if(lessonSession.step>6)return finishLesson();persistLessonCheckpoint();renderLesson()};
   lessonChoice=function(btn,i,c,note,skillHint=""){
@@ -580,11 +580,11 @@
     const skill=lessonSession.step===2?"vocabulary":lessonSession.step===3?"listening":"reading";
     if(ok){
       lessonSession.locked=true;document.querySelectorAll(".choice").forEach((b,j)=>{b.disabled=true;if(j===c)b.classList.add("good")});
-      updateSkill(skill,100);document.getElementById("fb").innerHTML='<div class="feedback good"><b>✓ Верно</b></div><button class="btn lesson-next-v8" onclick="lessonNext(15)">Дальше →</button>';
+      updateSkill(skill,100);document.getElementById("fb").innerHTML=(window.NEExperience?.response?.(true,'task')||'')+'<div class="feedback good"><b>✓ Верно</b></div><button class="btn lesson-next-v8" onclick="lessonNext(15)">Дальше →</button>';
       return;
     }
     btn.classList.add("bad");btn.disabled=true;rememberError(skill);updateSkill(skill,20);
-    document.getElementById("fb").innerHTML='<div class="feedback bad"><b>Неверно.</b> '+esc(note)+'<br><small>Попробуй другой ответ.</small></div>';
+    document.getElementById("fb").innerHTML=(window.NEExperience?.response?.(false,'task')||'')+'<div class="feedback bad"><b>Неверно.</b> '+esc(note)+'<br><small>Попробуй другой ответ.</small></div>';
     lessonSession.locked=false;
   };
   checkFree=async function(mode){
@@ -596,11 +596,11 @@
     const d=r.data,score=Number(d.score||0),ok=d.accepted===true&&score>=55;trackLessonScore(score);
     updateSkill(mode,score);updateSkill("grammar",d.breakdown?.grammar??score);updateSkill("vocabulary",d.breakdown?.vocabulary??score);rememberError(d.error_tag);
     if(ok){
-      b.innerHTML=(typeof aiLessonFeedbackHtml==="function"?aiLessonFeedbackHtml(d,"✓ Хороший ответ"):'<div class="feedback good"><b>✓ Хороший ответ · '+score+'/100</b><br>'+esc(d.explanation_ru||"Ответ принят.")+'</div>')+'<button class="btn lesson-next-v8" onclick="lessonNext(20)">Дальше →</button>';
+      b.innerHTML=(window.NEExperience?.response?.(true,mode)||'')+(typeof aiLessonFeedbackHtml==="function"?aiLessonFeedbackHtml(d,"✓ Хороший ответ"):'<div class="feedback good"><b>✓ Хороший ответ · '+score+'/100</b><br>'+esc(d.explanation_ru||"Ответ принят.")+'</div>')+'<button class="btn lesson-next-v8" onclick="lessonNext(20)">Дальше →</button>';
       return;
     }
     s.locked=false;
-    b.innerHTML='<div class="feedback bad"><b>Исправь и попробуй ещё раз</b><br>'+esc(d.explanation_ru||"")+(d.corrected?'<br><br><b>Возможный вариант:</b><br>'+esc(d.corrected):"")+'</div>';
+    b.innerHTML=(window.NEExperience?.response?.(false,mode)||'')+'<div class="feedback bad"><b>Исправь и попробуй ещё раз</b><br>'+esc(d.explanation_ru||"")+(d.corrected?'<br><br><b>Возможный вариант:</b><br>'+esc(d.corrected):"")+'</div>';
     document.getElementById("freeAnswer")?.focus();
   };
   finishLesson=function(){
@@ -613,7 +613,7 @@
     const today=localDateKey();state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.lessonDates=state.guidedJourney.lessonDates||{};state.guidedJourney.lessonDates[today]=l.id;
     saveState();
     const unlocked=reward.newlyUnlocked.length?'<div class="xp-unlock-v8"><b>Открыто:</b> '+reward.newlyUnlocked.map(x=>esc(x.title)).join(", ")+'</div>':"",repeat=reward.repeat===1?'<small class="muted">Повтор этого урока сегодня: начислено 25% обычных XP.</small>':reward.repeat>1?'<small class="muted">За этот урок сегодня XP уже получены.</small>':"",next=xp.next?'<div class="xp-next-v8"><span>До награды «'+esc(xp.next.title)+'»</span><b>'+xp.toNext+' XP</b><i><em style="width:'+xp.progress+'%"></em></i></div>':'<div class="xp-next-v8"><b>Все текущие XP-миссии открыты</b></div>';
-    shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">'+l.level+' · готово на сегодня</div><h1>'+esc(l.title)+'</h1><p class="muted">Урок засчитан в сегодняшний маршрут.</p><div class="xp-award-v8"><strong>+'+reward.earned+' XP</strong><span>Оценка занятия Норы: '+reward.avg+'/100</span></div>'+repeat+unlocked+next+'<button class="btn" onclick="navigate(\'home\')">Продолжить день →</button><button class="btn ghost" onclick="navigate(\'course\',\''+l.level+'\')">К курсу</button></section>',"home");
+    shell('<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">'+l.level+' · готово на сегодня</div><h1>'+esc(l.title)+'</h1>'+(window.NEExperience?.endNote?.(l,false)||'')+'<p class="muted">Урок засчитан в сегодняшний маршрут.</p><div class="xp-award-v8"><strong>+'+reward.earned+' XP</strong><span>Оценка занятия Норы: '+reward.avg+'/100</span></div>'+repeat+unlocked+next+'<button class="btn" onclick="navigate(\'home\')">Продолжить день →</button>'+(window.NEExperience?'<button type="button" class="btn secondary ne-lesson-followup" onclick="NEExperience.openFollowup()">Поговорить с Норой об этой ситуации →</button>':'')+'<button class="btn ghost" onclick="navigate(\'course\',\''+l.level+'\')">К курсу</button></section>',"home");
   };
 
 
