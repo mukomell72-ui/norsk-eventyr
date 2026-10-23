@@ -116,6 +116,72 @@
    '<strong lang="nb">'+safe(item.no)+'</strong> '+
    '<details><summary>Перевод</summary><span>'+safe(item.ru)+'</span></details></p>';
  }
+
+ // High-frequency function words, taught by *function* instead of a misleading
+ // one-word Russian translation. Independent micro-practice never affects scores.
+ const FUNCTION_WORDS=Object.freeze([
+  {id:'meg',kind:'Местоимение, не союз',rule:'Jeg — «я», когда я делаю действие. Meg — «меня / мне / мной» после глагола или предлога. Не говори «hjelpe jeg».',
+   examples:[['Jeg snakker norsk.','Я говорю по-норвежски.'],['Kan du hjelpe meg?','Можешь мне помочь?']],
+   question:'Kan du hjelpe ___?',options:['jeg','meg','til'],correct:1,
+   why:'После hjelpe («помочь кому?») требуется объектная форма meg. Jeg — форма подлежащего.'},
+  {id:'til',kind:'Предлог',rule:'Til показывает направление («куда?») или получателя («кому?»): til Oslo, til deg. Это не универсальное русское «для».',
+   examples:[['Jeg drar til Oslo.','Я еду в Осло.'],['Dette brevet er til deg.','Это письмо тебе.']],
+   question:'Jeg reiser ___ Bergen.',options:['til','om','for'],correct:0,
+   why:'После reiser, когда называем направление, говорим til Bergen.'},
+  {id:'om',kind:'Предлог или союз',rule:'Om + существительное — «о чём-то»: snakke om jobben. Om + время — «через»: om en time. После vet ikke om — «ли».',
+   examples:[['Vi snakker om jobben.','Мы говорим о работе.'],['Jeg vet ikke om hun kommer.','Я не знаю, придёт ли она.']],
+   question:'Vi snakker ___ kurset.',options:['for','til','om'],correct:2,
+   why:'Snakke om noe означает «говорить о чём-то»; snakke til кого-то — «говорить кому-то», смысл другой.'},
+  {id:'for',kind:'Предлог или сочинительный союз',rule:'For å + инфинитив объясняет цель: «чтобы». For + существительное может значить «для / за». Отдельное for между частями предложения иногда означает «ведь / потому что».',
+   examples:[['Jeg lærer norsk for å jobbe her.','Я учу норвежский, чтобы здесь работать.'],['Jeg blir hjemme, for jeg er syk.','Я остаюсь дома, ведь я болен.']],
+   question:'Jeg lærer norsk ___ å jobbe her.',options:['om','for','til'],correct:1,
+   why:'Цель выражают конструкцией for å + инфинитив: for å jobbe.'},
+  {id:'og',kind:'Сочинительный союз',rule:'Og соединяет слова или равноправные части: «и». Не путай og («и») с å (маркер инфинитива).',
+   examples:[['Jeg leser og skriver.','Я читаю и пишу.'],['Jeg liker te og kaffe.','Мне нравятся чай и кофе.']],
+   question:'Jeg leser ___ skriver.',options:['og','å','om'],correct:0,
+   why:'Два действия соединяет og, а å используют перед инфинитивом.'},
+  {id:'men',kind:'Сочинительный союз',rule:'Men вводит противопоставление: «но». Оно не заменяет fordi («потому что»).',
+   examples:[['Jeg vil komme, men jeg er syk.','Я хочу прийти, но болен.'],['Det er dyrt, men bra.','Это дорого, но хорошо.']],
+   question:'Jeg vil komme, ___ jeg er syk.',options:['til','men','om'],correct:1,
+   why:'Здесь противопоставление «хочу прийти, но болен»: men.'},
+  {id:'fordi',kind:'Подчинительный союз',rule:'Fordi указывает причину — «потому что». В придаточном с fordi слово ikke обычно стоит перед личной формой глагола.',
+   examples:[['Jeg er hjemme fordi jeg er syk.','Я дома, потому что болен.'],['Jeg kommer ikke fordi jeg ikke har tid.','Я не прихожу, потому что у меня нет времени.']],
+   question:'Jeg er hjemme ___ jeg er syk.',options:['til','fordi','om'],correct:1,
+   why:'Причину с придаточным предложением вводит fordi. Обрати внимание: fordi jeg ikke har tid.'},
+  {id:'at',kind:'Подчинительный союз',rule:'At вводит придаточную мысль («что»): Jeg tror at … Не путай с å + инфинитив.',
+   examples:[['Jeg tror at hun kommer.','Я думаю, что она придёт.'],['Jeg vet at du kan.','Я знаю, что ты можешь.']],
+   question:'Jeg tror ___ hun kommer.',options:['å','at','til'],correct:1,
+   why:'После tror перед целым придаточным предложением ставим at; å относится к инфинитиву.'}
+ ]);
+ function functionWordGuide(lesson,session){
+  const step=Math.max(0,Math.floor(Number(session?.step)||0));
+  if(step%2)return '';
+  const level=['A1','A2','B1','B2'].includes(lesson?.level)?lesson.level:'A1';
+  const words=level==='A1'?FUNCTION_WORDS.slice(0,4):FUNCTION_WORDS;
+  const title=String(lesson?.id||'a1');
+  const offset=[...title].reduce((n,c)=>n+c.charCodeAt(0),0)%words.length;
+  const item=words[(offset+Math.floor(step/2))%words.length];
+  return '<section class="ne-function-word-card" data-no-bridge aria-label="Нора объясняет служебные слова">'+
+   '<div class="ne-function-word-top"><span>Нора объясняет · маленькие слова</span>'+
+   '<b lang="nb">'+safe(item.id)+'</b><small>'+safe(item.kind)+'</small></div>'+
+   '<details><summary>Как употреблять '+safe(item.id)+'? · пример и практика</summary>'+
+   '<p>'+safe(item.rule)+'</p>'+
+   item.examples.map(x=>'<p class="ne-function-word-example"><span lang="nb">'+safe(x[0])+'</span><small>'+safe(x[1])+'</small></p>').join('')+
+   '<p class="ne-function-word-question"><b>Попробуй сам:</b> <span lang="nb">'+safe(item.question)+'</span></p>'+
+   '<div class="ne-function-word-choices">'+item.options.map((o,i)=>
+    '<button type="button" onclick="NEExperience.checkFunctionWord(\''+item.id+'\','+i+')">'+safe(o)+'</button>').join('')+'</div>'+
+   '<p data-ne-function-feedback="'+item.id+'" role="status" aria-live="polite"></p>'+
+   '<small>Практика для понимания; уровень и XP не изменяются.</small></details></section>';
+ }
+ function checkFunctionWord(id,choice){
+  const item=FUNCTION_WORDS.find(x=>x.id===id);
+  if(!item||!Number.isInteger(choice)||choice<0||choice>=item.options.length)return false;
+  const target=document.querySelector('[data-ne-function-feedback="'+id+'"]');
+  if(!target)return false;
+  target.textContent=(choice===item.correct?'Верно. ':'Пока нет. ')+item.why;
+  return choice===item.correct;
+ }
+
  function lessonHeader(lesson,session,total){
   // A completed lesson may be detached from lessonSession by old renderers.
   // Retain only a short non-sensitive reference to the lesson displayed here.
@@ -135,6 +201,7 @@
    '<button type="button" class="ne-pause-button" onclick="NEExperience.pause()">Пауза</button></div>'+
    (b.scene&&b.step>0?'<p class="ne-mission-story">В нашей истории: '+safe(b.scene)+'</p>':'')+
     wordEncounter(lesson,session)+
+    functionWordGuide(lesson,session)+
    '<div class="ne-mission-track" aria-label="Этап '+(b.stage.index+1)+' из 4">'+dots+'</div>'+
    '<details class="ne-mission-purpose"><summary>Зачем это нужно?</summary><p>'+safe(b.goal)+
    (b.scene?'<span> Ситуация: '+safe(b.scene)+'</span>':'')+'</p></details>'+
@@ -200,5 +267,5 @@
   if(typeof window.persistLessonCheckpoint==='function')window.persistLessonCheckpoint();
   if(typeof window.navigate==='function')window.navigate('home');
  }
- window.NEExperience=Object.freeze({focus,settings,choose,homeChoice,brief,lessonHeader,wordEncounter,response,endNote,pause,openFollowup,act,activity});
+ window.NEExperience=Object.freeze({focus,settings,choose,homeChoice,brief,lessonHeader,wordEncounter,functionWordGuide,checkFunctionWord,response,endNote,pause,openFollowup,act,activity});
 })();
