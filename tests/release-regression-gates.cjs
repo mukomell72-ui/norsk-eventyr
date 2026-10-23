@@ -281,7 +281,7 @@ if(coachSuffix){
  assert(read('v3.js').includes('NEExperience?.lessonHeader?.('),'Legacy lesson render must mount Nora experience');
  assert(assets.includes('/v3.js?v='+v+baseRevision+bridgeSuffix),'Offline legacy lesson must reload on release');
  assert(app.includes('NELanguageBridge?.controlHtml?.()'),'Language bridge must offer an opt-out on the homepage');
- assert(assets.includes('/language-bridge.js?v='+v+coachSuffix+bridgeSuffix),'PWA must precache the language bridge');
+ assert(assets.includes('/language-bridge.js?v='+v+coachSuffix+bridgeSuffix+auditSuffix),'PWA must precache the language bridge');
  assert(assets.includes('/cloze-coach.js?v='+v+coachSuffix),'PWA must cache word explanation engine');
  assert(assets.includes('/functional-practice.js?v='+v+coachSuffix),'PWA must cache updated cloze practice');
  assert(assets.includes('/language-bridge.css?v='+v+coachSuffix),'PWA must precache bridge styles');
