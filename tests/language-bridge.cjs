@@ -217,19 +217,21 @@ assert(overloaded.api.segments(sameInstruction,overloaded.api.entries(),4).some(
     const s=window.neLearnerState,p=s.learningV8.wordSelfChecks.begynne;
     p.nextDue=Date.now()-1000;p.lastRecallAt=Date.now()-2*86400000;
     s.srs.begynne.due=Date.now()-1000;s.dailyDictionary.begynne.nextDue=Date.now()-1000;
+    window.neLessonSession.lesson={vocab:[['et bord','стол']]};
     document.getElementById('vocabHost').innerHTML=
-     window.NELanguageBridge.lessonWordReminder({vocab:[['et bord','стол']]});
+     window.NELanguageBridge.lessonWordReminder(window.neLessonSession.lesson);
    });
    assert(await vocabPage.locator('[data-ne-lesson-word="å begynne"]').count(),
     'A due word from prior lesson reappears without the new lesson using it');
    await vocabPage.locator('[data-ne-lesson-word="å begynne"]').click();
    await vocabPage.getByRole('button',{name:'Знаю',exact:true}).click();
-   await vocabPage.locator('#neWordRecall').fill('начать');
+   await vocabPage.locator('#neWordRecall').fill('начинать');
    await vocabPage.getByRole('button',{name:'Проверить перевод'}).click();
    const delayed=await vocabPage.evaluate(()=>window.neLearnerState.learningV8.wordSelfChecks.begynne);
    assert.equal(delayed.delayedPasses,1,'Review after elapsed time confirms retained meaning');
    assert.equal(delayed.status,'recall_ok');
-   assert.equal(first.dict.correct,0,'Word mastery remains tied to normal scored exercises');
+   assert.equal(await vocabPage.evaluate(()=>window.neLearnerState.dailyDictionary.begynne.correct),0,'Word mastery remains tied to normal scored exercises');
+   assert(delayed.nextDue>Date.now()+2*86400000,'Due date advances only after independent delayed recall');
    await vocabPage.locator('[data-ne-lesson-word="et bord"]').click();
    await vocabPage.getByRole('button',{name:'Не знаю',exact:true}).click();
    const unknown=await vocabPage.evaluate(()=>{
