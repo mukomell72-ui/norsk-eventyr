@@ -21,7 +21,7 @@ export default async function handler(req,res){
     transcript
   ].join("\n");
   try{
-    const r=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.OPENAI_API_KEY},body:JSON.stringify({model:"gpt-5.6-luna",input:prompt,reasoning:{effort:"low"},max_output_tokens:1800})});
+    const r=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.OPENAI_API_KEY},body:JSON.stringify({model:"gpt-6-luna",input:prompt,reasoning:{effort:"low"},max_output_tokens:1800})});
     const data=await r.json().catch(()=>({}));if(!r.ok)return res.status(502).json({error:"AI_REQUEST_FAILED",code:data?.error?.code||("OPENAI_"+r.status)});
     const text=(data.output||[]).flatMap(x=>x.content||[]).find(x=>x.type==="output_text")?.text||"",out=parseJson(text);
     if(!Array.isArray(out.questions)||out.questions.length<5||!out.questions.every(x=>x&&typeof x.q==="string"&&x.q.trim()&&Array.isArray(x.opts)&&x.opts.length===4&&x.opts.every(o=>typeof o==="string"&&o.trim())&&x.correct!==null&&x.correct!==""&&typeof x.correct!=="boolean"&&Number.isInteger(Number(x.correct))&&Number(x.correct)>=0&&Number(x.correct)<4))return res.status(502).json({error:"BAD_AI_OUTPUT"});

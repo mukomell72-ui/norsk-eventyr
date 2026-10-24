@@ -289,7 +289,7 @@ async function checkDialogue(){
  b.innerHTML='<div class="feedback">Проверяю…</div>';
  const r=await aiEvaluate({answer:a,question:(turn.scene||"Ситуация знакомства")+". "+(turn.speaker||"Собеседница")+" говорит: "+(turn.lead?turn.lead+" ":"")+turn.phrase,goal:turn.goal||turn.task,level:l.level,mode:"dialogue"});
  if(!b.isConnected||lessonSession!==s){s.locked=false;return;}
- if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return;}
+ if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">'+esc(evaluationErrorMessage(r.error))+'</div>';return;}
  const d=r.data,ok=d.accepted===true&&(d.score??70)>=55,gradeKey="dialogue:"+String(s.dialogueIndex||0)+":"+String(s.introReview===true);const firstAttempt=firstGrade(s,gradeKey,d.score??(ok?70:40),()=>{trackLessonScore(d.score??(ok?70:40),{label:"Диалог",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:l.level,skill:spoken?"speaking":"writing",score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l.id,source:spoken?"dialogue_voice":"dialogue_text",errorTag:d.error_tag||"",targetErrorTag:l?._adaptive?.errorTag||"",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});});
  
  if(ok){
@@ -413,7 +413,7 @@ async function checkFree(mode){
  s.locked=true;b.innerHTML='<div class="feedback">Проверяю…</div>';
  const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode:rem?(spoken?"speaking_transfer":"writing_transfer"):(spoken?"speaking":"writing")});
  if(!b.isConnected||lessonSession!==s){s.locked=false;return}
- if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
+ if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">'+esc(evaluationErrorMessage(r.error))+'</div>';return}
  const d=r.data,ok=d.accepted===true&&(d.score??70)>=55,skill=spoken?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer,
  evidenceScore=ok?Math.max(0,Math.min(100,Math.round(Number(d.score)||0))):Math.min(40,Math.max(0,Math.round(Number(d.score)||0)));
  const gradeKey="free:"+mode+":"+s.step+(rem?":transfer:"+String(rem.retries||0):""),firstAttempt=firstGrade(s,gradeKey,evidenceScore,()=>{trackLessonScore(evidenceScore,{label:spoken?"Речь":"Письмо",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill,score:evidenceScore,moduleId:l?._adaptive?.moduleId||l?.id,source:mode==="speaking"&&!spoken?"lesson_free_text":rem?"lesson_free_transfer":"lesson_free",errorTag:d.error_tag||"",targetErrorTag:rem?.errorTag||l?._adaptive?.errorTag||"",transfer:isTransfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}});
@@ -482,6 +482,25 @@ function renderProgress(){
 }
 function resetProgress(){if(confirm("Удалить весь прогресс?")){localStorage.setItem("ne2_state_before_reset",JSON.stringify(state));localStorage.removeItem("ne2_state");localStorage.removeItem("ne_cloud_link");location.reload()}}
 
+function evaluationErrorMessage(error){
+ const code=String(error||"").trim();
+ const messages={
+  NETWORK:"Нет соединения с сервером проверки. Проверь интернет и повтори попытку.",
+  SESSION_REQUIRED:"Сессия истекла. Скопируй ответ перед повторным входом в приложение.",
+  APPROVAL_REQUIRED:"Проверка требует подтверждённого доступа к приложению.",
+  AI_NOT_CONFIGURED:"Проверка не настроена на сервере. Администратору нужно проверить подключение AI.",
+  AI_QUOTA_UNAVAILABLE:"Сервис контроля лимитов проверки не отвечает. Администратору нужно проверить сервер.",
+  AI_QUOTA_EXCEEDED:"Лимит запросов к AI достигнут. Попробуй позднее.",
+  RATE_LIMIT:"Слишком много запросов подряд. Попробуй позднее.",
+  FEEDBACK_NOT_VERIFIED:"Нора не смогла подтвердить замечания по тексту. Повтори проверку: оценка не выставлена.",
+  model_not_found:"Модель AI для проверки недоступна на сервере. Администратору нужно проверить настройки.",
+  invalid_model:"Модель AI для проверки недоступна на сервере. Администратору нужно проверить настройки.",
+  insufficient_quota:"На сервере исчерпан лимит оплаты AI. Администратору нужно проверить баланс."
+ };
+ const safeCode=code.replace(/[^a-zA-Z0-9_.-]/g,"").slice(0,60);
+ return (messages[code]||("Сервис не выполнил проверку"+(safeCode?" (код: "+safeCode+")":"")+". Попробуй позднее."))+
+  " Твой ответ остался в поле; оценка и XP не изменены.";
+}
 async function aiEvaluate(payload){try{const r=await fetch("/api/evaluate",{method:"POST",headers:{"Content-Type":"application/json",...(window.NEAccess?.headers?.()||{})},body:JSON.stringify(payload)}),d=await r.json().catch(()=>({}));return r.ok?{ok:true,data:d}:{ok:false,error:d.code||d.error||("HTTP "+r.status)}}catch{return {ok:false,error:"NETWORK"}}}
 function speakText(text,rate=.85){if(!("speechSynthesis" in window))return alert("Синтез речи не поддерживается.");speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang="nb-NO";u.rate=rate;const v=speechSynthesis.getVoices().find(x=>/^nb|no/i.test(x.lang));if(v)u.voice=v;speechSynthesis.speak(u)}
 function toggleMic(target="freeAnswer"){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return alert("Распознавание речи недоступно. Используй Chrome и разреши микрофон.");if(speechRec){speechRec.stop();return}speechRec=new SR();speechRec.lang="nb-NO";speechRec.interimResults=true;const btn=document.getElementById(target==="chatInput"?"chatMicBtn":"micBtn"),f=document.getElementById(target),status=target==="chatInput"?document.getElementById("chatVoiceStatus"):null;speechRec.onstart=()=>{if(btn)btn.textContent="■ Слушаю…";if(status)status.textContent="Нора слушает…"};speechRec.onresult=e=>{let t="";for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;if(f)f.value=t};speechRec.onerror=e=>{if(status)status.textContent="Не удалось распознать речь.";alert("Ошибка микрофона: "+e.error)};speechRec.onend=()=>{speechRec=null;if(btn)btn.textContent="🎤 Говорить";if(status)status.textContent=f?.value?.trim()?"Готово — можно отправлять.":""};speechRec.start()}
