@@ -31,7 +31,7 @@ self.addEventListener("fetch",e=>{
   }
   // JS and CSS must not remain stale just because a previous release used
   // the same lesson revision. Prefer fresh code and retain an offline copy.
-  if(/\\.(?:js|css)$/i.test(u.pathname)){
+  if(/\.(?:js|css)$/i.test(u.pathname)){
     e.respondWith(fetch(e.request,{cache:"no-cache"}).then(r=>{
       if(r&&r.ok){const copy=r.clone();caches.open(CACHE).then(c=>c.put(e.request,copy)).catch(()=>{})}
       return r;
