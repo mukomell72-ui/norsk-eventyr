@@ -34,7 +34,7 @@ let grades=0,focuses=0;
 let display={innerHTML:'',isConnected:true},input={value:'Jeg kan ikke komme på lørdag.',dataset:{fromVoice:'false'},focus(){focuses++;}};
 let session={lesson:{level:'A1',id:'sample'},dialogueIndex:0,locked:true,firstGraded:{}};
 const el=id=>id==='dialogAnswer'?input:id==='dialogFb'?display:null;
-const ctx={Math,Number,Object,Array,String,document:{getElementById:el},lessonSession:session,esc:s=>String(s),window:{NEExperience:{}},persistLessonCheckpoint(){},firstGradeTrace:[],trackLessonScore(){grades++},currentDialogueTurn:()=>({phrase:'Passer det?',goal:'Предложи другое время'}),aiEvaluate:async()=>({ok:true,data:{accepted:true,score:100,issues:[],explanation_ru:'Верно.',corrected:''}}),aiLessonFeedbackHtml:()=>'',};
+const ctx={Math,Number,Object,Array,String,document:{getElementById:el},lessonSession:session,esc:s=>String(s),window:{NEExperience:{}},persistLessonCheckpoint(){},firstGradeTrace:[],trackLessonScore(){grades++},saveLessonDraft(){},flushLessonDraft(){},currentDialogueTurn:()=>({phrase:'Passer det?',goal:'Предложи другое время'}),aiEvaluate:async()=>({ok:true,data:{accepted:true,score:100,issues:[],explanation_ru:'Верно.',corrected:''}}),aiLessonFeedbackHtml:()=>'',};
 vm.runInNewContext(originals+'\nthis.run={firstGrade,firstGradeNote,retryCoachFeedback,reviseCheckedAnswer,checkDialogue};',ctx);
 const a=ctx.run;
 a.firstGrade(session,'dialogue:0:false',40,()=>grades++);
