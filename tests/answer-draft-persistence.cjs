@@ -14,7 +14,7 @@ const session={lesson:{id:'a1-saturday',level:'A1'},step:5,dialogueIndex:0,
 const box={value:'Jeg begynner på lørdag klokka ni.',dataset:{},
  callbacks:{},addEventListener(type,cb){this.callbacks[type]=cb}};
 const ctx={window:{addEventListener(){}},document:{getElementById:id=>id==='freeAnswer'?box:null,addEventListener(){}},
- lessonSession:session,setTimeout(fn){slot=fn;return 1},clearTimeout(){slot=null},
+ lessonSession:session,lessonDraftTimer:null,setTimeout(fn){slot=fn;return 1},clearTimeout(){slot=null},
  persistLessonCheckpoint(){persisted++},hasAdaptiveGrammar(){return true},Math,Object,Array,String};
 vm.runInNewContext(fragment+'this.drafts={lessonDraftKey,saveLessonDraft,restoreLessonDraft,flushLessonDraft};',ctx);
 const a=ctx.drafts;
