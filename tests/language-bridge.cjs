@@ -180,6 +180,79 @@ assert(overloaded.api.segments(sameInstruction,overloaded.api.entries(),4).some(
 (async()=>{
  const browser=await chromium.launch({headless:true});
  try{
+
+  // Browser-level check: self rating never grants knowledge, and independent
+  // recall is checked twice with a real delay before being considered retained.
+  const vocabPage=await browser.newPage();
+  try{
+   await vocabPage.setContent('<main id="app"><section class="shell-v7"><div id="vocabHost"></div></section></main>');
+   await vocabPage.evaluate(()=>{
+    window.neLearnerState={level:'A1',learningV8:{},dailyDictionary:{},srs:{},wordPracticeQueue:{}};
+    window.neLessonSession={lesson:{vocab:[
+     ['å begynne','начинать'],['en jobb','работа'],['å slutte','заканчивать']]}};
+    window.saveState=()=>{window.__vocabSaves=(window.__vocabSaves||0)+1};
+   });
+   await vocabPage.addScriptTag({content:source});
+   await vocabPage.evaluate(()=>{
+    document.getElementById('vocabHost').innerHTML=
+     window.NELanguageBridge.lessonWordReminder(window.neLessonSession.lesson);
+   });
+   await vocabPage.locator('[data-ne-lesson-word="å begynne"]').click();
+   assert((await vocabPage.locator('.ne-task-word-explanation').innerText()).includes('Знаю'));
+   assert(!(await vocabPage.locator('.ne-task-word-explanation').innerText()).includes('начинать'),
+    'Translation stays hidden until self-rating or independent recall');
+   await vocabPage.getByRole('button',{name:'Знаю',exact:true}).click();
+   await vocabPage.locator('#neWordRecall').fill('начинать');
+   await vocabPage.getByRole('button',{name:'Проверить перевод'}).click();
+   const first=await vocabPage.evaluate(()=>{
+    const s=window.neLearnerState;
+    return {self:s.learningV8.wordSelfChecks.begynne,
+      dict:s.dailyDictionary.begynne,review:s.srs.begynne};
+   });
+   assert.equal(first.self.recallPasses,1,'Independent recall is recorded');
+   assert(first.self.nextDue>Date.now()+80000000,'Initial recall schedules tomorrow');
+   assert.equal(first.dict.correct,0,'Self-rating and short recall cannot grant dictionary mastery');
+   assert.equal(first.review.correct,0,'No SRS mastery from one recall');
+   await vocabPage.evaluate(()=>{
+    const s=window.neLearnerState,p=s.learningV8.wordSelfChecks.begynne;
+    p.nextDue=Date.now()-1000;p.lastRecallAt=Date.now()-2*86400000;
+    s.srs.begynne.due=Date.now()-1000;s.dailyDictionary.begynne.nextDue=Date.now()-1000;
+    document.getElementById('vocabHost').innerHTML=
+     window.NELanguageBridge.lessonWordReminder({vocab:[['et bord','стол']]});
+   });
+   assert(await vocabPage.locator('[data-ne-lesson-word="å begynne"]').count(),
+    'A due word from prior lesson reappears without the new lesson using it');
+   await vocabPage.locator('[data-ne-lesson-word="å begynne"]').click();
+   await vocabPage.getByRole('button',{name:'Знаю',exact:true}).click();
+   await vocabPage.locator('#neWordRecall').fill('начать');
+   await vocabPage.getByRole('button',{name:'Проверить перевод'}).click();
+   const delayed=await vocabPage.evaluate(()=>window.neLearnerState.learningV8.wordSelfChecks.begynne);
+   assert.equal(delayed.delayedPasses,1,'Review after elapsed time confirms retained meaning');
+   assert.equal(delayed.status,'recall_ok');
+   assert.equal(first.dict.correct,0,'Word mastery remains tied to normal scored exercises');
+   await vocabPage.locator('[data-ne-lesson-word="et bord"]').click();
+   await vocabPage.getByRole('button',{name:'Не знаю',exact:true}).click();
+   const unknown=await vocabPage.evaluate(()=>{
+    const s=window.neLearnerState;
+    return {record:s.learningV8.wordSelfChecks.bord,
+     word:s.dailyDictionary.bord,queued:s.wordPracticeQueue.bord};
+   });
+   assert.equal(unknown.word.correct,0,'Selecting unknown does not grant mastery');
+   assert(unknown.queued>0,'Unknown word immediately enters review queue');
+   assert((await vocabPage.locator('.ne-task-word-explanation').innerText()).includes('стол'),
+    'Learner sees the meaning after asking for help');
+   await vocabPage.evaluate(()=>{
+    document.getElementById('vocabHost').innerHTML=
+     window.NELanguageBridge.lessonWordReminder(window.neLessonSession.lesson);
+   });
+   await vocabPage.locator('[data-ne-lesson-word="å slutte"]').click();
+   await vocabPage.getByRole('button',{name:'Не уверен',exact:true}).click();
+   const unsure=await vocabPage.evaluate(()=>window.neLearnerState.learningV8.wordSelfChecks.slutte);
+   assert.equal(unsure.choice,'unsure','Uncertain word stays on personal review');
+   assert.equal(await vocabPage.evaluate(()=>window.neLearnerState.dailyDictionary.slutte.correct),0);
+   assert(await vocabPage.evaluate(()=>window.__vocabSaves)>=4,'Individual decisions persist');
+  }finally{await vocabPage.close()}
+
   // Regression reproducing the real A1 writing screen with NO mastered words.
   // Inline Norwegian translation buttons are already present before the bridge.
   const fresh=await browser.newPage({viewport:{width:390,height:844},hasTouch:true,isMobile:true});

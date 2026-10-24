@@ -564,47 +564,108 @@
  }
 
 
- // This is an evidence-based study hint, not an assertion of CEFR mastery.
- // Looking at words never grants correctness, XP or a completed lesson.
+
+ // A word's confidence is based on independent recall, never a self-declared level.
+ // Private word checks belong to this learner state and do not grant XP or CEFR mastery.
+ const DAY_MS=86400000;
+ function selfChecks(create=false){
+  const s=getState();
+  if(!s)return {};
+  if(create){
+   s.learningV8=s.learningV8&&typeof s.learningV8==='object'?s.learningV8:{};
+   if(!s.learningV8.wordSelfChecks||typeof s.learningV8.wordSelfChecks!=='object'||
+      Array.isArray(s.learningV8.wordSelfChecks))s.learningV8.wordSelfChecks={};
+  }
+  return s.learningV8?.wordSelfChecks||{};
+ }
  function wordKnowledge(raw){
-  const s=getState()||{},lemma=normNo(raw);
+  const s=getState()||{},lemma=normNo(raw),self=selfChecks()[lemma];
   const dict=Object.values(s.dailyDictionary||{}).find(x=>normNo(x?.lemma||x?.word)===lemma);
   const review=Object.values(s.srs||{}).find(x=>normNo(x?.word)===lemma);
   const right=Math.max(0,Number(dict?.correct)||0,Number(review?.correct)||0);
   const wrong=Math.max(0,Number(dict?.wrong)||0);
   const due=!!s.wordPracticeQueue?.[lemma]||
    (Number.isFinite(Number(dict?.nextDue))&&Number(dict.nextDue)>0&&Number(dict.nextDue)<=Date.now())||
-   (Number.isFinite(Number(review?.due))&&Number(review.due)>0&&Number(review.due)<=Date.now());
+   (Number.isFinite(Number(review?.due))&&Number(review.due)>0&&Number(review.due)<=Date.now())||
+   (Number.isFinite(Number(self?.nextDue))&&Number(self.nextDue)>0&&Number(self.nextDue)<=Date.now());
   if(due||wrong>right)return {kind:'review',label:'Нужно повторить',lemma};
   if(right>=2&&Number(dict?.exposures)>=2&&wrong<right)return {kind:'familiar',label:'Знакомое слово',lemma};
-  if(right>0||wrong>0||dict||review)return {kind:'learning',label:'Ещё изучаем',lemma};
+  if(self?.status==='recall_ok')return {kind:'learning',label:'Проверим позже',lemma};
+  if(right>0||wrong>0||dict||review||self)return {kind:'learning',label:'Ещё изучаем',lemma};
   return {kind:'new',label:'Новое слово',lemma};
+ }
+ function studyWord(word,translation){
+  const lemma=normNo(word);
+  if(!lemma||!/^[a-zæøå]+(?:[\s'-][a-zæøå]+)*$/iu.test(lemma)||
+     !translation||!/[\u0400-\u04FF]/u.test(translation))return false;
+  return true;
+ }
+ function pendingLessonWord(word,translation){
+  const lemma=normNo(word),session=window.neLessonSession?.lesson;
+  const inLesson=(Array.isArray(session?.vocab)?session.vocab:[])
+   .some(x=>Array.isArray(x)&&normNo(x[0])===lemma&&String(x[1]||'').trim()===translation);
+  const previous=selfChecks()[lemma];
+  const delayed=previous&&normNo(previous.word)===lemma&&previous.translation===translation&&
+   Number(previous.nextDue)>0&&Number(previous.nextDue)<=Date.now();
+  return studyWord(word,translation)&&!!(inLesson||delayed);
+ }
+ function schedulePersonalWord(word,translation,dueAt,immediately=false){
+  const state=getState(),key=normNo(word);
+  if(!state||!studyWord(word,translation)||!Number.isFinite(dueAt))return false;
+  state.dailyDictionary=state.dailyDictionary||{};
+  state.srs=state.srs||{};
+  const now=Date.now();
+  let dictionary=Object.values(state.dailyDictionary)
+   .find(x=>normNo(x?.lemma||x?.word)===key);
+  if(!dictionary){
+   dictionary=state.dailyDictionary[key]={lemma:word,translation_ru:translation,
+    level:lessonLevel(),correct:0,wrong:0,exposures:1,strength:0,
+    firstDate:new Date(now).toISOString().slice(0,10),source:'personal_word_check'};
+  }
+  const prevDue=Number(dictionary.nextDue);
+  dictionary.nextDue=prevDue>0?Math.min(prevDue,dueAt):dueAt;
+  let srs=Object.values(state.srs).find(x=>normNo(x?.word)===key);
+  if(!srs)srs=state.srs[key]={word,translation,level:lessonLevel(),stage:0,seen:1,correct:0};
+  const oldDue=Number(srs.due);
+  srs.due=oldDue>0?Math.min(oldDue,dueAt):dueAt;
+  if(immediately){
+   state.wordPracticeQueue=state.wordPracticeQueue||{};
+   state.wordPracticeQueue[key]=now;
+  }
+  return true;
  }
  function lessonWordReminder(lesson){
   if(!lesson||!enabled())return '';
-  const vocab=Array.isArray(lesson.vocab)?lesson.vocab:[];
-  const words=[],seen=new Set();
-  for(const pair of vocab){
-   if(!Array.isArray(pair)||pair.length<2)continue;
-   const word=String(pair[0]||'').trim().slice(0,65),translation=String(pair[1]||'').trim().slice(0,100);
+  const vocab=Array.isArray(lesson.vocab)?lesson.vocab:[],words=[],seen=new Set();
+  const add=(wordRaw,translationRaw)=>{
+   const word=String(wordRaw||'').trim().slice(0,65),translation=String(translationRaw||'').trim().slice(0,100);
    const lemma=normNo(word);
-   if(!lemma||seen.has(lemma)||!/^[a-zæøå]+(?:[\s'-][a-zæøå]+)*$/iu.test(lemma)||
-      !translation||!/[а-яё]/iu.test(translation))continue;
+   if(!studyWord(word,translation)||seen.has(lemma))return;
    seen.add(lemma);words.push({word,translation,...wordKnowledge(word)});
-  }
+  };
+  for(const pair of vocab)if(Array.isArray(pair)&&pair.length>=2)add(pair[0],pair[1]);
+  const today=Date.now();
+  const overdue=Object.values(selfChecks()).filter(x=>x&&x.word&&x.translation&&
+   Number(x.nextDue)>0&&Number(x.nextDue)<=today)
+   .sort((a,b)=>Number(a.nextDue)-Number(b.nextDue));
+  // The first reminder can revisit a previously checked word even on another topic.
+  if(overdue.length)add(overdue[0].word,overdue[0].translation);
   if(!words.length)return '';
   const weight={review:0,learning:1,new:2,familiar:3};
   words.sort((a,b)=>weight[a.kind]-weight[b.kind]);
-  // Familiar words stay in use while weak ones resurface; no extra graded task.
-  const choice=words.slice(0,3);
-  if(!choice.some(x=>x.kind==='familiar')){
+  const choice=words.slice(0,3),dueWord=overdue[0];
+  if(dueWord&&!choice.some(x=>normNo(x.word)===normNo(dueWord.word))){
+   const due=words.find(x=>normNo(x.word)===normNo(dueWord.word));
+   if(due&&choice.length===3)choice[2]=due;
+  }else if(!choice.some(x=>x.kind==='familiar')){
    const familiar=words.find(x=>x.kind==='familiar');
-   if(familiar&&choice.length>=3)choice[2]=familiar;
+   if(familiar&&choice.length===3)choice[2]=familiar;
   }
+  const unique=[...new Map(choice.map(x=>[normNo(x.word),x])).values()];
   return '<div class="notice ne-task-vocabulary" data-no-bridge style="margin-top:12px">'+
-   '<small class="muted">Слова этой ситуации · попробуй употребить, если подходят по смыслу. Нажми для объяснения.</small>'+
+   '<small class="muted">Слова для этой ситуации и повторения. Нажми слово, чтобы проверить, знаешь ли его.</small>'+
    '<div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap">'+
-   choice.map(x=>'<button type="button" class="btn secondary" style="font-size:.89rem;padding:7px 10px" '+
+   unique.map(x=>'<button type="button" class="btn secondary" style="font-size:.89rem;padding:7px 10px" '+
     'data-ne-lesson-word="'+esc(x.word)+'" data-ne-lesson-ru="'+esc(x.translation)+'" '+
     'onclick="NELanguageBridge.explainLessonWord(this)"><span lang="nb">'+esc(x.word)+
     '</span> <small>· '+esc(x.label)+'</small></button>').join('')+
@@ -614,26 +675,97 @@
   if(!button||!button.closest)return false;
   const box=button.closest('.ne-task-vocabulary'),lesson=window.neLessonSession?.lesson;
   const word=String(button.dataset.neLessonWord||''),ru=String(button.dataset.neLessonRu||'');
-  if(!box||!lesson||!word||!ru)return false;
-  // The clicked word must belong to this exact lesson; never trust an arbitrary
-  // DOM attribute as a new vocabulary record.
-  const match=(Array.isArray(lesson.vocab)?lesson.vocab:[])
-   .some(pair=>Array.isArray(pair)&&normNo(pair[0])===normNo(word)&&String(pair[1]||'').trim()===ru);
-  if(!match)return false;
+  if(!box||!lesson||!pendingLessonWord(word,ru))return false;
   const target=box.querySelector('.ne-task-word-explanation');
   if(!target)return false;
-  const knowledge=wordKnowledge(word),known=knownNorwegian(word);
-  const explanation=knowledge.kind==='familiar'?
-   'Слово уже встречалось в правильных ответах. Попробуй применить его в другом предложении.':
-   knowledge.kind==='review'?'Раньше это слово вызывало трудности. Оно вернётся на повторение.':
-   knowledge.kind==='learning'?'Продолжаем изучать: для уверенного знания понадобится самостоятельный ответ позже.':
-   'Слово пока не подтверждено ответами. Сначала разберём значение, затем проверим в другой ситуации.';
-  const form=word.match(/^(?:en|ei|et|å)\s+/iu)?.[0]?.trim()||'';
-  const prompted=known?queueForgotten(known.lemma):
-   queueNorwegianLookup(normNo(word),'ПЕРЕВОД: '+ru);
-  target.textContent=word+' — '+ru+'. '+(form?'Словарная форма: '+word+'. ':'')+explanation+
-   (prompted?' Добавлено на повторение.':' Перевод показан без начисления баллов.');
+  target.dataset.word=word;target.dataset.translation=ru;
+  target.innerHTML='<p style="margin:12px 0 8px"><b lang="nb">'+esc(word)+
+   '</b> — насколько хорошо ты помнишь это слово?</p>'+
+   '<div class="row" style="gap:6px;flex-wrap:wrap">'+
+   '<button class="btn secondary" type="button" onclick="NELanguageBridge.chooseWordKnowledge(this,\'known\')">Знаю</button>'+
+   '<button class="btn secondary" type="button" onclick="NELanguageBridge.chooseWordKnowledge(this,\'unsure\')">Не уверен</button>'+
+   '<button class="btn secondary" type="button" onclick="NELanguageBridge.chooseWordKnowledge(this,\'unknown\')">Не знаю</button></div>';
   return true;
+ }
+ function wordFeedback(word,ru,level){
+  const forms=window.NECardGrammar?.describe?.({word,translation:ru});
+  const details=forms?.verified&&Array.isArray(forms.forms)?forms.forms.slice(0,4)
+   .filter(x=>x&&x.form&&x.label).map(x=>esc(x.label)+': '+esc(x.form)).join(' · '):'';
+  const example=forms?.verified&&forms.example?.no?
+   '<p><span lang="nb">'+esc(forms.example.no)+'</span>'+
+    (forms.example.ru?' — '+esc(forms.example.ru):'')+'</p>':'';
+  return '<p><b lang="nb">'+esc(word)+'</b> — '+esc(ru)+'</p>'+
+   (details?'<p><small>Формы: '+details+'</small></p>':'')+example+
+   '<p class="muted">'+(level==='unknown'?
+    'Это слово ещё не проверено. Сначала запомни значение, затем используй его в собственном предложении.':
+    level==='unsure'?'Это нормально: проверь значение и потренируй слово в другой ситуации.':
+    'Слово вернётся в задания после паузы. Сам просмотр перевода не считается освоением.')+'</p>';
+ }
+ function chooseWordKnowledge(button,choice){
+  const target=button?.closest?.('.ne-task-word-explanation');
+  const word=String(target?.dataset.word||''),ru=String(target?.dataset.translation||'');
+  if(!target||!['known','unsure','unknown'].includes(choice)||!pendingLessonWord(word,ru))return false;
+  const now=Date.now(),key=normNo(word),checks=selfChecks(true);
+  const p=checks[key]&&typeof checks[key]==='object'?checks[key]:{};
+  Object.assign(p,{word,translation:ru,choice,choiceAt:now});
+  checks[key]=p;
+  if(choice==='known'){
+   p.status='awaiting_recall';
+   window.saveState?.();
+   target.innerHTML='<p><b lang="nb">'+esc(word)+'</b></p>'+
+    '<label class="field-label" for="neWordRecall">Напиши значение по-русски без подсказки:</label>'+
+    '<input id="neWordRecall" class="input" maxlength="120" lang="ru" autocomplete="off" placeholder="Твой ответ">'+
+    '<button type="button" class="btn" style="margin-top:8px" onclick="NELanguageBridge.checkWordRecall(this)">Проверить перевод</button>'+
+    '<p class="muted">Этот ответ проверяет только значение. Для полного освоения Нора ещё проверит употребление и повторение.</p>';
+   target.querySelector('input')?.focus?.();
+   return true;
+  }
+  p.status='needs_practice';p.nextDue=now;
+  schedulePersonalWord(word,ru,now,true);
+  window.saveState?.();
+  target.innerHTML=wordFeedback(word,ru,choice)+
+   '<p><small>Добавлено в повторение. Баллы и уровень не изменены.</small></p>';
+  return true;
+ }
+ function checkWordRecall(button){
+  const target=button?.closest?.('.ne-task-word-explanation');
+  const word=String(target?.dataset.word||''),ru=String(target?.dataset.translation||'');
+  const input=target?.querySelector('input'),answer=String(input?.value||'').trim();
+  if(!target||!input||!answer||!pendingLessonWord(word,ru))return false;
+  const checker=window.NELivingWords?.acceptedTranslation;
+  // Offline fallback accepts only explicit meanings, not guessed semantic synonyms.
+  const norm=x=>String(x||'').normalize('NFKC').toLocaleLowerCase('ru-RU')
+   .replace(/ё/g,'е').replace(/[«»“”"'.!?]/g,' ').replace(/\s+/g,' ').trim();
+  const accepted=typeof checker==='function'?checker(answer,ru,word):
+   ru.split(/\s*(?:\/|;|\||,|\s+или\s+)\s*/i).some(x=>norm(x)===norm(answer));
+  const now=Date.now(),key=normNo(word),checks=selfChecks(true);
+  const p=checks[key];
+  if(!p||p.status!=='awaiting_recall')return false;
+  if(accepted){
+   const delayed=Number(p.nextDue)>0&&p.nextDue<=now&&
+    Number(p.lastRecallAt)>0&&now-Number(p.lastRecallAt)>=DAY_MS*.75;
+   p.recallPasses=(Number(p.recallPasses)||0)+1;
+   if(delayed)p.delayedPasses=Math.min(12,(Number(p.delayedPasses)||0)+1);
+   p.lastRecallAt=now;p.status='recall_ok';
+   const delay=[1,3,7,14,30][Math.min(4,Number(p.delayedPasses)||0)];
+   p.nextDue=now+delay*DAY_MS;
+   schedulePersonalWord(word,ru,p.nextDue,false);
+   window.saveState?.();
+   target.innerHTML='<p><b>Перевод вспомнил правильно.</b> '+esc(word)+
+    ' — '+esc(ru)+'</p><p class="muted">'+
+    (delayed?'Слово подтверждено после паузы.':'Это первая проверка, а не доказательство полного знания.')+
+    ' Следующая проверка перевода запланирована через '+delay+' дн. '+
+    'Поупражняйся также в составлении предложений с этим словом.</p>';
+   return true;
+  }
+  p.status='needs_practice';p.recallMisses=(Number(p.recallMisses)||0)+1;
+  p.nextDue=now;
+  schedulePersonalWord(word,ru,now,true);
+  window.saveState?.();
+  target.innerHTML='<p><b>Пока не вспомнил перевод.</b> Правильный вариант:</p>'+
+   wordFeedback(word,ru,'review')+
+   '<p class="muted">Ответ не засчитан. Слово добавлено в повторение.</p>';
+  return false;
  }
 
  function controlHtml(){
@@ -673,7 +805,7 @@
  }
  window.NELanguageBridge=Object.freeze({controlHtml,toggle,process,segments,queueForgotten,
   entries,knownWords,extractTranslation,dynamicTerm,isMastered,density,recentPeeks,eligibleBlock,
-  knownNorwegian,queueNorwegianLookup,tapGloss,personalFocus,difficulty,levelEntries,queueLevelWord,taskDirection,wordKnowledge,lessonWordReminder,explainLessonWord});
+  knownNorwegian,queueNorwegianLookup,tapGloss,personalFocus,difficulty,levelEntries,queueLevelWord,taskDirection,wordKnowledge,lessonWordReminder,explainLessonWord,chooseWordKnowledge,checkWordRecall});
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});
  else mount();
 })();
