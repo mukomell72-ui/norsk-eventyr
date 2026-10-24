@@ -1,6 +1,6 @@
 const APP_VERSION="8.3.0";
 const DEFAULT_STATE={level:"A1",xp:0,completed:{},testHistory:[],examHistory:[],streak:1,lastStudy:null};
-let state=loadState(),lessonSession=null,testSession=null,examSession=null,speechRec=null,timerHandle=null;
+let state=loadState(),lessonSession=null,testSession=null,examSession=null,speechRec=null,timerHandle=null,lessonDraftTimer=null;
 
 function validProgressState(value){
  if(!value||typeof value!=="object"||Array.isArray(value))return false;
@@ -124,7 +124,7 @@ function awardLessonXp(l){
 }
 
 function nav(active){const a=[["home","⌂","Главная"],["course","▤","Курс"],["tests","✓","Тесты"],["exam","★","Экзамен"],["progress","↗","Прогресс"]];return `<nav class="nav">${a.map(x=>`<button class="${active===x[0]?"active":""}" onclick="navigate('${x[0]}')"><b>${x[1]}</b>${x[2]}</button>`).join("")}</nav>`}
-function shell(content,active="home"){document.getElementById("app").innerHTML=`<div class="shell"><header class="topbar"><div class="brand"><span class="brand-mark">N</span>Norsk Eventyr</div><div class="row"><span class="pill">${esc(state.level)}</span><span class="pill">${state.xp} XP</span></div></header>${content}${nav(active)}</div>`}
+function shell(content,active="home"){flushLessonDraft();document.getElementById("app").innerHTML=`<div class="shell"><header class="topbar"><div class="brand"><span class="brand-mark">N</span>Norsk Eventyr</div><div class="row"><span class="pill">${esc(state.level)}</span><span class="pill">${state.xp} XP</span></div></header>${content}${nav(active)}</div>`}
 function navigate(view,data){stopTimer();if(view==="home")renderHome();if(view==="course")renderCourse(data||state.level);if(view==="lesson")startLesson(data);if(view==="tests")renderTests();if(view==="test")startTest(data||state.level);if(view==="exam")renderExamHome();if(view==="examrun")startExam(data||"A1-A2");if(view==="progress")renderProgress();if(view==="teacher")startAdaptiveTeacher();scrollTo({top:0,behavior:"smooth"})}
 
 function renderHome(){
@@ -145,13 +145,52 @@ function renderCourse(level=state.level){
  <div class="section-title"><h2>Уроки</h2><span class="tag">6 заданий каждый</span></div><section class="lesson-list">${ls.map((x,i)=>`<article class="card lesson-card ${state.completed[x.id]?"done":""}"><div class="lesson-num">${state.completed[x.id]?"✓":i+1}</div><div><h3>${x.icon} ${esc(x.title)}</h3><div class="meta">${esc(x.grammar)} · словарь · аудирование · чтение · письмо · речь</div></div><button class="btn ${state.completed[x.id]?"secondary":""}" onclick="navigate('lesson','${x.id}')">${state.completed[x.id]?"Повторить":"Начать"}</button></article>`).join("")}</section>`,"course")
 }
 
+
+function lessonDraftKey(session,mode){
+ if(!session?.lesson||!["dialogue","writing","speaking"].includes(mode))return "";
+ const stage=mode==="dialogue"?
+  [session.dialogueIndex||0,session.introReview===true,session.introReviewVariant||0].join(":"):
+  [session.speakingFollowup===true,session.remediation?.mode===mode?String(session.remediation.prompt||"").slice(0,350):""].join(":");
+ return [session.lesson.id,session.step,mode,stage].join("|");
+}
+function flushLessonDraft(){
+ if(lessonDraftTimer!==null){clearTimeout(lessonDraftTimer);lessonDraftTimer=null;persistLessonCheckpoint();}
+}
+function saveLessonDraft(mode,field){
+ const session=lessonSession;
+ if(!session?.lesson||!field)return;
+ const key=lessonDraftKey(session,mode);
+ if(!key)return;
+ session.answerDrafts=session.answerDrafts&&typeof session.answerDrafts==="object"&&!Array.isArray(session.answerDrafts)?session.answerDrafts:{};
+ const value=String(field.value||"").slice(0,6000);
+ if(value)session.answerDrafts[key]=value;
+ else delete session.answerDrafts[key];
+ const keys=Object.keys(session.answerDrafts);
+ for(const stale of keys.slice(0,Math.max(0,keys.length-24)))delete session.answerDrafts[stale];
+ if(lessonDraftTimer!==null)clearTimeout(lessonDraftTimer);
+ lessonDraftTimer=setTimeout(()=>{lessonDraftTimer=null;persistLessonCheckpoint();},250);
+}
+function restoreLessonDraft(session){
+ const dialogue=document.getElementById("dialogAnswer"),free=document.getElementById("freeAnswer");
+ const editor=dialogue||free;
+ if(!editor||!session?.lesson)return;
+ const mode=dialogue?"dialogue":session.step===(hasAdaptiveGrammar(session.lesson)?6:5)?"speaking":"writing";
+ editor.dataset.draftMode=mode;
+ const saved=session.answerDrafts?.[lessonDraftKey(session,mode)];
+ if(typeof saved==="string")editor.value=saved.slice(0,6000);
+ editor.addEventListener("input",()=>saveLessonDraft(mode,editor));
+}
+if(typeof window!=="undefined"&&typeof window.addEventListener==="function")window.addEventListener("pagehide",flushLessonDraft);
+if(typeof document!=="undefined"&&typeof document.addEventListener==="function")document.addEventListener("visibilitychange",()=>{if(document.hidden)flushLessonDraft();});
+
 function persistLessonCheckpoint(){
  const session=lessonSession;
  if(!session?.lesson)return;
- state.activeLesson={id:session.lesson.id,step:session.step,dialogueIndex:session.dialogueIndex||0,vocabIndex:session.vocabIndex||0,remediation:session.remediation||null,proposedRemediation:session.proposedRemediation||null,choiceMiss:session.choiceMiss===true,listeningIndex:session.listeningIndex||0,speakingFollowup:session.speakingFollowup===true,guidedSpeech:session.guidedSpeech||null,coach:session.coach||null,firstGraded:session.firstGraded||{},xpScores:session.xpScores||[],feedbackItems:session.feedbackItems||[],introReview:session.introReview===true,introReviewVariant:session.introReviewVariant||0,savedAt:new Date().toISOString()};
+ state.activeLesson={id:session.lesson.id,step:session.step,dialogueIndex:session.dialogueIndex||0,vocabIndex:session.vocabIndex||0,remediation:session.remediation||null,proposedRemediation:session.proposedRemediation||null,choiceMiss:session.choiceMiss===true,listeningIndex:session.listeningIndex||0,speakingFollowup:session.speakingFollowup===true,guidedSpeech:session.guidedSpeech||null,coach:session.coach||null,firstGraded:session.firstGraded||{},xpScores:session.xpScores||[],feedbackItems:session.feedbackItems||[],answerDrafts:session.answerDrafts||{},introReview:session.introReview===true,introReviewVariant:session.introReviewVariant||0,savedAt:new Date().toISOString()};
  saveState();
 }
 function startLesson(id){
+ flushLessonDraft();
  const l=COURSE.find(x=>x.id===id)||state.generatedLessons?.[id];
  if(!l)return navigate("course");
  if(l.id==="a1-1"&&!Number.isInteger(state.introVariant))state.introVariant=Math.floor(Math.random()*3);
@@ -161,13 +200,14 @@ function startLesson(id){
  const introReview=l.id==='a1-1'?(saved?saved.introReview===true:(state.noraMemory?.introduced===true||state.completed?.[l.id]===true)):false;
  lessonSession={lesson:l,coach:saved?.coach||null,introReview,introReviewVariant:saved?.introReviewVariant??(Number(state.introVariant)||0),step:saved&&Number.isInteger(saved.step)&&saved.step>=0&&saved.step<max?saved.step:0,
   dialogueIndex:saved?.dialogueIndex||0,vocabIndex:saved?.vocabIndex||0,remediation:saved?.remediation||null,proposedRemediation:saved?.proposedRemediation||null,
-  locked:false,choiceMiss:saved?.choiceMiss===true,listeningIndex:saved?.listeningIndex||0,speakingFollowup:saved?.speakingFollowup===true,guidedSpeech:saved?.guidedSpeech||null,firstGraded:saved?.firstGraded&&typeof saved.firstGraded==='object'&&!Array.isArray(saved.firstGraded)?saved.firstGraded:{},xpScores:Array.isArray(saved?.xpScores)?saved.xpScores:[],feedbackItems:Array.isArray(saved?.feedbackItems)?saved.feedbackItems:[]};
+  locked:false,choiceMiss:saved?.choiceMiss===true,listeningIndex:saved?.listeningIndex||0,speakingFollowup:saved?.speakingFollowup===true,guidedSpeech:saved?.guidedSpeech||null,firstGraded:saved?.firstGraded&&typeof saved.firstGraded==='object'&&!Array.isArray(saved.firstGraded)?saved.firstGraded:{},xpScores:Array.isArray(saved?.xpScores)?saved.xpScores:[],feedbackItems:Array.isArray(saved?.feedbackItems)?saved.feedbackItems:[],answerDrafts:saved?.answerDrafts&&typeof saved.answerDrafts==='object'&&!Array.isArray(saved.answerDrafts)?saved.answerDrafts:{}};
  persistLessonCheckpoint();renderLesson();
 }
 function hasAdaptiveGrammar(l){return !!(l?._adaptive&&Array.isArray(l.grammarOpts)&&l.grammarOpts.length===4&&Number.isInteger(Number(l.grammarCorrect)))}
 function lessonSteps(l){return hasAdaptiveGrammar(l)?["Фраза","Словарь","Грамматика","Аудирование","Чтение","Письмо","Речь"]:["Фраза","Словарь","Аудирование","Чтение","Письмо","Речь"]}
 function renderLesson(){const s=lessonSession,l=s.lesson,n=lessonSteps(l),g=hasAdaptiveGrammar(l);let b="";if(s.step===0)b=lessonIntro(l);if(s.step===1)b=vocabEx(l);if(g&&s.step===2)b=grammarEx(l);if(s.step===(g?3:2))b=listenEx(l);if(s.step===(g?4:3))b=readEx(l);if(s.step===(g?5:4))b=freeEx(l,"writing");if(s.step===(g?6:5))b=freeEx(l,"speaking");
  shell(`<div class="lesson-head-v6"><button class="back-v6" onclick="navigate('course','${l.level}')">←</button><div><small>${l.level} · ${esc(l.title)}</small><b>${n[s.step]||""}</b></div><span>${s.step+1}/${n.length}</span></div><div class="progress lesson-progress-v6" aria-label="Продвижение по занятию"><i style="width:${pct(s.step+1,n.length)}%"></i></div>${window.NEExperience?.lessonHeader?.(l,s,n.length)||""}<section class="exercise lesson-exercise-v6">${b}</section>`,"course");
+ restoreLessonDraft(s);
  const speechText=s.step===0?currentDialogueTurn(l).phrase:s.step===(g?3:2)?(l.listeningAudio||l.phrase):"";
  if(speechText)window.nePrimeSpeech?.(speechText,l.level);
 }
@@ -289,6 +329,7 @@ function lessonIntro(l){
  <div class="lesson-words-v6">${words.slice(0,8).map(v=>`<span><b>${esc(v[0])}</b><small>${esc(v[1])}</small></span>`).join("")}</div>
  <div class="answer-label-v6"><b>Твой ответ</b><span>текстом или голосом</span></div>
  <textarea id="dialogAnswer" class="input lesson-answer-v6" rows="2" placeholder="Ответь собеседнику по-норвежски…" oninput="this.dataset.fromVoice='false'"></textarea>
+ <small class="muted">Черновик сохраняется автоматически, даже если проверка временно недоступна.</small>
  <div class="lesson-actions-v6"><button id="micBtn" class="btn secondary" onclick="toggleMic('dialogAnswer','','${escJs(shown.phrase)}')">🎤 Сказать</button><button class="btn" onclick="checkDialogue()">✓ Проверить</button></div>
  <div id="dialogFb"></div><details class="grammar-fold-v6"><summary>Грамматика</summary><p>${esc(l.grammar)}</p></details></article>`;
 }
@@ -305,7 +346,7 @@ function continueCheckedDialogue(){
 }
 async function checkDialogue(){
  const s=lessonSession,input=document.getElementById("dialogAnswer"),a=input?.value.trim();if(!a||s.locked)return;
- const l=s.lesson,turn=currentDialogueTurn(l),b=document.getElementById("dialogFb"),spoken=input.dataset.fromVoice==="true";s.locked=true;
+ const l=s.lesson,turn=currentDialogueTurn(l),b=document.getElementById("dialogFb"),spoken=input.dataset.fromVoice==="true";saveLessonDraft("dialogue",input);flushLessonDraft();s.locked=true;
  b.innerHTML='<div class="feedback">Проверяю…</div>';
  const gradeKey="dialogue:"+String(s.dialogueIndex||0)+":"+String(s.introReview===true);
  const previous=s.dialogueSuggestion?.key===gradeKey?s.dialogueSuggestion.text:"";
@@ -416,7 +457,7 @@ function freeEx(l,mode){
  const sp=mode==="speaking",rem=l?._adaptive&&lessonSession.remediation?.mode===mode?lessonSession.remediation:null,
   followup=lessonSession.speakingFollowup===true,p=lessonFreeTask(l,mode,rem,followup),
   support=speakingTaskHelp(l,mode,rem,followup,p);
- return `<article class="card"><div class="eyebrow">${sp?"Устная речь":"Письмо"} · ${rem?"перенос исправления":"AI"}</div>${rem?'<div class="notice"><b>Новая ситуация.</b> Примени исправление сам, без копирования готового ответа.'+(rem.rule?'<br><small>'+esc(rem.rule)+'</small>':'')+'</div><br>':""}${window.NELanguageBridge?.taskDirection?.(sp?"speaking":"writing",l.level)||""}<div class="prompt" data-bridge-instruction="true">${esc(clearerTaskPrompt(p))}</div><p class="ne-task-direction" data-bridge-instruction="true">Попробуй ответить своими словами. После проверки исправь ошибки — первая оценка останется прежней.</p>${support?'<details class="grammar-fold a1-task-support" data-translation="on-request"><summary>Перевести задание</summary><div class="notice"><b>Перевод задания:</b> '+esc(support.ru)+'<br><small>'+esc(support.hint)+'</small></div></details>':""}${sp?'<div class="notice">Нажми микрофон и говори по-норвежски. Текстовый ответ проверяется как письмо, а не как устная речь.</div>':""}<textarea id="freeAnswer" class="input" autocomplete="off" placeholder="Ответ по-норвежски…" oninput="this.dataset.fromVoice='false'"></textarea><div class="row ${sp?'speech-actions-v831':''}" style="margin-top:10px">${sp?'<button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>':""}<button class="btn" onclick="checkFree('${mode}')">🧠 Проверить AI</button></div><div id="freeFb"></div></article>`
+ return `<article class="card"><div class="eyebrow">${sp?"Устная речь":"Письмо"} · ${rem?"перенос исправления":"AI"}</div>${rem?'<div class="notice"><b>Новая ситуация.</b> Примени исправление сам, без копирования готового ответа.'+(rem.rule?'<br><small>'+esc(rem.rule)+'</small>':'')+'</div><br>':""}${window.NELanguageBridge?.taskDirection?.(sp?"speaking":"writing",l.level)||""}<div class="prompt" data-bridge-instruction="true">${esc(clearerTaskPrompt(p))}</div><p class="ne-task-direction" data-bridge-instruction="true">Попробуй ответить своими словами. После проверки исправь ошибки — первая оценка останется прежней.</p>${support?'<details class="grammar-fold a1-task-support" data-translation="on-request"><summary>Перевести задание</summary><div class="notice"><b>Перевод задания:</b> '+esc(support.ru)+'<br><small>'+esc(support.hint)+'</small></div></details>':""}${sp?'<div class="notice">Нажми микрофон и говори по-норвежски. Текстовый ответ проверяется как письмо, а не как устная речь.</div>':""}<textarea id="freeAnswer" class="input" autocomplete="off" placeholder="Ответ по-норвежски…" oninput="this.dataset.fromVoice='false'"></textarea><small class="muted">Черновик сохраняется автоматически, даже если проверка временно недоступна.</small><div class="row ${sp?'speech-actions-v831':''}" style="margin-top:10px">${sp?'<button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>':""}<button class="btn" onclick="checkFree('${mode}')">🧠 Проверить AI</button></div><div id="freeFb"></div></article>`
 }
 
 function openFreeTransfer(){
@@ -434,7 +475,7 @@ function deferFreeRemediation(){
 }
 async function checkFree(mode){
  const s=lessonSession,input=document.getElementById("freeAnswer"),a=input?.value.trim();if(!a||!s||s.locked)return;
- const l=s.lesson,rem=l?._adaptive&&s.remediation?.mode===mode?s.remediation:null,p=lessonFreeTask(l,mode,rem,s.speakingFollowup===true),b=document.getElementById("freeFb"),spoken=mode==="speaking"&&input.dataset.fromVoice==="true";
+ const l=s.lesson,rem=l?._adaptive&&s.remediation?.mode===mode?s.remediation:null,p=lessonFreeTask(l,mode,rem,s.speakingFollowup===true),b=document.getElementById("freeFb"),spoken=mode==="speaking"&&input.dataset.fromVoice==="true";saveLessonDraft(mode,input);flushLessonDraft();
  s.locked=true;b.innerHTML='<div class="feedback">Проверяю…</div>';
  const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode:rem?(spoken?"speaking_transfer":"writing_transfer"):(spoken?"speaking":"writing")});
  if(!b.isConnected||lessonSession!==s){s.locked=false;return}
@@ -472,7 +513,7 @@ async function checkFree(mode){
  s.locked=false;b.innerHTML=humanFeedback+'<div class="feedback bad"><b>Исправь главную ошибку и попробуй снова</b><br>'+explanation+rule+corrected+'</div>';input?.focus()
 }
 function lessonNext(xp=0){lessonSession.step++;lessonSession.choiceMiss=false;lessonSession.locked=false;if(lessonSession.step>=lessonSteps(lessonSession.lesson).length)return finishLesson();persistLessonCheckpoint();renderLesson()}
-function finishLesson(){const l=lessonSession.lesson,reward=awardLessonXp(l),feedback=lessonFeedbackSummary(reward);if(state.activeLesson?.id===l.id)delete state.activeLesson;state.completed[l.id]=true;const courseOutcome=window.NEAdaptive?NEAdaptive.completeLesson(state,l,reward.avg):null;const livingOutcome=window.NELivingDay?.onLessonFinished?.(l,courseOutcome,reward.avg)||null;const today=new Date().toLocaleDateString("sv-SE");state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.lessonDates=state.guidedJourney.lessonDates||{};if(l?._adaptive?.kind!=='archive_replay')state.guidedJourney.lessonDates[today]=l.id;const xp=xpRewardStatus();saveState();const humanEnd=window.NEExperience?.endNote?.(l,courseOutcome?.advanced===true)||"";const unlocked=reward.newlyUnlocked.length?'<div class="xp-unlock-v8"><b>Открыто:</b> '+reward.newlyUnlocked.map(x=>esc(x.title)).join(", ")+'</div>':"",repeat=reward.repeat===1?'<small class="muted">Повтор этого модуля сегодня: начислено 25% обычных XP.</small>':reward.repeat>1?'<small class="muted">За этот модуль сегодня XP уже получены.</small>':"",next=xp.next?'<div class="xp-next-v8"><span>До награды «'+esc(xp.next.title)+'»</span><b>'+xp.toNext+' XP</b><i><em style="width:'+xp.progress+'%"></em></i></div>':'<div class="xp-next-v8"><b>Все текущие XP-миссии открыты</b></div>';shell(`<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">${l.level} · ${livingOutcome?(livingOutcome.finished?'Учебный день завершён':'Продолжаем учебный день'):'готово на сегодня'}</div><h1>${esc(l.title)}</h1>${humanEnd}<p class="muted">${livingOutcome?(livingOutcome.advanced?'Ты освоил эту ситуацию. Следующая будет продолжением той же темы.':'Нора проверила ответы. Продолжим закрепление темы.'):'Урок засчитан в сегодняшний маршрут.'}</p><div class="xp-award-v8"><strong>+${reward.earned} XP</strong><span>Оценка занятия Норы: ${reward.avg}/100${reward.reviewBonus?" · +10 за отложенное повторение":""}</span></div>${courseOutcome?'<section class="notice" style="margin:12px 0"><b>'+(courseOutcome.advanced?'Этап подтверждён':'Этап пока не подтверждён')+'</b> · '+courseOutcome.completedPhases+'/'+courseOutcome.totalPhases+' этапов курса.<br>'+esc(courseOutcome.reason)+'</section>':''}<details class="ne-lesson-assessment"><summary>Подробный разбор оценок и исправлений</summary>${feedback}</details>${livingOutcome?'<div class="notice">'+esc(livingOutcome.reason)+'</div>':''}${repeat}${unlocked}${next}<button class="btn" onclick="navigate('${livingOutcome?'livingday':'home'}')">${livingOutcome?(livingOutcome.finished?'Результаты учебного дня →':'Продолжить эту тему →'):'Продолжить день →'}</button>${window.NEExperience?'<button type="button" class="btn secondary ne-lesson-followup" onclick="NEExperience.openFollowup()">Поговорить с Норой об этой ситуации →</button>':''}<button class="btn ghost" onclick="navigate('course','${l.level}')">К курсу</button></section>`,"home")}
+function finishLesson(){flushLessonDraft();const l=lessonSession.lesson,reward=awardLessonXp(l),feedback=lessonFeedbackSummary(reward);if(state.activeLesson?.id===l.id)delete state.activeLesson;state.completed[l.id]=true;const courseOutcome=window.NEAdaptive?NEAdaptive.completeLesson(state,l,reward.avg):null;const livingOutcome=window.NELivingDay?.onLessonFinished?.(l,courseOutcome,reward.avg)||null;const today=new Date().toLocaleDateString("sv-SE");state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.lessonDates=state.guidedJourney.lessonDates||{};if(l?._adaptive?.kind!=='archive_replay')state.guidedJourney.lessonDates[today]=l.id;const xp=xpRewardStatus();saveState();const humanEnd=window.NEExperience?.endNote?.(l,courseOutcome?.advanced===true)||"";const unlocked=reward.newlyUnlocked.length?'<div class="xp-unlock-v8"><b>Открыто:</b> '+reward.newlyUnlocked.map(x=>esc(x.title)).join(", ")+'</div>':"",repeat=reward.repeat===1?'<small class="muted">Повтор этого модуля сегодня: начислено 25% обычных XP.</small>':reward.repeat>1?'<small class="muted">За этот модуль сегодня XP уже получены.</small>':"",next=xp.next?'<div class="xp-next-v8"><span>До награды «'+esc(xp.next.title)+'»</span><b>'+xp.toNext+' XP</b><i><em style="width:'+xp.progress+'%"></em></i></div>':'<div class="xp-next-v8"><b>Все текущие XP-миссии открыты</b></div>';shell(`<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">${l.level} · ${livingOutcome?(livingOutcome.finished?'Учебный день завершён':'Продолжаем учебный день'):'готово на сегодня'}</div><h1>${esc(l.title)}</h1>${humanEnd}<p class="muted">${livingOutcome?(livingOutcome.advanced?'Ты освоил эту ситуацию. Следующая будет продолжением той же темы.':'Нора проверила ответы. Продолжим закрепление темы.'):'Урок засчитан в сегодняшний маршрут.'}</p><div class="xp-award-v8"><strong>+${reward.earned} XP</strong><span>Оценка занятия Норы: ${reward.avg}/100${reward.reviewBonus?" · +10 за отложенное повторение":""}</span></div>${courseOutcome?'<section class="notice" style="margin:12px 0"><b>'+(courseOutcome.advanced?'Этап подтверждён':'Этап пока не подтверждён')+'</b> · '+courseOutcome.completedPhases+'/'+courseOutcome.totalPhases+' этапов курса.<br>'+esc(courseOutcome.reason)+'</section>':''}<details class="ne-lesson-assessment"><summary>Подробный разбор оценок и исправлений</summary>${feedback}</details>${livingOutcome?'<div class="notice">'+esc(livingOutcome.reason)+'</div>':''}${repeat}${unlocked}${next}<button class="btn" onclick="navigate('${livingOutcome?'livingday':'home'}')">${livingOutcome?(livingOutcome.finished?'Результаты учебного дня →':'Продолжить эту тему →'):'Продолжить день →'}</button>${window.NEExperience?'<button type="button" class="btn secondary ne-lesson-followup" onclick="NEExperience.openFollowup()">Поговорить с Норой об этой ситуации →</button>':''}<button class="btn ghost" onclick="navigate('course','${l.level}')">К курсу</button></section>`,"home")}
 
 function renderTests(){shell(`<div class="screen-head"><button class="back" onclick="navigate('hub')">←</button><div><div class="eyebrow">Контроль знаний</div><h2 style="margin:0">Тесты по уровням</h2></div></div><div class="notice">Лексика, грамматика, чтение и аудирование, плюс отдельные свободные задания на письмо и устную речь с AI-проверкой.</div><section class="grid" style="margin-top:14px">${LEVELS.map(l=>{const t=lastTest(l);return `<article class="card"><div style="font-size:34px;font-weight:950">${l}</div><p class="muted">${levelDesc(l)}</p><div class="metric"><span>Последний результат</span><strong>${t?t.score+"%":"—"}</strong></div><button class="btn" onclick="navigate('test','${l}')">${t?"Пройти снова":"Начать тест"}</button></article>`}).join("")}</section>`,"tests")}
 function buildTest(level){const all=lessons(level),q=[],ls=shuffle(all).slice(0,Math.min(2,all.length));ls.forEach(l=>q.push({type:"reading",text:l.q,context:l.read,opts:l.opts,correct:l.correct}));shuffle(GRAMMAR[level]||[]).slice(0,2).forEach(g=>q.push({type:"grammar",text:g[0],opts:g.slice(1,5),correct:g[5],note:g[6]}));const vocab=shuffle(all.flatMap(l=>l.vocab||[]));vocab.slice(0,2).forEach(t=>{const distract=shuffle(vocab.filter(v=>v[0]!==t[0]).map(v=>v[1])).slice(0,3),opts=shuffle([t[1],...distract]);if(opts.length===4)q.push({type:"vocabulary",text:"Что значит «"+t[0]+"»?",opts,correct:opts.indexOf(t[1])})});shuffle(all).slice(0,Math.min(2,all.length)).forEach(l=>{const pool=shuffle(all.filter(x=>x.id!==l.id).map(x=>x.phrase)).slice(0,3),opts=shuffle([l.phrase,...pool]);if(opts.length===4)q.push({type:"listen",text:"Прослушай и выбери точную фразу.",audio:l.phrase,opts,correct:opts.indexOf(l.phrase)})});const l=all[Math.floor(Math.random()*all.length)];q.push({type:"free",mode:"writing",text:l.writing});q.push({type:"free",mode:"speaking",text:l.speaking});return q}
@@ -530,7 +571,7 @@ function evaluationErrorMessage(error){
 }
 async function aiEvaluate(payload){try{const r=await fetch("/api/evaluate",{method:"POST",headers:{"Content-Type":"application/json",...(window.NEAccess?.headers?.()||{})},body:JSON.stringify(payload)}),d=await r.json().catch(()=>({}));return r.ok?{ok:true,data:d}:{ok:false,error:d.code||d.error||("HTTP "+r.status)}}catch{return {ok:false,error:"NETWORK"}}}
 function speakText(text,rate=.85){if(!("speechSynthesis" in window))return alert("Синтез речи не поддерживается.");speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang="nb-NO";u.rate=rate;const v=speechSynthesis.getVoices().find(x=>/^nb|no/i.test(x.lang));if(v)u.voice=v;speechSynthesis.speak(u)}
-function toggleMic(target="freeAnswer"){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return alert("Распознавание речи недоступно. Используй Chrome и разреши микрофон.");if(speechRec){speechRec.stop();return}speechRec=new SR();speechRec.lang="nb-NO";speechRec.interimResults=true;const btn=document.getElementById(target==="chatInput"?"chatMicBtn":"micBtn"),f=document.getElementById(target),status=target==="chatInput"?document.getElementById("chatVoiceStatus"):null;speechRec.onstart=()=>{if(btn)btn.textContent="■ Слушаю…";if(status)status.textContent="Нора слушает…"};speechRec.onresult=e=>{let t="";for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;if(f)f.value=t};speechRec.onerror=e=>{if(status)status.textContent="Не удалось распознать речь.";alert("Ошибка микрофона: "+e.error)};speechRec.onend=()=>{speechRec=null;if(btn)btn.textContent="🎤 Говорить";if(status)status.textContent=f?.value?.trim()?"Готово — можно отправлять.":""};speechRec.start()}
+function toggleMic(target="freeAnswer"){const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR)return alert("Распознавание речи недоступно. Используй Chrome и разреши микрофон.");if(speechRec){speechRec.stop();return}speechRec=new SR();speechRec.lang="nb-NO";speechRec.interimResults=true;const btn=document.getElementById(target==="chatInput"?"chatMicBtn":"micBtn"),f=document.getElementById(target),status=target==="chatInput"?document.getElementById("chatVoiceStatus"):null;speechRec.onstart=()=>{if(btn)btn.textContent="■ Слушаю…";if(status)status.textContent="Нора слушает…"};speechRec.onresult=e=>{let t="";for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;if(f){f.value=t;if(f.dataset.draftMode){f.dataset.fromVoice="true";saveLessonDraft(f.dataset.draftMode,f)}}};speechRec.onerror=e=>{if(status)status.textContent="Не удалось распознать речь.";alert("Ошибка микрофона: "+e.error)};speechRec.onend=()=>{speechRec=null;if(btn)btn.textContent="🎤 Говорить";if(status)status.textContent=f?.value?.trim()?"Готово — можно отправлять.":""};speechRec.start()}
 function toggle(id){const e=document.getElementById(id);e.style.display=e.style.display==="none"?"block":"none"}
 function startTimer(){stopTimer();timerHandle=setInterval(()=>{if(!examSession)return;examSession.remaining--;updateTimer();if(examSession.remaining<=0)finishExam()},1000)}
 function updateTimer(){const e=document.getElementById("timer");if(!e||!examSession)return;const m=Math.floor(examSession.remaining/60),s=examSession.remaining%60;e.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")}
