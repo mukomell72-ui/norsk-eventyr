@@ -188,7 +188,7 @@ if(translationSuffix==='-translate3'){
 if(translationSuffix==='-translate4'){
  for(const pathname of ['/ui-v7.js','/ui-v8.js','/updates.js']){
   const rev=pathname==='/ui-v7.js'?baseRevision:'';
-  assert(assetSet.has(pathname+'?v='+v+rev+translationSuffix+(stampSuffix&&['/ui-v8.js','/updates.js'].includes(pathname)?stampSuffix:'')+(teacherSuffix&&pathname==='/ui-v7.js'?teacherSuffix:'')+(bridgeSuffix&&pathname==='/ui-v7.js'?bridgeSuffix:'')),'Installed PWA must fetch fresh version UI: '+pathname);
+  assert(assetSet.has(pathname+'?v='+v+rev+translationSuffix+(stampSuffix&&['/ui-v8.js','/updates.js'].includes(pathname)?stampSuffix:'')+(teacherSuffix&&pathname==='/ui-v7.js'?teacherSuffix:'')+(bridgeSuffix&&pathname==='/ui-v7.js'?bridgeSuffix:'')+(auditSuffix&&pathname==='/ui-v7.js'?auditSuffix:'')),'Installed PWA must fetch fresh version UI: '+pathname);
  }
  assert(sw.includes('NE_GET_VERSION')&&sw.includes('cache:CACHE'),
    'Installed SW must reveal its actual active cache revision via MessageChannel');
