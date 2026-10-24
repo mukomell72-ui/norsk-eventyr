@@ -1,0 +1,31 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
+const root=path.resolve(__dirname,'..');
+const app=fs.readFileSync(path.join(root,'app.js'),'utf8'),ui=fs.readFileSync(path.join(root,'ui-v7.js'),'utf8');
+const catalog=app.slice(app.indexOf('const XP_REWARDS=['),app.indexOf('function ensureGamification()'));
+const status=app.slice(app.indexOf('function xpRewardCatalog()'),app.indexOf('function awardLessonXp('));
+assert(catalog.startsWith('const XP_REWARDS=['));
+const ctx={Math,Number,Array,Object};vm.runInNewContext(catalog+'\n'+status+'\nthis.api={XP_REWARDS,xpRewardCatalog,xpRewardStatus};',ctx);
+const r=ctx.api.XP_REWARDS;
+assert(r.length>=10,'XP must offer practical missions beyond 1000 points');
+assert.equal(r[0].xp,100);assert.equal(r[3].xp,1000);
+for(let i=0;i<r.length;i++){
+ const mission=r[i];
+ assert(i===0||mission.xp>r[i-1].xp,'Thresholds must be strictly ascending');
+ assert(mission.goals_no&&mission.goals_ru,'Missions must provide Bokmål and Russian task descriptions');
+ assert(mission.steps_no.length>=3,'Each mission needs practical conversation checkpoints');
+ if(i>=4)assert(mission.scene&&mission.scene.length>40,'New missions need actual roleplay scenes');
+}
+const early=ctx.api.xpRewardStatus(1000);
+assert.equal(early.unlocked.length,4,'Previous accumulated XP unlocks remain unchanged');
+assert.equal(early.next.xp,1400);
+const late=ctx.api.xpRewardStatus(5000);
+assert.equal(late.unlocked.length,r.length,'Highest milestone unlocks all missions');
+const before=r[4].steps_no[0],copy=ctx.api.xpRewardCatalog();copy[4].steps_no[0]='mutated';
+assert.equal(r[4].steps_no[0],before,'Catalog copies must not mutate canonical missions');
+assert(ui.includes("reward.goals_no+' / '+reward.goals_ru"),'Roleplay receives bilingual task goals');
+assert(ui.includes("(state.xp||0)<reward.xp"),'Locked XP missions cannot be started');
+assert(ui.includes('Никаких фиктивных баллов'),'Roleplay cannot claim false XP or language proficiency');
+assert(app.includes('bestStreak=Math.max'),'Best-ever study streak must persist');
+assert(app.includes('firstGraded'),'XP expansion cannot replace first-attempt grade protection');
+console.log('PASS XP missions: ten bilingual practical roleplays, saved streak achievements, no false grade');

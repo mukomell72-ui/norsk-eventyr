@@ -36,12 +36,18 @@ function levelProgress(level){return pct(completed(level),lessons(level).length)
 function totalProgress(){return pct(Object.keys(state.completed).length,COURSE.length)}
 function lastTest(level){return [...state.testHistory].reverse().find(x=>x.level===level)}
 function levelDesc(l){return {A1:"База: знакомство, дом, покупки, транспорт и здоровье.",A2:"Самостоятельная повседневная жизнь: работа, услуги, планы и мнение.",B1:"Связная речь: работа, официальные обращения, новости и аргументы.",B2:"Точная и нюансированная речь: формальный стиль, дискуссия и презентации."}[l]}
-function touchStudy(){const t=new Date().toISOString().slice(0,10);if(state.lastStudy!==t){if(state.lastStudy){const d=Math.round((new Date(t)-new Date(state.lastStudy))/86400000);state.streak=d===1?(state.streak||0)+1:1}else state.streak=1;state.lastStudy=t;saveState()}}
+function touchStudy(){const t=new Date().toISOString().slice(0,10);if(state.lastStudy!==t){if(state.lastStudy){const d=Math.round((new Date(t)-new Date(state.lastStudy))/86400000);state.streak=d===1?(state.streak||0)+1:1}else state.streak=1;state.lastStudy=t;const g=ensureGamification();g.bestStreak=Math.max(0,Number(g.bestStreak)||0,Number(state.streak)||0);saveState()}}
 const XP_REWARDS=[
- {xp:100,id:"cafe",title:"Кафе Fjordvik",description:"Закажи еду и напиток без готовых фраз."},
- {xp:250,id:"shopping",title:"Покупка без подсказок",description:"Размер, цвет, цена и возврат в одном разговоре."},
- {xp:500,id:"work",title:"Первый рабочий день",description:"Объясни задачу, график и попроси помощь по-норвежски."},
- {xp:1000,id:"port",title:"Испытание в порту",description:"Билет, багаж, время отправления и изменение плана."}
+ {"xp":100,"id":"cafe","title":"Кафе Fjordvik","description":"Закажи еду и напиток без готовых фраз.","goals_no":"Bestill mat og drikke på en kafé.","goals_ru":"Закажи еду и напитки в кафе.","steps_no":["Be om menyen.","Spør om prisen.","Bestill og betal."]},
+ {"xp":250,"id":"shopping","title":"Покупка без подсказок","description":"Размер, цвет, цена и возврат в одном разговоре.","goals_no":"Kjøp en vare og spør om bytte.","goals_ru":"Купи товар и уточни условия обмена.","steps_no":["Spør om størrelse og farge.","Spør om prisen.","Forklar at du vil bytte varen."]},
+ {"xp":500,"id":"work","title":"Первый рабочий день","description":"Объясни задачу, график и попроси помощь по-норвежски.","goals_no":"Snakk med en kollega på jobben.","goals_ru":"Поговори с коллегой на работе.","steps_no":["Fortell hva du skal gjøre.","Spør når du skal begynne.","Be om hjelp på en høflig måte."]},
+ {"xp":1000,"id":"port","title":"Испытание в порту","description":"Билет, багаж, время отправления и изменение плана.","goals_no":"Planlegg en fergetur.","goals_ru":"Спланируй поездку на пароме.","steps_no":["Spør om avgangstiden.","Kjøp riktig billett.","Forklar at du må endre planen."]},
+ {"xp":1400,"id":"doctor","title":"У врача","description":"Объясни самочувствие, уточни время и следующие действия.","goals_no":"Bestill en legetime og forklar hva du trenger.","goals_ru":"Запишись к врачу и объясни, что тебе нужно.","steps_no":["Be om en time.","Beskriv et enkelt symptom.","Spør hva du skal gjøre videre."],"scene":"На приёме у семейного врача. Нора — сотрудница регистратуры, затем врач. Это учебная языковая ситуация, а не медицинская консультация."},
+ {"xp":1900,"id":"kommune","title":"Разговор в kommune","description":"Уточни документ, встречу и дальнейший порядок действий.","goals_no":"Still spørsmål på kommunekontoret.","goals_ru":"Задай вопросы в муниципалитете.","steps_no":["Forklar hvorfor du er der.","Spør hvilke dokumenter du trenger.","Bekreft neste avtale."],"scene":"В муниципалитете Fjordvik. Нора — работница службы обслуживания населения; ведёт обычный учебный разговор и не даёт правовых заключений."},
+ {"xp":2500,"id":"phone","title":"Звонок работодателю","description":"Сообщи о ситуации и договорись об изменении рабочего времени.","goals_no":"Ring arbeidsgiveren din og avtal en tid.","goals_ru":"Позвони работодателю и согласуй время.","steps_no":["Presenter deg på telefon.","Forklar hvorfor du ringer.","Gjenta og bekreft avtalen."],"scene":"Телефонный разговор с работодателем. Нора — руководитель смены. Обсуди график, рабочие задачи и согласование времени."},
+ {"xp":3200,"id":"interview","title":"Собеседование","description":"Расскажи о навыках, опыте и задай вопросы о работе.","goals_no":"Øv på et jobbintervju.","goals_ru":"Потренируйся проходить собеседование.","steps_no":["Presenter deg selv.","Fortell om arbeidserfaringen din.","Still et spørsmål om stillingen."],"scene":"Реалистичное собеседование в компании Fjordvik. Нора — представитель работодателя. Не оценивай реальные шансы на трудоустройство."},
+ {"xp":4000,"id":"complaint","title":"Решение проблемы","description":"Вежливо объясни проблему и предложи решение.","goals_no":"Forklar et problem og foreslå en løsning.","goals_ru":"Объясни проблему и предложи решение.","steps_no":["Beskriv problemet tydelig.","Forklar hva du ønsker.","Avtal hva som skjer videre."],"scene":"Клиентская служба Fjordvik. Нора — сотрудница, помогающая решить бытовую проблему или вопрос по услуге; говори естественно и вежливо."},
+ {"xp":5000,"id":"discussion","title":"Обсуждение и аргументы","description":"Вырази мнение, объясни причину, корректно возрази.","goals_no":"Si meningen din og begrunn den.","goals_ru":"Выскажи мнение и обоснуй его.","steps_no":["Fortell hva du mener.","Gi minst én begrunnelse.","Svar høflig på et motargument."],"scene":"Нора и ученик обсуждают повседневную тему — транспорт, работу или учёбу. Задавай по одному вопросу и подстраивай формулировки под уровень ученика."}
 ];
 function ensureGamification(){
  const good=state.gamification&&typeof state.gamification==="object"&&!Array.isArray(state.gamification);
@@ -99,7 +105,7 @@ function lessonFeedbackSummary(reward){
  }).join("");
  return '<div class="notice" style="margin-top:14px"><b>Почему '+reward.avg+'/100</b>'+(rows||'<br><small>Один или несколько этапов были оценены ниже 100.</small>')+'</div>';
 }
-function xpRewardCatalog(){return XP_REWARDS.map(x=>({...x}))}
+function xpRewardCatalog(){return XP_REWARDS.map(x=>({...x,steps_no:[...(x.steps_no||[])]}))}
 function xpRewardStatus(xp=state.xp||0){
  const total=Math.max(0,Number(xp)||0),unlocked=XP_REWARDS.filter(r=>total>=r.xp),next=XP_REWARDS.find(r=>total<r.xp)||null;
  const floor=unlocked.at(-1)?.xp||0,progress=next?Math.max(0,Math.min(100,Math.round((total-floor)/(next.xp-floor)*100))):100;

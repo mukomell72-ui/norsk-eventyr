@@ -168,9 +168,20 @@
 
   function xpJourneyV7(){
     const status=window.xpRewardStatus?xpRewardStatus():{xp:state.xp||0,unlocked:[],next:null,progress:0,toNext:0},rewards=window.xpRewardCatalog?xpRewardCatalog():[];
-    const rewardButtons=rewards.map(r=>{const open=status.xp>=r.xp;return '<button class="xp-reward-v8 '+(open?'open':'locked')+'" '+(open?'onclick="v7XpMission(\''+js(r.id)+'\')"':'disabled')+'><span>'+r.xp+' XP</span><b>'+h(r.title)+'</b><small>'+(open?'Открыто · начать':'Ещё '+Math.max(0,r.xp-status.xp)+' XP')+'</small></button>'}).join("");
-    const next=status.next?'<div class="xp-progress-v8"><div><span>Следующая награда</span><b>'+h(status.next.title)+'</b><em>ещё '+status.toNext+' XP</em></div><i><strong style="width:'+status.progress+'%"></strong></i></div>':'<div class="xp-progress-v8 complete"><b>Все текущие миссии Норы открыты</b></div>';
-    return '<section class="xp-journey-v8"><div class="section-head-v7"><div><small>XP · награды Норы</small><h2>'+status.xp+' XP</h2><p>XP открывают бонусные задания. Языковые уровни по-прежнему открываются только знаниями.</p></div></div>'+next+'<div class="xp-rewards-v8">'+rewardButtons+'</div></section>';
+    const rewardButtons=rewards.map(r=>{
+      const open=status.xp>=r.xp;
+      return '<button class="xp-reward-v8 '+(open?'open':'locked')+'" '+(open?'onclick="v7XpMission(\''+js(r.id)+'\')"':'disabled')+
+        '><span>'+r.xp+' XP</span><b>'+h(r.title)+'</b>'+
+        '<small lang="nb">'+h(r.goals_no||'')+'</small><small lang="ru">'+h(r.goals_ru||r.description)+'</small>'+
+        '<small>'+(open?'Открыто · практиковать':'Ещё '+Math.max(0,r.xp-status.xp)+' XP')+'</small></button>';
+    }).join("");
+    const next=status.next?'<div class="xp-progress-v8"><div><span>Следующая практическая миссия</span><b>'+h(status.next.title)+'</b><em>ещё '+status.toNext+' XP</em></div><i><strong style="width:'+status.progress+'%"></strong></i></div>':'<div class="xp-progress-v8 complete"><b>Все текущие XP-миссии открыты; продолжай практику для закрепления навыков.</b></div>';
+    const best=Math.max(Number(state.gamification?.bestStreak)||0,Number(state.streak)||0);
+    const achievements=[3,7,14,30].map(n=>(best>=n?'✓ ':'○ ')+n+' дней подряд').join(' · ');
+    return '<section class="xp-journey-v8"><div class="section-head-v7"><div><small>XP · практические миссии Норы</small><h2>'+status.xp+' XP</h2><p>XP открывают дополнительные жизненные диалоги, не заменяют оценку урока и не определяют языковой уровень.</p></div></div>'+next+
+      '<p class="muted">Достижения за регулярность · '+h(achievements)+'</p>'+
+      '<div class="xp-rewards-v8">'+rewardButtons+'</div>'+
+      '<p class="muted">В миссии отвечай своими словами. Нора задаёт вопросы по очереди и помогает исправить ошибки; прохождение разговора само по себе не подтверждает уровень.</p></section>';
   }
   function renderHomeV7(){
     currentRouteV7="home";
@@ -228,7 +239,7 @@
         (living?miniPath:
         '<section class="route-card-v7"><div class="section-head-v7"><div><small>Твой маршрут на сегодня · 5 занятий</small><h2>'+(j.mins?"Осталось "+(j.total-j.done)+" из "+j.total+" блоков":"Маршрут завершён")+'</h2></div><span>План '+j.planned+' мин</span></div><p class="muted">Время на каждый блок — ориентир, а не измерение фактически потраченных минут.</p><div class="route-steps-v7">'+route+'</div></section>')+
         (window.NENordicQuest?.homeTile?.()||'')+
-        '<details class="ne-home-extras"><summary>Дополнительная практика и награды <span>по желанию</span></summary>'+
+        '<details class="ne-home-extras"><summary>Дополнительная практика и награды <span>'+h(state.xp||0)+' XP · по желанию</span></summary>'+
         xpJourneyV7()+
                 '<section class="card applied-home-entry"><div class="section-head-v7"><div><small>Дополнительная практика · '+h(state.level)+'</small><h2>Норвежский для жизни</h2><p>Проверь формы слов и потренируйся заполнять документы.</p></div></div><div class="applied-actions"><button class="btn" onclick="navigate(\'cloze\')">Вставить слово</button><button class="btn secondary" onclick="navigate(\'forms\')">Анкеты и заявления</button></div></section>'+
         '<section class="words-card-v7 daily-focus-v81"><div class="section-head-v7"><div><small>Короткая ежедневная практика</small><h2>Слова для реальной жизни</h2><p>Попробуй вспомнить эти слова и составить собственную фразу.</p></div><button onclick="navigate(\'daily\')">Практика →</button></div><div class="daily-words-v81">'+words.slice(0,3).map(w=>'<div class="daily-word-v81"><b>'+h(w.lemma||w.word||"")+'</b><span>'+h(w.translation_ru||w.translation||"")+'</span></div>').join("")+'</div></section>'+
@@ -332,11 +343,19 @@
   }
   function v7OpenPlace(id){const place=PLACES_V7.find(x=>x.id===id);if(place)selectConversationV7('place:'+id,place.title,place.description,place.scene,state.story?.selectedLevel||state.level)}
   function v7XpMission(id){
-    const reward=(window.xpRewardCatalog?xpRewardCatalog():[]).find(x=>x.id===id);if(!reward||(state.xp||0)<reward.xp)return;
-    const place=PLACES_V7.find(x=>x.id===id);if(!place)return;
-    const scene='XP-миссия Норы. Не давай готовые реплики без просьбы. Ученик должен сам решить ситуацию по-норвежски. '+place.scene+' Цель миссии: '+reward.description;
-    state.gamification=state.gamification&&typeof state.gamification==="object"?state.gamification:{};state.gamification.startedRewards=state.gamification.startedRewards||{};state.gamification.startedRewards[id]=(state.gamification.startedRewards[id]||0)+1;saveState();
-    selectConversationV7('xp:'+id,'XP-миссия · '+reward.title,reward.description,scene,state.level);
+    const reward=(window.xpRewardCatalog?xpRewardCatalog():[]).find(x=>x.id===id);
+    if(!reward||(state.xp||0)<reward.xp)return;
+    const place=PLACES_V7.find(x=>x.id===id);
+    const steps=(reward.steps_no||[]).map((step,i)=>(i+1)+'. '+step).join(' ');
+    const scene='XP-миссия Норы. '+(reward.scene||place?.scene||'Повседневная ситуация в Fjordvik.')+
+      ' Задача ученика (Bokmål): '+(reward.goals_no||reward.description)+
+      ' Шаги: '+steps+
+      ' Проводи живой ролевой разговор на норвежском, по одному вопросу за раз; не давай готовых ответов без запроса. Если ученик не понял, кратко объясни по-русски. Никаких фиктивных баллов или подтверждения CEFR.';
+    state.gamification=state.gamification&&typeof state.gamification==="object"?state.gamification:{};
+    state.gamification.startedRewards=state.gamification.startedRewards||{};
+    state.gamification.startedRewards[id]=(state.gamification.startedRewards[id]||0)+1;
+    saveState();
+    selectConversationV7('xp:'+id,'XP-миссия · '+reward.title,reward.goals_no+' / '+reward.goals_ru,scene,state.level);
   }
   function v7UseTopic(word){const topic=CHAT_TOPICS.find(x=>x[1]===word);selectConversationV7('topic:'+word,topic?.[2]||word,topic?.[2]||word,'',state.chatPrefs?.level||state.level)}
 
