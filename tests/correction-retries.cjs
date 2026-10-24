@@ -60,7 +60,7 @@ assert(display.innerHTML.includes('Измени текст'));
  assert.equal(session.locked,true,'After success, continue/revise choice awaits click');
  assert(api.includes('previous_suggestion'),'Previous teaching example should travel to evaluator');
  assert(api.includes('copiedSuggestion'),'Correction must be assessed consistently');
- assert(app.includes('reviseCheckedAnswer(\\'speaking\\')'),'Speaking continuation must allow rewrites');
+ assert(app.includes('>Исправить ещё</button>'),'Accepted speaking or dialogue response must allow rewrites');
  assert(src.includes("LESSON_PATCH='-lesson25'"),'Fresh lesson assets must be selected');
  assert(index.includes('8.3.0-lesson25'),'Fresh bootstrap must load on mobile');
  assert(sw.includes('norsk-eventyr-v8-3-0-lesson25'),'PWA must refresh cache');
