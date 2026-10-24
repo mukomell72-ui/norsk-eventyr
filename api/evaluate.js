@@ -224,8 +224,9 @@ export default async function handler(req,res){
   const {answer,question,goal,level="A1",mode="lesson"}=body;
   // An earlier suggested correction is context only, never an automatic pass.
   const suggestion=typeof body.previous_suggestion==="string"?clean(body.previous_suggestion,650):"";
-  const copiedSuggestion=!!suggestion&&answer.normalize("NFKC").replace(/\\s+/g," ").trim().toLocaleLowerCase("nb-NO")===
-    suggestion.normalize("NFKC").replace(/\\s+/g," ").trim().toLocaleLowerCase("nb-NO");
+  const canonicalSuggestion=value=>String(value||"").normalize("NFKC").replace(/\s+/g," ").trim().toLocaleLowerCase("nb-NO");
+  const copiedSuggestion=!!suggestion&&typeof answer==="string"&&
+    canonicalSuggestion(answer)===canonicalSuggestion(suggestion);
   if(typeof answer!=="string"||typeof question!=="string"||!answer.trim()||!question.trim())return res.status(400).json({error:"MISSING_INPUT",code:"MISSING_INPUT"});
   if(answer.length>6000||question.length>2000)return res.status(413).json({error:"INPUT_TOO_LONG",code:"INPUT_TOO_LONG"});
   const target=["A1","A2","B1","B2"].includes(level)?level:"A1";
