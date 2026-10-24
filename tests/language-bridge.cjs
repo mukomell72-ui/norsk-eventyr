@@ -244,6 +244,7 @@ assert(overloaded.api.segments(sameInstruction,overloaded.api.entries(),4).some(
    assert((await vocabPage.locator('.ne-task-word-explanation').innerText()).includes('стол'),
     'Learner sees the meaning after asking for help');
    await vocabPage.evaluate(()=>{
+    window.neLessonSession.lesson={vocab:[['å slutte','заканчивать']]};
     document.getElementById('vocabHost').innerHTML=
      window.NELanguageBridge.lessonWordReminder(window.neLessonSession.lesson);
    });
