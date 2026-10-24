@@ -33,8 +33,8 @@ assert(dashboard.includes("['activity','Активность']"),'Admin activity
 assert(dashboard.includes('Пассивные 7+ дней'),'Inactivity filter missing');
 assert(dashboard.includes("call('owner_study_activity_days'"),'Daily breakdown missing');
 assert(dashboard.includes("type==='passive')counts.passive++"),'Unmeasured users must not be counted as inactive');
-assert(html.includes('/study-activity.js?v=8.3.0-lesson24'),'Tracker not loaded');
-assert(sw.includes('/study-activity.js?v=8.3.0-lesson24'),'Tracker not available in offline cache');
+assert(html.includes('/study-activity.js?v=8.3.0-lesson25'),'Tracker not loaded');
+assert(sw.includes('/study-activity.js?v=8.3.0-lesson25'),'Tracker not available in offline cache');
 assert(access.includes('studyConsentToggle')&&access.includes('По отдельному выбору пользователя'),'Consent and disclosure missing');
 assert(!src.includes('navigator.sendBeacon'),'No unprotected beacon telemetry');
 const subs={},local=new Map(),requests=[];
