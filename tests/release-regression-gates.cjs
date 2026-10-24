@@ -90,7 +90,7 @@ for(const asset of assets){
    (coachSuffix&&['/access.js','/app.js','/lesson-coach.js','/lesson-coach.css','/language-bridge.js','/language-bridge.css','/cloze-coach.js','/functional-practice.js','/living-words.js'].includes(pathname)?coachSuffix:'')+
    (freshnessSuffix&&['/access.js','/adaptive-teacher.js'].includes(pathname)?freshnessSuffix:'')+
    (bridgeSuffix&&['/access.js','/adaptive-teacher.js','/app.js','/language-bridge.js','/ui-v7.js','/v7.css','/v3.js','/elite.js','/nora-experience.js'].includes(pathname)?bridgeSuffix:'')+
-   (auditSuffix&&['/access.js','/v7.css','/nora-experience.js','/living-day.js','/app.js','/language-bridge.js'].includes(pathname)?auditSuffix:'');
+   (auditSuffix&&['/access.js','/v7.css','/nora-experience.js','/living-day.js','/app.js','/language-bridge.js','/ui-v7.js'].includes(pathname)?auditSuffix:'');
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
 }
 }
@@ -161,7 +161,7 @@ for(const filename of scripts){
    (coachSuffix&&['lesson-coach.js','language-bridge.js','cloze-coach.js','functional-practice.js','app.js','living-words.js'].includes(filename)?coachSuffix:'')+
    (freshnessSuffix&&filename==='adaptive-teacher.js'?freshnessSuffix:'')+
    (bridgeSuffix&&['adaptive-teacher.js','app.js','language-bridge.js','ui-v7.js','v3.js','elite.js','nora-experience.js'].includes(filename)?bridgeSuffix:'')+
-   (auditSuffix&&['nora-experience.js','living-day.js','app.js','language-bridge.js'].includes(filename)?auditSuffix:'');
+   (auditSuffix&&['nora-experience.js','living-day.js','app.js','language-bridge.js','ui-v7.js'].includes(filename)?auditSuffix:'');
  assert(assetSet.has('/'+filename+'?v='+v+patch+suffix),'PWA must cache bootstrapped script '+filename);
 }
 for(const m of index.matchAll(/\b(?:src|href)="(\/[^"]+)"/g)){
@@ -188,7 +188,7 @@ if(translationSuffix==='-translate3'){
 if(translationSuffix==='-translate4'){
  for(const pathname of ['/ui-v7.js','/ui-v8.js','/updates.js']){
   const rev=pathname==='/ui-v7.js'?baseRevision:'';
-  assert(assetSet.has(pathname+'?v='+v+rev+translationSuffix+(stampSuffix&&['/ui-v8.js','/updates.js'].includes(pathname)?stampSuffix:'')+(teacherSuffix&&pathname==='/ui-v7.js'?teacherSuffix:'')+(bridgeSuffix&&pathname==='/ui-v7.js'?bridgeSuffix:'')),'Installed PWA must fetch fresh version UI: '+pathname);
+  assert(assetSet.has(pathname+'?v='+v+rev+translationSuffix+(stampSuffix&&['/ui-v8.js','/updates.js'].includes(pathname)?stampSuffix:'')+(teacherSuffix&&pathname==='/ui-v7.js'?teacherSuffix:'')+(bridgeSuffix&&pathname==='/ui-v7.js'?bridgeSuffix:'')+(auditSuffix&&pathname==='/ui-v7.js'?auditSuffix:'')),'Installed PWA must fetch fresh version UI: '+pathname);
  }
  assert(sw.includes('NE_GET_VERSION')&&sw.includes('cache:CACHE'),
    'Installed SW must reveal its actual active cache revision via MessageChannel');
