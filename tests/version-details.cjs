@@ -61,7 +61,7 @@ vm.runInNewContext(read('updates.js'),ctx,{filename:'updates.js'});
  const html=read('index.html'),sw=read('sw.js'),access=read('access.js');
  assert(html.includes('/access.js?v='+currentBuild),'Bootstrap URL must match published build');
  for(const [filename,revision] of [
-  ['ui-v7.js','8.3.0-lesson24-translate4'],
+  ['ui-v7.js','8.3.0-lesson25-translate4'],
   ['ui-v8.js','8.3.0-translate4'],
   ['updates.js','8.3.0-translate4']
  ])assert(sw.includes('/'+filename+'?v='+revision),'Installed cache must refresh '+filename);

@@ -177,10 +177,10 @@ assert(saves>15,'Tiles, errors, progress, results and sound choice persist');
 assert.equal(s.level,'A1');
 assert.equal(s.xp,999999,'Game choices do not mint fake XP');
 const sw=read('sw.js'),access=read('access.js'),ui=read('ui-v7.js'),html=read('index.html');
-for(const entry of ['/nordic-quest-play.js?v=8.3.0-lesson24','/nordic-quest.js?v=8.3.0-lesson24','/nordic-quest.css?v=8.3.0-lesson24'])
+for(const entry of ['/nordic-quest-play.js?v=8.3.0-lesson25','/nordic-quest.js?v=8.3.0-lesson25','/nordic-quest.css?v=8.3.0-lesson25'])
  assert(sw.includes(entry),'World asset must be offline cached: '+entry);
 assert(access.includes("'ui-v8.js','nordic-quest-play.js','nordic-quest.js','placement-calibration.js'"));
-assert(html.includes('/nordic-quest.css?v=8.3.0-lesson24'));
+assert(html.includes('/nordic-quest.css?v=8.3.0-lesson25'));
 assert(ui.includes('else if(target==="adventure")'));
 assert(ui.includes('NENordicQuest?.homeTile?.()'));
 console.log('PASS Nordic Quest: eight chapters per level, locked chapters, true evidence passport, original daily story challenge, audio, persistence and PWA');

@@ -33,9 +33,9 @@ assert.equal(questionCount,16);
 assert.equal(bank.find('not-a-lesson'),null);
 const access=read('access.js'),sw=read('sw.js'),html=read('index.html'),elite=read('elite.js');
 assert(access.includes("'lexicon.js','norwegian-listening.js','elite.js'"),'Lesson scripts load before Listening Lab');
-for(const asset of ['/norwegian-listening.js?v=8.3.0-lesson24-listening1','/elite.js?v=8.3.0-lesson24-listening1','/access.js?v=8.3.0-lesson24-listening1'])
+for(const asset of ['/norwegian-listening.js?v=8.3.0-lesson25-listening1','/elite.js?v=8.3.0-lesson25-listening1','/access.js?v=8.3.0-lesson25-listening1'])
  assert(sw.includes(asset),'Installed PWA must cache updated: '+asset);
-assert(html.includes('/access.js?v=8.3.0-lesson24-listening1'));
+assert(html.includes('/access.js?v=8.3.0-lesson25-listening1'));
 assert(elite.indexOf('Норвежская речь — русский интерфейс')<elite.indexOf('Дополнительный архив: Norwegian Headstart'),'Main listening must be Norwegian-first, not English archival tapes');
 assert(elite.includes('<details class="card ne-english-archive">'),'English-mixed source should be collapsed into extras');
 assert(elite.includes('onerror="NEHeadstartAudioError('),'Historical audio reports load failure, including unit 3');
