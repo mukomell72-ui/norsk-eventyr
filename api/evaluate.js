@@ -222,6 +222,11 @@ export default async function handler(req,res){
   }
 
   const {answer,question,goal,level="A1",mode="lesson"}=body;
+  // An earlier suggested correction is context only, never an automatic pass.
+  const suggestion=typeof body.previous_suggestion==="string"?clean(body.previous_suggestion,650):"";
+  const canonicalSuggestion=value=>String(value||"").normalize("NFKC").replace(/\s+/g," ").trim().toLocaleLowerCase("nb-NO");
+  const copiedSuggestion=!!suggestion&&typeof answer==="string"&&
+    canonicalSuggestion(answer)===canonicalSuggestion(suggestion);
   if(typeof answer!=="string"||typeof question!=="string"||!answer.trim()||!question.trim())return res.status(400).json({error:"MISSING_INPUT",code:"MISSING_INPUT"});
   if(answer.length>6000||question.length>2000)return res.status(413).json({error:"INPUT_TOO_LONG",code:"INPUT_TOO_LONG"});
   const target=["A1","A2","B1","B2"].includes(level)?level:"A1";
@@ -232,6 +237,8 @@ export default async function handler(req,res){
     "Задание: "+question,
     "Цель задания: "+(goal||question),
     "Ответ ученика:",answer,"",
+    ...(suggestion?["Ранее предложенный преподавателем вариант (контекст, не эталон): "+JSON.stringify(suggestion),
+      copiedSuggestion?"Ученик повторил предыдущую рекомендацию Норы дословно. Оцени фактическую грамматику и условия задания: не штрафуй за стиль и дополнительные условия, которых в задании нет. Если пример Норы был неверным, честно объясни, что ошибка была в примере Норы, а не упрекай ученика в непослушании.":"Используй прошлую рекомендацию только как контекст и проверяй новый ответ независимо."] : []),
     "Оцени только качество норвежского языка и выполнение коммуникативной задачи. Не оценивай знания о теме.",
     "Учитывай естественные эквивалентные ответы: не требуй совпадения с образцом. Правильный нестандартный вариант не наказывай только за отличие от шаблона.",
     "Определи, является ли задание ответом на реплику, переводом русского предложения на Bokmål или свободным письмом: проверяй именно требуемое действие.",
@@ -254,7 +261,7 @@ export default async function handler(req,res){
     "Перед ответом мысленно проверь каждое замечание по оригиналу. Не считай вежливое или стилистическое отличие грамматической ошибкой.",
     "Проверка контекста обязательна: грамматика, лексика, орфография, естественность и уместность в диалоге. Отличай неправильную реплику от правильной, но менее естественной.",
     "accepted=true, если ответ выполняет задачу и в целом понятен на целевом уровне; мелкие ошибки не должны автоматически давать отказ.",
-    "corrected: естественный улучшенный вариант на норвежском.",
+    "corrected: естественный улучшенный вариант на норвежском. Он должен выполнять ВСЕ обязательные требования исходного задания; никогда не предлагай как эталон пример с невыполненной частью задания.",
     "explanation_ru: 1–3 коротких конкретных предложения.",
     "strengths_ru и improvements_ru: максимум по 2 пункта.",
     "error_tag: word_order, verb_form, article, vocabulary, task, coherence или пустая строка.",
