@@ -182,7 +182,7 @@ assert(!/state\.xp\s*\+=/.test(v3)&&!v3.includes('state.xp=(state.xp||0)+')&&!el
 assert(v3.includes('trackLessonScore(ok?100:35)')&&v3.includes('trackLessonScore(score)')&&v3.includes('const reward=awardLessonXp(l),xp=xpRewardStatus()'),'legacy lessons must use the quality-based XP path');
 assert(elite.includes('m.gamification.lessonAwards={}')&&elite.includes('Math.max(Number(merged[k]||0),Number(v||0))'),'cloud merge must preserve the strongest same-day anti-farm counters');
 assert(adaptive.includes('xpScores:[]'),'adaptive lessons must start a fresh XP scoring session');
-assert(uiV7.includes('XP · награды Норы')&&uiV7.includes('Языковые уровни по-прежнему открываются только знаниями'),'XP UI must keep CEFR progression separate from rewards');
+assert(uiV7.includes('XP · практические миссии Норы')&&uiV7.includes('не определяют языковой уровень.'),'XP UI must keep CEFR progression separate from rewards');
 assert(uiV7.includes('function v7XpMission')&&uiV7.includes("XP-миссия Норы"),'unlocked XP milestones must launch distinct Nora bonus missions');
 assert(chat.includes('max_output_tokens:chatMode==="explain"?800:1100'),'Nora must have room for a complete scored explanation without truncation');
 assert(uiV7.includes('state.story.selectedLevel=picked.level'),'Fjordvik must store its own practice level');
