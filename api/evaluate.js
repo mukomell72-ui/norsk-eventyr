@@ -14,7 +14,7 @@ async function ask(prompt,max=900,effort="none"){
   const r=await fetch("https://api.openai.com/v1/responses",{
     method:"POST",
     headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.OPENAI_API_KEY},
-    body:JSON.stringify({model:"gpt-5.6-luna",input:prompt,reasoning:{effort},max_output_tokens:max})
+    body:JSON.stringify({model:"gpt-6-luna",input:prompt,reasoning:{effort},max_output_tokens:max})
   });
   const data=await r.json().catch(()=>({}));
   if(!r.ok){

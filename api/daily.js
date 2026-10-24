@@ -10,7 +10,7 @@ function parseJson(text){
 }
 function cleanWord(x){return String(x||"").toLowerCase().normalize("NFKC").trim().replace(/^å\s+/,"").replace(/\s+/g," ")}
 async function ask(prompt,max=3900,effort="low"){
-  const r=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.OPENAI_API_KEY},body:JSON.stringify({model:"gpt-5.6-luna",input:prompt,reasoning:{effort},max_output_tokens:max})});
+  const r=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.OPENAI_API_KEY},body:JSON.stringify({model:"gpt-6-luna",input:prompt,reasoning:{effort},max_output_tokens:max})});
   const data=await r.json().catch(()=>({}));
   if(!r.ok)throw Object.assign(new Error("UPSTREAM"),{code:data?.error?.code||("OPENAI_"+r.status)});
   return (data.output||[]).flatMap(x=>x.content||[]).find(x=>x.type==="output_text")?.text||"";
