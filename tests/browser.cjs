@@ -341,6 +341,27 @@ const server=http.createServer(async(req,res)=>{
   assert.equal(await page.evaluate(()=>lessonSession.choiceMiss),false,'new lesson step should start new first-attempt evidence');
   console.log('PASS wrong choice stays scored after resume and cannot earn a second perfect grade');
   const transferBefore=await page.evaluate(()=>state.learningV8?.attempts?.filter(x=>x.source==='lesson_free_transfer').length||0);
+
+  // Regression: switching navigation tabs or reloading must never discard a
+  // Norwegian free-writing answer, even before the AI can assess it.
+  await page.evaluate(()=>{lessonSession.step=5;lessonSession.remediation=null;lessonSession.locked=false;persistLessonCheckpoint();renderLesson()});
+  const draftText='På lørdag begynner jeg klokka ni. Jeg vasker hjemme. Jeg lager middag på ettermiddagen. Klokka seks er jeg hjemme.';
+  await page.locator('#freeAnswer').fill(draftText);
+  await page.evaluate(()=>navigate('home'));
+  await page.evaluate(()=>startLesson(state.activeLesson.id));
+  assert.equal(await page.locator('#freeAnswer').inputValue(),draftText,
+    'Navigating elsewhere then returning to the same task must restore the draft');
+  await page.reload();
+  await page.waitForFunction(()=>window.NEAccess?.ready());
+  await page.evaluate(()=>startLesson(state.activeLesson.id));
+  assert.equal(await page.locator('#freeAnswer').inputValue(),draftText,
+    'Reloading the PWA must restore draft text without retyping');
+  assert.equal(await page.evaluate(()=>state.activeLesson?.step),5,
+    'The preserved text must remain attached to the same writing task');
+  const savedDraft=await page.evaluate(()=>Object.values(state.activeLesson?.answerDrafts||{}));
+  assert(savedDraft.includes(draftText),'Saved lesson checkpoint must include original learner text');
+  console.log('PASS persisted answer draft across tabs, lesson resume, and PWA reload');
+
   await page.evaluate(()=>{lessonSession.step=5;lessonSession.remediation=null;lessonSession.locked=false;renderLesson()});await page.locator('#freeAnswer').fill('Jeg feil.');await page.evaluate(()=>checkFree('writing'));await page.waitForTimeout(220);
   const remediation=await page.evaluate(()=>({prompt:lessonSession?.proposedRemediation?.prompt||'',
    activeTransfer:!!lessonSession?.remediation,first:lessonSession.firstGraded?.['free:writing:5'],
