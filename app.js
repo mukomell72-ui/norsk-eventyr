@@ -180,8 +180,8 @@ function restoreLessonDraft(session){
  if(typeof saved==="string")editor.value=saved.slice(0,6000);
  editor.addEventListener("input",()=>saveLessonDraft(mode,editor));
 }
-window.addEventListener("pagehide",flushLessonDraft);
-document.addEventListener("visibilitychange",()=>{if(document.hidden)flushLessonDraft();});
+if(typeof window!=="undefined"&&typeof window.addEventListener==="function")window.addEventListener("pagehide",flushLessonDraft);
+if(typeof document!=="undefined"&&typeof document.addEventListener==="function")document.addEventListener("visibilitychange",()=>{if(document.hidden)flushLessonDraft();});
 
 function persistLessonCheckpoint(){
  const session=lessonSession;
