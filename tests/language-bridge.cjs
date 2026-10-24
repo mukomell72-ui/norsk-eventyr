@@ -98,6 +98,36 @@ assert(learned.some(x=>x.ru==='коллега'&&x.no==='kollega'),'Workplace sce
 assert(learned.some(x=>x.ru==='спрашивает'&&x.no==='spør'),'Vetted present-tense question verb is available');
 assert(learned.some(x=>x.ru==='когда'&&x.no==='når'),'Known question word is available across explanations');
 assert.equal(bridge.segments('Сегодня ты работаешь.',bridge.entries().filter(x=>x.source!=='phrase'),3).filter(x=>x.no).map(x=>x.no).join(' '),'I dag jobber','Low-context replacement still uses a correct conjugated verb');
+const appSource=fs.readFileSync(path.join(__dirname,'../app.js'),'utf8');
+
+ // A learner's own practice history determines whether a topic word is new,
+ // due, in progress, or familiar. Seeing a hint is never scored as mastery.
+ const memoryState={level:'A1',learningV8:{},dailyDictionary:{
+  hard:{lemma:'å begynne',translation_ru:'начинать',correct:1,wrong:3,exposures:5},
+  newWord:{lemma:'å slutte',translation_ru:'заканчивать',correct:0,wrong:0,exposures:1},
+  known:{lemma:'en jobb',translation_ru:'работа',correct:4,wrong:0,exposures:6}
+ },srs:{},wordPracticeQueue:{}};
+ const memoryWindow={neLearnerState:memoryState,saveState:()=>{}};
+ vm.runInNewContext(source,{window:memoryWindow,document:{readyState:'loading',addEventListener(){}},
+  Date,Math,Number,Object,String,JSON,Set,WeakMap});
+ const remember=memoryWindow.NELanguageBridge;
+ assert.equal(remember.wordKnowledge('å begynne').kind,'review','Several wrong answers make a word high priority');
+ assert.equal(remember.wordKnowledge('å slutte').kind,'learning','A single passive encounter does not count as learned');
+ assert.equal(remember.wordKnowledge('en jobb').kind,'familiar','Repeated correct recall makes a word familiar');
+ assert.equal(remember.wordKnowledge('en ukjent').kind,'new','Unseen words are never presumed familiar');
+ const topic={vocab:[['å begynne','начинать'],['å slutte','заканчивать'],['en jobb','работа']]};
+ const reminder=remember.lessonWordReminder(topic);
+ assert(reminder.includes('å begynne')&&reminder.includes('å slutte')&&reminder.includes('en jobb'),
+  'Writing/speaking exercises surface weak and familiar words from the actual lesson');
+ assert(reminder.indexOf('å begynne')<reminder.indexOf('en jobb'),'Weak word appears before familiar word');
+ assert.equal(memoryState.dailyDictionary.hard.correct,1,'Displaying the word does not grant correct answers');
+ assert.equal(memoryState.dailyDictionary.newWord.correct,0,'Displaying new word does not invent mastery');
+ const prior=memoryState.dailyDictionary.hard.correct;
+ assert.equal(remember.lessonWordReminder({vocab:[['<script>','ошибка']]}),'',
+  'Only safe Norwegian lesson vocabulary can appear in the reminder');
+ assert.equal(memoryState.dailyDictionary.hard.correct,prior,'Repeated rendering is ungraded');
+ assert(appSource.includes('lessonWordReminder?.(l)'),'Free-writing and speaking exercises use personal vocabulary reminders');
+
 const normalDensity=bridge.density('Сегодня ты работаешь. Ответь Анне вслух и скажи, когда можешь встретиться.');
 state.learningV8.bridgeLookupEvents=[Date.now(),Date.now(),Date.now(),Date.now(),Date.now(),Date.now()];
 assert(bridge.density('Сегодня ты работаешь. Ответь Анне вслух и скажи, когда можешь встретиться.')<normalDensity,'Repeated translation help reduces cognitive load');

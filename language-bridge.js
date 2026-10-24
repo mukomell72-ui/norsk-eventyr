@@ -563,6 +563,79 @@
    '</div>';
  }
 
+
+ // This is an evidence-based study hint, not an assertion of CEFR mastery.
+ // Looking at words never grants correctness, XP or a completed lesson.
+ function wordKnowledge(raw){
+  const s=getState()||{},lemma=normNo(raw);
+  const dict=Object.values(s.dailyDictionary||{}).find(x=>normNo(x?.lemma||x?.word)===lemma);
+  const review=Object.values(s.srs||{}).find(x=>normNo(x?.word)===lemma);
+  const right=Math.max(0,Number(dict?.correct)||0,Number(review?.correct)||0);
+  const wrong=Math.max(0,Number(dict?.wrong)||0);
+  const due=!!s.wordPracticeQueue?.[lemma]||
+   (Number.isFinite(Number(dict?.nextDue))&&Number(dict.nextDue)>0&&Number(dict.nextDue)<=Date.now())||
+   (Number.isFinite(Number(review?.due))&&Number(review.due)>0&&Number(review.due)<=Date.now());
+  if(due||wrong>right)return {kind:'review',label:'Нужно повторить',lemma};
+  if(right>=2&&Number(dict?.exposures)>=2&&wrong<right)return {kind:'familiar',label:'Знакомое слово',lemma};
+  if(right>0||wrong>0||dict||review)return {kind:'learning',label:'Ещё изучаем',lemma};
+  return {kind:'new',label:'Новое слово',lemma};
+ }
+ function lessonWordReminder(lesson){
+  if(!lesson||!enabled())return '';
+  const vocab=Array.isArray(lesson.vocab)?lesson.vocab:[];
+  const words=[],seen=new Set();
+  for(const pair of vocab){
+   if(!Array.isArray(pair)||pair.length<2)continue;
+   const word=String(pair[0]||'').trim().slice(0,65),translation=String(pair[1]||'').trim().slice(0,100);
+   const lemma=normNo(word);
+   if(!lemma||seen.has(lemma)||!/^[a-zæøå]+(?:[\s'-][a-zæøå]+)*$/iu.test(lemma)||
+      !translation||!/[а-яё]/iu.test(translation))continue;
+   seen.add(lemma);words.push({word,translation,...wordKnowledge(word)});
+  }
+  if(!words.length)return '';
+  const weight={review:0,learning:1,new:2,familiar:3};
+  words.sort((a,b)=>weight[a.kind]-weight[b.kind]);
+  // Familiar words stay in use while weak ones resurface; no extra graded task.
+  const choice=words.slice(0,3);
+  if(!choice.some(x=>x.kind==='familiar')){
+   const familiar=words.find(x=>x.kind==='familiar');
+   if(familiar&&choice.length>=3)choice[2]=familiar;
+  }
+  return '<div class="notice ne-task-vocabulary" data-no-bridge style="margin-top:12px">'+
+   '<small class="muted">Слова этой ситуации · попробуй употребить, если подходят по смыслу. Нажми для объяснения.</small>'+
+   '<div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap">'+
+   choice.map(x=>'<button type="button" class="btn secondary" style="font-size:.89rem;padding:7px 10px" '+
+    'data-ne-lesson-word="'+esc(x.word)+'" data-ne-lesson-ru="'+esc(x.translation)+'" '+
+    'onclick="NELanguageBridge.explainLessonWord(this)"><span lang="nb">'+esc(x.word)+
+    '</span> <small>· '+esc(x.label)+'</small></button>').join('')+
+   '</div><div class="ne-task-word-explanation" role="status" aria-live="polite"></div></div>';
+ }
+ function explainLessonWord(button){
+  if(!button||!button.closest)return false;
+  const box=button.closest('.ne-task-vocabulary'),lesson=window.neLessonSession?.lesson;
+  const word=String(button.dataset.neLessonWord||''),ru=String(button.dataset.neLessonRu||'');
+  if(!box||!lesson||!word||!ru)return false;
+  // The clicked word must belong to this exact lesson; never trust an arbitrary
+  // DOM attribute as a new vocabulary record.
+  const match=(Array.isArray(lesson.vocab)?lesson.vocab:[])
+   .some(pair=>Array.isArray(pair)&&normNo(pair[0])===normNo(word)&&String(pair[1]||'').trim()===ru);
+  if(!match)return false;
+  const target=box.querySelector('.ne-task-word-explanation');
+  if(!target)return false;
+  const knowledge=wordKnowledge(word),known=knownNorwegian(word);
+  const explanation=knowledge.kind==='familiar'?
+   'Слово уже встречалось в правильных ответах. Попробуй применить его в другом предложении.':
+   knowledge.kind==='review'?'Раньше это слово вызывало трудности. Оно вернётся на повторение.':
+   knowledge.kind==='learning'?'Продолжаем изучать: для уверенного знания понадобится самостоятельный ответ позже.':
+   'Слово пока не подтверждено ответами. Сначала разберём значение, затем проверим в другой ситуации.';
+  const form=word.match(/^(?:en|ei|et|å)\s+/iu)?.[0]?.trim()||'';
+  const prompted=known?queueForgotten(known.lemma):
+   queueNorwegianLookup(normNo(word),'ПЕРЕВОД: '+ru);
+  target.textContent=word+' — '+ru+'. '+(form?'Словарная форма: '+word+'. ':'')+explanation+
+   (prompted?' Добавлено на повторение.':' Перевод показан без начисления баллов.');
+  return true;
+ }
+
  function controlHtml(){
   const known=knownWords().length,covered=entries().length,on=enabled();
   return '<section class="card ne-bridge-settings" data-no-bridge>'+
@@ -600,7 +673,7 @@
  }
  window.NELanguageBridge=Object.freeze({controlHtml,toggle,process,segments,queueForgotten,
   entries,knownWords,extractTranslation,dynamicTerm,isMastered,density,recentPeeks,eligibleBlock,
-  knownNorwegian,queueNorwegianLookup,tapGloss,personalFocus,difficulty,levelEntries,queueLevelWord,taskDirection});
+  knownNorwegian,queueNorwegianLookup,tapGloss,personalFocus,difficulty,levelEntries,queueLevelWord,taskDirection,wordKnowledge,lessonWordReminder,explainLessonWord});
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});
  else mount();
 })();
