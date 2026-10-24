@@ -55,5 +55,5 @@ const app=read('app.js'),ad=read('adaptive-teacher.js'),ui=read('ui-v7.js'),sw=r
 assert(app.includes('onLessonFinished?.(l,courseOutcome,reward.avg)'));
 assert(ad.includes('teacherStartLivingScene')&&ad.includes("sceneIndex===0?'learn':'review'"));
 assert(ui.includes("v7ContinueToday(){return navigate('livingday')}"));
-assert(access.includes("'living-day.js'")&&sw.includes('/living-day.js?v=8.3.0-lesson24'));
+assert(access.includes("'living-day.js'")&&sw.includes('/living-day.js?v=8.3.0-lesson25'));
 console.log('PASS one connected Nora day: checks, three situations, no skipping, voice evidence, persistent checkpoints and offline support');
