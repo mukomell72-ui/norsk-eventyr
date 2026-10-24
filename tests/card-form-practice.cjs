@@ -140,7 +140,7 @@ assert(!E.containsWord(E.taskList(phrase)[0],'Jeg lærer flere ord.',phrase));
 assert(E.norm('  HAR   GÅTT! ')==='har gått');
 const access=load('access.js'),sw=load('sw.js'),pkg=JSON.parse(load('tests/package.json'));
 assert(access.includes("'card-grammar.js','card-form-practice.js','mini-path.js','living-words.js'"));
-assert(sw.includes('/card-form-practice.js?v=8.3.0-lesson24-translate4'));
+assert(sw.includes('/card-form-practice.js?v=8.3.0-lesson25-translate4'));
 assert(pkg.scripts.test.includes('node card-form-practice.cjs'));
 // Regression: "skulle" must no longer fall back to unverified free writing.
 for(const spelling of ['skulle','skal']){
