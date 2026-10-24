@@ -481,7 +481,7 @@
   // Translate the selected word in its sentence without replacing the learner's answer.
   const wordTranslationsV7=new Map();
   function decorateWordsV7(){
-    document.querySelectorAll('.prompt,.bubble-v7.nora,.daily-example b,.reinforcement-row b,.reinforcement-list b,.dialogue-scene-v83 p,.dialogue-task-v83 p,.lesson-intro-v6 .dialogue-lead-v83,.lesson-intro-v6 .lesson-words-v6 b,.ne-coach-hint,.nq-nora-note').forEach(container=>{
+    document.querySelectorAll('.ne-task-direction [lang="nb"],.prompt,.bubble-v7.nora,.daily-example b,.reinforcement-row b,.reinforcement-list b,.dialogue-scene-v83 p,.dialogue-task-v83 p,.lesson-intro-v6 .dialogue-lead-v83,.lesson-intro-v6 .lesson-words-v6 b,.ne-coach-hint,.nq-nora-note').forEach(container=>{
       const sentence=container.textContent;
       const walker=document.createTreeWalker(container,NodeFilter.SHOW_TEXT),nodes=[];
       while(walker.nextNode()){

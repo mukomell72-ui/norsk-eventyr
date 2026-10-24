@@ -90,7 +90,21 @@
    ['неделя','uke','en uke',42,'неделя'],
    ['снова','igjen','igjen',45,'снова'],
    ['вслух','høyt','høyt',48,'вслух'],
-   ['коллега','kollega','en kollega',45,'коллега']
+   ['коллега','kollega','en kollega',45,'коллега'],
+   // Imperatives that appear in real graded-lesson directions, not answers.
+   ['сначала','først','først',74,'сначала'],
+   ['потом','etterpå','etterpå',62,'потом'],
+   ['послушай','lytt','å lytte',82,'слушать'],
+   ['выбери','velg','å velge',79,'выбирать'],
+   ['вспомни','husk','å huske',77,'помнить'],
+   ['проверь','sjekk','å sjekke',65,'проверять'],
+   ['попробуй','prøv','å prøve',72,'пробовать'],
+   ['говори','snakk','å snakke',72,'говорить'],
+   ['текст','tekst','en tekst',64,'текст'],
+   ['перевод','oversettelse','en oversettelse',58,'перевод'],
+   ['вариант','alternativ','et alternativ',59,'вариант'],
+   ['ответ','svar','et svar',63,'ответ'],
+   ['слушай','lytt','å lytte',67,'слушать']
   ],
   A2:[
    ['объясни','forklar','å forklare',75,'объяснять'],
@@ -525,6 +539,30 @@
    button.setAttribute('aria-pressed',String(enabled()));
   }
  }
+ // Entire natural Bokmål classroom directions, not a grammatically broken
+ // sentence assembled from independent substitutions.
+ const DIRECTIONS=Object.freeze({
+  dialogue:['Les situasjonen. Svar på norsk.','Прочитай ситуацию. Ответь по-норвежски.'],
+  vocabulary:['Husk ordet. Skriv svaret på norsk.','Вспомни слово. Напиши ответ по-норвежски.'],
+  grammar:['Les oppgaven. Velg riktig svar.','Прочитай задание. Выбери правильный ответ.'],
+  listening:['Lytt til opptaket. Velg riktig svar.','Послушай запись. Выбери правильный ответ.'],
+  reading:['Les teksten. Velg riktig svar.','Прочитай текст. Выбери правильный ответ.'],
+  writing:['Skriv et svar med egne ord.','Напиши ответ своими словами.'],
+  speaking:['Svar høyt på norsk.','Ответь вслух по-норвежски.']
+ });
+ function taskDirection(kind,level=lessonLevel()){
+  const row=DIRECTIONS[kind];if(!row)return '';
+  const a1=level==='A1';
+  // Russian assistance is immediate for A1 and on-demand thereafter.
+  // Tapping an unfamiliar Norwegian word is handled by word-translate-v7,
+  // which schedules unmastered lookups through queueNorwegianLookup().
+  return '<div class="ne-task-direction">'+
+   '<p lang="nb" class="ne-task-direction-no">'+esc(row[0])+'</p>'+
+   (a1?'<p lang="ru" class="ne-task-direction-ru">'+esc(row[1])+'</p>':
+    '<details><summary>Русское пояснение</summary><p lang="ru">'+esc(row[1])+'</p></details>')+
+   '</div>';
+ }
+
  function controlHtml(){
   const known=knownWords().length,covered=entries().length,on=enabled();
   return '<section class="card ne-bridge-settings" data-no-bridge>'+
@@ -562,7 +600,7 @@
  }
  window.NELanguageBridge=Object.freeze({controlHtml,toggle,process,segments,queueForgotten,
   entries,knownWords,extractTranslation,dynamicTerm,isMastered,density,recentPeeks,eligibleBlock,
-  knownNorwegian,queueNorwegianLookup,tapGloss,personalFocus,difficulty,levelEntries,queueLevelWord});
+  knownNorwegian,queueNorwegianLookup,tapGloss,personalFocus,difficulty,levelEntries,queueLevelWord,taskDirection});
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});
  else mount();
 })();

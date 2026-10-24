@@ -142,7 +142,7 @@ function renderCourse(level=state.level){
 function persistLessonCheckpoint(){
  const session=lessonSession;
  if(!session?.lesson)return;
- state.activeLesson={id:session.lesson.id,step:session.step,dialogueIndex:session.dialogueIndex||0,vocabIndex:session.vocabIndex||0,remediation:session.remediation||null,choiceMiss:session.choiceMiss===true,listeningIndex:session.listeningIndex||0,speakingFollowup:session.speakingFollowup===true,guidedSpeech:session.guidedSpeech||null,coach:session.coach||null,introReview:session.introReview===true,introReviewVariant:session.introReviewVariant||0,savedAt:new Date().toISOString()};
+ state.activeLesson={id:session.lesson.id,step:session.step,dialogueIndex:session.dialogueIndex||0,vocabIndex:session.vocabIndex||0,remediation:session.remediation||null,proposedRemediation:session.proposedRemediation||null,choiceMiss:session.choiceMiss===true,listeningIndex:session.listeningIndex||0,speakingFollowup:session.speakingFollowup===true,guidedSpeech:session.guidedSpeech||null,coach:session.coach||null,firstGraded:session.firstGraded||{},xpScores:session.xpScores||[],feedbackItems:session.feedbackItems||[],introReview:session.introReview===true,introReviewVariant:session.introReviewVariant||0,savedAt:new Date().toISOString()};
  saveState();
 }
 function startLesson(id){
@@ -154,8 +154,8 @@ function startLesson(id){
  const max=l._adaptive?lessonSteps(l).length:7;
  const introReview=l.id==='a1-1'?(saved?saved.introReview===true:(state.noraMemory?.introduced===true||state.completed?.[l.id]===true)):false;
  lessonSession={lesson:l,coach:saved?.coach||null,introReview,introReviewVariant:saved?.introReviewVariant??(Number(state.introVariant)||0),step:saved&&Number.isInteger(saved.step)&&saved.step>=0&&saved.step<max?saved.step:0,
-  dialogueIndex:saved?.dialogueIndex||0,vocabIndex:saved?.vocabIndex||0,remediation:saved?.remediation||null,
-  locked:false,choiceMiss:saved?.choiceMiss===true,listeningIndex:saved?.listeningIndex||0,speakingFollowup:saved?.speakingFollowup===true,guidedSpeech:saved?.guidedSpeech||null,xpScores:[]};
+  dialogueIndex:saved?.dialogueIndex||0,vocabIndex:saved?.vocabIndex||0,remediation:saved?.remediation||null,proposedRemediation:saved?.proposedRemediation||null,
+  locked:false,choiceMiss:saved?.choiceMiss===true,listeningIndex:saved?.listeningIndex||0,speakingFollowup:saved?.speakingFollowup===true,guidedSpeech:saved?.guidedSpeech||null,firstGraded:saved?.firstGraded&&typeof saved.firstGraded==='object'&&!Array.isArray(saved.firstGraded)?saved.firstGraded:{},xpScores:Array.isArray(saved?.xpScores)?saved.xpScores:[],feedbackItems:Array.isArray(saved?.feedbackItems)?saved.feedbackItems:[]};
  persistLessonCheckpoint();renderLesson();
 }
 function hasAdaptiveGrammar(l){return !!(l?._adaptive&&Array.isArray(l.grammarOpts)&&l.grammarOpts.length===4&&Number.isInteger(Number(l.grammarCorrect)))}
@@ -228,6 +228,25 @@ function currentDialogueTurn(l){
  const turns=returnVisit?INTRODUCTION_RETURN_DIALOGUES[(lessonSession.introReviewVariant||0)%INTRODUCTION_RETURN_DIALOGUES.length]:INTRODUCTION_DIALOGUE;
  return {...turns[i],...(!returnVisit&&i===0?{phrase:INTRODUCTION_OPENERS[(state.introVariant||0)%INTRODUCTION_OPENERS.length]}:{}),dialogueLabel:(returnVisit?"Практика с Норой":"Знакомство с Норой")+" · "+(i+1)+"/"+turns.length,scene:"Ты разговариваешь с Норой. Она знакомится с тобой и задаёт вопросы.",speaker:"Нора · собеседница",task:turns[i].goal};
 }
+function firstGrade(session,key,score,record){
+ session.firstGraded=session.firstGraded&&typeof session.firstGraded==='object'?session.firstGraded:{};
+ if(Object.prototype.hasOwnProperty.call(session.firstGraded,key))return false;
+ // First grade is immutable even after a reload, while free retries are formative.
+ session.firstGraded[key]=Math.max(0,Math.min(100,Math.round(Number(score)||0)));
+ record();
+ persistLessonCheckpoint();
+ return true;
+}
+function retryCoachFeedback(d,ok){
+ return '<div class="feedback '+(ok?'good':'bad')+'"><b>'+(ok?'Исправлено верно.':'Нора уточняет, что ещё исправить.')+'</b>'+
+ '<p>'+esc(d.explanation_ru||'Проверь смысл и форму, затем попробуй снова.')+'</p>'+
+ (d.micro_rule_ru?'<p><b>Правило:</b> '+esc(d.micro_rule_ru)+'</p>':'')+
+ (d.corrected?'<p><b>Возможный правильный вариант:</b> '+esc(d.corrected)+'</p>':'')+'</div>';
+}
+function firstGradeNote(session,key){
+ const score=session.firstGraded?.[key];
+ return score===undefined?'':'<p class="ne-first-grade"><b>Первая оценка: '+esc(score)+'/100.</b> Она не изменяется; исправления — учебная практика.</p>';
+}
 function lessonIntro(l){
  const turn=currentDialogueTurn(l),shown={...l,...turn};
  const words=turn.vocab||l.vocab||[];
@@ -240,7 +259,7 @@ function lessonIntro(l){
  <div class="phrase-v6"><small>${esc(turn.dialogueLabel||"Реплика собеседника")}</small>${lead}<div class="prompt" lang="nb">${esc(shown.phrase)}</div>
  <div class="phrase-actions-v6"><button onclick="speakText('${escJs(shown.phrase)}',.82,this)">🔊 Прослушать</button><button onclick="toggle('tr')">RU Перевод</button></div>
  <div id="tr" class="translation compact-translation-v6" style="display:none">${esc(shown.ru)}</div></div>
- <div class="dialogue-task-v83"><b>Твоё задание</b><p>${esc(task)}</p></div>
+ ${window.NELanguageBridge?.taskDirection?.("dialogue",l.level)||""}<div class="dialogue-task-v83"><b>Твоё задание</b><p data-bridge-instruction="true">${esc(task)}</p></div>
  <div class="lesson-words-v6">${words.slice(0,8).map(v=>`<span><b>${esc(v[0])}</b><small>${esc(v[1])}</small></span>`).join("")}</div>
  <div class="answer-label-v6"><b>Твой ответ</b><span>текстом или голосом</span></div>
  <textarea id="dialogAnswer" class="input lesson-answer-v6" rows="2" placeholder="Ответь собеседнику по-норвежски…" oninput="this.dataset.fromVoice='false'"></textarea>
@@ -265,13 +284,13 @@ async function checkDialogue(){
  const r=await aiEvaluate({answer:a,question:(turn.scene||"Ситуация знакомства")+". "+(turn.speaker||"Собеседница")+" говорит: "+(turn.lead?turn.lead+" ":"")+turn.phrase,goal:turn.goal||turn.task,level:l.level,mode:"dialogue"});
  if(!b.isConnected||lessonSession!==s){s.locked=false;return;}
  if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return;}
- const d=r.data,ok=d.accepted===true&&(d.score??70)>=55;trackLessonScore(d.score??(ok?70:40),{label:"Диалог",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});
- if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:l.level,skill:spoken?"speaking":"writing",score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l.id,source:spoken?"dialogue_voice":"dialogue_text",errorTag:d.error_tag||"",targetErrorTag:l?._adaptive?.errorTag||"",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});saveState();
+ const d=r.data,ok=d.accepted===true&&(d.score??70)>=55,gradeKey="dialogue:"+String(s.dialogueIndex||0)+":"+String(s.introReview===true);const firstAttempt=firstGrade(s,gradeKey,d.score??(ok?70:40),()=>{trackLessonScore(d.score??(ok?70:40),{label:"Диалог",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:l.level,skill:spoken?"speaking":"writing",score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l.id,source:spoken?"dialogue_voice":"dialogue_text",errorTag:d.error_tag||"",targetErrorTag:l?._adaptive?.errorTag||"",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});});
+ 
  if(ok){
-  b.innerHTML=(window.NEExperience?.response?.(true,"dialogue")||"")+aiLessonFeedbackHtml(d,"✓ Задача выполнена")+'<button class="btn lesson-next-v8" onclick="continueCheckedDialogue()">Дальше →</button>';
+  b.innerHTML=(window.NEExperience?.response?.(true,"dialogue")||"")+firstGradeNote(s,gradeKey)+(firstAttempt?aiLessonFeedbackHtml(d,"✓ Задача выполнена"):retryCoachFeedback(d,true))+'<button class="btn lesson-next-v8" onclick="continueCheckedDialogue()">Дальше →</button>';
   return;
  }
- s.locked=false;b.innerHTML=(window.NEExperience?.response?.(false,"dialogue")||"")+'<div class="feedback bad"><b>Исправь одну главную вещь и ответь снова</b><br>'+esc(d.explanation_ru||"Исправь ответ и проверь снова.")+(d.micro_rule_ru?'<br><b>Правило:</b> '+esc(d.micro_rule_ru):"")+(d.corrected?'<br><b>Естественнее:</b> '+esc(d.corrected):"")+(d.retry_prompt_no?'<br><small>После исправления попробуй также: '+esc(d.retry_prompt_no)+'</small>':"")+'</div>';input.focus();
+ s.locked=false;b.innerHTML=(window.NEExperience?.response?.(false,"dialogue")||"")+firstGradeNote(s,gradeKey)+'<div class="feedback bad"><b>Исправь одну главную вещь и ответь снова</b><br>'+esc(d.explanation_ru||"Исправь ответ и проверь снова.")+(d.micro_rule_ru?'<br><b>Правило:</b> '+esc(d.micro_rule_ru):"")+(d.corrected?'<br><b>Естественнее:</b> '+esc(d.corrected):"")+(d.retry_prompt_no?'<br><small>После исправления попробуй также: '+esc(d.retry_prompt_no)+'</small>':"")+'</div>';input.focus();
 }
 
 function adaptiveVocabItems(l){
@@ -285,9 +304,9 @@ function normalizeVocabAnswer(s=""){return String(s).normalize("NFKC").toLowerCa
 function vocabEx(l){
  if(l?._adaptive){
   const items=adaptiveVocabItems(l),idx=Math.min(lessonSession.vocabIndex||0,Math.max(0,items.length-1)),t=items[idx]||["",""];
-  return `<article class="card"><div class="eyebrow">Словарь · активное вспоминание</div><div class="metric"><span>Слово</span><strong>${idx+1}/${items.length}</strong></div><div class="prompt">Напиши по-норвежски: «${esc(t[1])}»</div><input id="adaptiveVocabAnswer" class="input" autocomplete="off" autocapitalize="none" placeholder="Норвежское слово или выражение"><div class="row" style="margin-top:10px"><button class="btn" onclick="checkAdaptiveVocab()">Проверить</button></div><div id="fb"></div><small class="muted">Без вариантов ответа: сначала попробуй вспомнить сам.</small></article>`;
+  return `<article class="card"><div class="eyebrow">Словарь · активное вспоминание</div>${window.NELanguageBridge?.taskDirection?.("vocabulary",l.level)||""}<div class="metric"><span>Слово</span><strong>${idx+1}/${items.length}</strong></div><p class="ne-task-direction" data-bridge-instruction="true">Вспомни изученное слово. Затем напиши ответ сам.</p><div class="prompt">Напиши по-норвежски: «${esc(t[1])}»</div><input id="adaptiveVocabAnswer" class="input" autocomplete="off" autocapitalize="none" placeholder="Норвежское слово или выражение"><div class="row" style="margin-top:10px"><button class="btn" onclick="checkAdaptiveVocab()">Проверить</button></div><div id="fb"></div><small class="muted">Без вариантов ответа: сначала попробуй вспомнить сам.</small></article>`;
  }
- const t=l.vocab[0],pool=COURSE.filter(x=>x.level===l.level).flatMap(x=>x.vocab.map(v=>v[1])).filter(x=>x!==t[1]),o=shuffle([t[1],...shuffle(pool).slice(0,3)]),c=o.indexOf(t[1]);return `<article class="card"><div class="eyebrow">Словарь</div><div class="prompt">Что значит «${esc(t[0])}»?</div><div class="choice-list">${o.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${c},'${escJs(t[0]+" = "+t[1])}','vocabulary')">${esc(x)}</button>`).join("")}</div><div id="fb"></div></article>`
+ const t=l.vocab[0],pool=COURSE.filter(x=>x.level===l.level).flatMap(x=>x.vocab.map(v=>v[1])).filter(x=>x!==t[1]),o=shuffle([t[1],...shuffle(pool).slice(0,3)]),c=o.indexOf(t[1]);return `<article class="card"><div class="eyebrow">Словарь</div><p class="ne-task-direction" data-bridge-instruction="true">Сначала вспомни значение. Потом выбери ответ.</p><div class="prompt">Что значит «${esc(t[0])}»?</div><div class="choice-list">${o.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${c},'${escJs(t[0]+" = "+t[1])}','vocabulary')">${esc(x)}</button>`).join("")}</div><div id="fb"></div></article>`
 }
 function checkAdaptiveVocab(){
  const l=lessonSession?.lesson;if(!l?._adaptive||lessonSession.locked)return;
@@ -309,18 +328,18 @@ function continueAdaptiveVocab(ok){
  else{lessonSession.vocabIndex=0;lessonSession.vocabItems=null;lessonNext(ok?12:6)}
 }
 function grammarPrompt(l){const q=String(l?.grammarQ||"").trim();if(/^(?:velg|choose|выбери(?:те)?)\s+(?:riktig(?:e)?|korrekt(?:e)?|correct|правильн\w*)\s+(?:setning(?:en)?|alternativ(?:et)?|sentence|предложен\w*|вариант\w*)[.!?]?$/i.test(q))return "Выберите грамматически правильное предложение.";return q||l?.grammarTitle||"Выберите грамматически правильный вариант."}
-function grammarEx(l){const c=Number(l.grammarCorrect)||0;return (window.NELessonCoach?.render(l)||'')+`<article class="card"><div class="eyebrow">Грамматика · применение</div><div class="prompt">${esc(grammarPrompt(l))}</div><div class="choice-list">${l.grammarOpts.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${c},'${escJs(l.grammarRuleRu||l.grammar||"Проверь правило и попробуй снова.")}','grammar')">${esc(x)}</button>`).join("")}</div><details class="grammar-fold-v6"><summary>Короткое правило</summary><p>${esc(l.grammarRuleRu||l.grammar||"")}</p></details><div id="fb"></div></article>`}
+function grammarEx(l){const c=Number(l.grammarCorrect)||0;return (window.NELessonCoach?.render(l)||'')+`<article class="card"><div class="eyebrow">Грамматика · применение</div>${window.NELanguageBridge?.taskDirection?.("grammar",l.level)||""}<div class="prompt" data-bridge-instruction="true">${esc(grammarPrompt(l))}</div><div class="choice-list">${l.grammarOpts.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${c},'${escJs(l.grammarRuleRu||l.grammar||"Проверь правило и попробуй снова.")}','grammar')">${esc(x)}</button>`).join("")}</div><details class="grammar-fold-v6"><summary>Короткое правило</summary><p>${esc(l.grammarRuleRu||l.grammar||"")}</p></details><div id="fb"></div></article>`}
 function listenEx(l){
  if(l?._adaptive&&typeof l.listeningAudio==="string"&&Array.isArray(l.listeningOpts)&&l.listeningOpts.length===4){
   const sets=Array.isArray(l.listeningSets)&&l.listeningSets.length?l.listeningSets:null,
         idx=Math.max(0,Math.min((lessonSession.listeningIndex||0),(sets?.length||1)-1)),
         source=sets?.[idx]||{audio:l.listeningAudio,q:l.listeningQ,opts:l.listeningOpts,correct:l.listeningCorrect},
         c=Number(source.correct)||0,parts=sets?.length||1;
-  return `<article class="card"><div class="eyebrow">Аудирование · понимание смысла ${parts>1?' · часть '+(idx+1)+'/'+parts:''}</div><div class="prompt">${esc(source.q||"Что главное в сообщении?")}</div><button class="btn" onclick="speakText('${escJs(source.audio)}',.9,this,'${['marin','cedar','sage'][idx%3]}')">▶ Прослушать</button><button class="btn secondary" onclick="speakText('${escJs(source.audio)}',.73,this,'${['marin','cedar','sage'][idx%3]}')">▶ Медленнее</button><small class="muted">Сначала слушай без текста. Запись ${idx+1} из ${parts}; отвечай по смыслу, не угадывай по отдельным словам. Текст записи можно открыть после правильного ответа; звук сгенерирован AI, не является записью носителя языка.</small><div class="choice-list">${source.opts.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${c},'Прослушай ещё раз и ищи смысл или важную деталь.','listening')">${esc(x)}</button>`).join("")}</div><div id="fb"></div></article>`;
+  return `<article class="card"><div class="eyebrow">Аудирование · понимание смысла ${parts>1?' · часть '+(idx+1)+'/'+parts:''}</div>${window.NELanguageBridge?.taskDirection?.("listening",l.level)||""}<div class="prompt">${esc(source.q||"Что главное в сообщении?")}</div><button class="btn" onclick="speakText('${escJs(source.audio)}',.9,this,'${['marin','cedar','sage'][idx%3]}')">▶ Прослушать</button><button class="btn secondary" onclick="speakText('${escJs(source.audio)}',.73,this,'${['marin','cedar','sage'][idx%3]}')">▶ Медленнее</button><small class="muted">Сначала слушай без текста. Запись ${idx+1} из ${parts}; отвечай по смыслу, не угадывай по отдельным словам. Текст записи можно открыть после правильного ответа; звук сгенерирован AI, не является записью носителя языка.</small><div class="choice-list">${source.opts.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${c},'Прослушай ещё раз и ищи смысл или важную деталь.','listening')">${esc(x)}</button>`).join("")}</div><div id="fb"></div></article>`;
  }
- const d=shuffle(COURSE.filter(x=>x.level===l.level&&x.id!==l.id)).slice(0,3).map(x=>x.phrase),o=shuffle([l.phrase,...d]),c=o.indexOf(l.phrase);return `<article class="card"><div class="eyebrow">Аудирование</div><div class="prompt">Прослушай и выбери точную фразу.</div><button class="btn" onclick="speakText('${escJs(l.phrase)}',.78,this)">▶ Прослушать</button><div class="choice-list">${o.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${c},'${escJs(l.ru)}','listening')">${esc(x)}</button>`).join("")}</div><div id="fb"></div></article>`;
+ const d=shuffle(COURSE.filter(x=>x.level===l.level&&x.id!==l.id)).slice(0,3).map(x=>x.phrase),o=shuffle([l.phrase,...d]),c=o.indexOf(l.phrase);return `<article class="card"><div class="eyebrow">Аудирование</div>${window.NELanguageBridge?.taskDirection?.("listening",l.level)||""}<div class="prompt" data-bridge-instruction="true">Прослушай и выбери точную фразу.</div><button class="btn" onclick="speakText('${escJs(l.phrase)}',.78,this)">▶ Прослушать</button><div class="choice-list">${o.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${c},'${escJs(l.ru)}','listening')">${esc(x)}</button>`).join("")}</div><div id="fb"></div></article>`;
 }
-function readEx(l){return `<article class="card"><div class="eyebrow">Чтение</div><div class="translation">${esc(l.read)}</div><div class="prompt">${esc(l.q)}</div><div class="choice-list">${l.opts.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${l.correct},'Ответ находится в тексте.','reading')">${esc(x)}</button>`).join("")}</div><div id="fb"></div></article>`}
+function readEx(l){return `<article class="card"><div class="eyebrow">Чтение</div>${window.NELanguageBridge?.taskDirection?.("reading",l.level)||""}<div class="translation">${esc(l.read)}</div><div class="prompt">${esc(l.q)}</div><div class="choice-list">${l.opts.map((x,i)=>`<button class="choice" onclick="lessonChoice(this,${i},${l.correct},'Ответ находится в тексте.','reading')">${esc(x)}</button>`).join("")}</div><div id="fb"></div></article>`}
 
 function listeningTranscriptFeedback(){
  const s=lessonSession,l=s?.lesson;
@@ -366,10 +385,19 @@ function freeEx(l,mode){
  const sp=mode==="speaking",rem=l?._adaptive&&lessonSession.remediation?.mode===mode?lessonSession.remediation:null,
   followup=lessonSession.speakingFollowup===true,p=lessonFreeTask(l,mode,rem,followup),
   support=speakingTaskHelp(l,mode,rem,followup,p);
- return `<article class="card"><div class="eyebrow">${sp?"Устная речь":"Письмо"} · ${rem?"перенос исправления":"AI"}</div>${rem?'<div class="notice"><b>Новая ситуация.</b> Примени исправление сам, без копирования готового ответа.'+(rem.rule?'<br><small>'+esc(rem.rule)+'</small>':'')+'</div><br>':""}<div class="prompt" data-bridge-instruction="true">${esc(clearerTaskPrompt(p))}</div>${support?'<details class="grammar-fold a1-task-support" data-translation="on-request"><summary>Перевести задание</summary><div class="notice"><b>Перевод задания:</b> '+esc(support.ru)+'<br><small>'+esc(support.hint)+'</small></div></details>':""}${sp?'<div class="notice">Нажми микрофон и говори по-норвежски. Текстовый ответ проверяется как письмо, а не как устная речь.</div>':""}<textarea id="freeAnswer" class="input" autocomplete="off" placeholder="Ответ по-норвежски…" oninput="this.dataset.fromVoice='false'"></textarea><div class="row ${sp?'speech-actions-v831':''}" style="margin-top:10px">${sp?'<button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>':""}<button class="btn" onclick="checkFree('${mode}')">🧠 Проверить AI</button></div><div id="freeFb"></div></article>`
+ return `<article class="card"><div class="eyebrow">${sp?"Устная речь":"Письмо"} · ${rem?"перенос исправления":"AI"}</div>${rem?'<div class="notice"><b>Новая ситуация.</b> Примени исправление сам, без копирования готового ответа.'+(rem.rule?'<br><small>'+esc(rem.rule)+'</small>':'')+'</div><br>':""}${window.NELanguageBridge?.taskDirection?.(sp?"speaking":"writing",l.level)||""}<div class="prompt" data-bridge-instruction="true">${esc(clearerTaskPrompt(p))}</div><p class="ne-task-direction" data-bridge-instruction="true">Попробуй ответить своими словами. После проверки исправь ошибки — первая оценка останется прежней.</p>${support?'<details class="grammar-fold a1-task-support" data-translation="on-request"><summary>Перевести задание</summary><div class="notice"><b>Перевод задания:</b> '+esc(support.ru)+'<br><small>'+esc(support.hint)+'</small></div></details>':""}${sp?'<div class="notice">Нажми микрофон и говори по-норвежски. Текстовый ответ проверяется как письмо, а не как устная речь.</div>':""}<textarea id="freeAnswer" class="input" autocomplete="off" placeholder="Ответ по-норвежски…" oninput="this.dataset.fromVoice='false'"></textarea><div class="row ${sp?'speech-actions-v831':''}" style="margin-top:10px">${sp?'<button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>':""}<button class="btn" onclick="checkFree('${mode}')">🧠 Проверить AI</button></div><div id="freeFb"></div></article>`
 }
 
-function openFreeTransfer(){if(lessonSession?.remediation){lessonSession.locked=false;renderLesson()}}
+function openFreeTransfer(){
+ if(!lessonSession)return;
+ if(lessonSession.proposedRemediation){
+  lessonSession.remediation=lessonSession.proposedRemediation;
+  lessonSession.proposedRemediation=null;
+ }else if(!lessonSession.remediation)return;
+ // The learner explicitly chose a NEW context. Corrections to the original
+ // response remain ungraded after its very first attempt.
+ lessonSession.locked=false;persistLessonCheckpoint();renderLesson();
+}
 function deferFreeRemediation(){
  if(!lessonSession)return;lessonSession.remediation=null;lessonSession.locked=false;lessonNext(4);
 }
@@ -382,23 +410,22 @@ async function checkFree(mode){
  if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">Проверка временно недоступна. Попробуй ещё раз.</div>';return}
  const d=r.data,ok=d.accepted===true&&(d.score??70)>=55,skill=spoken?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer,
  evidenceScore=ok?Math.max(0,Math.min(100,Math.round(Number(d.score)||0))):Math.min(40,Math.max(0,Math.round(Number(d.score)||0)));
- trackLessonScore(evidenceScore,{label:spoken?"Речь":"Письмо",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});
- if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill,score:evidenceScore,moduleId:l?._adaptive?.moduleId||l?.id,source:mode==="speaking"&&!spoken?"lesson_free_text":rem?"lesson_free_transfer":"lesson_free",errorTag:d.error_tag||"",targetErrorTag:rem?.errorTag||l?._adaptive?.errorTag||"",transfer:isTransfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}
- const humanFeedback=window.NEExperience?.response?.(ok,mode)||"";
+ const gradeKey="free:"+mode+":"+s.step+(rem?":transfer:"+String(rem.retries||0):""),firstAttempt=firstGrade(s,gradeKey,evidenceScore,()=>{trackLessonScore(evidenceScore,{label:spoken?"Речь":"Письмо",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill,score:evidenceScore,moduleId:l?._adaptive?.moduleId||l?.id,source:mode==="speaking"&&!spoken?"lesson_free_text":rem?"lesson_free_transfer":"lesson_free",errorTag:d.error_tag||"",targetErrorTag:rem?.errorTag||l?._adaptive?.errorTag||"",transfer:isTransfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}});
+ const humanFeedback=(window.NEExperience?.response?.(ok,mode)||"")+firstGradeNote(s,gradeKey);
  if(ok){
-  s.remediation=null;s.locked=true;
+  s.remediation=null;s.proposedRemediation=null;s.locked=true;
   if(mode==="speaking"&&l.speakingFollowUp&&!s.speakingFollowup){
    s.speakingFollowup=true;persistLessonCheckpoint();
-   b.innerHTML=humanFeedback+aiLessonFeedbackHtml(d,"✓ Первая часть разговора выполнена")+'<button class="btn lesson-next-v8" onclick="continueSpeakingFollowup()">Ответить на уточнение →</button>';
+   b.innerHTML=humanFeedback+(firstAttempt?aiLessonFeedbackHtml(d,"✓ Первая часть разговора выполнена"):retryCoachFeedback(d,true))+'<button class="btn lesson-next-v8" onclick="continueSpeakingFollowup()">Ответить на уточнение →</button>';
    return;
   }
-  b.innerHTML=humanFeedback+aiLessonFeedbackHtml(d,"✓ "+(rem?"Исправление перенесено в новую ситуацию":"Коммуникативная задача выполнена"))+'<button class="btn lesson-next-v8" onclick="lessonNext('+(rem?25:20)+')">Дальше →</button>';
+  b.innerHTML=humanFeedback+(firstAttempt?aiLessonFeedbackHtml(d,"✓ "+(rem?"Исправление перенесено в новую ситуацию":"Коммуникативная задача выполнена")):retryCoachFeedback(d,true))+'<button class="btn lesson-next-v8" onclick="lessonNext('+(rem?25:20)+')">Дальше →</button>';
   return;
  }
  const explanation=esc(d.explanation_ru||"Исправь ответ и проверь снова."),rule=d.micro_rule_ru?'<br><b>Правило:</b> '+esc(d.micro_rule_ru):"",corrected=d.corrected?'<br><b>Естественнее:</b> '+esc(d.corrected):"";
  if(l?._adaptive&&d.retry_prompt_no){
   if(!rem){
-   s.remediation={mode,prompt:d.retry_prompt_no,rule:d.micro_rule_ru||"",retries:0,errorTag:d.error_tag||""};s.locked=false;
+   s.proposedRemediation={mode,prompt:d.retry_prompt_no,rule:d.micro_rule_ru||"",retries:0,errorTag:d.error_tag||""};s.locked=false;persistLessonCheckpoint();
    b.innerHTML=humanFeedback+'<div class="feedback bad"><b>Исправь главную ошибку.</b><br>'+explanation+rule+corrected+'<br><br><b>Теперь проверь перенос:</b> новый вопрос будет другим.<br><button class="btn secondary" style="margin-top:10px" onclick="openFreeTransfer()">Применить в новой ситуации →</button></div>';return;
   }
   rem.retries=(rem.retries||0)+1;

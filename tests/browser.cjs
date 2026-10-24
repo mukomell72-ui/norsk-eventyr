@@ -342,7 +342,26 @@ const server=http.createServer(async(req,res)=>{
   console.log('PASS wrong choice stays scored after resume and cannot earn a second perfect grade');
   const transferBefore=await page.evaluate(()=>state.learningV8?.attempts?.filter(x=>x.source==='lesson_free_transfer').length||0);
   await page.evaluate(()=>{lessonSession.step=5;lessonSession.remediation=null;lessonSession.locked=false;renderLesson()});await page.locator('#freeAnswer').fill('Jeg feil.');await page.evaluate(()=>checkFree('writing'));await page.waitForTimeout(220);
-  const remediation=await page.evaluate(()=>({prompt:lessonSession?.remediation?.prompt||'',text:document.querySelector('#app main')?.innerText||''}));assert.equal(remediation.prompt,'Hva skal du gjøre i morgen?');assert(remediation.text.includes('Применить в новой ситуации'));
+  const remediation=await page.evaluate(()=>({prompt:lessonSession?.proposedRemediation?.prompt||'',
+   activeTransfer:!!lessonSession?.remediation,first:lessonSession.firstGraded?.['free:writing:5'],
+   attempts:state.learningV8.attempts.length,recordedScores:lessonSession.xpScores.length,
+   text:document.querySelector('#app main')?.innerText||''}));
+  assert.equal(remediation.prompt,'Hva skal du gjøre i morgen?');
+  assert.equal(remediation.activeTransfer,false,'Offer transfer without replacing the answer that needs rewriting');
+  assert.equal(remediation.first,35,'The very first mistake retains its original score');
+  assert(remediation.text.includes('Применить в новой ситуации'));
+  // The learner can rewrite their OWN answer; repeated checks must not regrade.
+  await page.locator('#freeAnswer').fill('Jeg feil.');
+  await page.evaluate(()=>checkFree('writing'));await page.waitForTimeout(220);
+  const retry=await page.evaluate(()=>({first:lessonSession.firstGraded?.['free:writing:5'],
+   attempts:state.learningV8.attempts.length,recordedScores:lessonSession.xpScores.length,
+   originalPrompt:!!lessonSession.proposedRemediation?.prompt,
+   preservedAnswer:document.querySelector('#freeAnswer')?.value}));
+  assert.equal(retry.first,35,'Original score is unchanged after rewriting');
+  assert.equal(retry.attempts,remediation.attempts,'Rewriting does not create a second adaptive grade');
+  assert.equal(retry.recordedScores,remediation.recordedScores,'Rewriting cannot add new XP evidence');
+  assert.equal(retry.preservedAnswer,'Jeg feil.','The answer editor remains available for another correction');
+  assert(retry.originalPrompt,'Optional transfer does not replace the original task');
   await page.evaluate(()=>openFreeTransfer());assert((await page.locator('#app main').innerText()).includes('Hva skal du gjøre i morgen?'));await page.locator('#freeAnswer').fill('Jeg skal jobbe i morgen.');await page.evaluate(()=>checkFree('writing'));await page.waitForTimeout(260);
   const transferFeedback=await page.evaluate(()=>({step:lessonSession.step,text:document.querySelector('#app main')?.innerText||''}));assert.equal(transferFeedback.step,5);assert(transferFeedback.text.includes('Исправление перенесено в новую ситуацию'));assert.equal(await page.locator('.lesson-next-v8').innerText(),'Дальше →');
   await page.locator('.lesson-next-v8').click();await page.waitForTimeout(100);

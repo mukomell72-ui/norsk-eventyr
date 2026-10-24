@@ -90,7 +90,7 @@ for(const asset of assets){
    (coachSuffix&&['/access.js','/app.js','/lesson-coach.js','/lesson-coach.css','/language-bridge.js','/language-bridge.css','/cloze-coach.js','/functional-practice.js','/living-words.js'].includes(pathname)?coachSuffix:'')+
    (freshnessSuffix&&['/access.js','/adaptive-teacher.js'].includes(pathname)?freshnessSuffix:'')+
    (bridgeSuffix&&['/access.js','/adaptive-teacher.js','/app.js','/language-bridge.js','/ui-v7.js','/v7.css','/v3.js','/elite.js','/nora-experience.js'].includes(pathname)?bridgeSuffix:'')+
-   (auditSuffix&&['/access.js','/v7.css','/nora-experience.js','/living-day.js'].includes(pathname)?auditSuffix:'');
+   (auditSuffix&&['/access.js','/v7.css','/nora-experience.js','/living-day.js','/app.js','/language-bridge.js'].includes(pathname)?auditSuffix:'');
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
 }
 }
@@ -161,7 +161,7 @@ for(const filename of scripts){
    (coachSuffix&&['lesson-coach.js','language-bridge.js','cloze-coach.js','functional-practice.js','app.js','living-words.js'].includes(filename)?coachSuffix:'')+
    (freshnessSuffix&&filename==='adaptive-teacher.js'?freshnessSuffix:'')+
    (bridgeSuffix&&['adaptive-teacher.js','app.js','language-bridge.js','ui-v7.js','v3.js','elite.js','nora-experience.js'].includes(filename)?bridgeSuffix:'')+
-   (auditSuffix&&['nora-experience.js','living-day.js'].includes(filename)?auditSuffix:'');
+   (auditSuffix&&['nora-experience.js','living-day.js','app.js','language-bridge.js'].includes(filename)?auditSuffix:'');
  assert(assetSet.has('/'+filename+'?v='+v+patch+suffix),'PWA must cache bootstrapped script '+filename);
 }
 for(const m of index.matchAll(/\b(?:src|href)="(\/[^"]+)"/g)){
@@ -281,7 +281,7 @@ if(coachSuffix){
  assert(read('v3.js').includes('NEExperience?.lessonHeader?.('),'Legacy lesson render must mount Nora experience');
  assert(assets.includes('/v3.js?v='+v+baseRevision+bridgeSuffix),'Offline legacy lesson must reload on release');
  assert(app.includes('NELanguageBridge?.controlHtml?.()'),'Language bridge must offer an opt-out on the homepage');
- assert(assets.includes('/language-bridge.js?v='+v+coachSuffix+bridgeSuffix),'PWA must precache the language bridge');
+ assert(assets.includes('/language-bridge.js?v='+v+coachSuffix+bridgeSuffix+auditSuffix),'PWA must precache the language bridge');
  assert(assets.includes('/cloze-coach.js?v='+v+coachSuffix),'PWA must cache word explanation engine');
  assert(assets.includes('/functional-practice.js?v='+v+coachSuffix),'PWA must cache updated cloze practice');
  assert(assets.includes('/language-bridge.css?v='+v+coachSuffix),'PWA must precache bridge styles');
