@@ -100,7 +100,7 @@ function archive(){
  '<h3>'+esc(window.NECurriculum?.moduleById(d.moduleId)?.title||'Учебная ситуация')+'</h3>'+
  '<p class="muted">Ты можешь продолжить прежний урок; новая глава от этого не исчезнет.</p>'+
  (d.pausedLessonId&&s.learningV8?.pausedCheckpoints?.[d.pausedLessonId]
- ?'<button class="btn secondary" onclick="NELivingDay.resumePaused(\\\''+esc(d.pausedLessonId)+'\\\')">Продолжить старый урок</button>':'')+
+ ?'<button class="btn secondary" onclick="NELivingDay.resumePaused(\''+esc(d.pausedLessonId)+'\')">Продолжить старый урок</button>':'')+
  '</article>').join(''):'')+
  (lines||(!paused.length?'<section class="card">Пока нет завершённых учебных дней.</section>':''))+
   '<button class="btn ghost" onclick="navigate(\'livingday\')">← Сегодняшний урок</button></section>','home');
