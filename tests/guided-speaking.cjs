@@ -8,6 +8,7 @@ const speaking=fs.readFileSync(path.join(base,'guided-speaking.js'),'utf8');
 const ui=fs.readFileSync(path.join(base,'ui-v7.js'),'utf8');
 const app=fs.readFileSync(path.join(base,'app.js'),'utf8');
 assert.match(app,/accepted===true&&\(d\.score\?\?70\)>=50/,'Native dialogue accepts verified 50/100');
+assert(app.includes('window.neGuidedAnswerEdited?.(f);'),'Speech recognition must unlock an accepted reply when it changes the answer');
 assert.match(ui,/helpMarkupV7\(content\.includes\('class="card guided-speaking"'\)\)/,
  'Guided lesson suppresses the duplicate help trigger');
 const helperStart=ui.indexOf('  function helpMarkupV7(');
@@ -81,6 +82,10 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  assert.match(feedback.innerHTML,/22\/100/,'Rejected answer must show a numeric grade');
  assert.doesNotMatch(feedback.innerHTML,/neGuidedExplain\(\)/,'Feedback does not duplicate the existing contextual help action');
  assert.equal(scores.length,1,'First turn establishes one course score');
+ field.value='Hei, jeg heter Anna og bor i Oslo.';
+ w.neGuidedAnswerEdited(field);
+ assert(!feedback.innerHTML.includes('22/100'),'Editing a rejected answer hides the old review');
+ assert.match(feedback.innerHTML,/Предыдущая оценка относится к старому тексту/);
  accepted=true;
  await w.checkFree('speaking');
  assert.equal(session.locked,true);
