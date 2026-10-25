@@ -402,6 +402,9 @@ async function checkDialogue(){
  const d=r.data,ok=d.accepted===true&&(d.score??70)>=50;
  if(typeof d.corrected==="string"&&d.corrected.trim())s.dialogueSuggestion={key:gradeKey,text:d.corrected.trim()};
  const firstAttempt=firstGrade(s,gradeKey,d.score??(ok?70:40),()=>{trackLessonScore(d.score??(ok?70:40),{label:"Диалог",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:l.level,skill:spoken?"speaking":"writing",score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l.id,source:spoken?"dialogue_voice":"dialogue_text",errorTag:d.error_tag||"",targetErrorTag:l?._adaptive?.errorTag||"",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});});
+ if(ok&&firstAttempt)window.NEWordLearning?.observe?.({
+  lesson:l,answer:a,assessment:d,gradeKey,firstAttempt,mode:"dialogue"
+ });
  
  if(ok){
   b.innerHTML=(window.NEExperience?.response?.(true,"dialogue")||"")+firstGradeNote(s,gradeKey)+(firstAttempt?aiLessonFeedbackHtml(d,"✓ Задача выполнена"):retryCoachFeedback(d,true))+'<button type="button" class="btn secondary" onclick="reviseCheckedAnswer(\'dialogue\')">Исправить ещё</button><button class="btn lesson-next-v8" onclick="continueCheckedDialogue()">Дальше →</button>';
@@ -529,6 +532,10 @@ async function checkFree(mode){
  const d=r.data,ok=d.accepted===true&&(d.score??70)>=50,skill=spoken?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer,
  evidenceScore=ok?Math.max(0,Math.min(100,Math.round(Number(d.score)||0))):Math.min(40,Math.max(0,Math.round(Number(d.score)||0)));
  const gradeKey="free:"+mode+":"+s.step+(rem?":transfer:"+String(rem.retries||0):""),firstAttempt=firstGrade(s,gradeKey,evidenceScore,()=>{trackLessonScore(evidenceScore,{label:spoken?"Речь":"Письмо",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill,score:evidenceScore,moduleId:l?._adaptive?.moduleId||l?.id,source:mode==="speaking"&&!spoken?"lesson_free_text":rem?"lesson_free_transfer":"lesson_free",errorTag:d.error_tag||"",targetErrorTag:rem?.errorTag||l?._adaptive?.errorTag||"",transfer:isTransfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}});
+ if(ok&&firstAttempt)window.NEWordLearning?.observe?.({
+  lesson:l,answer:a,assessment:d,gradeKey,firstAttempt,
+  mode:spoken?"speaking":"writing"
+ });
  const humanFeedback=(window.NEExperience?.response?.(ok,mode)||"")+firstGradeNote(s,gradeKey)+(!ok?'<p class="ne-current-grade"><b>Текущая оценка: '+esc(String(d.score??0))+'/100.</b> '+(firstAttempt?'Первоначальный результат сохранён.':'Исправление проверено повторно; XP не пересчитываются.')+'</p>':'');
  if(ok){
   s.lastFreeAccepted={mode,remediation:rem?{...rem}:null,speakingFollowup:s.speakingFollowup===true};

@@ -622,12 +622,10 @@
     level:lessonLevel(),correct:0,wrong:0,exposures:1,strength:0,
     firstDate:new Date(now).toISOString().slice(0,10),source:'personal_word_check'};
   }
-  const prevDue=Number(dictionary.nextDue);
-  dictionary.nextDue=prevDue>Date.now() ? Math.min(prevDue,dueAt) : dueAt;
+  dictionary.nextDue=dueAt;
   let srs=Object.values(state.srs).find(x=>normNo(x?.word)===key);
   if(!srs)srs=state.srs[key]={word,translation,level:lessonLevel(),stage:0,seen:1,correct:0};
-  const oldDue=Number(srs.due);
-  srs.due=oldDue>Date.now() ? Math.min(oldDue,dueAt) : dueAt;
+  srs.due=dueAt;
   if(immediately){
    state.wordPracticeQueue=state.wordPracticeQueue||{};
    state.wordPracticeQueue[key]=now;

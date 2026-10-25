@@ -211,6 +211,8 @@ assert(overloaded.api.segments(sameInstruction,overloaded.api.entries(),4).some(
    });
    assert.equal(first.self.recallPasses,1,'Independent recall is recorded');
    assert(first.self.nextDue>Date.now()+80000000,'Initial recall schedules tomorrow');
+   assert.equal(first.dict.nextDue,first.self.nextDue,'Dictionary due matches promised recall');
+   assert.equal(first.review.due,first.self.nextDue,'SRS due matches promised recall');
    assert.equal(first.dict.correct,0,'Self-rating and short recall cannot grant dictionary mastery');
    assert.equal(first.review.correct,0,'No SRS mastery from one recall');
    await vocabPage.evaluate(()=>{
