@@ -305,6 +305,7 @@ function neGuidedRevise(){
  const s=window.neLessonSession,p=s?.guidedSpeech,field=document.getElementById('freeAnswer');
  if(!s||!p?.pending||!field||p.lessonId!==s.lesson?.id)return;
  delete p.pending;
+ delete p.lastCheckedAnswer;
  s.locked=false;
  const box=document.getElementById('freeFb');
  if(box)box.innerHTML='<div class="feedback" role="status">Ответ изменён. Нажми «Ответить», чтобы проверить текущий текст ещё раз. Первая оценка и XP сохраняются.</div>';
@@ -312,10 +313,16 @@ function neGuidedRevise(){
 }
 function neGuidedAnswerEdited(field){
  const s=window.neLessonSession,p=s?.guidedSpeech;
- if(!s||!p?.pending||p.lessonId!==s.lesson?.id||!field||
+ if(!s||!p||p.lessonId!==s.lesson?.id||!field||
     field!==document.getElementById('freeAnswer')||
     String(field.dataset?.guidedTurn)!==String(p.index))return;
- if(field.value.trim()!==p.pending.answer)neGuidedRevise();
+ const value=field.value.trim();
+ if(p.pending){if(value!==p.pending.answer)neGuidedRevise();return;}
+ if(typeof p.lastCheckedAnswer==='string'&&value!==p.lastCheckedAnswer){
+  delete p.lastCheckedAnswer;
+  const box=document.getElementById('freeFb');
+  if(box)box.innerHTML='<div class="feedback" role="status">Ответ изменён. Предыдущая оценка относится к старому тексту. Нажми «Ответить», чтобы проверить новый.</div>';
+ }
 }
 async function guidedCheck(){
  const s=window.neLessonSession,l=s?.lesson,d=l&&ensure(l),input=document.getElementById('freeAnswer'),a=input?.value.trim(),box=document.getElementById('freeFb');
@@ -357,6 +364,7 @@ async function guidedCheck(){
   }
   window.persistLessonCheckpoint?.();
  }
+ progress.lastCheckedAnswer=a;
  const feedback=guidedGradeFeedback(e,score,ok,progress.firstScores[scoreKey],a);
  if(!ok){
   s.locked=false;
@@ -398,7 +406,7 @@ function neGuidedNext(){
  // answer remains in the dialogue history, not in the next editable field.
  window.neDiscardAcceptedGuidedDraft?.(s);
  p.turns.push({answer:String(answer).slice(0,700),spoken,reply:p.pending.reply||d.scene.steps[p.index].reply});
- p.index++;delete p.pending;delete p.flowNotice;s.locked=false;
+ p.index++;delete p.pending;delete p.lastCheckedAnswer;delete p.flowNotice;s.locked=false;
  if(p.index>=d.scene.steps.length){
   p.index=d.scene.steps.length-1;
   window.lessonNext(20);
