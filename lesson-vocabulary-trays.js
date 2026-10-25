@@ -109,20 +109,50 @@
    delete t.days[key];
   save();return record;
  }
- function slots(lesson,date=localDate()){
-  const d=ensure(lesson,date);if(!d)return null;
+
+ function studiedHistory(date,level,blocked){
+  const st=getState()||{},archive=db()?.days||{},items=new Map(),now=Date.now();
+  const insert=(word,ru,first,stats={})=>{
+   word=String(word||'').trim();ru=String(ru||'').trim();
+   const id=lemma(word);
+   if(!valid(word,ru)||blocked.has(id)||first>=date)return;
+   const due=Number(stats.nextDue||stats.due||0);
+   const importance=(due>0&&due<=now?10:0)+Math.max(0,Number(stats.wrong||0)-Number(stats.correct||0));
+   if(!items.has(id)||importance>items.get(id).priority)
+    items.set(id,{word,ru,id,origin:'review-backlog',first:String(first||''),priority:importance});
+  };
+  for(const [day,snap] of Object.entries(archive)){
+   if(day>=date||snap?.level!==level)continue;
+   for(const w of snap.today||[])insert(w.word,w.ru,day,w);
+  }
+  for(const w of Object.values(st.dailyDictionary||{})){
+   if(!w||w.level&&w.level!==level)continue;
+   if(!w.firstDate&&!w.lastDate)continue;
+   insert(w.lemma||w.word,w.translation_ru||w.translation,String(w.firstDate||w.lastDate),w);
+  }
+  for(const w of Object.values(st.srs||{})){
+   if(!w||w.level&&w.level!==level||!(Number(w.seen)>0||Number(w.correct)>0))continue;
+   insert(w.word||w.lemma,w.translation||w.translation_ru,String(w.firstDate||w.createdDate||''),w);
+  }
+  return [...items.values()].sort((a,b)=>b.priority-a.priority||a.first.localeCompare(b.first)||a.id.localeCompare(b.id));
+ }
+ function composedSlots(d){
   const promoted=(d.relearning||[]).filter(w=>valid(w.word,w.ru));
-  const used=new Set(promoted.map(w=>lemma(w.word)));
-  const recent=[...promoted];
+  const used=new Set(promoted.map(w=>lemma(w.word))),recent=[...promoted];
   for(const w of d.today||[]){
    if(used.has(lemma(w.word)))continue;
    recent.push(w);used.add(lemma(w.word));
   }
-  const current=recent.slice(0,LIMIT);
-  const previous=(d.yesterday||[]).filter(w=>!used.has(lemma(w.word))).slice(0,LIMIT);
-  const aging=(d.older||[]).filter(w=>!used.has(lemma(w.word))).slice(0,LIMIT);
-  return {date:d.date,level:d.level,today:current,yesterday:previous,older:aging,
-    queuedNew:recent.length>LIMIT?recent.length-LIMIT:0};
+  const today=recent.slice(0,LIMIT);
+  const yesterday=(d.yesterday||[]).filter(w=>!used.has(lemma(w.word))).slice(0,LIMIT);
+  const older=(d.older||[]).filter(w=>!used.has(lemma(w.word))&&!yesterday.some(y=>lemma(y.word)===lemma(w.word))).slice(0,LIMIT);
+  const blocked=new Set([...today,...yesterday,...older].map(w=>lemma(w.word)));
+  const backfill=studiedHistory(d.date,d.level,blocked).slice(0,Math.max(0,LIMIT-yesterday.length));
+  return {date:d.date,level:d.level,today,yesterday:[...yesterday,...backfill],older,
+   queuedNew:recent.length>LIMIT?recent.length-LIMIT:0};
+ }
+ function slots(lesson,date=localDate()){
+  const d=ensure(lesson,date);return d?composedSlots(d):null;
  }
  function markOldForgotten(no,date=localDate()){
   const t=db(),record=t?.days?.[date],id=lemma(no);
@@ -175,20 +205,46 @@
    (row?.url?'<small><a href="'+esc(row.url)+'" target="_blank" rel="noopener noreferrer">Bokmålsordboka</a></small>':'')+
    '</div>';
  }
+
+ let displayedLesson=null;
+ function entries(kind,words){
+  return words.map(w=>'<div class="ne-tray-item">'+(kind==='today'?
+   '<div class="ne-tray-new-word"><b lang="nb">'+esc(w.word)+'</b><span>'+esc(w.ru)+'</span></div>'+
+   '<details class="ne-tray-details"><summary>Значения и формы</summary>'+info(w,false)+'</details>':
+   '<button type="button" class="ne-tray-word" data-ne-tray-word="'+esc(w.word)+'" data-ne-tray-kind="'+kind+'" aria-expanded="false" onclick="NEWordTrays.reveal(this)">'+
+   '<span lang="nb">'+esc(w.word)+'</span><small>'+(w.origin==='review-backlog'?'из изученного ранее':'перевод по нажатию')+'</small></button>'+
+   '<div class="ne-tray-reveal" hidden></div>')+'</div>').join('');
+ }
+ function panelHeader(title,count){
+  return '<div class="ne-tray-panel-head"><b>'+esc(title)+'</b><span class="ne-tray-count">'+count+'/'+LIMIT+'</span></div>';
+ }
  function render(lesson){
-  const s=slots(lesson);if(!s)return '';
-  const columns=[['today','Новые / переучиваемые',s.today],['yesterday','Вчера',s.yesterday],['older','Позавчера и трудные',s.older]];
-  const entries=(kind,words)=>words.map(w=>
-   '<div class="ne-tray-item"><button type="button" class="ne-tray-word" data-ne-tray-word="'+esc(w.word)+'" data-ne-tray-kind="'+kind+'" '+
-   'onclick="NEWordTrays.reveal(this)"><span lang="nb">'+esc(w.word)+'</span><small>'+(kind==='today'?'перевод и формы':'перевод по нажатию')+'</small></button>'+
-   (kind==='today'?info(w,true):'<div class="ne-tray-reveal" hidden></div>')+'</div>').join('');
-  return '<section class="ne-vocab-trays" data-ne-tray-date="'+esc(s.date)+'" data-no-bridge>'+
-   '<div class="ne-tray-heading"><b>15 слов в живой речи</b><small>Используй подходящие слова в собственных фразах. Не обязательно все сразу.</small></div>'+
-   '<div class="ne-tray-panels">'+columns.map(([kind,title,words])=>
-    '<section class="ne-tray-panel" data-ne-tray-column="'+kind+'"><b>'+esc(title)+'</b><small>'+words.length+'/'+LIMIT+'</small>'+
-    (words.length?entries(kind,words):'<p class="ne-tray-empty">Пока нет слов за этот период</p>')+'</section>').join('')+'</div>'+
-   (s.queuedNew?'<small>Ещё '+s.queuedNew+' новых слов останутся в истории и вернутся позднее.</small>':'')+
-   '<small class="ne-tray-footer">Формы показаны только по проверенному словарю. Нажатие не засчитывает слово выученным.</small></section>';
+  const d=slots(lesson);if(!d)return '';
+  displayedLesson=lesson;
+  const groups=[['today','Новые и трудные',d.today],['yesterday','Вчера и повторение',d.yesterday],['older','Позавчера и трудные',d.older]];
+  const count=d.today.length+d.yesterday.length+d.older.length;
+  return '<section class="ne-vocab-trays" data-ne-tray-date="'+esc(d.date)+'" data-no-bridge>'+
+   '<div class="ne-tray-heading"><b>Слова для живой речи</b><small>'+count+' из 15 слов. Используй подходящие слова в своих фразах — не обязательно все сразу.</small></div>'+
+   '<div class="ne-tray-tabs" role="group" aria-label="Группы слов">'+groups.map(([kind,title,words],i)=>
+    '<button type="button" class="ne-tray-tab'+(i===0?' is-active':'')+'" data-ne-tray-tab="'+kind+'" aria-pressed="'+(i===0?'true':'false')+'" onclick="NEWordTrays.select(this)">'+
+    ['Новые','Повторить','Трудные'][i]+' <small>'+words.length+'</small></button>').join('')+'</div>'+
+   '<div class="ne-tray-panels">'+groups.map(([kind,title,words],i)=>
+    '<section class="ne-tray-panel'+(i===0?' is-active':'')+'" data-ne-tray-column="'+kind+'">'+
+    panelHeader(title,words.length)+(words.length?entries(kind,words):'<p class="ne-tray-empty">В истории пока нет подходящих слов. Они появятся по мере обучения.</p>')+
+    '</section>').join('')+'</div>'+
+   (d.queuedNew?'<small>Ещё '+d.queuedNew+' новых слов запланированы на дальнейшее повторение.</small>':'')+
+   '<small class="ne-tray-footer">Формы показаны только по проверенному словарю. Просмотр не засчитывает слово выученным.</small></section>';
+ }
+ function select(button){
+  const root=button?.closest?.('.ne-vocab-trays'),kind=button?.dataset.neTrayTab;
+  if(!root||!['today','yesterday','older'].includes(kind))return false;
+  for(const tab of root.querySelectorAll('[data-ne-tray-tab]')){
+   const active=tab.dataset.neTrayTab===kind;
+   tab.classList.toggle('is-active',active);tab.setAttribute('aria-pressed',String(active));
+  }
+  for(const panel of root.querySelectorAll('[data-ne-tray-column]'))
+   panel.classList.toggle('is-active',panel.dataset.neTrayColumn===kind);
+  return true;
  }
  function reveal(button){
   const group=button?.closest?.('.ne-tray-panel'),root=button?.closest?.('.ne-vocab-trays'),
@@ -196,11 +252,12 @@
   const date=root?.dataset.neTrayDate;
   const t=db(),record=t?.days?.[date];
   if(!group||!root||!word||!record||!['older','yesterday'].includes(kind))return false;
-  const row=(record[kind]||[]).find(w=>lemma(w.word)===lemma(word));
+  const row=(kind==='yesterday'?composedSlots(record).yesterday:record.older||[]).find(w=>lemma(w.word)===lemma(word));
   const panel=button.parentElement?.querySelector('.ne-tray-reveal');
   if(!row||!panel)return false;
   panel.innerHTML=info(row,false);
   panel.hidden=false;
+  button.setAttribute('aria-expanded','true');
   const s=getState();
   if(s&&kind==='yesterday'){
    // Translation peek is an uncertainty signal, not proof of a wrong answer.
@@ -213,27 +270,24 @@
   if(kind==='older'&&markOldForgotten(word,date)){
    panel.insertAdjacentHTML('beforeend','<p class="ne-tray-promoted">Забытое слово перенесено в первую группу и назначено на повторение.</p>');
    // Do not re-render the whole lesson while the student is typing a response.
-   const fresh=slots(window.neLessonSession?.lesson,date);
+   const fresh=slots(window.neLessonSession?.lesson||displayedLesson,date);
    const top=root.querySelector('[data-ne-tray-column="today"]');
-   if(fresh&&top){
-    top.innerHTML='<b>Новые / переучиваемые</b><small>'+fresh.today.length+'/'+LIMIT+'</small>'+
-     fresh.today.map(w=>'<div class="ne-tray-item"><button type="button" class="ne-tray-word" data-ne-tray-word="'+esc(w.word)+'">'+esc(w.word)+'</button>'+info(w,true)+'</div>').join('');
-   }
+   if(fresh&&top)top.innerHTML=panelHeader('Новые и трудные',fresh.today.length)+entries('today',fresh.today);
   }
   return true;
  }
  function focus(lesson){
   const s=slots(lesson);if(!s)return [];
-  return [...s.today.map(x=>({...x,stage:'new'})),...s.yesterday.map(x=>({...x,stage:'yesterday'})),
+  return [...s.today.map(x=>({...x,stage:'new'})),...s.yesterday.map(x=>({...x,stage:x.origin==='review-backlog'?'review':'yesterday'})),
    ...s.older.map(x=>({...x,stage:'review'}))]
    .slice(0,15).map(x=>({word:x.word,ru:x.ru,stage:x.stage}));
  }
  function styles(){
   if(typeof document==='undefined'||document.getElementById('ne-vocab-trays-style'))return;
   const el=document.createElement('style');el.id='ne-vocab-trays-style';
-  el.textContent='.ne-vocab-trays{margin:14px 0;padding:12px 0;max-width:100%}.ne-tray-heading{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}.ne-tray-heading b{font-weight:800}.ne-tray-heading small,.ne-tray-footer{color:var(--muted,#647687)}.ne-tray-panels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}.ne-tray-panel{min-width:0;padding:10px;border-radius:13px;border:1px solid #adc6ce;background:#f0f6f7;color:#163543;display:flex;flex-direction:column;gap:6px}.ne-tray-panel>b{font-size:14px}.ne-tray-panel>small{opacity:.76}.ne-tray-item{border-top:1px solid #c5d9de;padding-top:6px}.ne-tray-word{display:flex;flex-direction:column;align-items:flex-start;gap:3px;border:0;background:transparent;color:#133b55;cursor:pointer;width:100%;text-align:left;padding:6px 3px;font-weight:700;overflow-wrap:anywhere}.ne-tray-word small{font-size:11px;font-weight:400}.ne-tray-info{font-size:12px;line-height:1.4;overflow-wrap:anywhere}.ne-tray-info p{margin:5px 0}.ne-tray-info summary{cursor:pointer;font-weight:600}.ne-tray-info ul{padding-left:16px}.ne-tray-info li{margin:3px 0}.ne-tray-info a{color:#155f85}.ne-tray-empty{font-size:12px}.ne-tray-promoted{font-size:12px;font-weight:700;color:#006242}.ne-tray-footer{display:block;padding-top:10px;font-size:11px}@media(max-width:700px){.ne-tray-panels{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:10px;padding-bottom:10px;overscroll-behavior-x:contain}.ne-tray-panel{flex:0 0 min(81vw,295px);scroll-snap-align:start;padding:13px}.ne-vocab-trays{overflow:hidden}.ne-tray-panel>b{font-size:15px}}';
+  el.textContent="\n.ne-vocab-trays{margin:18px 0;padding:18px;max-width:100%;border:1px solid #d8e8ee;border-radius:23px;background:linear-gradient(140deg,#f8fcfe,#eaf3f7);color:#183b4c;box-shadow:0 12px 25px #13374e16}\n.ne-tray-heading{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}\n.ne-tray-heading b{font-size:20px;letter-spacing:-.025em;color:#153a4b}\n.ne-tray-heading small,.ne-tray-footer{font-size:12px;line-height:1.5;color:#536f80}\n.ne-tray-panels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:start}\n.ne-tray-tabs{display:none}\n.ne-tray-panel{display:flex;flex-direction:column;min-width:0;gap:0;padding:14px 14px 6px;border:1px solid #d7e5eb;border-top:4px solid #249b82;border-radius:17px;background:#fff;box-shadow:0 5px 15px #1945560c}\n.ne-tray-panel[data-ne-tray-column=\"yesterday\"]{border-top-color:#3394c9}\n.ne-tray-panel[data-ne-tray-column=\"older\"]{border-top-color:#dfa449}\n.ne-tray-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:9px;padding-bottom:13px}\n.ne-tray-panel-head b{color:#193b4c;font-size:15px;line-height:1.3}\n.ne-tray-count{flex:none;border-radius:15px;padding:4px 9px;background:#e8f2f6;color:#366176;font-size:12px;font-weight:800}\n.ne-tray-item{border-top:1px solid #e2ebf0;padding:13px 0}\n.ne-tray-new-word{display:flex;flex-direction:column;gap:4px}\n.ne-tray-new-word b,.ne-tray-word span{font-size:18px;line-height:1.25;font-weight:800;color:#133c55;overflow-wrap:anywhere}\n.ne-tray-new-word>span{font-size:13px;line-height:1.45;color:#526b7a}\n.ne-tray-word{display:flex;flex-direction:column;gap:4px;align-items:flex-start;width:100%;min-height:42px;padding:5px 0;border:0;background:transparent;text-align:left;cursor:pointer}\n.ne-tray-word small{font-size:12px;font-weight:500;color:#56758b}\n.ne-tray-details{margin-top:8px}\n.ne-tray-details summary{font-size:12px;color:#176986;font-weight:750;cursor:pointer}\n.ne-tray-details[open],.ne-tray-reveal:not([hidden]){border-radius:12px;padding:9px;margin-top:8px;background:#f1f7fa}\n.ne-tray-info{font-size:12px;line-height:1.55;overflow-wrap:anywhere;color:#244b61}\n.ne-tray-info p{margin:6px 0}\n.ne-tray-info summary{cursor:pointer;font-weight:650}\n.ne-tray-info ul{padding-left:17px}.ne-tray-info li{margin:4px 0}\n.ne-tray-info a{color:#126e99}\n.ne-tray-empty{font-size:13px;line-height:1.5;color:#5c7585}\n.ne-tray-promoted{font-size:12px;font-weight:800;color:#006e51}\n.ne-tray-footer{display:block;padding-top:13px}\n.ne-tray-tab:focus-visible,.ne-tray-word:focus-visible,.ne-tray-details summary:focus-visible{outline:3px solid #2e89c4;outline-offset:2px}\n@media(max-width:700px){\n .ne-vocab-trays{margin:14px 0;padding:15px;border-radius:19px;overflow:visible}\n .ne-tray-heading b{font-size:19px}\n .ne-tray-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin:13px 0;padding:5px;border-radius:14px;background:#dceaf2}\n .ne-tray-tab{min-width:0;padding:10px 3px;border:0;border-radius:10px;background:transparent;color:#4a6878;font-size:12px;font-weight:800;cursor:pointer}\n .ne-tray-tab small{opacity:.8}\n .ne-tray-tab.is-active{background:#fff;color:#0b5573;box-shadow:0 2px 7px #123b5520}\n .ne-tray-panels{display:block}\n .ne-tray-panel{display:none;padding:15px 16px 5px}\n .ne-tray-panel.is-active{display:flex}\n .ne-tray-panel-head b{font-size:16px}\n .ne-tray-new-word b,.ne-tray-word span{font-size:19px}\n}\n";
   document.head.appendChild(el);
  }
  styles();
- window.NEWordTrays=Object.freeze({ensure,slots,render,reveal,focus,markOldForgotten,lemma,localDate,offset});
+ window.NEWordTrays=Object.freeze({ensure,slots,render,select,reveal,focus,markOldForgotten,lemma,localDate,offset});
 })();
