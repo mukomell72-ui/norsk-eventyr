@@ -25,6 +25,19 @@ assert(!grounded.assessment.explanation_ru.includes('mørgen'),'Ungrounded model
 assert(!grounded.assessment.score_reason_ru.includes('mørgen'),'Fabricated deductions must not appear in score reason');
 assert(grounded.assessment.score_reason_ru.includes('минус 15'));
 assert(grounded.assessment.explanation_ru.includes('после I dag'));
+const positive=groundAssessment(result(85,[issue('word_order','I dag jeg møtes',15,
+ 'В главном предложении после I dag личный глагол ставится перед jeg.')],true,{
+ strengths_ru:[
+  '«Vi kunne møtes i morgen klokka tre» — удачно предложены день и время.',
+  '«mørgen» — этот фрагмент отсутствует у ученика.',
+  '«I dag jeg møtes» — нельзя хвалить тот же ошибочный фрагмент.'
+ ]
+}),context);
+assert(positive.ok);
+assert.deepEqual(positive.assessment.strengths_ru,
+ ['«Vi kunne møtes i morgen klokka tre» — удачно предложены день и время.'],
+ 'Only anchored non-penalized correct excerpts may be praised');
+
 const omission=groundAssessment(result(85,[issue('task','',15,'Не выполнено требование описать невозможность встретиться.',
  {requirement_quote:'сегодня днём не можешь встретиться'})]),context);
 assert(omission.ok);
