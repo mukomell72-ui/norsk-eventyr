@@ -226,13 +226,13 @@ function freeExGuided(l){
  '<div class="guided-progress">Реплика '+(progress.index+1)+' из '+scene.steps.length+'</div>'+
  transcript.join('')+
  (progress.flowNotice?'<div class="notice" role="status">Диалог обновлён: продолжим с вежливой фразы знакомства. Предыдущие реплики сохранены до этого шага.</div>':'')+
- '<div class="guided-task"><b>Нора · твой следующий шаг</b><p>'+esc(step.task)+'</p></div>'+
- '<div class="guided-language">Сначала попробуй ответить своими словами и вслух. Нора объяснит не только что исправить, но и почему так строится норвежская фраза. После объяснения ответь ещё раз самостоятельно.</div>'+
+ '<div class="guided-task"><b>Твой ход</b><p>'+esc(step.task)+'</p></div>'+
+ '<details class="guided-language"><summary>Как Нора помогает</summary>Сначала ответь своими словами. Если возникнет трудность, Нора объяснит правило и предложит попробовать ещё раз.</details>'+
  '<textarea id="freeAnswer" name="guided-answer-'+esc(l.id)+'-'+progress.index+'" data-guided-turn="'+progress.index+'" class="input" rows="2" autocomplete="off" placeholder="Твой ответ по-норвежски…" oninput="this.dataset.fromVoice=\'false\';neGuidedAnswerEdited(this)"></textarea>'+
  '<div class="row guided-controls speech-actions-v831"><button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>'+
  '<button id="guidedSend" class="btn" onclick="checkFree(\'speaking\')">✓ Ответить</button></div>'+
  '<button class="btn ghost" type="button" onclick="neGuidedExplain()">Не понимаю: почему так и что делать?</button>'+
- '<small class="muted">Текст можно использовать для тренировки, но он не засчитывается как подтверждение навыка устной речи. Проверяется смысл расшифровки, не произношение.</small>'+
+ '<small class="muted">Голосом — тренировка речи. Текстом — тренировка письма. Произношение по расшифровке не оценивается.</small>'+
  '<div id="freeFb" aria-live="polite"></div></article>';
 }
 window.freeEx=function(l,mode){
@@ -352,7 +352,7 @@ async function guidedCheck(){
   return;
  }
  const e=r.data||{},score=Math.min(100,Math.max(0,Math.round(Number(e.score)||0))),
-  ok=e.accepted===true&&score===100&&(!Array.isArray(e.issues)||e.issues.length===0),skill=spoken?'speaking':'writing',evidence=e.accepted===true?score:Math.min(40,score);
+  ok=e.accepted===true&&score>=({A1:65,A2:68,B1:72,B2:75}[l.level]||65),skill=spoken?'speaking':'writing',evidence=e.accepted===true?score:Math.min(40,score);
  // Only the first verified attempt of each turn contributes to course evidence.
  // Revisions show an updated grade but cannot award XP repeatedly.
  progress.firstScores=progress.firstScores&&typeof progress.firstScores==='object'&&!Array.isArray(progress.firstScores)?progress.firstScores:{};
