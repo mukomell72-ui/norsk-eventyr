@@ -29,7 +29,10 @@ function extract(name,async=false){
  }
  throw Error('Unclosed function '+name);
 }
-const originals=['noraAttemptReviewHtml','aiLessonFeedbackHtml','firstGrade','firstGradeNote','retryCoachFeedback','reviseCheckedAnswer','checkDialogue'].map(n=>extract(n,n==='checkDialogue')).join('\n');
+// The shared reviewer includes regular-expression braces; extract it as one contiguous module.
+const teachingReview=app.slice(app.indexOf('function noraAttemptReviewHtml('),app.indexOf('function lessonFeedbackSummary('));
+assert(teachingReview.includes('function aiLessonFeedbackHtml('));
+const originals=teachingReview+'\n'+['firstGrade','firstGradeNote','retryCoachFeedback','reviseCheckedAnswer','checkDialogue'].map(n=>extract(n,n==='checkDialogue')).join('\n');
 let grades=0,focuses=0;
 let display={innerHTML:'',isConnected:true},input={value:'Jeg kan ikke komme på lørdag.',dataset:{fromVoice:'false'},focus(){focuses++;}};
 let session={lesson:{level:'A1',id:'sample'},dialogueIndex:0,locked:true,firstGraded:{}};
