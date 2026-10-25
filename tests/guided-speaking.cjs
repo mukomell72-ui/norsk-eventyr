@@ -7,7 +7,7 @@ const curriculum=fs.readFileSync(path.join(base,'curriculum-v8.js'),'utf8');
 const speaking=fs.readFileSync(path.join(base,'guided-speaking.js'),'utf8');
 const ui=fs.readFileSync(path.join(base,'ui-v7.js'),'utf8');
 const app=fs.readFileSync(path.join(base,'app.js'),'utf8');
-assert.match(app,/accepted===true&&\(d\.score\?\?70\)>=50/,'Native dialogue accepts verified 50/100');
+assert.match(app,/function fullyCorrectAnswer\(/,'Native dialogue must demand verified error-free completion');
 assert(app.includes('window.neGuidedAnswerEdited?.(f);'),'Speech recognition must unlock an accepted reply when it changes the answer');
 assert.match(ui,/helpMarkupV7\(content\.includes\('class="card guided-speaking"'\)\)/,
  'Guided lesson suppresses the duplicate help trigger');
@@ -55,7 +55,7 @@ assert.match(speaking,/return window\.neAttemptReviewHtml\(e,\{answer,ok,firstSc
  const state={};
  const w={
   freeEx:()=>'<legacy>',checkFree:()=> 'legacy',neLessonSession:session,neLearnerState:state,
-  aiEvaluate:async()=>({ok:true,data:{accepted,score:accepted?95:22,explanation_ru:accepted?'':'Попробуй снова.'}}),
+  aiEvaluate:async()=>({ok:true,data:{accepted,score:accepted?100:22,explanation_ru:accepted?'':'Попробуй снова.'}}),
   trackLessonScore:(v)=>scores.push(v),
   NEAdaptive:{recordAttempt:(_state,item)=>attempts.push(item)},
   saveState:()=>{},neDiscardAcceptedGuidedDraft:()=>{discarded++},renderLesson:()=>{rerenders++},
@@ -91,7 +91,7 @@ assert.match(speaking,/return window\.neAttemptReviewHtml\(e,\{answer,ok,firstSc
  accepted=true;
  await w.checkFree('speaking');
  assert.equal(session.locked,true);
- assert.match(feedback.innerHTML,/95\/100/,'Corrected text shows its current evaluation');
+ assert.match(feedback.innerHTML,/100\/100/,'Corrected text shows its current evaluation');
  assert.match(feedback.innerHTML,/22\/100/,'Original result stays visible');
  assert.equal(scores.length,1,'Correction does not change progress or XP');
  assert.equal(attempts.length,1,'Adaptive module records only first attempt');
@@ -107,7 +107,7 @@ assert.match(speaking,/return window\.neAttemptReviewHtml\(e,\{answer,ok,firstSc
  assert.equal(session.locked,false,'Editing accepted text unlocks the same turn');
  assert.equal(session.guidedSpeech.pending,undefined,'Editing invalidates previous accepted response');
  assert.doesNotMatch(feedback.innerHTML,/Следующая реплика/,'No stale next action after editing');
- assert(!feedback.innerHTML.includes('95/100'),'Old review disappears after editing');
+ assert(!feedback.innerHTML.includes('100/100'),'Old review disappears after editing');
  await w.checkFree('speaking');
  assert.equal(session.locked,true,'Third submission can be accepted');
  assert(feedback.innerHTML.includes('Jeg bor i Bergen.'),'New feedback quotes the third submission');
@@ -187,14 +187,15 @@ assert.match(speaking,/return window\.neAttemptReviewHtml\(e,\{answer,ok,firstSc
  assert.match(updatedMarkup,/Скажи Эрику, что тебе приятно познакомиться/);
  assert.equal(stale.flowVersion,2);
  assert.equal(w.checkFree('writing'),'legacy','writing checker should be preserved');
- // Server allows accepted=true at score 50. The client must not reject it at 55.
+ // Communicative acceptance at 50/100 does NOT mean the wording is correct.
  session.lesson=keyHome;session.guidedSpeech=null;session.locked=false;
  field.value='Jeg kan komme i morgen klokka tre.';
  w.aiEvaluate=async()=>({ok:true,data:{accepted:true,score:50,issues:[{category:'task'}],explanation_ru:'Oppgaven er gjennomført.',score_reason_ru:'En av detaljene bør forbedres.'}});
  await w.checkFree('speaking');
- assert.equal(session.locked,true,'A server-accepted 50/100 must be accepted by the teacher');
+ assert.equal(session.locked,false,'A server-accepted 50/100 still needs revision');
  assert.match(feedback.innerHTML,/50\/100/);
- assert.match(feedback.innerHTML,/Ответ принят с замечаниями/);
+ assert.match(feedback.innerHTML,/Ответ пока не принят/);
+ assert.doesNotMatch(feedback.innerHTML,/Следующая реплика/,'Do not advance while a verified issue remains');
  // A response edited while the server is working must not be accepted or graded.
  session.guidedSpeech=null;session.locked=false;
  field.value='Jeg kan møte deg klokka tre.';
