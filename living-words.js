@@ -546,7 +546,7 @@ function render(){
    '<div class="card" style="padding:24px"><div class="muted">'+esc(grammar.typeRu)+'</div>'+kind+
    '<h2 lang="nb" style="text-align:center">'+esc(grammar.headword)+'</h2>'+
    '<button class="btn secondary" onclick="NELivingWords.listenCard()">▶ Послушать слово</button>'+stageLabel+
-   result+fields+morphology+'</div>',d);
+   result+fields+morphology+(window.NEWordMeanings?.render?.({word:word.word,translation:word.translation},{expanded:!!feedback})||'')+'</div>',d);
  }
  if(d.stage==='cloze'){
   const tasks=clozeSet(d.level,d.date),task=tasks[d.clozeIndex],help=d.clozeHelp,coach=window.NEClozeCoach;
