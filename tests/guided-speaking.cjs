@@ -64,16 +64,23 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  assert.equal(session.guidedSpeech.index,0,'incorrect answer advanced dialogue');
  assert.equal(session.locked,false,'incorrect response must unlock retry');
  assert.equal(attempts[0].skill,'speaking');
+ assert.match(feedback.innerHTML,/22\/100/,'Rejected answer must show a numeric grade');
+ assert.equal(scores.length,1,'First turn establishes one course score');
  accepted=true;
  await w.checkFree('speaking');
  assert.equal(session.locked,true);
+ assert.match(feedback.innerHTML,/95\/100/,'Corrected text shows its current evaluation');
+ assert.match(feedback.innerHTML,/22\/100/,'Original result stays visible');
+ assert.equal(scores.length,1,'Correction does not change progress or XP');
+ assert.equal(attempts.length,1,'Adaptive module records only first attempt');
+ assert.equal(session.guidedSpeech.firstScores['0'],22,'First verified score remains immutable');
  assert.match(feedback.innerHTML,/Следующая реплика/);
  assert.match(feedback.innerHTML,/Hvor kommer du fra/);
  w.neGuidedNext();
  assert.equal(session.guidedSpeech.index,1);
  assert.equal(session.guidedSpeech.turns.length,1);
  assert.equal(rerenders,1);
- assert.equal(checkpoints,1);
+ assert.equal(checkpoints,2,'Initial grade and step transition both preserve checkpoint');
  assert.equal(discarded,1,'Accepted answer must be removed before advancing the turn');
  field.value='Jeg kommer fra Ukraina og bor i Oslo.';
  await w.checkFree('speaking');w.neGuidedNext();
@@ -100,7 +107,7 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  w.neGuidedNext();
  assert.equal(finishes,1,'finish only after all valid turns');
  assert.equal(discarded,8,'Every accepted dialogue turn discards its editable draft');
- assert.equal(scores.length,9,'each evaluated attempt should contribute evidence');
+ assert.equal(scores.length,8,'Only the first attempt of each of eight turns contributes to progress');
  // Dynamic replies are used only AFTER the learner passes the scored step.
  // They must survive rerender, while a chat outage falls back to authored text.
  session.lesson=keyHome;session.guidedSpeech=null;session.locked=false;field.value='Hvor er nøkkelen?';
@@ -130,5 +137,26 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  assert.match(updatedMarkup,/Скажи Эрику, что тебе приятно познакомиться/);
  assert.equal(stale.flowVersion,2);
  assert.equal(w.checkFree('writing'),'legacy','writing checker should be preserved');
+ // Server allows accepted=true at score 50. The client must not reject it at 55.
+ session.lesson=keyHome;session.guidedSpeech=null;session.locked=false;
+ field.value='Jeg kan komme i morgen klokka tre.';
+ w.aiEvaluate=async()=>({ok:true,data:{accepted:true,score:50,issues:[{category:'task'}],explanation_ru:'Oppgaven er gjennomført.',score_reason_ru:'En av detaljene bør forbedres.'}});
+ await w.checkFree('speaking');
+ assert.equal(session.locked,true,'A server-accepted 50/100 must be accepted by the teacher');
+ assert.match(feedback.innerHTML,/50\/100/);
+ assert.match(feedback.innerHTML,/Ответ принят с замечаниями/);
+ // A response edited while the server is working must not be accepted or graded.
+ session.guidedSpeech=null;session.locked=false;
+ field.value='Jeg kan møte deg klokka tre.';
+ let resolveCheck;
+ w.aiEvaluate=()=>new Promise(resolve=>{resolveCheck=resolve});
+ const before=scores.length;
+ const pending=w.checkFree('speaking');
+ field.value='Jeg kan møte deg klokka fem.';
+ resolveCheck({ok:true,data:{accepted:true,score:100,issues:[]}});
+ await pending;
+ assert.equal(session.locked,false);
+ assert.equal(scores.length,before,'Stale response must not affect progress');
+ assert.match(feedback.innerHTML,/изменён во время проверки/);
  console.log('Guided speaking: 32 modules, 8 A1 turns, rejected retry, progress, voice evidence, typed fallback OK');
 })().catch(error=>{console.error(error);process.exitCode=1});
