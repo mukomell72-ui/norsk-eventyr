@@ -81,7 +81,7 @@ function clearerTaskPrompt(prompt){
  return value;
 }
 // A single evidence-led explanation is used for EVERY graded attempt:
- // guided dialogue, ordinary dialogue, writing and speaking corrections.
+// guided dialogue, ordinary dialogue, writing and speaking corrections.
 function noraAttemptReviewHtml(d,{answer="",ok,firstScore,title="",isCorrection=false}={}){
  const score=Math.max(0,Math.min(100,Math.round(Number(d?.score)||0)));
  const accepted=typeof ok==="boolean"?ok:d?.accepted===true;
@@ -95,7 +95,7 @@ function noraAttemptReviewHtml(d,{answer="",ok,firstScore,title="",isCorrection=
  else if(isCorrection)parts.push('<p><small>Текущая оценка исправления: '+score+'/100. Первая оценка и XP не пересчитываются.</small></p>');
  const strengths=Array.isArray(d?.strengths_ru)?d.strengths_ru.slice(0,2):[];
  // A model's unquoted compliments are not sufficient evidence of correctness.
- const normalize=x=>String(x||"").normalize("NFKC").replace(/\\s+/gu," ").trim().toLowerCase();
+ const normalize=x=>String(x||"").normalize("NFKC").replace(/\s+/gu," ").trim().toLowerCase();
  const good=strengths.filter(value=>{
   const quotes=[...String(value).matchAll(/«([^»]{2,160})»/gu)].map(x=>x[1]);
   return quotes.length>0&&quotes.every(q=>normalize(source).includes(normalize(q)))&&
