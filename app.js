@@ -399,7 +399,7 @@ async function checkDialogue(){
  if(!b.isConnected||lessonSession!==s){s.locked=false;return;}
  if(input.value.trim()!==a){s.locked=false;b.innerHTML='<div class="feedback">Ответ изменён во время проверки. Проверь обновлённый текст ещё раз.</div>';return;}
  if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">'+esc(evaluationErrorMessage(r.error))+verifiedNorwegianHintsHtml(r.verifiedHints)+'</div>';return;}
- const d=r.data,ok=d.accepted===true&&(d.score??70)>=55;
+ const d=r.data,ok=d.accepted===true&&(d.score??70)>=50;
  if(typeof d.corrected==="string"&&d.corrected.trim())s.dialogueSuggestion={key:gradeKey,text:d.corrected.trim()};
  const firstAttempt=firstGrade(s,gradeKey,d.score??(ok?70:40),()=>{trackLessonScore(d.score??(ok?70:40),{label:"Диалог",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:l.level,skill:spoken?"speaking":"writing",score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l.id,source:spoken?"dialogue_voice":"dialogue_text",errorTag:d.error_tag||"",targetErrorTag:l?._adaptive?.errorTag||"",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});});
  
@@ -407,7 +407,7 @@ async function checkDialogue(){
   b.innerHTML=(window.NEExperience?.response?.(true,"dialogue")||"")+firstGradeNote(s,gradeKey)+(firstAttempt?aiLessonFeedbackHtml(d,"✓ Задача выполнена"):retryCoachFeedback(d,true))+'<button type="button" class="btn secondary" onclick="reviseCheckedAnswer(\'dialogue\')">Исправить ещё</button><button class="btn lesson-next-v8" onclick="continueCheckedDialogue()">Дальше →</button>';
   return;
  }
- s.locked=false;b.innerHTML=(window.NEExperience?.response?.(false,"dialogue")||"")+firstGradeNote(s,gradeKey)+'<div class="feedback bad"><b>Исправь одну главную вещь и ответь снова</b><br>'+esc(d.explanation_ru||"Исправь ответ и проверь снова.")+(d.micro_rule_ru?'<br><b>Правило:</b> '+esc(d.micro_rule_ru):"")+(d.corrected?'<br><b>Естественнее:</b> '+esc(d.corrected):"")+(d.retry_prompt_no?'<br><small>После исправления попробуй также: '+esc(d.retry_prompt_no)+'</small>':"")+'</div>';input.focus();
+ s.locked=false;b.innerHTML=(window.NEExperience?.response?.(false,"dialogue")||"")+firstGradeNote(s,gradeKey)+'<div class="feedback bad"><b>Текущая оценка: '+esc(String(d.score??0))+'/100. Исправь одну главную вещь и ответь снова.</b><br>'+esc(d.explanation_ru||"Исправь ответ и проверь снова.")+(d.micro_rule_ru?'<br><b>Правило:</b> '+esc(d.micro_rule_ru):"")+(d.corrected?'<br><b>Естественнее:</b> '+esc(d.corrected):"")+(d.retry_prompt_no?'<br><small>После исправления попробуй также: '+esc(d.retry_prompt_no)+'</small>':"")+'</div>';input.focus();
 }
 
 function adaptiveVocabItems(l){
@@ -526,10 +526,10 @@ async function checkFree(mode){
  if(!b.isConnected||lessonSession!==s){s.locked=false;return}
  if(input.value.trim()!==a){s.locked=false;b.innerHTML='<div class="feedback">Ответ был изменён во время проверки. Проверь новый текст ещё раз.</div>';return}
  if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">'+esc(evaluationErrorMessage(r.error))+verifiedNorwegianHintsHtml(r.verifiedHints)+'</div>';return}
- const d=r.data,ok=d.accepted===true&&(d.score??70)>=55,skill=spoken?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer,
+ const d=r.data,ok=d.accepted===true&&(d.score??70)>=50,skill=spoken?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer,
  evidenceScore=ok?Math.max(0,Math.min(100,Math.round(Number(d.score)||0))):Math.min(40,Math.max(0,Math.round(Number(d.score)||0)));
  const gradeKey="free:"+mode+":"+s.step+(rem?":transfer:"+String(rem.retries||0):""),firstAttempt=firstGrade(s,gradeKey,evidenceScore,()=>{trackLessonScore(evidenceScore,{label:spoken?"Речь":"Письмо",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill,score:evidenceScore,moduleId:l?._adaptive?.moduleId||l?.id,source:mode==="speaking"&&!spoken?"lesson_free_text":rem?"lesson_free_transfer":"lesson_free",errorTag:d.error_tag||"",targetErrorTag:rem?.errorTag||l?._adaptive?.errorTag||"",transfer:isTransfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}});
- const humanFeedback=(window.NEExperience?.response?.(ok,mode)||"")+firstGradeNote(s,gradeKey);
+ const humanFeedback=(window.NEExperience?.response?.(ok,mode)||"")+firstGradeNote(s,gradeKey)+(!ok?'<p class="ne-current-grade"><b>Текущая оценка: '+esc(String(d.score??0))+'/100.</b> '+(firstAttempt?'Первоначальный результат сохранён.':'Исправление проверено повторно; XP не пересчитываются.')+'</p>':'');
  if(ok){
   s.lastFreeAccepted={mode,remediation:rem?{...rem}:null,speakingFollowup:s.speakingFollowup===true};
   s.remediation=null;s.proposedRemediation=null;s.locked=true;

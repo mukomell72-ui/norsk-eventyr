@@ -278,6 +278,25 @@ async function nextSceneReply(l,scene,progress,answer,spoken,index){
  }catch{return null}
  finally{if(timer!==null)window.clearTimeout(timer)}
 }
+function guidedGradeFeedback(e,score,ok,firstScore,answer){
+ const issues=Array.isArray(e.issues)?e.issues:[];
+ const perfect=ok&&score===100&&issues.length===0;
+ const title=perfect?'Ответ принят без ошибок':ok?'Ответ принят с замечаниями':'Ответ пока не принят';
+ const parts=['<b>'+title+' · '+score+'/100</b>'];
+ if(firstScore!==undefined){
+  parts.push('<p><small>Первая оценка: '+firstScore+'/100 (для прогресса). '+
+   (firstScore===score?'':'Текущая оценка исправления: '+score+'/100. ')+
+   'За исправления XP повторно не начисляются.</small></p>');
+ }
+ if(perfect)parts.push('<p>Задание выполнено, подтверждённых ошибок нет.</p>');
+ else{
+  if(e.explanation_ru)parts.push('<p>'+esc(e.explanation_ru)+'</p>');
+  if(e.score_reason_ru)parts.push('<p><small>'+esc(e.score_reason_ru)+'</small></p>');
+  if(e.corrected&&String(e.corrected).trim()!==String(answer||'').trim())
+   parts.push('<p><b>Естественный вариант:</b> <span lang="nb">'+esc(e.corrected)+'</span></p>');
+ }
+ return '<div class="feedback '+(ok?'good':'bad')+'" role="status">'+parts.join('')+'</div>';
+}
 async function guidedCheck(){
  const s=window.neLessonSession,l=s?.lesson,d=l&&ensure(l),input=document.getElementById('freeAnswer'),a=input?.value.trim(),box=document.getElementById('freeFb');
  if(!d||!input||!box||!a||s.locked)return;
@@ -296,28 +315,39 @@ async function guidedCheck(){
   'Не требуй дословного повторения и не оценивай будущие этапы.';
  const r=await window.aiEvaluate({answer:a,question,goal,level:l.level,mode:spoken?'speaking_dialogue':'writing_dialogue'});
  if(window.neLessonSession!==s||!box.isConnected||progress.index!==index){s.locked=false;return}
- if(!r.ok){s.locked=false;box.innerHTML='<div class="feedback bad">Проверка сейчас недоступна. Реплика не засчитана. Попробуй ещё раз.</div>';return}
- const e=r.data||{},ok=e.accepted===true&&Number(e.score)>=55,score=Math.min(100,Math.max(0,Number(e.score)||0)),skill=spoken?'speaking':'writing', evidence=ok?score:Math.min(40,score);
- window.trackLessonScore(evidence,{label:spoken?'Реплика · речь':'Реплика · текст',strength:e.strengths_ru?.[0]||'',improvement:e.improvements_ru?.[0]||'',explanation:e.explanation_ru||'',corrected:e.corrected||'',rule:e.micro_rule_ru||'',scoreReason:e.score_reason_ru||''});
- if(window.NEAdaptive){
-  window.NEAdaptive.recordAttempt(window.neLearnerState,{level:l.level,skill,score:evidence,moduleId:l?._adaptive?.moduleId||l.id,source:spoken?'lesson_free':'lesson_free_text',errorTag:e.error_tag||'',targetErrorTag:l?._adaptive?.errorTag||'',transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||''});
-  window.saveState();
+ if(input.value.trim()!==a){s.locked=false;box.innerHTML='<div class="feedback">Ответ изменён во время проверки. Нажми «Ответить» ещё раз.</div>';return}
+ if(!r.ok){
+  const detail=typeof window.evaluationErrorMessage==='function'?window.evaluationErrorMessage(r.error):
+   'Нора не завершила проверку. Ответ сохранён, оценка и прогресс не изменены.';
+  s.locked=false;box.innerHTML='<div class="feedback bad" role="status">'+esc(detail)+'</div>';
+  return;
  }
+ const e=r.data||{},score=Math.min(100,Math.max(0,Math.round(Number(e.score)||0))),
+  ok=e.accepted===true&&score>=50,skill=spoken?'speaking':'writing',evidence=ok?score:Math.min(40,score);
+ // Only the first verified attempt of each turn contributes to course evidence.
+ // Revisions show an updated grade but cannot award XP repeatedly.
+ progress.firstScores=progress.firstScores&&typeof progress.firstScores==='object'&&!Array.isArray(progress.firstScores)?progress.firstScores:{};
+ const scoreKey=String(index),firstAttempt=!Object.prototype.hasOwnProperty.call(progress.firstScores,scoreKey);
+ if(firstAttempt){
+  progress.firstScores[scoreKey]=score;
+  window.trackLessonScore(evidence,{label:spoken?'Реплика · речь':'Реплика · текст',strength:e.strengths_ru?.[0]||'',improvement:e.improvements_ru?.[0]||'',explanation:e.explanation_ru||'',corrected:e.corrected||'',rule:e.micro_rule_ru||'',scoreReason:e.score_reason_ru||''});
+  if(window.NEAdaptive){
+   window.NEAdaptive.recordAttempt(window.neLearnerState,{level:l.level,skill,score:evidence,moduleId:l?._adaptive?.moduleId||l.id,source:spoken?'lesson_free':'lesson_free_text',errorTag:e.error_tag||'',targetErrorTag:l?._adaptive?.errorTag||'',transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||''});
+   window.saveState();
+  }
+  window.persistLessonCheckpoint?.();
+ }
+ const feedback=guidedGradeFeedback(e,score,ok,progress.firstScores[scoreKey],a);
  if(!ok){
   s.locked=false;
-  box.innerHTML='<div class="feedback bad"><b>Пока не засчитано. Попробуй ещё раз.</b>'+
-   (e.explanation_ru?'<br>'+esc(e.explanation_ru):'')+
-   (e.micro_rule_ru?'<br><b>Правило:</b> '+esc(e.micro_rule_ru):'')+
-   (e.corrected?'<br><b>Естественнее:</b> '+esc(e.corrected):'')+
- '<br><button class="btn secondary" type="button" onclick="neGuidedExplain()">Нора, объясни подробнее</button></div>';
+  // The contextual help button already appears beside the answer field.
+  box.innerHTML=feedback;
   input.focus();return;
  }
  const reply=await nextSceneReply(l,scene,progress,a,spoken,index)||step.reply;
  if(window.neLessonSession!==s||!box.isConnected||progress.index!==index){s.locked=false;return}
  progress.pending={answer:a,spoken,reply};
- box.innerHTML='<div class="feedback good"><b>✓ '+(spoken?'Ответ голосом':'Текстовый ответ')+' принят</b>'+
-  (e.explanation_ru?'<br>'+esc(e.explanation_ru):'')+'</div>'+
-  '<div class="guided-reply">'+actorMessage(scene,reply,index)+'</div>'+
+ box.innerHTML=feedback+'<div class="guided-reply">'+actorMessage(scene,reply,index)+'</div>'+
   '<button class="btn lesson-next-v8" onclick="neGuidedNext()">'+(index===scene.steps.length-1?'Завершить разговор →':'Следующая реплика →')+'</button>';
  if(typeof window.speakText==='function'){try{window.speakText(reply,.86)}catch{}}
 }
@@ -330,8 +360,10 @@ function neGuidedExplain(){
  if(!field)return;
  const task=d?.scene?.steps?.[d.progress.index]?.task||'текущий вопрос';
  field.value='Объясни по-русски простыми словами, почему в этом задании нужно именно так строить фразу: '+String(task).slice(0,350)+'. Что я должен сделать по шагам? Приведи ДРУГОЙ короткий пример и объясни его. Не давай готового ответа на моё текущее задание.';
- if(typeof window.v7AskHelp==='function')window.v7AskHelp();
- else field.focus();
+ if(typeof window.v7AskHelp==='function'){
+  panel?.scrollIntoView?.({block:'nearest',behavior:'smooth'});
+  window.v7AskHelp();
+ }else field.focus();
 }
 function neGuidedNext(){
  const s=window.neLessonSession,d=s?.lesson&&ensure(s.lesson);
