@@ -16,14 +16,13 @@
   ],phrases:[['en gang til','ещё раз'],['litt til','ещё немного'],['til slutt','в конце, наконец'],['fra ... til ...','от ... до ...']]},
   i:{pos:'предлог',senses:[
    ['в','Jeg bor i Norge.','Я живу в Норвегии.','местонахождение'],
-   ['через','Vi sees om en time.','Увидимся через час.','Для «через час» используется om, а не i'],
    ['в течение','Jeg har bodd her i to år.','Я живу здесь два года.','продолжительность периода']
   ],phrases:[['i dag','сегодня'],['i morgen','завтра'],['i går','вчера']]},
   på:{pos:'предлог',senses:[
    ['на','Boka ligger på bordet.','Книга лежит на столе.','поверхность'],
    ['в','Jeg er på jobb.','Я на работе.','устойчивое обозначение места'],
    ['в понедельник','Vi møtes på mandag.','Мы встретимся в понедельник.','указание дня'],
-   ['на','Jeg sitter på bussen.','Я сижу в автобусе.','норвежский транспортный оборот']
+   ['в','Jeg sitter på bussen.','Я сижу в автобусе.','норвежский транспортный оборот']
   ],phrases:[['på norsk','по-норвежски'],['på jobb','на работе']]},
   om:{pos:'предлог / союз',senses:[
    ['о','Vi snakker om jobben.','Мы говорим о работе.','тема разговора'],
@@ -65,8 +64,6 @@
    ['активность','Det er mye aktivitet her.','Здесь высокая активность.','оживлённость / происходящие действия']
   ],phrases:[]}
  };
- // Remove editorial meta entries that aren't meanings of the headword.
- entries.i.senses=entries.i.senses.filter(row=>row[0]!=='через');
  const catalogue=Object.freeze(Object.fromEntries(Object.entries(entries).map(([word,item])=>
   [word,Object.freeze({pos:item.pos,senses:Object.freeze(item.senses.map(([ru,no,translation,note])=>
    Object.freeze({ru,no,translation,note}))),phrases:Object.freeze(item.phrases.map(([no,ru])=>Object.freeze({no,ru})))})])));
@@ -74,8 +71,8 @@
   const source=typeof input==='string'?{word:input}:input&&typeof input==='object'?input:{};
   const word=String(source.lemma||source.word||source.headword||'').trim();
   const base=catalogue[key(word)];
-  const extra=Array.isArray(source.meanings)?source.meanings:Array.isArray(source.senses)?source.senses:null;
-  // Only use well-formed structured data for externally supplied meanings.
+  const extra=source.meaningsVerified===true?(Array.isArray(source.meanings)?source.meanings:Array.isArray(source.senses)?source.senses:null):null;
+  // Additional senses must be explicitly editorially verified, not merely AI-generated.
   const provided=extra?.filter(x=>x&&typeof x==='object'&&typeof x.ru==='string'&&
    typeof x.no==='string'&&typeof x.translation==='string'&&x.ru.trim()&&x.no.trim()&&x.translation.trim())
    .slice(0,12).map(x=>({ru:x.ru,no:x.no,translation:x.translation,note:String(x.note||'')}))||[];
