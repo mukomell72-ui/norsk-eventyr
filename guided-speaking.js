@@ -208,7 +208,7 @@ function actorMessage(scene,text,index){
 function freeExGuided(l){
  const d=ensure(l);if(!d)return nativeFree(l,'speaking');
  const {scene,progress}=d,step=scene.steps[progress.index];
- const keyHome=normalizeModule(l)==='a1-home',curated=keyHome?window.NECurated?.get?.('a1-home'):null;
+ const keyHome=normalizeModule(l)==='a1-home'&&(!Number.isInteger(l?._adaptive?.storyVariant)||l._adaptive.storyVariant===0),curated=keyHome?window.NECurated?.get?.('a1-home'):null;
  const support=keyHome?(curated?.speakingSupport||l.speakingSupport):null;
  const translation=support?'<div class="prompt" lang="nb">'+esc(curated?.speaking||'Spør hvor nøkkelen er. Si hvor du leter etter den.')+'</div>'+
   '<details class="grammar-fold a1-task-support" data-translation="on-request"><summary>Перевести задание</summary>'+
@@ -252,6 +252,10 @@ async function nextSceneReply(l,scene,progress,answer,spoken,index){
  if(typeof window.neApiPost!=='function')return null;
  // A1 name-disclosure and courtesy turns remain authored and predictable.
  if(normalizeModule(l)==='a1-foundation'&&index<=4)return null;
+ // Scripted twists have fixed facts (weekday, place, bus) used by later turns.
+ // Keep them coherent instead of letting a language model quietly contradict
+ // the next question. These are still open, assessed learner conversations.
+ if(Number.isInteger(l?._adaptive?.storyVariant)&&l._adaptive.storyVariant>0)return null;
  const next=scene.steps[index+1];
  const history=[{role:'assistant',text:scene.opening}];
  for(const turn of progress.turns.slice(-5)){
