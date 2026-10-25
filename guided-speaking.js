@@ -184,7 +184,7 @@ function fallback(l){
   ['Ответь на уточнение и вежливо закончи беседу.','Завершить разговор связной уместной фразой по теме.','Takk for praten!']
  ]);
 }
-function definition(l){return SCENES[normalizeModule(l)]||fallback(l)}
+function definition(l){const original=SCENES[normalizeModule(l)]||fallback(l);return window.NEStoryJourney?.sceneFor?.(l,original,make)||original}
 const nativeFree=window.freeEx,nativeCheck=window.checkFree;
 function ensure(l){
  const s=window.neLessonSession;
