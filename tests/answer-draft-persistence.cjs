@@ -62,9 +62,9 @@ box.value='';a.restoreLessonDraft(session);
 assert.equal(box.value,'','Next dialogue turn begins empty even after autosave');
 // Migration: an older draft from a finished turn must never populate a new one.
 const legacyKey=a.lessonDraftKey({...session,guidedSpeech:null},'speaking');
-session.answerDrafts[legacyKey]='На mandag klokka tre passer bra.';
+session.answerDrafts[legacyKey]='Tirsdag klokka fem passer for meg.';
 box.value='';a.restoreLessonDraft(session);
-assert.equal(box.value,'На mandag klokka tre passer bra.','A distinct unfinished legacy draft is preserved');
+assert.equal(box.value,'Tirsdag klokka fem passer for meg.','A distinct unfinished legacy draft is preserved');
 assert.equal(session.answerDrafts[legacyKey],undefined,'Migrated draft is no longer shared');
 // A legacy draft matching a completed turn is stale and must stay hidden.
 session.guidedSpeech.index=3;
