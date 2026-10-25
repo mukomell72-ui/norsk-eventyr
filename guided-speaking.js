@@ -352,7 +352,7 @@ async function guidedCheck(){
   return;
  }
  const e=r.data||{},score=Math.min(100,Math.max(0,Math.round(Number(e.score)||0))),
-  ok=e.accepted===true&&score>=50,skill=spoken?'speaking':'writing',evidence=ok?score:Math.min(40,score);
+  ok=e.accepted===true&&score===100&&(!Array.isArray(e.issues)||e.issues.length===0),skill=spoken?'speaking':'writing',evidence=e.accepted===true?score:Math.min(40,score);
  // Only the first verified attempt of each turn contributes to course evidence.
  // Revisions show an updated grade but cannot award XP repeatedly.
  progress.firstScores=progress.firstScores&&typeof progress.firstScores==='object'&&!Array.isArray(progress.firstScores)?progress.firstScores:{};

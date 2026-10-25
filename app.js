@@ -124,7 +124,7 @@ function noraAttemptReviewHtml(d,{answer="",ok,firstScore,title="",isCorrection=
   parts.push('<p><b>Естественный вариант целиком:</b> <span lang="nb">'+esc(d.corrected)+'</span></p>');
  if(!issues.length&&score<100)
   parts.push('<p><small>Подробная причина снижения оценки не подтверждена. Не считай её установленной ошибкой.</small></p>');
- if(!accepted)parts.push('<p><b>Что сделать дальше:</b> Исправь указанные места и отправь текст ещё раз. Нора проверит новую версию.</p>');
+ if(!accepted)parts.push('<p><b>Что сделать дальше:</b> Исправь указанные места в своём тексте и снова нажми «Проверить AI». Нора проверит следующую версию. Повторять можно до правильного ответа.</p>');
  return '<div class="feedback '+(accepted?'good':'bad')+' ne-attempt-review" role="status">'+parts.join('')+'</div>';
 }
 function aiLessonFeedbackHtml(d,title,answer=""){
@@ -361,6 +361,12 @@ function firstGrade(session,key,score,record){
  persistLessonCheckpoint();
  return true;
 }
+// A communicatively acceptable answer may still contain confirmed mistakes.
+function fullyCorrectAnswer(d){
+ const score=Number(d?.score);
+ return d?.accepted===true&&Number.isFinite(score)&&score===100&&
+  (!Array.isArray(d.issues)||d.issues.length===0);
+}
 function retryCoachFeedback(d,ok,answer=""){
  return noraAttemptReviewHtml(d,{answer,ok,isCorrection:true});
 }
@@ -424,7 +430,7 @@ async function checkDialogue(){
  if(!b.isConnected||lessonSession!==s){s.locked=false;return;}
  if(input.value.trim()!==a){s.locked=false;b.innerHTML='<div class="feedback">Ответ изменён во время проверки. Проверь обновлённый текст ещё раз.</div>';return;}
  if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">'+esc(evaluationErrorMessage(r.error))+verifiedNorwegianHintsHtml(r.verifiedHints)+'</div>';return;}
- const d=r.data,ok=d.accepted===true&&(d.score??70)>=50;
+ const d=r.data,ok=fullyCorrectAnswer(d);
  if(typeof d.corrected==="string"&&d.corrected.trim())s.dialogueSuggestion={key:gradeKey,text:d.corrected.trim()};
  const firstAttempt=firstGrade(s,gradeKey,d.score??(ok?70:40),()=>{trackLessonScore(d.score??(ok?70:40),{label:"Диалог",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:l.level,skill:spoken?"speaking":"writing",score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l.id,source:spoken?"dialogue_voice":"dialogue_text",errorTag:d.error_tag||"",targetErrorTag:l?._adaptive?.errorTag||"",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});});
  if(ok&&firstAttempt)window.NEWordLearning?.observe?.({
@@ -554,8 +560,8 @@ async function checkFree(mode){
  if(!b.isConnected||lessonSession!==s){s.locked=false;return}
  if(input.value.trim()!==a){s.locked=false;b.innerHTML='<div class="feedback">Ответ был изменён во время проверки. Проверь новый текст ещё раз.</div>';return}
  if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">'+esc(evaluationErrorMessage(r.error))+verifiedNorwegianHintsHtml(r.verifiedHints)+'</div>';return}
- const d=r.data,ok=d.accepted===true&&(d.score??70)>=50,skill=spoken?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer,
- evidenceScore=ok?Math.max(0,Math.min(100,Math.round(Number(d.score)||0))):Math.min(40,Math.max(0,Math.round(Number(d.score)||0)));
+ const d=r.data,ok=fullyCorrectAnswer(d),skill=spoken?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer,
+ evidenceScore=d.accepted===true?Math.max(0,Math.min(100,Math.round(Number(d.score)||0))):Math.min(40,Math.max(0,Math.round(Number(d.score)||0)));
  const gradeKey="free:"+mode+":"+s.step+(rem?":transfer:"+String(rem.retries||0):""),firstAttempt=firstGrade(s,gradeKey,evidenceScore,()=>{trackLessonScore(evidenceScore,{label:spoken?"Речь":"Письмо",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill,score:evidenceScore,moduleId:l?._adaptive?.moduleId||l?.id,source:mode==="speaking"&&!spoken?"lesson_free_text":rem?"lesson_free_transfer":"lesson_free",errorTag:d.error_tag||"",targetErrorTag:rem?.errorTag||l?._adaptive?.errorTag||"",transfer:isTransfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}});
  if(ok&&firstAttempt)window.NEWordLearning?.observe?.({
   lesson:l,answer:a,assessment:d,gradeKey,firstAttempt,
@@ -574,21 +580,13 @@ async function checkFree(mode){
   return;
  }
  const retryDetails=noraAttemptReviewHtml(d,{answer:a,ok:false,isCorrection:!firstAttempt});
- if(l?._adaptive&&d.retry_prompt_no){
-  if(!rem){
-   s.proposedRemediation={mode,prompt:d.retry_prompt_no,rule:d.micro_rule_ru||"",retries:0,errorTag:d.error_tag||""};s.locked=false;persistLessonCheckpoint();
-   b.innerHTML=humanFeedback+retryDetails+'<div class="feedback"><b>Теперь проверь перенос:</b> новый вопрос будет другим.<br><button class="btn secondary" style="margin-top:10px" onclick="openFreeTransfer()">Применить в новой ситуации →</button></div>';return;
-  }
-  rem.retries=(rem.retries||0)+1;
-  if(rem.retries<2){
-   rem.prompt=d.retry_prompt_no;rem.rule=d.micro_rule_ru||rem.rule||"";s.locked=false;
-   b.innerHTML=humanFeedback+retryDetails+'<div class="feedback"><b>Пока неустойчиво.</b><br><button class="btn secondary" style="margin-top:10px" onclick="openFreeTransfer()">Ещё одна новая ситуация →</button></div>';return;
-  }
-  s.locked=false;
-  b.innerHTML=humanFeedback+retryDetails+'<div class="feedback"><b>Эту ошибку Нора вернёт позже.</b><br><small>Не зацикливаемся: повторение уже запланировано интервальной системой.</small><br><button class="btn secondary" style="margin-top:10px" onclick="deferFreeRemediation()">Продолжить урок →</button></div>';return;
- }
- s.locked=false;b.innerHTML=humanFeedback+retryDetails;input?.focus()
+ // Do not replace the original task with a transfer or grant "Next" while
+ // the student's current text still has verified mistakes. Keep the draft.
+ s.locked=false;
+ b.innerHTML=humanFeedback+retryDetails+'<div class="feedback ne-rewrite-guidance"><b>Продолжаем исправлять этот текст.</b><br><small>Нора проверит каждую новую версию. Переход откроется только после ответа без подтверждённых ошибок.</small></div>';
+ input?.focus();
 }
+
 function lessonNext(xp=0){lessonSession.step++;lessonSession.choiceMiss=false;lessonSession.locked=false;if(lessonSession.step>=lessonSteps(lessonSession.lesson).length)return finishLesson();persistLessonCheckpoint();renderLesson()}
 function finishLesson(){flushLessonDraft();const l=lessonSession.lesson,reward=awardLessonXp(l),feedback=lessonFeedbackSummary(reward);if(state.activeLesson?.id===l.id)delete state.activeLesson;state.completed[l.id]=true;const courseOutcome=window.NEAdaptive?NEAdaptive.completeLesson(state,l,reward.avg):null;const livingOutcome=window.NELivingDay?.onLessonFinished?.(l,courseOutcome,reward.avg)||null;const today=new Date().toLocaleDateString("sv-SE");state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.lessonDates=state.guidedJourney.lessonDates||{};if(l?._adaptive?.kind!=='archive_replay')state.guidedJourney.lessonDates[today]=l.id;const xp=xpRewardStatus();saveState();const humanEnd=window.NEExperience?.endNote?.(l,courseOutcome?.advanced===true)||"";const unlocked=reward.newlyUnlocked.length?'<div class="xp-unlock-v8"><b>Открыто:</b> '+reward.newlyUnlocked.map(x=>esc(x.title)).join(", ")+'</div>':"",repeat=reward.repeat===1?'<small class="muted">Повтор этого модуля сегодня: начислено 25% обычных XP.</small>':reward.repeat>1?'<small class="muted">За этот модуль сегодня XP уже получены.</small>':"",next=xp.next?'<div class="xp-next-v8"><span>До награды «'+esc(xp.next.title)+'»</span><b>'+xp.toNext+' XP</b><i><em style="width:'+xp.progress+'%"></em></i></div>':'<div class="xp-next-v8"><b>Все текущие XP-миссии открыты</b></div>';shell(`<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">${l.level} · ${livingOutcome?(livingOutcome.finished?'Учебный день завершён':'Продолжаем учебный день'):'готово на сегодня'}</div><h1>${esc(l.title)}</h1>${humanEnd}<p class="muted">${livingOutcome?(livingOutcome.advanced?'Ты освоил эту ситуацию. Следующая будет продолжением той же темы.':'Нора проверила ответы. Продолжим закрепление темы.'):'Урок засчитан в сегодняшний маршрут.'}</p><div class="xp-award-v8"><strong>+${reward.earned} XP</strong><span>Оценка занятия Норы: ${reward.avg}/100${reward.reviewBonus?" · +10 за отложенное повторение":""}</span></div>${courseOutcome?'<section class="notice" style="margin:12px 0"><b>'+(courseOutcome.advanced?'Этап подтверждён':'Этап пока не подтверждён')+'</b> · '+courseOutcome.completedPhases+'/'+courseOutcome.totalPhases+' этапов курса.<br>'+esc(courseOutcome.reason)+'</section>':''}<details class="ne-lesson-assessment"><summary>Подробный разбор оценок и исправлений</summary>${feedback}</details>${livingOutcome?'<div class="notice">'+esc(livingOutcome.reason)+'</div>':''}${repeat}${unlocked}${next}<button class="btn" onclick="navigate('${livingOutcome?'livingday':'home'}')">${livingOutcome?(livingOutcome.finished?'Результаты учебного дня →':'Продолжить эту тему →'):'Продолжить день →'}</button>${window.NEExperience?'<button type="button" class="btn secondary ne-lesson-followup" onclick="NEExperience.openFollowup()">Поговорить с Норой об этой ситуации →</button>':''}<button class="btn ghost" onclick="navigate('course','${l.level}')">К курсу</button></section>`,"home")}
 

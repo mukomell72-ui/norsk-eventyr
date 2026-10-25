@@ -32,14 +32,17 @@ function extract(name,async=false){
 // The shared reviewer includes regular-expression braces; extract it as one contiguous module.
 const teachingReview=app.slice(app.indexOf('function noraAttemptReviewHtml('),app.indexOf('function lessonFeedbackSummary('));
 assert(teachingReview.includes('function aiLessonFeedbackHtml('));
-const originals=teachingReview+'\n'+['firstGrade','firstGradeNote','retryCoachFeedback','reviseCheckedAnswer','checkDialogue'].map(n=>extract(n,n==='checkDialogue')).join('\n');
+const originals=teachingReview+'\n'+['fullyCorrectAnswer','firstGrade','firstGradeNote','retryCoachFeedback','reviseCheckedAnswer','checkDialogue'].map(n=>extract(n,n==='checkDialogue')).join('\n');
 let grades=0,focuses=0;
 let display={innerHTML:'',isConnected:true},input={value:'Jeg kan ikke komme på lørdag.',dataset:{fromVoice:'false'},focus(){focuses++;}};
 let session={lesson:{level:'A1',id:'sample'},dialogueIndex:0,locked:true,firstGraded:{}};
 const el=id=>id==='dialogAnswer'?input:id==='dialogFb'?display:null;
 const ctx={Math,Number,Object,Array,String,document:{getElementById:el},lessonSession:session,esc:s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),window:{NEExperience:{}},persistLessonCheckpoint(){},firstGradeTrace:[],trackLessonScore(){grades++},saveLessonDraft(){},flushLessonDraft(){},currentDialogueTurn:()=>({phrase:'Passer det?',goal:'Предложи другое время'}),aiEvaluate:async()=>({ok:true,data:{accepted:true,score:100,issues:[],explanation_ru:'Верно.',corrected:''}}),aiLessonFeedbackHtml:()=>'',};
-vm.runInNewContext(originals+'\nthis.run={noraAttemptReviewHtml,aiLessonFeedbackHtml,firstGrade,firstGradeNote,retryCoachFeedback,reviseCheckedAnswer,checkDialogue};',ctx);
+vm.runInNewContext(originals+'\nthis.run={noraAttemptReviewHtml,aiLessonFeedbackHtml,fullyCorrectAnswer,firstGrade,firstGradeNote,retryCoachFeedback,reviseCheckedAnswer,checkDialogue};',ctx);
 const a=ctx.run;
+assert.equal(a.fullyCorrectAnswer({accepted:true,score:60,issues:[{category:'verb_form'}]}),false,'Meaningful but imperfect responses are not finished');
+assert.equal(a.fullyCorrectAnswer({accepted:true,score:100,issues:[]}),true,'Verified mistake-free responses can finish');
+assert.equal(a.fullyCorrectAnswer({accepted:true,score:100,issues:[{category:'task'}]}),false,'Issue prevents completion even when score is inconsistent');
 a.firstGrade(session,'dialogue:0:false',40,()=>grades++);
 assert.equal(grades,1);
 assert(a.firstGradeNote(session,'dialogue:0:false').includes('40/100'));
@@ -75,6 +78,18 @@ assert.equal(session.locked,false,'Retry must unlock accepted dialogue');
 assert.equal(focuses,1,'Input should be focused for correction');
 assert(display.innerHTML.includes('Измени текст'));
 (async()=>{
+ ctx.aiEvaluate=async()=>({ok:true,data:{accepted:true,score:60,issues:[{
+  category:'task',requirement_quote:'Предложи другое время',deduction:40,
+  explanation_ru:'Отказ есть, но нужно предложить другое время.',
+  corrected_fragment:'Passer det på søndag?'
+ }],corrected:'Jeg kan ikke komme på lørdag. Passer det på søndag?'}});
+ await a.checkDialogue();
+ assert.equal(session.locked,false,'A clear but flawed 60/100 response must remain editable');
+ assert(display.innerHTML.includes('60/100')&&display.innerHTML.includes('Отказ есть'),
+  'Student receives a precise reason before another check');
+ assert(!display.innerHTML.includes('Дальше →'),'A flawed answer cannot advance');
+ input.value='Jeg kan ikke komme på lørdag. Passer det på søndag?';
+ ctx.aiEvaluate=async()=>({ok:true,data:{accepted:true,score:100,issues:[],explanation_ru:'Верно.',corrected:''}});
  await a.checkDialogue();
  assert.equal(grades,1,'Retry must not change first grade or XP evidence');
  assert.equal(session.firstGraded['dialogue:0:false'],40,'First grade remains');
