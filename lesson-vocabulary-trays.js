@@ -70,18 +70,28 @@
   }
   for(const w of Object.values(s.dailyDictionary||{})){
    if(!w||typeof w!=='object')continue;
-   if(w.firstDate&&String(w.firstDate)<date)before.add(lemma(w.lemma||w.word));
+   if(!w.firstDate||String(w.firstDate)<date)before.add(lemma(w.lemma||w.word));
   }
   const fromDay=(dateKey)=>{
    const record=snapshotFor(dateKey);
    return Array.isArray(record?.today)?record.today.filter(w=>valid(w.word,w.ru)):[];
   };
-  const yesterday=fromDay(offset(date,-1));
-  const old=fromDay(offset(date,-2));
+  const dictionaryByDate=(key)=>{
+   const candidates=[];
+   for(const w of Object.values(s.dailyDictionary||{})){
+    if(!w||w.level&&w.level!==lesson.level||String(w.firstDate||'')!==key)continue;
+    const word=String(w.lemma||w.word||''),ru=String(w.translation_ru||w.translation||'');
+    if(valid(word,ru))candidates.push({word,ru,id:lemma(word)});
+   }
+   return candidates;
+  };
+  const yesterday=fromDay(offset(date,-1)).length?fromDay(offset(date,-1)):
+   dictionaryByDate(offset(date,-1));
+  const old=fromDay(offset(date,-2)).length?fromDay(offset(date,-2)):
+   dictionaryByDate(offset(date,-2));
   const fromDictionary=olderDictionaryWords(date,lesson.level,new Set([...yesterday,...old].map(x=>lemma(x.word))));
   const reviewed=[...old,...fromDictionary].filter(w=>!yesterday.some(y=>lemma(y.word)===lemma(w.word)));
-  const newCandidates=sourceWords(lesson).filter(x=>!before.has(x.id)&&
-   !Object.values(s.dailyDictionary||{}).some(d=>lemma(d?.lemma||d?.word)===x.id));
+  const newCandidates=sourceWords(lesson).filter(x=>!before.has(x.id));
   const today=newCandidates.slice(0,LIMIT);
   const unique=(rows,blocked=[])=>{
    const used=new Set(blocked.map(x=>lemma(x.word))),out=[];

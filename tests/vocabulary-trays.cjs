@@ -9,6 +9,7 @@ const w={neLearnerState:s,saveState:()=>saved.push(true),NECardGrammar:{describe
 vm.runInNewContext(code,{window:w,document,COURSE:course,Date,Math,Number,String,Object,JSON,Array,Set,Map,Intl});
 const api=w.NEWordTrays,lesson={level:'A1',vocab:course[0].vocab};
 const day='2026-10-25',yday=api.offset(day,-1),two=api.offset(day,-2);
+s.learningV8.lessonWordTrays={days:{}};
 assert.equal(api.offset('2026-03-01',-1),'2026-02-28','Local date arithmetic crosses months');
 s.learningV8.lessonWordTrays.days[yday]={date:yday,level:'A1',today:[{word:'å lese',ru:'читать'}],yesterday:[],older:[],relearning:[]};
 s.learningV8.lessonWordTrays.days[two]={date:two,level:'A1',today:[{word:'å skrive',ru:'писать'}],yesterday:[],older:[],relearning:[]};
@@ -29,7 +30,7 @@ assert(!api.markOldForgotten('å lese',day),'Yesterday lookup does not automatic
 assert.equal(api.focus(lesson).length,7,'The generator receives active and review lists, not invented filler');
 const html=api.render(lesson);
 assert(html.includes('data-ne-tray-column="today"')&&html.includes('data-ne-tray-column="yesterday"')&&html.includes('data-ne-tray-column="older"'),'Three educational panels render');
-assert(html.includes('перевод по нажатию')&&html.includes('читать'),'Recent words have hidden gloss and safe descriptions');
+assert(html.includes('перевод по нажатию')&&!html.includes('читать'),'Yesterday words remain in the DOM without visible translation before a tap');
 assert(html.includes('Полные проверенные формы пока отсутствуют'),'Grammar is never invented when morphology unverified');
 assert(html.includes('scroll-snap')===false,'Styling is in stylesheet, not repeated in HTML');
 assert(saved.length>0,'Daily history saves with the user account');
