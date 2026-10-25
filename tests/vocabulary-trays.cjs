@@ -47,4 +47,36 @@ assert(app.includes('NEWordTrays?.render?.({...l,vocab:'),'Dialogue prompts pref
 assert.equal((app.match(/NEWordTrays\?\.render\?\./g)||[]).length,2,'Dialogue and free-answer fields both display panels');
 const gen=fs.readFileSync(path.join(root,'api/generate.js'),'utf8');
 assert(gen.includes('activeVocabulary')&&gen.includes('2–3 слова'),'New lessons are guided by the selected memory');
+
+// Regression: a day with only two yesterday words should use earlier genuine
+// vocabulary to complete the review group, without altering archived facts.
+const sparseDay='2026-10-28';
+s.learningV8.lessonWordTrays.days[sparseDay]={
+ date:sparseDay,level:'A1',today:[],
+ yesterday:[{word:'å lese',ru:'читать'},{word:'å skrive',ru:'писать'}],
+ older:[{word:'å jobbe',ru:'работать'}],relearning:[]
+};
+const sparse=api.slots(lesson,sparseDay);
+assert.equal(sparse.yesterday.length,5,'Two recent words are backfilled from real older learning');
+assert.equal(sparse.older[0].word,'å jobbe','The earlier review column retains its words');
+const selected=[...sparse.today,...sparse.yesterday,...sparse.older].map(w=>api.lemma(w.word));
+assert.equal(new Set(selected).size,selected.length,'No repeated vocabulary across columns');
+assert.equal(s.learningV8.lessonWordTrays.days[sparseDay].yesterday.length,2,
+ 'Actual yesterday snapshot is never rewritten as if historical words were studied yesterday');
+assert(sparse.yesterday.some(w=>w.origin==='review-backlog'),'Backfilled items keep an honest source label');
+const backfilled=sparse.yesterday.find(w=>w.origin==='review-backlog');
+const detail={innerHTML:'',hidden:true};
+const fakeRoot={dataset:{neTrayDate:sparseDay}};
+const fakeButton={
+ dataset:{neTrayWord:backfilled.word,neTrayKind:'yesterday'},
+ parentElement:{querySelector:()=>detail},closest:selector=>selector==='.ne-tray-panel'?{}:selector==='.ne-vocab-trays'?fakeRoot:null,
+ setAttribute:()=>{}
+};
+assert(api.reveal(fakeButton),'Historical review words must reveal their real translation');
+assert.equal(detail.hidden,false,'Study-history word translation is visible after tap');
+assert(detail.innerHTML.includes(backfilled.ru),'Backfilled translation matches the recorded one');
+assert(html.includes('data-ne-tray-tab="yesterday"')&&html.includes('NEWordTrays.select(this)'),
+ 'Mobile tabs provide explicit navigation, not clipped sideways cards');
+assert(html.includes('Значения и формы'),'Lengthy grammar explanations default to collapsible blocks');
+
 console.log('PASS 5+5+5 personal vocabulary, realistic forms, review promotion and writing/dialogue integration');
