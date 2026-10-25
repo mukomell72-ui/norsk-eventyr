@@ -27,7 +27,7 @@ assert(s.wordPracticeQueue.skrive>0,'Forgotten word is placed in review queue');
 assert.equal((s.dailyDictionary?.skrive?.correct||0),0,'Looking up a word does not grant mastery');
 assert.equal(s.learningV8.lessonWordTrays.days[day].today.length,5,'Original daily history is preserved');
 assert(!api.markOldForgotten('å lese',day),'Yesterday lookup does not automatically promote into relearning');
-assert.equal(api.focus(lesson).length,7,'The generator receives active and review lists, not invented filler');
+assert.equal(api.focus(lesson).length,6,'Promoted words are included once, not duplicated in review');
 const html=api.render(lesson);
 assert(html.includes('data-ne-tray-column="today"')&&html.includes('data-ne-tray-column="yesterday"')&&html.includes('data-ne-tray-column="older"'),'Three educational panels render');
 assert(html.includes('перевод по нажатию')&&!html.includes('читать'),'Yesterday words remain in the DOM without visible translation before a tap');
@@ -36,7 +36,8 @@ assert(html.includes('scroll-snap')===false,'Styling is in stylesheet, not repea
 assert(saved.length>0,'Daily history saves with the user account');
 const app=fs.readFileSync(path.join(root,'app.js'),'utf8');
 assert(app.includes('NEWordTrays?.render?.(l)'),'Both written and dialogue exercises include trays');
-assert.equal((app.match(/NEWordTrays\?\.render\?\.\(l\)/g)||[]).length,2,'Dialogue and free-answer fields both display panels');
+assert(app.includes('NEWordTrays?.render?.({...l,vocab:'),'Dialogue prompts prefer current turn vocabulary');
+assert.equal((app.match(/NEWordTrays\?\.render\?\./g)||[]).length,2,'Dialogue and free-answer fields both display panels');
 const gen=fs.readFileSync(path.join(root,'api/generate.js'),'utf8');
 assert(gen.includes('activeVocabulary')&&gen.includes('2–3 слова'),'New lessons are guided by the selected memory');
 console.log('PASS 5+5+5 personal vocabulary, realistic forms, review promotion and writing/dialogue integration');

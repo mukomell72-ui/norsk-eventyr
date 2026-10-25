@@ -330,7 +330,7 @@ function lessonIntro(l){
  <div class="answer-label-v6"><b>Твой ответ</b><span>текстом или голосом</span></div>
  <textarea id="dialogAnswer" class="input lesson-answer-v6" rows="2" placeholder="Ответь собеседнику по-норвежски…" oninput="this.dataset.fromVoice='false'"></textarea>
  <small class="muted">Черновик сохраняется автоматически, даже если проверка временно недоступна.</small>
- ${window.NEWordTrays?.render?.(l)||""}
+ ${window.NEWordTrays?.render?.({...l,vocab:[...(turn.vocab||[]),...(l.vocab||[])]})||""}
  <div class="lesson-actions-v6"><button id="micBtn" class="btn secondary" onclick="toggleMic('dialogAnswer','','${escJs(shown.phrase)}')">🎤 Сказать</button><button class="btn" onclick="checkDialogue()">✓ Проверить</button></div>
  <div id="dialogFb"></div><details class="grammar-fold-v6"><summary>Грамматика</summary><p>${esc(l.grammar)}</p></details></article>`;
 }
