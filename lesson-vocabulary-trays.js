@@ -154,6 +154,7 @@
     '<small>Полные проверенные формы пока отсутствуют; их нельзя угадывать.</small>')+
    (row?.verified&&row.example?.no?'<p class="ne-tray-example"><span lang="nb">'+esc(row.example.no)+
     '</span> — '+esc(row.example.ru||'')+'</p>':'')+
+   (window.NEWordMeanings?.render?.({word:w.word,translation:w.ru},{compact:true,expanded:shown})||'')+
    (row?.url?'<small><a href="'+esc(row.url)+'" target="_blank" rel="noopener noreferrer">Bokmålsordboka</a></small>':'')+
    '</div>';
  }
