@@ -151,7 +151,11 @@ function lessonDraftKey(session,mode){
  const stage=mode==="dialogue"?
   [session.dialogueIndex||0,session.introReview===true,session.introReviewVariant||0].join(":"):
   [session.speakingFollowup===true,session.remediation?.mode===mode?String(session.remediation.prompt||"").slice(0,350):""].join(":");
- return [session.lesson.id,session.step,mode,stage].join("|");
+ // Every guided-speaking turn is a separate task, even within one lesson step.
+ // Keeping the turn index in the key prevents the previous answer from reappearing.
+ const turn=mode==="speaking"&&session.guidedSpeech?.lessonId===session.lesson.id&&
+  Number.isInteger(session.guidedSpeech.index)?session.guidedSpeech.index:null;
+ return [session.lesson.id,session.step,mode,stage].join("|")+(turn===null?"":"|turn:"+turn);
 }
 function flushLessonDraft(){
  if(lessonDraftTimer!==null){clearTimeout(lessonDraftTimer);lessonDraftTimer=null;persistLessonCheckpoint();}
@@ -176,7 +180,20 @@ function restoreLessonDraft(session){
  if(!editor||!session?.lesson)return;
  const mode=dialogue?"dialogue":session.step===(hasAdaptiveGrammar(session.lesson)?6:5)?"speaking":"writing";
  editor.dataset.draftMode=mode;
- const saved=session.answerDrafts?.[lessonDraftKey(session,mode)];
+ const key=lessonDraftKey(session,mode);
+ let saved=session.answerDrafts?.[key];
+ // Upgrade drafts saved before turns had separate keys. Only migrate text
+ // that was not already used in a completed dialogue turn.
+ if(typeof saved!=="string"&&mode==="speaking"&&key.includes("|turn:")){
+  const legacyKey=key.slice(0,key.lastIndexOf("|turn:"));
+  const previous=session.answerDrafts?.[legacyKey];
+  const completed=session.guidedSpeech?.turns||[];
+  if(typeof previous==="string"&&!completed.some(turn=>String(turn.answer||"").trim()===previous.trim())){
+   saved=previous;
+   session.answerDrafts[key]=previous;
+   delete session.answerDrafts[legacyKey];
+  }
+ }
  if(typeof saved==="string")editor.value=saved.slice(0,6000);
  editor.addEventListener("input",()=>saveLessonDraft(mode,editor));
 }
