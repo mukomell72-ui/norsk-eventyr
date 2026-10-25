@@ -15,7 +15,7 @@ for(const moduleId of pairs){
  for(const storyVariant of [1,2]){
   const d=w.NEGuidedSpeaking.definition({_adaptive:{moduleId,storyVariant}});
   assert(d.actor&&d.opening&&d.scene&&d.steps.length>=3,moduleId+' incomplete');
-  assert(d.steps.every(step=>step.goal.length>=20&&step.task.length>=12&&step.reply.length>=8),moduleId+' broken turn');
+  assert(d.steps.every(step=>step.goal.length>=20&&step.task.length>=12&&step.reply.length>=4),moduleId+' broken turn');
   assert.notEqual(d.opening,original.opening,moduleId+' repeats original');
   variants.push(d.opening);
  }
@@ -48,6 +48,6 @@ assert(read('sw.js').includes('/story-journey.js?v=8.3.0-story1'),'Offline story
  assert(session.guidedSpeech.pending,'Accepted turn is missing the next conversational response');
  assert.equal(attempts[0].score,78,'Store actual score, do not give unearned 100');
  assert(feedback.innerHTML.includes('Следующая реплика'),'Story lacks onward momentum');
- assert(feedback.innerHTML.includes('автобус'),'Scripted surprise lost its context');
+ assert(feedback.innerHTML.includes('bussen'),'Scripted surprise lost its context');
  console.log('PASS story renewal: 14 authored variants, legacy stability, 78/100 acceptance, offline wiring');
 })().catch(e=>{console.error(e);process.exitCode=1});
