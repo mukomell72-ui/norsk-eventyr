@@ -53,6 +53,14 @@ export function groundAssessment(raw,{answer,question,goal,mode}={}){
   return {ok:false,error:'CONTRADICTORY_DECISION'};
  // Assemble the entire visible criticism from validated evidence, not free-form
  // model comments that might repeat fabricated mistakes.
+ // Praise, like criticism, must point to the exact learner text.
+ // Do not repeat invented Norwegian quotes or praise penalized fragments.
+ const strengths=(Array.isArray(raw.strengths_ru)?raw.strengths_ru:[]).filter(value=>{
+  if(typeof value!=='string')return false;
+  const quoted=[...value.matchAll(/«([^»]{2,160})»/gu)].map(x=>x[1]);
+  return quoted.length>0&&quoted.every(q=>matches(answer,q))&&
+   quoted.every(q=>!issues.some(i=>i.source_fragment&&excerpt(i.source_fragment)===excerpt(q)));
+ }).slice(0,2);
  const explanation=issues.length?issues.map((x,i)=>(i+1)+'. '+x.explanation_ru).join(' '):
   'Ответ соответствует заданию. Конкретных ошибок, за которые нужно снижать баллы, не обнаружено.';
  const detail=issues.map(x=>(x.category==='task'?'Не выполнено условие «'+x.requirement_quote+'»':
@@ -67,6 +75,6 @@ export function groundAssessment(raw,{answer,question,goal,mode}={}){
   improvements_ru:issues.map(x=>x.explanation_ru).slice(0,2),
   micro_rule_ru:issues[0]?.explanation_ru||'',
   corrected:issues.length?line(raw.corrected,1500):'',
-  strengths_ru:Array.isArray(raw.strengths_ru)?raw.strengths_ru.slice(0,2):[]
+  strengths_ru:strengths
  }};
 }
