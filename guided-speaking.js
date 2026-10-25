@@ -340,7 +340,8 @@ async function guidedCheck(){
  const feedback=guidedGradeFeedback(e,score,ok,progress.firstScores[scoreKey],a);
  if(!ok){
   s.locked=false;
-  box.innerHTML=feedback+'<button class="btn secondary" type="button" onclick="neGuidedExplain()">Нора, объясни подробнее</button>';
+  // The contextual help button already appears beside the answer field.
+  box.innerHTML=feedback;
   input.focus();return;
  }
  const reply=await nextSceneReply(l,scene,progress,a,spoken,index)||step.reply;
