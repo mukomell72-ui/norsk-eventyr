@@ -41,6 +41,8 @@ assert.match(speaking,/window\.aiEvaluate/,'every stage must be evaluated');
 assert.match(speaking,/accepted===true/,'must check explicit acceptance');
 assert.match(speaking,/isConnected/,'must reject stale responses');
 assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved');
+assert.match(speaking,/return window\.neAttemptReviewHtml\(e,\{answer,ok,firstScore\}\)/,
+ 'Every corrected speaking turn must use the same evidence-backed breakdown as writing and dialogue');
 
 (async()=>{
  const field={value:'Hei, jeg heter Anna og jeg bor i Oslo.',dataset:{fromVoice:'true',guidedTurn:'0'},focus(){}};
