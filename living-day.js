@@ -54,8 +54,35 @@ function saveArchive(s,d){
  }
  s.learningV8.lessonArchive=entries.slice(0,180);
 }
+function pausedDays(s){
+ const p=s?.learningV8;
+ if(!p)return[];
+ if(!Array.isArray(p.pausedDays))p.pausedDays=[];
+ return p.pausedDays;
+}
+function pauseActive(s,day){
+ const active=s?.activeLesson,lesson=active&&s?.generatedLessons?.[active.id];
+ if(!active||!lesson||lesson._adaptive?.livingDayId!==day?.id)return;
+ if(!s.learningV8.pausedCheckpoints||typeof s.learningV8.pausedCheckpoints!=='object')
+  s.learningV8.pausedCheckpoints={};
+ s.learningV8.pausedCheckpoints[active.id]=JSON.parse(JSON.stringify(active));
+ day.pausedLessonId=active.id;
+ delete s.activeLesson;
+}
+function resumePaused(id){
+ const s=learner(),history=pausedDays(s);
+ if(!s||!history.some(x=>x.pausedLessonId===id)||!s.generatedLessons?.[id])return archive();
+ const saved=s.learningV8?.pausedCheckpoints?.[id];
+ if(!saved||saved.id!==id)return archive();
+ const live=s.learningV8?.livingDay;
+ if(s.activeLesson&&valid(live))pauseActive(s,live);
+ s.activeLesson=JSON.parse(JSON.stringify(saved));
+ delete s.learningV8.pausedCheckpoints[id];
+ persist();
+ return window.startLesson?.(id);
+}
 function archive(){
- const s=learner(),items=archiveRecords(s),pending=lessonPending(s);
+ const s=learner(),items=archiveRecords(s),pending=lessonPending(s),paused=pausedDays(s);
  const lines=items.slice(0,60).map(d=>{
   const avg=d.scores?.length?Math.round(d.scores.reduce((a,b)=>a+b,0)/d.scores.length):0;
   const refs=(d.lessonIds||[]).filter(id=>s.generatedLessons?.[id]);
@@ -68,7 +95,14 @@ function archive(){
  window.shell('<section style="max-width:740px;margin:0 auto"><h1>Архив уроков</h1>'+
   '<p class="muted">Завершённые темы сохраняются для повторения. Повтор не открывает следующий уровень сам по себе. Время считается только при активной работе в открытом занятии.</p>'+
   (pending?'<div class="notice">Есть незаконченный урок: сначала заверши или продолжи его.</div>':'')+
-  (lines||'<section class="card">Пока нет завершённых учебных дней.</section>')+
+  (paused.length?'<h2>Незаконченные главы прошлых дней</h2>'+
+ paused.slice(0,14).map(d=>'<article class="card" style="margin-top:12px"><small>'+esc(d.date)+' · '+esc(d.level)+'</small>'+
+ '<h3>'+esc(window.NECurriculum?.moduleById(d.moduleId)?.title||'Учебная ситуация')+'</h3>'+
+ '<p class="muted">Ты можешь продолжить прежний урок; новая глава от этого не исчезнет.</p>'+
+ (d.pausedLessonId&&s.learningV8?.pausedCheckpoints?.[d.pausedLessonId]
+ ?'<button class="btn secondary" onclick="NELivingDay.resumePaused(\\\''+esc(d.pausedLessonId)+'\\\')">Продолжить старый урок</button>':'')+
+ '</article>').join(''):'')+
+ (lines||(!paused.length?'<section class="card">Пока нет завершённых учебных дней.</section>':''))+
   '<button class="btn ghost" onclick="navigate(\'livingday\')">← Сегодняшний урок</button></section>','home');
 }
 function replay(id){
@@ -111,7 +145,15 @@ function current(create=true){
  if(!s||!window.NEAdaptive)return null;
  window.NEAdaptive.ensure(s);
  const previous=s.learningV8.livingDay;
- if(valid(previous)&&(!previous.finished||previous.date===localDay()))return previous;
+ // A new day must not trap the learner in yesterday's unfinished scene.
+ // Preserve the full checkpoint and all recorded skill evidence.
+ if(valid(previous)&&(!create||previous.date===localDay()))return previous;
+ if(valid(previous)&&!previous.finished&&previous.date!==localDay()){
+  const history=pausedDays(s);
+  if(!history.some(x=>x.id===previous.id))history.unshift({...previous});
+  pauseActive(s,history.find(x=>x.id===previous.id));
+  s.learningV8.pausedDays=history.slice(0,30);
+ }
  if(!create)return null;
  const module=chosenModule(s),plan=module&&window.NECourseMethod?.modulePlan(module,s);
  if(!module||!plan)return null;
@@ -147,7 +189,7 @@ function open(){
  const complete=d.finished===true,oldWork=pending&&pending._adaptive?.livingDayId!==d.id;
  const intro=complete
  ?'На сегодня цель выполнена. Следующий учебный день продолжит маршрут с учётом проверенных навыков.'
- :'Сначала короткие мини-этапы со словами и быстрой проверкой. Затем Нора поможет применить их в связанных жизненных ситуациях, диалогах, аудировании и речи. Прогресс сохраняется после каждого этапа.';
+ :'Сегодня новая глава: сначала разберись, что произошло, затем помоги собеседнику и ответь своими словами. Знакомые слова вернутся в новой ситуации. Твои ответы и прогресс сохраняются.';
  const action=complete?'':oldWork
  ?'<button class="btn" onclick="NELivingDay.resumeOlder()">Завершить начатый ранее урок →</button>'
  :'<button class="btn" onclick="NELivingDay.begin()">Продолжить занятие с Норой →</button>';
@@ -158,6 +200,7 @@ function open(){
  '<section class="card" data-ne-living-day="1" style="max-width:740px;margin:0 auto">'+
  '<div class="eyebrow">'+esc(d.level)+' · Твой учебный день</div>'+
  '<h1>'+esc(info.title)+'</h1>'+
+ (!complete?'<p class="ne-story-hook"><b>Что случится сегодня?</b> '+esc(window.NEStoryJourney?.teaser?.(d.moduleId)||'Новая жизненная ситуация с Норой.')+'</p>':'')+
  '<p><b>Цель:</b> '+esc(info.objective)+'</p>'+
  '<p>'+esc(intro)+'</p>'+
  '<div class="progress" aria-label="Прогресс сегодняшнего занятия"><i style="width:'+Math.round(d.scene/SCENES*100)+'%"></i></div>'+
@@ -214,7 +257,8 @@ function verifiedProduction(s,lesson){
 }
 function onLessonFinished(lesson,outcome,average){
  clockPulse();
- const s=learner(),d=current(false),meta=lesson?._adaptive;
+ const s=learner(),meta=lesson?._adaptive,active=current(false);
+ const d=active?.id===meta?.livingDayId?active:pausedDays(s).find(x=>x.id===meta?.livingDayId);
  if(!s||!d||d.finished||!meta||meta.livingDayId!==d.id||meta.livingScene!==d.scene||meta.moduleId!==d.moduleId)
   return null;
  const score=Number(average);
@@ -232,10 +276,13 @@ function onLessonFinished(lesson,outcome,average){
  d.lessonIds=Array.isArray(d.lessonIds)?d.lessonIds:[];
  if(!d.lessonIds.includes(lesson.id))d.lessonIds.push(lesson.id);
  d.scene++;
- if(d.scene===SCENES){d.finished=true;d.completedAt=new Date().toISOString();saveArchive(s,d)}
+ if(d.scene===SCENES){
+  d.finished=true;d.completedAt=new Date().toISOString();saveArchive(s,d);
+  s.learningV8.pausedDays=pausedDays(s).filter(x=>x.id!==d.id);
+ }
  d.feedback='';
  persist();
  return {advanced:true,finished:d.finished,reason:d.finished?'Учебный день пройден.':'Переходим к следующей ситуации той же темы.'};
 }
-window.NELivingDay=Object.freeze({open,begin,resumeOlder,details,onLessonFinished,estimate,archive,replay,clockPulse});
+window.NELivingDay=Object.freeze({open,begin,resumeOlder,resumePaused,details,onLessonFinished,estimate,archive,replay,clockPulse});
 })();
