@@ -69,14 +69,27 @@ function focus(lesson,max=15){
  const rows=window.NEWordTrays?.focus?.(lesson)||[];
  if(!Array.isArray(rows)||!rows.length)return [];
  const events=(store(false)?.events||[]).filter(e=>e&&Number(e.at)>Date.now()-45*86400000);
- const counts=new Map();
+ const history=new Map();
  for(const e of events){
-  const k=lemma(e.word);if(!valid(k))continue;
-  counts.set(k,(counts.get(k)||0)+1);
+  const k=lemma(e.word),at=Number(e.at);
+  if(!valid(k)||!Number.isFinite(at)||at<=0||at>Date.now()+60000)continue;
+  if(!history.has(k))history.set(k,[]);
+  history.get(k).push({at,date:String(e.date||'').slice(0,10),
+   lesson:String(e.lessonId||'').slice(0,100)});
  }
  const stages={new:0,yesterday:1,review:2};
- return rows.slice(0,15).map(w=>({word:w.word,ru:w.ru,stage:w.stage,
-  usageCount:counts.get(lemma(w.word))||0}))
+ return rows.slice(0,15).map(w=>{
+  const observations=history.get(lemma(w.word))||[];
+  const distinctDays=new Set(observations.map(e=>e.date).filter(Boolean)).size;
+  const contextCount=new Set(observations.map(e=>e.lesson).filter(Boolean)).size;
+  // Different independent lesson and at least 24 hours between occasions:
+  // an observation of delayed reuse, never proof of vocabulary mastery.
+  const delayedUse=observations.some((a,i)=>observations.slice(i+1).some(b=>
+   a.lesson&&b.lesson&&a.lesson!==b.lesson&&a.date!==b.date&&
+   Math.abs(a.at-b.at)>=86400000));
+  return {word:w.word,ru:w.ru,stage:w.stage,
+   usageCount:observations.length,distinctDays,contextCount,delayedUse};
+ })
   .filter(x=>valid(lemma(x.word))&&String(x.ru||'').length<=120)
   .sort((a,b)=>a.usageCount-b.usageCount||(stages[a.stage]??3)-(stages[b.stage]??3))
   .slice(0,Math.min(15,Math.max(1,Number(max)||15)));
