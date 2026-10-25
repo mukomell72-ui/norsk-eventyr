@@ -228,7 +228,7 @@ function freeExGuided(l){
  (progress.flowNotice?'<div class="notice" role="status">Диалог обновлён: продолжим с вежливой фразы знакомства. Предыдущие реплики сохранены до этого шага.</div>':'')+
  '<div class="guided-task"><b>Нора · твой следующий шаг</b><p>'+esc(step.task)+'</p></div>'+
  '<div class="guided-language">Сначала попробуй ответить своими словами и вслух. Нора объяснит не только что исправить, но и почему так строится норвежская фраза. После объяснения ответь ещё раз самостоятельно.</div>'+
- '<textarea id="freeAnswer" name="guided-answer-'+esc(l.id)+'-'+progress.index+'" data-guided-turn="'+progress.index+'" class="input" rows="2" autocomplete="off" placeholder="Твой ответ по-норвежски…" oninput="this.dataset.fromVoice=\'false\'"></textarea>'+
+ '<textarea id="freeAnswer" name="guided-answer-'+esc(l.id)+'-'+progress.index+'" data-guided-turn="'+progress.index+'" class="input" rows="2" autocomplete="off" placeholder="Твой ответ по-норвежски…" oninput="this.dataset.fromVoice=\'false\';neGuidedAnswerEdited(this)"></textarea>'+
  '<div class="row guided-controls speech-actions-v831"><button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>'+
  '<button id="guidedSend" class="btn" onclick="checkFree(\'speaking\')">✓ Ответить</button></div>'+
  '<button class="btn ghost" type="button" onclick="neGuidedExplain()">Не понимаю: почему так и что делать?</button>'+
@@ -282,7 +282,8 @@ function guidedGradeFeedback(e,score,ok,firstScore,answer){
  const issues=Array.isArray(e.issues)?e.issues:[];
  const perfect=ok&&score===100&&issues.length===0;
  const title=perfect?'Ответ принят без ошибок':ok?'Ответ принят с замечаниями':'Ответ пока не принят';
- const parts=['<b>'+title+' · '+score+'/100</b>'];
+ const parts=['<b>'+title+' · '+score+'/100</b>',
+  '<p><small>Проверен текст: <span lang="nb">'+esc(String(answer||'').slice(0,700))+'</span></small></p>'];
  if(firstScore!==undefined){
   parts.push('<p><small>Первая оценка: '+firstScore+'/100 (для прогресса). '+
    (firstScore===score?'':'Текущая оценка исправления: '+score+'/100. ')+
@@ -296,6 +297,32 @@ function guidedGradeFeedback(e,score,ok,firstScore,answer){
    parts.push('<p><b>Естественный вариант:</b> <span lang="nb">'+esc(e.corrected)+'</span></p>');
  }
  return '<div class="feedback '+(ok?'good':'bad')+'" role="status">'+parts.join('')+'</div>';
+}
+// Once a reply has been accepted, allow unlimited formative corrections of
+// THIS turn. Editing invalidates the accepted response and its outdated feedback,
+// but never changes firstScores or credits progress a second time.
+function neGuidedRevise(){
+ const s=window.neLessonSession,p=s?.guidedSpeech,field=document.getElementById('freeAnswer');
+ if(!s||!p?.pending||!field||p.lessonId!==s.lesson?.id)return;
+ delete p.pending;
+ delete p.lastCheckedAnswer;
+ s.locked=false;
+ const box=document.getElementById('freeFb');
+ if(box)box.innerHTML='<div class="feedback" role="status">Ответ изменён. Нажми «Ответить», чтобы проверить текущий текст ещё раз. Первая оценка и XP сохраняются.</div>';
+ field.focus?.();
+}
+function neGuidedAnswerEdited(field){
+ const s=window.neLessonSession,p=s?.guidedSpeech;
+ if(!s||!p||p.lessonId!==s.lesson?.id||!field||
+    field!==document.getElementById('freeAnswer')||
+    String(field.dataset?.guidedTurn)!==String(p.index))return;
+ const value=field.value.trim();
+ if(p.pending){if(value!==p.pending.answer)neGuidedRevise();return;}
+ if(typeof p.lastCheckedAnswer==='string'&&value!==p.lastCheckedAnswer){
+  delete p.lastCheckedAnswer;
+  const box=document.getElementById('freeFb');
+  if(box)box.innerHTML='<div class="feedback" role="status">Ответ изменён. Предыдущая оценка относится к старому тексту. Нажми «Ответить», чтобы проверить новый.</div>';
+ }
 }
 async function guidedCheck(){
  const s=window.neLessonSession,l=s?.lesson,d=l&&ensure(l),input=document.getElementById('freeAnswer'),a=input?.value.trim(),box=document.getElementById('freeFb');
@@ -337,6 +364,7 @@ async function guidedCheck(){
   }
   window.persistLessonCheckpoint?.();
  }
+ progress.lastCheckedAnswer=a;
  const feedback=guidedGradeFeedback(e,score,ok,progress.firstScores[scoreKey],a);
  if(!ok){
   s.locked=false;
@@ -346,8 +374,12 @@ async function guidedCheck(){
  }
  const reply=await nextSceneReply(l,scene,progress,a,spoken,index)||step.reply;
  if(window.neLessonSession!==s||!box.isConnected||progress.index!==index){s.locked=false;return}
+ // The learner can edit while the AI prepares the next character's reply.
+ // Never attach a grade or a "next" button to a changed answer.
+ if(input.value.trim()!==a){s.locked=false;box.innerHTML='<div class="feedback">Ответ изменён. Проверь новый текст ещё раз.</div>';return}
  progress.pending={answer:a,spoken,reply};
- box.innerHTML=feedback+'<div class="guided-reply">'+actorMessage(scene,reply,index)+'</div>'+
+ box.innerHTML=feedback+'<div class="guided-reply">'+actorMessage(scene,reply,index)+'</div>'+ 
+  '<button type="button" class="btn secondary" onclick="neGuidedRevise()">Исправить ещё</button>'+
   '<button class="btn lesson-next-v8" onclick="neGuidedNext()">'+(index===scene.steps.length-1?'Завершить разговор →':'Следующая реплика →')+'</button>';
  if(typeof window.speakText==='function'){try{window.speakText(reply,.86)}catch{}}
 }
@@ -369,11 +401,12 @@ function neGuidedNext(){
  const s=window.neLessonSession,d=s?.lesson&&ensure(s.lesson);
  if(!d||!s.locked||!d.progress.pending)return;
  const p=d.progress,answer=p.pending.answer,spoken=p.pending.spoken;
+ if(document.getElementById('freeAnswer')?.value.trim()!==answer){neGuidedRevise();return;}
  // Discard the accepted turn BEFORE changing the active prompt. The original
  // answer remains in the dialogue history, not in the next editable field.
  window.neDiscardAcceptedGuidedDraft?.(s);
  p.turns.push({answer:String(answer).slice(0,700),spoken,reply:p.pending.reply||d.scene.steps[p.index].reply});
- p.index++;delete p.pending;delete p.flowNotice;s.locked=false;
+ p.index++;delete p.pending;delete p.lastCheckedAnswer;delete p.flowNotice;s.locked=false;
  if(p.index>=d.scene.steps.length){
   p.index=d.scene.steps.length-1;
   window.lessonNext(20);
@@ -386,6 +419,8 @@ window.checkFree=function(mode){
  return nativeCheck(mode);
 };
 window.neGuidedNext=neGuidedNext;
+window.neGuidedRevise=neGuidedRevise;
+window.neGuidedAnswerEdited=neGuidedAnswerEdited;
 window.neGuidedExplain=neGuidedExplain;
 window.neGuidedSpeak=neGuidedSpeak;
 window.NEGuidedSpeaking=Object.freeze({definition,sceneIds:Object.keys(SCENES),normalizeModule});

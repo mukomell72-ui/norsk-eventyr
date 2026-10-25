@@ -8,6 +8,7 @@ const speaking=fs.readFileSync(path.join(base,'guided-speaking.js'),'utf8');
 const ui=fs.readFileSync(path.join(base,'ui-v7.js'),'utf8');
 const app=fs.readFileSync(path.join(base,'app.js'),'utf8');
 assert.match(app,/accepted===true&&\(d\.score\?\?70\)>=50/,'Native dialogue accepts verified 50/100');
+assert(app.includes('window.neGuidedAnswerEdited?.(f);'),'Speech recognition must unlock an accepted reply when it changes the answer');
 assert.match(ui,/helpMarkupV7\(content\.includes\('class="card guided-speaking"'\)\)/,
  'Guided lesson suppresses the duplicate help trigger');
 const helperStart=ui.indexOf('  function helpMarkupV7(');
@@ -42,7 +43,7 @@ assert.match(speaking,/isConnected/,'must reject stale responses');
 assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved');
 
 (async()=>{
- const field={value:'Hei, jeg heter Anna og jeg bor i Oslo.',dataset:{fromVoice:'true'},focus(){}};
+ const field={value:'Hei, jeg heter Anna og jeg bor i Oslo.',dataset:{fromVoice:'true',guidedTurn:'0'},focus(){}};
  const feedback={isConnected:true,innerHTML:''};
  const nodes={freeAnswer:field,freeFb:feedback};
  const scores=[],attempts=[];
@@ -81,6 +82,10 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  assert.match(feedback.innerHTML,/22\/100/,'Rejected answer must show a numeric grade');
  assert.doesNotMatch(feedback.innerHTML,/neGuidedExplain\(\)/,'Feedback does not duplicate the existing contextual help action');
  assert.equal(scores.length,1,'First turn establishes one course score');
+ field.value='Hei, jeg heter Anna og bor i Oslo.';
+ w.neGuidedAnswerEdited(field);
+ assert(!feedback.innerHTML.includes('22/100'),'Editing a rejected answer hides the old review');
+ assert.match(feedback.innerHTML,/Предыдущая оценка относится к старому тексту/);
  accepted=true;
  await w.checkFree('speaking');
  assert.equal(session.locked,true);
@@ -91,6 +96,34 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  assert.equal(session.guidedSpeech.firstScores['0'],22,'First verified score remains immutable');
  assert.match(feedback.innerHTML,/Следующая реплика/);
  assert.match(feedback.innerHTML,/Hvor kommer du fra/);
+ assert.match(feedback.innerHTML,/Исправить ещё/,'Explicit retry action is shown after acceptance');
+ assert.match(feedback.innerHTML,/Проверен текст:/,'The displayed grade identifies the exact checked response');
+ // User edits a formerly accepted answer. The previous feedback and next button
+ // must disappear, while the teacher accepts a third/fourth correction.
+ field.value='Hei! Jeg heter Anna. Jeg bor i Bergen.';
+ w.neGuidedAnswerEdited(field);
+ assert.equal(session.locked,false,'Editing accepted text unlocks the same turn');
+ assert.equal(session.guidedSpeech.pending,undefined,'Editing invalidates previous accepted response');
+ assert.doesNotMatch(feedback.innerHTML,/Следующая реплика/,'No stale next action after editing');
+ assert(!feedback.innerHTML.includes('95/100'),'Old review disappears after editing');
+ await w.checkFree('speaking');
+ assert.equal(session.locked,true,'Third submission can be accepted');
+ assert(feedback.innerHTML.includes('Jeg bor i Bergen.'),'New feedback quotes the third submission');
+ assert.equal(scores.length,1,'Third accepted answer cannot add XP');
+ w.neGuidedRevise();
+ assert.equal(session.locked,false,'Explicit correction action unlocks the field');
+ field.value='Hei! Jeg heter Anna, og jeg bor i Tromsø.';
+ await w.checkFree('speaking');
+ assert(feedback.innerHTML.includes('jeg bor i Tromsø.'),'Fourth grade names the actual checked text');
+ assert.equal(scores.length,1,'Fourth submission cannot add XP');
+ // Even programmatic changes without a DOM input event cannot accidentally
+ // advance the dialogue using an accepted but outdated response.
+ field.value='Hei! Jeg heter Anna, og jeg bor i Oslo.';
+ w.neGuidedNext();
+ assert.equal(session.guidedSpeech.index,0,'Cannot advance using text changed after scoring');
+ assert.equal(session.locked,false);
+ await w.checkFree('speaking');
+ assert.equal(session.locked,true,'Fifth correction still works');
  w.neGuidedNext();
  assert.equal(session.guidedSpeech.index,1);
  assert.equal(session.guidedSpeech.turns.length,1);
