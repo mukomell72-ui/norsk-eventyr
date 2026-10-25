@@ -192,7 +192,7 @@ function restoreLessonDraft(session){
  if(mode==="speaking"&&key.includes("|turn:")){
   const legacyKey=key.slice(0,key.lastIndexOf("|turn:"));
   const completed=session.guidedSpeech?.turns||[];
-  const normalized=value=>String(value||"").normalize("NFKC").trim().replace(/\\s+/gu," ").toLowerCase();
+  const normalized=value=>String(value||"").normalize("NFKC").trim().replace(/\s+/gu," ").toLowerCase();
   // A shared pre-fix draft is ambiguous once any turn has been completed.
   // Only the very first turn may adopt it; otherwise discard it safely.
   if(completed.length){
