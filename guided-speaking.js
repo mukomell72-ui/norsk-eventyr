@@ -279,6 +279,8 @@ async function nextSceneReply(l,scene,progress,answer,spoken,index){
  finally{if(timer!==null)window.clearTimeout(timer)}
 }
 function guidedGradeFeedback(e,score,ok,firstScore,answer){
+ if(typeof window.neAttemptReviewHtml==='function')
+  return window.neAttemptReviewHtml(e,{answer,ok,firstScore});
  const issues=Array.isArray(e.issues)?e.issues:[];
  const perfect=ok&&score===100&&issues.length===0;
  const title=perfect?'Ответ принят без ошибок':ok?'Ответ принят с замечаниями':'Ответ пока не принят';
