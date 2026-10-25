@@ -228,7 +228,7 @@ function freeExGuided(l){
  (progress.flowNotice?'<div class="notice" role="status">Диалог обновлён: продолжим с вежливой фразы знакомства. Предыдущие реплики сохранены до этого шага.</div>':'')+
  '<div class="guided-task"><b>Нора · твой следующий шаг</b><p>'+esc(step.task)+'</p></div>'+
  '<div class="guided-language">Сначала попробуй ответить своими словами и вслух. Нора объяснит не только что исправить, но и почему так строится норвежская фраза. После объяснения ответь ещё раз самостоятельно.</div>'+
- '<textarea id="freeAnswer" class="input" rows="2" autocomplete="off" placeholder="Твой ответ по-норвежски…" oninput="this.dataset.fromVoice=\'false\'"></textarea>'+
+ '<textarea id="freeAnswer" name="guided-answer-'+esc(l.id)+'-'+progress.index+'" data-guided-turn="'+progress.index+'" class="input" rows="2" autocomplete="off" placeholder="Твой ответ по-норвежски…" oninput="this.dataset.fromVoice=\'false\'"></textarea>'+
  '<div class="row guided-controls speech-actions-v831"><button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>'+
  '<button id="guidedSend" class="btn" onclick="checkFree(\'speaking\')">✓ Ответить</button></div>'+
  '<button class="btn ghost" type="button" onclick="neGuidedExplain()">Не понимаю: почему так и что делать?</button>'+
@@ -337,6 +337,9 @@ function neGuidedNext(){
  const s=window.neLessonSession,d=s?.lesson&&ensure(s.lesson);
  if(!d||!s.locked||!d.progress.pending)return;
  const p=d.progress,answer=p.pending.answer,spoken=p.pending.spoken;
+ // Discard the accepted turn BEFORE changing the active prompt. The original
+ // answer remains in the dialogue history, not in the next editable field.
+ window.neDiscardAcceptedGuidedDraft?.(s);
  p.turns.push({answer:String(answer).slice(0,700),spoken,reply:p.pending.reply||d.scene.steps[p.index].reply});
  p.index++;delete p.pending;delete p.flowNotice;s.locked=false;
  if(p.index>=d.scene.steps.length){
