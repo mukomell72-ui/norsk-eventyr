@@ -163,7 +163,12 @@ function flushLessonDraft(){
 function saveLessonDraft(mode,field){
  const session=lessonSession;
  if(!session?.lesson||!field)return;
- const key=lessonDraftKey(session,mode);
+ const currentKey=lessonDraftKey(session,mode);
+ // An Android keyboard can dispatch its last input event after a turn advances.
+ // Never let an editor from the previous turn save under the next turn's key.
+ const mountedKey=field.dataset?.draftKey;
+ if(mountedKey&&mountedKey!==currentKey)return;
+ const key=mountedKey||currentKey;
  if(!key)return;
  session.answerDrafts=session.answerDrafts&&typeof session.answerDrafts==="object"&&!Array.isArray(session.answerDrafts)?session.answerDrafts:{};
  const value=String(field.value||"").slice(0,6000);
@@ -178,24 +183,45 @@ function restoreLessonDraft(session){
  const dialogue=document.getElementById("dialogAnswer"),free=document.getElementById("freeAnswer");
  const editor=dialogue||free;
  if(!editor||!session?.lesson)return;
- const mode=dialogue?"dialogue":session.step===(hasAdaptiveGrammar(session.lesson)?6:5)?"speaking":"writing";
- editor.dataset.draftMode=mode;
+ const mode=dialogue?"dialogue":editor.closest?.(".guided-speaking")?"speaking":
+  session.step===(hasAdaptiveGrammar(session.lesson)?6:5)?"speaking":"writing";
  const key=lessonDraftKey(session,mode);
+ editor.dataset.draftMode=mode;
+ editor.dataset.draftKey=key;
  let saved=session.answerDrafts?.[key];
- // Upgrade drafts saved before turns had separate keys. Only migrate text
- // that was not already used in a completed dialogue turn.
- if(typeof saved!=="string"&&mode==="speaking"&&key.includes("|turn:")){
+ if(mode==="speaking"&&key.includes("|turn:")){
   const legacyKey=key.slice(0,key.lastIndexOf("|turn:"));
-  const previous=session.answerDrafts?.[legacyKey];
   const completed=session.guidedSpeech?.turns||[];
-  if(typeof previous==="string"&&!completed.some(turn=>String(turn.answer||"").trim()===previous.trim())){
-   saved=previous;
-   session.answerDrafts[key]=previous;
+  const normalized=value=>String(value||"").normalize("NFKC").trim().replace(/\\s+/gu," ").toLowerCase();
+  // A shared pre-fix draft is ambiguous once any turn has been completed.
+  // Only the very first turn may adopt it; otherwise discard it safely.
+  if(completed.length){
+   if(session.answerDrafts)delete session.answerDrafts[legacyKey];
+  }else if(typeof saved!=="string"&&typeof session.answerDrafts?.[legacyKey]==="string"){
+   saved=session.answerDrafts[legacyKey];
+   session.answerDrafts[key]=saved;
    delete session.answerDrafts[legacyKey];
   }
+  if(typeof saved==="string"&&completed.some(turn=>normalized(turn.answer)===normalized(saved))){
+   if(session.answerDrafts)delete session.answerDrafts[key];
+   saved=undefined;
+  }
  }
- if(typeof saved==="string")editor.value=saved.slice(0,6000);
+ // Explicitly clear the browser field before restoring a CURRENT-turn draft.
+ // Old DOM values and completed turns may never populate a new question.
+ editor.value=typeof saved==="string"?saved.slice(0,6000):"";
  editor.addEventListener("input",()=>saveLessonDraft(mode,editor));
+}
+function discardAcceptedGuidedDraft(session){
+ if(!session||session!==lessonSession)return;
+ const key=lessonDraftKey(session,"speaking");
+ if(!key.includes("|turn:"))return;
+ if(session.answerDrafts){
+  delete session.answerDrafts[key];
+  delete session.answerDrafts[key.slice(0,key.lastIndexOf("|turn:"))];
+ }
+ const field=document.getElementById("freeAnswer");
+ if(field?.dataset?.draftKey===key){field.value="";field.dataset.fromVoice="false";}
 }
 if(typeof window!=="undefined"&&typeof window.addEventListener==="function")window.addEventListener("pagehide",flushLessonDraft);
 if(typeof document!=="undefined"&&typeof document.addEventListener==="function")document.addEventListener("visibilitychange",()=>{if(document.hidden)flushLessonDraft();});
@@ -608,7 +634,7 @@ function startTimer(){stopTimer();timerHandle=setInterval(()=>{if(!examSession)r
 function updateTimer(){const e=document.getElementById("timer");if(!e||!examSession)return;const m=Math.floor(examSession.remaining/60),s=examSession.remaining%60;e.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")}
 function stopTimer(){if(timerHandle){clearInterval(timerHandle);timerHandle=null}}
 
-Object.assign(window,{nePersistCoach:persistLessonCheckpoint,navigate,renderCourse,lessonNext,lessonChoice,checkDialogue,continueCheckedDialogue,continueAdaptiveVocab,checkFree,continueListeningStep,continueSpeakingFollowup,speakText,toggle,toggleMic,answerTest,answerTestFree,testNext,answerExamObj,answerExamFree,examNext,exitExam,resetProgress,xpRewardStatus,xpRewardCatalog});
+Object.assign(window,{neDiscardAcceptedGuidedDraft:discardAcceptedGuidedDraft,nePersistCoach:persistLessonCheckpoint,navigate,renderCourse,lessonNext,lessonChoice,checkDialogue,continueCheckedDialogue,continueAdaptiveVocab,checkFree,continueListeningStep,continueSpeakingFollowup,speakText,toggle,toggleMic,answerTest,answerTestFree,testNext,answerExamObj,answerExamFree,examNext,exitExam,resetProgress,xpRewardStatus,xpRewardCatalog});
 Object.defineProperties(window,{neLessonSession:{get:()=>lessonSession},neLearnerState:{get:()=>state}});
 renderHome();
 // Service worker registration and update notices are handled by updates.js.
