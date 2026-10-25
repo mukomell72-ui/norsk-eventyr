@@ -29,13 +29,13 @@ function extract(name,async=false){
  }
  throw Error('Unclosed function '+name);
 }
-const originals=['firstGrade','firstGradeNote','retryCoachFeedback','reviseCheckedAnswer','checkDialogue'].map(n=>extract(n,n==='checkDialogue')).join('\n');
+const originals=['noraAttemptReviewHtml','aiLessonFeedbackHtml','firstGrade','firstGradeNote','retryCoachFeedback','reviseCheckedAnswer','checkDialogue'].map(n=>extract(n,n==='checkDialogue')).join('\n');
 let grades=0,focuses=0;
 let display={innerHTML:'',isConnected:true},input={value:'Jeg kan ikke komme på lørdag.',dataset:{fromVoice:'false'},focus(){focuses++;}};
 let session={lesson:{level:'A1',id:'sample'},dialogueIndex:0,locked:true,firstGraded:{}};
 const el=id=>id==='dialogAnswer'?input:id==='dialogFb'?display:null;
 const ctx={Math,Number,Object,Array,String,document:{getElementById:el},lessonSession:session,esc:s=>String(s),window:{NEExperience:{}},persistLessonCheckpoint(){},firstGradeTrace:[],trackLessonScore(){grades++},saveLessonDraft(){},flushLessonDraft(){},currentDialogueTurn:()=>({phrase:'Passer det?',goal:'Предложи другое время'}),aiEvaluate:async()=>({ok:true,data:{accepted:true,score:100,issues:[],explanation_ru:'Верно.',corrected:''}}),aiLessonFeedbackHtml:()=>'',};
-vm.runInNewContext(originals+'\nthis.run={firstGrade,firstGradeNote,retryCoachFeedback,reviseCheckedAnswer,checkDialogue};',ctx);
+vm.runInNewContext(originals+'\nthis.run={noraAttemptReviewHtml,aiLessonFeedbackHtml,firstGrade,firstGradeNote,retryCoachFeedback,reviseCheckedAnswer,checkDialogue};',ctx);
 const a=ctx.run;
 a.firstGrade(session,'dialogue:0:false',40,()=>grades++);
 assert.equal(grades,1);
@@ -43,6 +43,30 @@ assert(a.firstGradeNote(session,'dialogue:0:false').includes('40/100'));
 assert(a.retryCoachFeedback({score:100,issues:[],explanation_ru:'Исправил.'},true).includes('100/100'));
 assert(!a.retryCoachFeedback({score:100,issues:[],explanation_ru:'Исправил.'},true).includes('Исправил.'));
 assert(a.retryCoachFeedback({score:78,issues:[{category:'task'}],explanation_ru:'Вопрос неясен.'},true).includes('есть что улучшить'));
+const reviewed={accepted:true,score:75,issues:[{category:'word_order',source_fragment:'jeg på fredag',
+ deduction:25,explanation_ru:'После обстоятельства времени нужен глагол на втором месте.',
+ corrected_fragment:'på fredag kan jeg'}],
+ corrected:'På fredag kan jeg møtes.',
+ strengths_ru:['«kan jeg» — модальный глагол помогает выразить возможность.',
+  '«mørgen» — несуществующий фрагмент, который Нора не должна хвалить.']};
+const review=a.noraAttemptReviewHtml(reviewed,{
+ answer:'Jeg kan jeg på fredag.',ok:true,firstScore:40,isCorrection:true
+});
+assert(review.includes('Что хорошо и почему'),'Corrected response explains verified strengths');
+assert(review.includes('Что неправильно и почему'),'Corrected response names verified errors');
+assert(review.includes('Почему:'),'Corrected response explains WHY');
+assert(review.includes('Как исправить:'),'Corrected response shows a specific correction');
+assert(review.includes('75/100')&&review.includes('40/100'),'Original and current grades remain distinct');
+assert(!review.includes('mørgen'),'Praise with invented Norwegian wording must not be shown');
+assert(review.includes('jeg på fredag'),'Exact original mistake is shown');
+const htmlSafe=a.noraAttemptReviewHtml({
+ accepted:false,score:40,issues:[{category:'vocabulary',source_fragment:'abc',deduction:20,
+ explanation_ru:'<script>alert(1)</script>',corrected_fragment:'bedre ord'}]
+},{answer:'abc',ok:false});
+assert(!htmlSafe.includes('<script>'),'Feedback must escape AI-generated HTML');
+const first=a.aiLessonFeedbackHtml({...reviewed,accepted:true},'✓ Задача выполнена','Jeg kan jeg på fredag.');
+assert(first.includes('Что хорошо и почему')&&first.includes('Что неправильно и почему'),
+ 'First attempts receive the same breakdown as corrected answers');
 a.reviseCheckedAnswer('dialogue');
 assert.equal(session.locked,false,'Retry must unlock accepted dialogue');
 assert.equal(focuses,1,'Input should be focused for correction');
