@@ -561,7 +561,7 @@ async function checkFree(mode){
  if(input.value.trim()!==a){s.locked=false;b.innerHTML='<div class="feedback">Ответ был изменён во время проверки. Проверь новый текст ещё раз.</div>';return}
  if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">'+esc(evaluationErrorMessage(r.error))+verifiedNorwegianHintsHtml(r.verifiedHints)+'</div>';return}
  const d=r.data,ok=fullyCorrectAnswer(d),skill=spoken?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer,
- evidenceScore=ok?Math.max(0,Math.min(100,Math.round(Number(d.score)||0))):Math.min(40,Math.max(0,Math.round(Number(d.score)||0)));
+ evidenceScore=d.accepted===true?Math.max(0,Math.min(100,Math.round(Number(d.score)||0))):Math.min(40,Math.max(0,Math.round(Number(d.score)||0)));
  const gradeKey="free:"+mode+":"+s.step+(rem?":transfer:"+String(rem.retries||0):""),firstAttempt=firstGrade(s,gradeKey,evidenceScore,()=>{trackLessonScore(evidenceScore,{label:spoken?"Речь":"Письмо",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill,score:evidenceScore,moduleId:l?._adaptive?.moduleId||l?.id,source:mode==="speaking"&&!spoken?"lesson_free_text":rem?"lesson_free_transfer":"lesson_free",errorTag:d.error_tag||"",targetErrorTag:rem?.errorTag||l?._adaptive?.errorTag||"",transfer:isTransfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}});
  if(ok&&firstAttempt)window.NEWordLearning?.observe?.({
   lesson:l,answer:a,assessment:d,gradeKey,firstAttempt,
