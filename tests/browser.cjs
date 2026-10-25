@@ -2,7 +2,7 @@ const fs=require('fs'),http=require('http'),path=require('path'),assert=require(
 const root=path.resolve(__dirname,'..');let calls=0;
 const server=http.createServer(async(req,res)=>{
  const name=new URL(req.url,'http://localhost').pathname;
- if(name.startsWith('/api/')){let data='';for await(const c of req)data+=c;const body=JSON.parse(data||'{}');let out={score:90,score_valid:true,accepted:true,feedback_status:'partial',score_reason_ru:'Минус 10 баллов за неполноту ответа.',explanation_ru:'Хорошо',reply_no:'Hei! Hvordan har du det?',translation_ru:'Привет',text:'Jeg bor i Norge.'};if(name.endsWith('session')&&body.action)out={status:'approved',access_granted:true,owner:true,user_id:'11111111-1111-4111-8111-111111111111',email:'owner@example.com'};if(name.endsWith('session')&&!body.action)out={token:'qa'};if(name.endsWith('evaluate')){calls++;if(body.action==='lexical_gap')out={candidates:[]};else if(body.answer==='Jeg feil.')out={score:35,accepted:false,explanation_ru:'Порядок слов нужно исправить.',corrected:'Jeg jobber i dag.',micro_rule_ru:'В главном предложении сказуемое стоит на втором месте.',retry_prompt_no:'Hva skal du gjøre i morgen?',next_action_ru:'Проверь перенос.',error_tag:'word_order',strengths_ru:[],breakdown:{meaning:70,grammar:30,vocabulary:60,coherence:60}};await new Promise(r=>setTimeout(r,120))}if(name.endsWith('generate')){out={title:'QA adaptive lesson',grammarTitle:'Presens',grammarRuleRu:'Глагол в настоящем времени.',grammarExamples:['Jeg jobber.','Du bor her.','Vi lærer norsk.'],grammarQ:'Velg riktig setning.',grammarOpts:['Jeg jobber i dag.','Jeg jobbe i dag.','Jeg jobbet i morgen.','Jeg å jobber.'],grammarCorrect:0,phrase:'Jeg jobber i dag.',ru:'Я работаю сегодня.',vocab:[['jobb','работа'],['i dag','сегодня'],['lære','учить'],['norsk','норвежский'],['bo','жить'],['her','здесь']],listeningAudio:'Ola jobber i butikken i dag, men han slutter tidlig fordi han skal til legen.',listeningQ:'Hvorfor slutter Ola tidlig?',listeningOpts:['Han skal til legen.','Han skal på ferie.','Butikken stenger.','Han er ferdig for uken.'],listeningCorrect:0,read:'Jeg heter Ola. Jeg jobber i dag.',q:'Hva gjør Ola i dag?',opts:['Han jobber.','Han sover.','Han reiser.','Han lager mat.'],correct:0,writing:'Skriv to setninger om dagen din.',speaking:'Fortell kort om dagen din.'};await new Promise(r=>setTimeout(r,120))}if(name.endsWith('drill')){out={items:[{audio_no:'Hei',translation_ru:'Привет'}]};await new Promise(r=>setTimeout(r,120))}res.setHeader('Content-Type','application/json');return res.end(JSON.stringify(out))}
+ if(name.startsWith('/api/')){let data='';for await(const c of req)data+=c;const body=JSON.parse(data||'{}');let out={score:90,score_valid:true,accepted:true,feedback_status:'partial',score_reason_ru:'Минус 10 баллов за неполноту ответа.',explanation_ru:'Хорошо',reply_no:'Hei! Hvordan har du det?',translation_ru:'Привет',text:'Jeg bor i Norge.'};if(name.endsWith('session')&&body.action)out={status:'approved',access_granted:true,owner:true,user_id:'11111111-1111-4111-8111-111111111111',email:'owner@example.com'};if(name.endsWith('session')&&!body.action)out={token:'qa'};if(name.endsWith('evaluate')){calls++;if(body.action==='lexical_gap')out={candidates:[]};else if(body.answer==='Jeg heter Ola.')out={score:100,accepted:true,issues:[]};else if(body.answer==='Jeg jobber i dag. Jeg går hjem klokka fem.')out={score:100,accepted:true,issues:[],corrected:''};else if(body.answer==='Jeg jobber i dag. Jeg gå hjem klokka fem.')out={score:60,accepted:true,issues:[{category:'verb_form',source_fragment:'jeg gå',deduction:40,explanation_ru:'После подлежащего jeg нужен глагол går в настоящем времени.',corrected_fragment:'jeg går'}],corrected:'Jeg jobber i dag. Jeg går hjem klokka fem.'};else if(body.answer==='Jeg feil.')out={score:35,accepted:false,explanation_ru:'Порядок слов нужно исправить.',corrected:'Jeg jobber i dag.',micro_rule_ru:'В главном предложении сказуемое стоит на втором месте.',retry_prompt_no:'Hva skal du gjøre i morgen?',next_action_ru:'Проверь перенос.',error_tag:'word_order',strengths_ru:[],breakdown:{meaning:70,grammar:30,vocabulary:60,coherence:60}};await new Promise(r=>setTimeout(r,120))}if(name.endsWith('generate')){out={title:'QA adaptive lesson',grammarTitle:'Presens',grammarRuleRu:'Глагол в настоящем времени.',grammarExamples:['Jeg jobber.','Du bor her.','Vi lærer norsk.'],grammarQ:'Velg riktig setning.',grammarOpts:['Jeg jobber i dag.','Jeg jobbe i dag.','Jeg jobbet i morgen.','Jeg å jobber.'],grammarCorrect:0,phrase:'Jeg jobber i dag.',ru:'Я работаю сегодня.',vocab:[['jobb','работа'],['i dag','сегодня'],['lære','учить'],['norsk','норвежский'],['bo','жить'],['her','здесь']],listeningAudio:'Ola jobber i butikken i dag, men han slutter tidlig fordi han skal til legen.',listeningQ:'Hvorfor slutter Ola tidlig?',listeningOpts:['Han skal til legen.','Han skal på ferie.','Butikken stenger.','Han er ferdig for uken.'],listeningCorrect:0,read:'Jeg heter Ola. Jeg jobber i dag.',q:'Hva gjør Ola i dag?',opts:['Han jobber.','Han sover.','Han reiser.','Han lager mat.'],correct:0,writing:'Skriv to setninger om dagen din.',speaking:'Fortell kort om dagen din.'};await new Promise(r=>setTimeout(r,120))}if(name.endsWith('drill')){out={items:[{audio_no:'Hei',translation_ru:'Привет'}]};await new Promise(r=>setTimeout(r,120))}res.setHeader('Content-Type','application/json');return res.end(JSON.stringify(out))}
  try{const file=path.join(root,name==='/'?'index.html':name);res.setHeader('Content-Type',({'.js':'text/javascript','.css':'text/css','.html':'text/html','.json':'application/json','.webp':'image/webp','.svg':'image/svg+xml'})[path.extname(file)]||'application/octet-stream');res.end(fs.readFileSync(file))}catch{res.statusCode=404;res.end('not found')}
 });
 (async()=>{
@@ -340,8 +340,7 @@ const server=http.createServer(async(req,res)=>{
   await page.locator('#fb .lesson-next-v8').click();
   assert.equal(await page.evaluate(()=>lessonSession.choiceMiss),false,'new lesson step should start new first-attempt evidence');
   console.log('PASS wrong choice stays scored after resume and cannot earn a second perfect grade');
-  const transferBefore=await page.evaluate(()=>state.learningV8?.attempts?.filter(x=>x.source==='lesson_free_transfer').length||0);
-
+  
   // Regression: switching navigation tabs or reloading must never discard a
   // Norwegian free-writing answer, even before the AI can assess it.
   await page.evaluate(()=>{lessonSession.step=5;lessonSession.remediation=null;lessonSession.locked=false;persistLessonCheckpoint();renderLesson()});
@@ -362,32 +361,46 @@ const server=http.createServer(async(req,res)=>{
   assert(savedDraft.includes(draftText),'Saved lesson checkpoint must include original learner text');
   console.log('PASS persisted answer draft across tabs, lesson resume, and PWA reload');
 
-  await page.evaluate(()=>{lessonSession.step=5;lessonSession.remediation=null;lessonSession.locked=false;renderLesson()});await page.locator('#freeAnswer').fill('Jeg feil.');await page.evaluate(()=>checkFree('writing'));await page.waitForTimeout(220);
-  const remediation=await page.evaluate(()=>({prompt:lessonSession?.proposedRemediation?.prompt||'',
-   activeTransfer:!!lessonSession?.remediation,first:lessonSession.firstGraded?.['free:writing:5'],
-   attempts:state.learningV8.attempts.length,recordedScores:lessonSession.xpScores.length,
-   text:document.querySelector('#app main')?.innerText||''}));
-  assert.equal(remediation.prompt,'Hva skal du gjøre i morgen?');
-  assert.equal(remediation.activeTransfer,false,'Offer transfer without replacing the answer that needs rewriting');
-  assert.equal(remediation.first,35,'The very first mistake retains its original score');
-  assert(remediation.text.includes('Применить в новой ситуации'));
-  // The learner can rewrite their OWN answer; repeated checks must not regrade.
+  await page.evaluate(()=>{lessonSession.step=5;lessonSession.remediation=null;lessonSession.locked=false;renderLesson()});
   await page.locator('#freeAnswer').fill('Jeg feil.');
-  await page.evaluate(()=>checkFree('writing'));await page.waitForTimeout(220);
-  const retry=await page.evaluate(()=>({first:lessonSession.firstGraded?.['free:writing:5'],
-   attempts:state.learningV8.attempts.length,recordedScores:lessonSession.xpScores.length,
-   originalPrompt:!!lessonSession.proposedRemediation?.prompt,
-   preservedAnswer:document.querySelector('#freeAnswer')?.value}));
-  assert.equal(retry.first,35,'Original score is unchanged after rewriting');
-  assert.equal(retry.attempts,remediation.attempts,'Rewriting does not create a second adaptive grade');
-  assert.equal(retry.recordedScores,remediation.recordedScores,'Rewriting cannot add new XP evidence');
-  assert.equal(retry.preservedAnswer,'Jeg feil.','The answer editor remains available for another correction');
-  assert(retry.originalPrompt,'Optional transfer does not replace the original task');
-  await page.evaluate(()=>openFreeTransfer());assert((await page.locator('#app main').innerText()).includes('Hva skal du gjøre i morgen?'));await page.locator('#freeAnswer').fill('Jeg skal jobbe i morgen.');await page.evaluate(()=>checkFree('writing'));await page.waitForTimeout(260);
-  const transferFeedback=await page.evaluate(()=>({step:lessonSession.step,text:document.querySelector('#app main')?.innerText||''}));assert.equal(transferFeedback.step,5);assert(transferFeedback.text.includes('Исправление перенесено в новую ситуацию'));assert.equal(await page.locator('.lesson-next-v8').innerText(),'Дальше →');
-  await page.locator('.lesson-next-v8').click();await page.waitForTimeout(100);
-  const transferAfter=await page.evaluate(()=>({count:state.learningV8?.attempts?.filter(x=>x.source==='lesson_free_transfer').length||0,last:state.learningV8?.attempts?.filter(x=>x.source==='lesson_free_transfer').at(-1),step:lessonSession.step,remediation:lessonSession.remediation||null}));
-  assert.equal(transferAfter.count,transferBefore+1);assert.equal(transferAfter.last?.transfer,true);assert.equal(transferAfter.last?.skill,'writing');assert.equal(transferAfter.step,6);assert.equal(transferAfter.remediation,null);console.log('PASS adaptive writing error requires successful transfer to a new context');
+  await page.evaluate(()=>checkFree('writing'));await page.waitForTimeout(230);
+  const firstRewrite=await page.evaluate(()=>({grade:lessonSession.firstGraded?.['free:writing:5'],
+   attempts:state.learningV8.attempts.length,scores:lessonSession.xpScores.length,
+   locked:lessonSession.locked,feedback:document.getElementById('freeFb')?.innerText||''}));
+  assert.equal(firstRewrite.grade,35,'First incorrect score is retained');
+  assert.equal(firstRewrite.locked,false,'An incorrect answer leaves writing unlocked');
+  assert.equal(await page.locator('#freeFb .lesson-next-v8').count(),0,'No Next before corrected text');
+  await page.evaluate(()=>checkFree('writing'));await page.waitForTimeout(230);
+  const secondRewrite=await page.evaluate(()=>({grade:lessonSession.firstGraded?.['free:writing:5'],
+   attempts:state.learningV8.attempts.length,scores:lessonSession.xpScores.length}));
+  assert.equal(secondRewrite.grade,35);
+  assert.equal(secondRewrite.attempts,firstRewrite.attempts,'Retry cannot create extra adaptive grade');
+  assert.equal(secondRewrite.scores,firstRewrite.scores,'Retry cannot mint extra XP scores');
+  // A 60/100 answer can communicate the meaning but still has a verb error.
+  await page.locator('#freeAnswer').fill('Jeg jobber i dag. Jeg gå hjem klokka fem.');
+  await page.evaluate(()=>checkFree('writing'));await page.waitForTimeout(230);
+  const partialRewrite=await page.evaluate(()=>({locked:lessonSession.locked,fb:document.getElementById('freeFb')?.innerText||'',
+    grade:lessonSession.firstGraded?.['free:writing:5'],scores:lessonSession.xpScores.length,attempts:state.learningV8.attempts.length}));
+  assert.equal(partialRewrite.locked,false,'Accepted 60/100 still needs a correction');
+  assert(partialRewrite.fb.includes('jeg gå')&&partialRewrite.fb.includes('глагол går'),'Show the exact mistake and its reason');
+  assert.equal(await page.locator('#freeFb .lesson-next-v8').count(),0,'Do not unlock Next on 60/100');
+  assert.equal(partialRewrite.grade,35,'Revisions never overwrite the original grade');
+  assert.equal(partialRewrite.scores,firstRewrite.scores,'Revisions must not generate XP');
+  assert.equal(partialRewrite.attempts,firstRewrite.attempts,'Revisions must not add adaptive evidence');
+  await page.locator('#freeAnswer').fill('Jeg jobber i dag. Jeg går hjem klokka fem.');
+  await page.evaluate(()=>checkFree('writing'));await page.waitForTimeout(230);
+  const correctedRewrite=await page.evaluate(()=>({locked:lessonSession.locked,fb:document.getElementById('freeFb')?.innerText||'',
+    grade:lessonSession.firstGraded?.['free:writing:5'],scores:lessonSession.xpScores.length,attempts:state.learningV8.attempts.length}));
+  assert.equal(correctedRewrite.locked,true,'Correct 100/100 allows manual progression');
+  assert(correctedRewrite.fb.includes('100/100')&&correctedRewrite.fb.includes('35/100'),
+   'Show both latest success and the original grade');
+  assert.equal(correctedRewrite.grade,35);
+  assert.equal(correctedRewrite.scores,firstRewrite.scores);
+  assert.equal(correctedRewrite.attempts,firstRewrite.attempts);
+  assert.equal(await page.locator('#freeFb .lesson-next-v8').innerText(),'Дальше →');
+  await page.locator('#freeFb .lesson-next-v8').click();await page.waitForTimeout(100);
+  assert.equal(await page.evaluate(()=>lessonSession.step),6,'Advance only after a fully corrected text');
+  console.log('PASS unlimited writing correction 35→60→100, clear explanations and immutable first grade');
   await page.locator('#freeAnswer').fill('Jeg vil jobbe flere timer.');await page.evaluate(()=>checkFree('speaking'));await page.waitForTimeout(240);
   const typedSpeech=await page.evaluate(()=>state.learningV8?.attempts?.at(-1));
   assert.equal(typedSpeech?.skill,'writing','typing a speech answer should be recorded as writing, not speaking');
@@ -570,7 +583,7 @@ const server=http.createServer(async(req,res)=>{
  assert((await page.locator('#app main').innerText()).includes('Hva slags tilleggsdata'));
  const followupAssessment=await page.evaluate(async()=>{
    const prev=aiEvaluate,submissions=[];
-   aiEvaluate=async payload=>{submissions.push(payload);return{ok:true,data:{accepted:true,score:87,breakdown:{grammar:85,vocabulary:90},strengths_ru:['Ответ по теме'],improvements_ru:[],explanation_ru:'Понятный ответ',corrected:''}}};
+   aiEvaluate=async payload=>{submissions.push(payload);return{ok:true,data:{accepted:true,score:100,issues:[],breakdown:{grammar:100,vocabulary:100},strengths_ru:['Ответ по теме'],improvements_ru:[],explanation_ru:'Понятный ответ',corrected:''}}};
    const text=document.getElementById('freeAnswer');
    text.value='Vi trenger bedre data og et lengre forsøk før vi tar en beslutning.';
    text.dataset.fromVoice='false';
