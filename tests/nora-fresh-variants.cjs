@@ -28,7 +28,7 @@ const priorAnswers={...old,opts:['En','To','Tre','Fire'],grammarOpts:['Jeg','Du'
 const repeatAnswers={...fresh,opts:['Fire','Tre','To','En'],grammarOpts:['Vi','Jeg','Han','Du'],listeningOpts:['Bibliotek','Skole','Butikk','Kino']};
 assert.equal(sandbox.helpers.repeatsRecent(repeatAnswers,sandbox.helpers.pastLessonSnippets([priorAnswers])),true,'Two reused choice sets must prompt a new variant');
 const teacher=fs.readFileSync(path.join(root,'adaptive-teacher.js'),'utf8');
-assert(teacher.includes('recentLessons,bridgeLearned,bridgeDifficult,learningLoad,teacherMode:true'),
+assert(teacher.includes('recentLessons,bridgeLearned,bridgeDifficult,activeVocabulary:activeWordTrays,learningLoad,teacherMode:true'),
  'Past exercises and personalized learner vocabulary must reach the server');
 assert(teacher.includes('personalFocus?.(16)'), 'Learner-specific difficulty must come from scoped bridge history');
 assert(teacher.includes("levelEntries?.(mission.level)"),'Nora must receive vocabulary scoped to actual module level');
