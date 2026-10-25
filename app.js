@@ -80,20 +80,55 @@ function clearerTaskPrompt(prompt){
  if(/^Ответь(?:те)? по-норвежски\s*:\s*[«"“]/i.test(value)&&!/[?？]/.test(value))return value.replace(/^Ответь(?:те)? по-норвежски\s*:/i,"Переведите на норвежский:");
  return value;
 }
-function aiLessonFeedbackHtml(d,title){
- const score=Math.max(0,Math.min(100,Math.round(Number(d?.score)||0))),strengths=Array.isArray(d?.strengths_ru)?d.strengths_ru.filter(Boolean).slice(0,2):[],improvements=Array.isArray(d?.improvements_ru)?d.improvements_ru.filter(Boolean).slice(0,2):[];
- const verdict=d?.feedback_status==="incorrect"?"Неправильно":d?.feedback_status==="partial"?"Частично правильно":"Правильно";
- const detail=[
-  '<br><b>Проверка:</b> '+verdict,
-  d?.error_fragment_ru?'<br><b>Где ошибка:</b> '+esc(d.error_fragment_ru):"",
-  strengths.length?'<br><b>Что хорошо:</b> '+strengths.map(esc).join("; "):"",
-  improvements.length?'<br><b>Что улучшить:</b> '+improvements.map(esc).join("; "):"",
-  d?.explanation_ru?'<br><b>Комментарий Норы:</b> '+esc(d.explanation_ru):"",
-  d?.score_reason_ru?'<br><b>Почему '+score+'/100:</b> '+esc(d.score_reason_ru):"",
-  d?.corrected?'<br><b>Естественнее:</b> '+esc(d.corrected):"",
-  d?.micro_rule_ru?'<br><b>Правило:</b> '+esc(d.micro_rule_ru):""
- ].join("");
- return '<div class="feedback good"><b>'+title+' · '+score+'/100</b>'+detail+'</div>';
+// A single evidence-led explanation is used for EVERY graded attempt:
+ // guided dialogue, ordinary dialogue, writing and speaking corrections.
+function noraAttemptReviewHtml(d,{answer="",ok,firstScore,title="",isCorrection=false}={}){
+ const score=Math.max(0,Math.min(100,Math.round(Number(d?.score)||0)));
+ const accepted=typeof ok==="boolean"?ok:d?.accepted===true;
+ const source=String(answer||"");
+ const issues=Array.isArray(d?.issues)?d.issues.slice(0,5):[];
+ const heading=title||(accepted?(score===100?"Ответ принят без ошибок":"Ответ принят, но есть что улучшить"):"Ответ пока требует исправления");
+ const parts=['<b>'+esc(heading)+' · '+score+'/100</b>'];
+ if(source)parts.push('<p><small><b>Проверен именно этот ответ:</b> <span lang="nb">'+esc(source.slice(0,700))+'</span></small></p>');
+ if(firstScore!==undefined&&firstScore!==null)
+  parts.push('<p><small>Первая оценка: '+esc(firstScore)+'/100. Текущая оценка: '+score+'/100. За повторные исправления XP не начисляются.</small></p>');
+ else if(isCorrection)parts.push('<p><small>Текущая оценка исправления: '+score+'/100. Первая оценка и XP не пересчитываются.</small></p>');
+ const strengths=Array.isArray(d?.strengths_ru)?d.strengths_ru.slice(0,2):[];
+ // A model's unquoted compliments are not sufficient evidence of correctness.
+ const normalize=x=>String(x||"").normalize("NFKC").replace(/\\s+/gu," ").trim().toLowerCase();
+ const good=strengths.filter(value=>{
+  const quotes=[...String(value).matchAll(/«([^»]{2,160})»/gu)].map(x=>x[1]);
+  return quotes.length>0&&quotes.every(q=>normalize(source).includes(normalize(q)))&&
+   quotes.every(q=>!issues.some(issue=>issue.source_fragment&&normalize(issue.source_fragment)===normalize(q)));
+ });
+ parts.push('<p><b>Что хорошо и почему:</b></p>');
+ if(good.length)parts.push('<ul>'+good.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>');
+ else parts.push('<p>'+(accepted?
+  (issues.length?'Основной смысл понятен, поэтому ответ принят. Ниже — конкретные замечания.':
+   'Задание выполнено, проверенных причин для снижения оценки нет.'):
+  'Проверка пока не подтвердила выполнение задания. Ниже — причины, которые нужно исправить.')+'</p>');
+ parts.push('<p><b>Что неправильно и почему:</b></p>');
+ if(issues.length){
+  parts.push('<ul>'+issues.map(issue=>{
+   const requirement=issue.category==="task";
+   const fragment=requirement?String(issue.requirement_quote||""):String(issue.source_fragment||"");
+   const reason=String(issue.explanation_ru||"").trim();
+   const fix=String(issue.corrected_fragment||"").trim();
+   return '<li>'+(fragment?'<b>'+(requirement?'Не выполнено условие':'Фрагмент ответа')+':</b> «'+esc(fragment)+'». ':'')+
+    '<b>Почему:</b> '+esc(reason||'Причина не уточнена; перепроверь задание.')+
+    (fix?'<br><b>Как исправить:</b> <span lang="nb">'+esc(fix)+'</span>':'')+
+    (Number.isFinite(Number(issue.deduction))?'<br><small>Снято '+Math.round(Number(issue.deduction))+' баллов.</small>':'')+'</li>';
+  }).join('')+'</ul>');
+ }else parts.push('<p>Подтверждённых ошибок в этой попытке не обнаружено.</p>');
+ if(issues.length&&d?.corrected&&normalize(d.corrected)!==normalize(source))
+  parts.push('<p><b>Естественный вариант целиком:</b> <span lang="nb">'+esc(d.corrected)+'</span></p>');
+ if(!issues.length&&score<100)
+  parts.push('<p><small>Подробная причина снижения оценки не подтверждена. Не считай её установленной ошибкой.</small></p>');
+ if(!accepted)parts.push('<p><b>Что сделать дальше:</b> Исправь указанные места и отправь текст ещё раз. Нора проверит новую версию.</p>');
+ return '<div class="feedback '+(accepted?'good':'bad')+' ne-attempt-review" role="status">'+parts.join('')+'</div>';
+}
+function aiLessonFeedbackHtml(d,title,answer=""){
+ return noraAttemptReviewHtml(d,{answer,title,ok:d?.accepted===true});
 }
 function lessonFeedbackSummary(reward){
  const items=Array.isArray(lessonSession?.feedbackItems)?lessonSession.feedbackItems:[],lower=items.filter(x=>Number(x.score)<100);
@@ -326,18 +361,8 @@ function firstGrade(session,key,score,record){
  persistLessonCheckpoint();
  return true;
 }
-function retryCoachFeedback(d,ok){
- const score=Math.max(0,Math.min(100,Math.round(Number(d?.score)||0)));
- const issues=Array.isArray(d?.issues)?d.issues:[];
- const perfect=ok&&score===100&&issues.length===0;
- const title=perfect?'Новый ответ принят без замечаний.':ok?'Новый ответ принят, но есть что улучшить.':'Ответ пока требует исправления.';
- const explanation=perfect?'Ты выполнил задачу. Дополнительных исправлений не требуется.':
-  (d?.explanation_ru||'Проверь смысл и форму, затем попробуй снова.');
- return '<div class="feedback '+(ok?'good':'bad')+'"><b>'+title+'</b>'+
- '<p><b>Оценка этого исправления: '+score+'/100.</b> Первая оценка и XP не пересчитываются.</p>'+
- '<p>'+esc(explanation)+'</p>'+
- (!perfect&&d?.micro_rule_ru&&d.micro_rule_ru!==explanation?'<p><b>Правило:</b> '+esc(d.micro_rule_ru)+'</p>':'')+
- (!perfect&&d?.corrected?'<p><b>Естественный вариант:</b> '+esc(d.corrected)+'</p>':'')+'</div>';
+function retryCoachFeedback(d,ok,answer=""){
+ return noraAttemptReviewHtml(d,{answer,ok,isCorrection:true});
 }
 function firstGradeNote(session,key){
  const score=session.firstGraded?.[key];
@@ -404,10 +429,10 @@ async function checkDialogue(){
  const firstAttempt=firstGrade(s,gradeKey,d.score??(ok?70:40),()=>{trackLessonScore(d.score??(ok?70:40),{label:"Диалог",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:l.level,skill:spoken?"speaking":"writing",score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l.id,source:spoken?"dialogue_voice":"dialogue_text",errorTag:d.error_tag||"",targetErrorTag:l?._adaptive?.errorTag||"",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});});
  
  if(ok){
-  b.innerHTML=(window.NEExperience?.response?.(true,"dialogue")||"")+firstGradeNote(s,gradeKey)+(firstAttempt?aiLessonFeedbackHtml(d,"✓ Задача выполнена"):retryCoachFeedback(d,true))+'<button type="button" class="btn secondary" onclick="reviseCheckedAnswer(\'dialogue\')">Исправить ещё</button><button class="btn lesson-next-v8" onclick="continueCheckedDialogue()">Дальше →</button>';
+  b.innerHTML=(window.NEExperience?.response?.(true,"dialogue")||"")+firstGradeNote(s,gradeKey)+(firstAttempt?aiLessonFeedbackHtml(d,"✓ Задача выполнена",a):retryCoachFeedback(d,true,a))+'<button type="button" class="btn secondary" onclick="reviseCheckedAnswer(\'dialogue\')">Исправить ещё</button><button class="btn lesson-next-v8" onclick="continueCheckedDialogue()">Дальше →</button>';
   return;
  }
- s.locked=false;b.innerHTML=(window.NEExperience?.response?.(false,"dialogue")||"")+firstGradeNote(s,gradeKey)+'<div class="feedback bad"><b>Текущая оценка: '+esc(String(d.score??0))+'/100. Исправь одну главную вещь и ответь снова.</b><br>'+esc(d.explanation_ru||"Исправь ответ и проверь снова.")+(d.micro_rule_ru?'<br><b>Правило:</b> '+esc(d.micro_rule_ru):"")+(d.corrected?'<br><b>Естественнее:</b> '+esc(d.corrected):"")+(d.retry_prompt_no?'<br><small>После исправления попробуй также: '+esc(d.retry_prompt_no)+'</small>':"")+'</div>';input.focus();
+ s.locked=false;b.innerHTML=(window.NEExperience?.response?.(false,"dialogue")||"")+firstGradeNote(s,gradeKey)+noraAttemptReviewHtml(d,{answer:a,ok:false,isCorrection:!firstAttempt});input.focus();
 }
 
 function adaptiveVocabItems(l){
@@ -529,33 +554,33 @@ async function checkFree(mode){
  const d=r.data,ok=d.accepted===true&&(d.score??70)>=50,skill=spoken?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer,
  evidenceScore=ok?Math.max(0,Math.min(100,Math.round(Number(d.score)||0))):Math.min(40,Math.max(0,Math.round(Number(d.score)||0)));
  const gradeKey="free:"+mode+":"+s.step+(rem?":transfer:"+String(rem.retries||0):""),firstAttempt=firstGrade(s,gradeKey,evidenceScore,()=>{trackLessonScore(evidenceScore,{label:spoken?"Речь":"Письмо",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill,score:evidenceScore,moduleId:l?._adaptive?.moduleId||l?.id,source:mode==="speaking"&&!spoken?"lesson_free_text":rem?"lesson_free_transfer":"lesson_free",errorTag:d.error_tag||"",targetErrorTag:rem?.errorTag||l?._adaptive?.errorTag||"",transfer:isTransfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}});
- const humanFeedback=(window.NEExperience?.response?.(ok,mode)||"")+firstGradeNote(s,gradeKey)+(!ok?'<p class="ne-current-grade"><b>Текущая оценка: '+esc(String(d.score??0))+'/100.</b> '+(firstAttempt?'Первоначальный результат сохранён.':'Исправление проверено повторно; XP не пересчитываются.')+'</p>':'');
+ const humanFeedback=(window.NEExperience?.response?.(ok,mode)||"")+firstGradeNote(s,gradeKey);
  if(ok){
   s.lastFreeAccepted={mode,remediation:rem?{...rem}:null,speakingFollowup:s.speakingFollowup===true};
   s.remediation=null;s.proposedRemediation=null;s.locked=true;
   if(mode==="speaking"&&l.speakingFollowUp&&!s.speakingFollowup){
    s.speakingFollowup=true;persistLessonCheckpoint();
-   b.innerHTML=humanFeedback+(firstAttempt?aiLessonFeedbackHtml(d,"✓ Первая часть разговора выполнена"):retryCoachFeedback(d,true))+'<button type="button" class="btn secondary" onclick="reviseCheckedAnswer(\'speaking\')">Исправить ещё</button><button class="btn lesson-next-v8" onclick="continueSpeakingFollowup()">Ответить на уточнение →</button>';
+   b.innerHTML=humanFeedback+(firstAttempt?aiLessonFeedbackHtml(d,"✓ Первая часть разговора выполнена",a):retryCoachFeedback(d,true,a))+'<button type="button" class="btn secondary" onclick="reviseCheckedAnswer(\'speaking\')">Исправить ещё</button><button class="btn lesson-next-v8" onclick="continueSpeakingFollowup()">Ответить на уточнение →</button>';
    return;
   }
-  b.innerHTML=humanFeedback+(firstAttempt?aiLessonFeedbackHtml(d,"✓ "+(rem?"Исправление перенесено в новую ситуацию":"Коммуникативная задача выполнена")):retryCoachFeedback(d,true))+'<button type="button" class="btn secondary" onclick="reviseCheckedAnswer(\''+mode+'\')">Исправить ещё</button><button class="btn lesson-next-v8" onclick="lessonNext('+(rem?25:20)+')">Дальше →</button>';
+  b.innerHTML=humanFeedback+(firstAttempt?aiLessonFeedbackHtml(d,"✓ "+(rem?"Исправление перенесено в новую ситуацию":"Коммуникативная задача выполнена"),a):retryCoachFeedback(d,true,a))+'<button type="button" class="btn secondary" onclick="reviseCheckedAnswer(\''+mode+'\')">Исправить ещё</button><button class="btn lesson-next-v8" onclick="lessonNext('+(rem?25:20)+')">Дальше →</button>';
   return;
  }
- const explanation=esc(d.explanation_ru||"Исправь ответ и проверь снова."),rule=d.micro_rule_ru?'<br><b>Правило:</b> '+esc(d.micro_rule_ru):"",corrected=d.corrected?'<br><b>Естественнее:</b> '+esc(d.corrected):"";
+ const retryDetails=noraAttemptReviewHtml(d,{answer:a,ok:false,isCorrection:!firstAttempt});
  if(l?._adaptive&&d.retry_prompt_no){
   if(!rem){
    s.proposedRemediation={mode,prompt:d.retry_prompt_no,rule:d.micro_rule_ru||"",retries:0,errorTag:d.error_tag||""};s.locked=false;persistLessonCheckpoint();
-   b.innerHTML=humanFeedback+'<div class="feedback bad"><b>Исправь главную ошибку.</b><br>'+explanation+rule+corrected+'<br><br><b>Теперь проверь перенос:</b> новый вопрос будет другим.<br><button class="btn secondary" style="margin-top:10px" onclick="openFreeTransfer()">Применить в новой ситуации →</button></div>';return;
+   b.innerHTML=humanFeedback+retryDetails+'<div class="feedback"><b>Теперь проверь перенос:</b> новый вопрос будет другим.<br><button class="btn secondary" style="margin-top:10px" onclick="openFreeTransfer()">Применить в новой ситуации →</button></div>';return;
   }
   rem.retries=(rem.retries||0)+1;
   if(rem.retries<2){
    rem.prompt=d.retry_prompt_no;rem.rule=d.micro_rule_ru||rem.rule||"";s.locked=false;
-   b.innerHTML=humanFeedback+'<div class="feedback bad"><b>Пока неустойчиво.</b><br>'+explanation+rule+corrected+'<br><button class="btn secondary" style="margin-top:10px" onclick="openFreeTransfer()">Ещё одна новая ситуация →</button></div>';return;
+   b.innerHTML=humanFeedback+retryDetails+'<div class="feedback"><b>Пока неустойчиво.</b><br><button class="btn secondary" style="margin-top:10px" onclick="openFreeTransfer()">Ещё одна новая ситуация →</button></div>';return;
   }
   s.locked=false;
-  b.innerHTML=humanFeedback+'<div class="feedback bad"><b>Эту ошибку Нора вернёт позже.</b><br>'+explanation+rule+'<br><small>Не зацикливаемся: повторение уже запланировано интервальной системой.</small><br><button class="btn secondary" style="margin-top:10px" onclick="deferFreeRemediation()">Продолжить урок →</button></div>';return;
+  b.innerHTML=humanFeedback+retryDetails+'<div class="feedback"><b>Эту ошибку Нора вернёт позже.</b><br><small>Не зацикливаемся: повторение уже запланировано интервальной системой.</small><br><button class="btn secondary" style="margin-top:10px" onclick="deferFreeRemediation()">Продолжить урок →</button></div>';return;
  }
- s.locked=false;b.innerHTML=humanFeedback+'<div class="feedback bad"><b>Исправь главную ошибку и попробуй снова</b><br>'+explanation+rule+corrected+'</div>';input?.focus()
+ s.locked=false;b.innerHTML=humanFeedback+retryDetails;input?.focus()
 }
 function lessonNext(xp=0){lessonSession.step++;lessonSession.choiceMiss=false;lessonSession.locked=false;if(lessonSession.step>=lessonSteps(lessonSession.lesson).length)return finishLesson();persistLessonCheckpoint();renderLesson()}
 function finishLesson(){flushLessonDraft();const l=lessonSession.lesson,reward=awardLessonXp(l),feedback=lessonFeedbackSummary(reward);if(state.activeLesson?.id===l.id)delete state.activeLesson;state.completed[l.id]=true;const courseOutcome=window.NEAdaptive?NEAdaptive.completeLesson(state,l,reward.avg):null;const livingOutcome=window.NELivingDay?.onLessonFinished?.(l,courseOutcome,reward.avg)||null;const today=new Date().toLocaleDateString("sv-SE");state.guidedJourney=state.guidedJourney||{lessonDates:{},reviewDates:{}};state.guidedJourney.lessonDates=state.guidedJourney.lessonDates||{};if(l?._adaptive?.kind!=='archive_replay')state.guidedJourney.lessonDates[today]=l.id;const xp=xpRewardStatus();saveState();const humanEnd=window.NEExperience?.endNote?.(l,courseOutcome?.advanced===true)||"";const unlocked=reward.newlyUnlocked.length?'<div class="xp-unlock-v8"><b>Открыто:</b> '+reward.newlyUnlocked.map(x=>esc(x.title)).join(", ")+'</div>':"",repeat=reward.repeat===1?'<small class="muted">Повтор этого модуля сегодня: начислено 25% обычных XP.</small>':reward.repeat>1?'<small class="muted">За этот модуль сегодня XP уже получены.</small>':"",next=xp.next?'<div class="xp-next-v8"><span>До награды «'+esc(xp.next.title)+'»</span><b>'+xp.toNext+' XP</b><i><em style="width:'+xp.progress+'%"></em></i></div>':'<div class="xp-next-v8"><b>Все текущие XP-миссии открыты</b></div>';shell(`<section class="card guided-finish-v61"><div class="guided-finish-mark-v61">✓</div><div class="eyebrow">${l.level} · ${livingOutcome?(livingOutcome.finished?'Учебный день завершён':'Продолжаем учебный день'):'готово на сегодня'}</div><h1>${esc(l.title)}</h1>${humanEnd}<p class="muted">${livingOutcome?(livingOutcome.advanced?'Ты освоил эту ситуацию. Следующая будет продолжением той же темы.':'Нора проверила ответы. Продолжим закрепление темы.'):'Урок засчитан в сегодняшний маршрут.'}</p><div class="xp-award-v8"><strong>+${reward.earned} XP</strong><span>Оценка занятия Норы: ${reward.avg}/100${reward.reviewBonus?" · +10 за отложенное повторение":""}</span></div>${courseOutcome?'<section class="notice" style="margin:12px 0"><b>'+(courseOutcome.advanced?'Этап подтверждён':'Этап пока не подтверждён')+'</b> · '+courseOutcome.completedPhases+'/'+courseOutcome.totalPhases+' этапов курса.<br>'+esc(courseOutcome.reason)+'</section>':''}<details class="ne-lesson-assessment"><summary>Подробный разбор оценок и исправлений</summary>${feedback}</details>${livingOutcome?'<div class="notice">'+esc(livingOutcome.reason)+'</div>':''}${repeat}${unlocked}${next}<button class="btn" onclick="navigate('${livingOutcome?'livingday':'home'}')">${livingOutcome?(livingOutcome.finished?'Результаты учебного дня →':'Продолжить эту тему →'):'Продолжить день →'}</button>${window.NEExperience?'<button type="button" class="btn secondary ne-lesson-followup" onclick="NEExperience.openFollowup()">Поговорить с Норой об этой ситуации →</button>':''}<button class="btn ghost" onclick="navigate('course','${l.level}')">К курсу</button></section>`,"home")}
@@ -634,7 +659,7 @@ function startTimer(){stopTimer();timerHandle=setInterval(()=>{if(!examSession)r
 function updateTimer(){const e=document.getElementById("timer");if(!e||!examSession)return;const m=Math.floor(examSession.remaining/60),s=examSession.remaining%60;e.textContent=String(m).padStart(2,"0")+":"+String(s).padStart(2,"0")}
 function stopTimer(){if(timerHandle){clearInterval(timerHandle);timerHandle=null}}
 
-Object.assign(window,{neDiscardAcceptedGuidedDraft:discardAcceptedGuidedDraft,nePersistCoach:persistLessonCheckpoint,navigate,renderCourse,lessonNext,lessonChoice,checkDialogue,continueCheckedDialogue,continueAdaptiveVocab,checkFree,continueListeningStep,continueSpeakingFollowup,speakText,toggle,toggleMic,answerTest,answerTestFree,testNext,answerExamObj,answerExamFree,examNext,exitExam,resetProgress,xpRewardStatus,xpRewardCatalog});
+Object.assign(window,{neAttemptReviewHtml:noraAttemptReviewHtml,neDiscardAcceptedGuidedDraft:discardAcceptedGuidedDraft,nePersistCoach:persistLessonCheckpoint,navigate,renderCourse,lessonNext,lessonChoice,checkDialogue,continueCheckedDialogue,continueAdaptiveVocab,checkFree,continueListeningStep,continueSpeakingFollowup,speakText,toggle,toggleMic,answerTest,answerTestFree,testNext,answerExamObj,answerExamFree,examNext,exitExam,resetProgress,xpRewardStatus,xpRewardCatalog});
 Object.defineProperties(window,{neLessonSession:{get:()=>lessonSession},neLearnerState:{get:()=>state}});
 renderHome();
 // Service worker registration and update notices are handled by updates.js.
