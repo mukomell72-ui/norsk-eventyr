@@ -266,3 +266,11 @@ button.speech-playing{transform:translateY(1px) scale(.985);box-shadow:0 0 0 3px
 .guided-controls .btn{flex:1 1 130px}
 .guided-reply{margin:12px 0}.guided-reply .guided-bubble{max-width:100%}
 @media(max-width:480px){.guided-chat-history{max-height:290px}.guided-bubble{max-width:97%}.guided-speaking{padding:18px!important}}
+
+/* Narrative study day: keep the situation above the report card. */
+.ne-story-hook{margin:12px 0 16px;padding:14px 16px;border-left:4px solid #51bca0;background:#e8f4ef;border-radius:10px;color:#153d36;line-height:1.5}
+.ne-story-hook b{display:block;margin-bottom:4px}
+.ne-feedback-nudge{font-size:1rem;line-height:1.5;margin:4px 0 10px}
+.ne-feedback-details{margin-top:10px;border-top:1px solid rgba(42,99,109,.15);padding-top:10px}
+.ne-feedback-details>summary{cursor:pointer;font-weight:650;color:#25556e}
+.ne-feedback-details>p,.ne-feedback-details>ul{margin-top:10px}
