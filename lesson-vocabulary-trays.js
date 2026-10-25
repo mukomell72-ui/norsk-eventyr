@@ -129,17 +129,34 @@
   if(!record||!id)return false;
   const found=(record.older||[]).find(w=>lemma(w.word)===id);
   if(!found)return false;
-  record.relearning=record.relearning||[];
-  if(!record.relearning.some(w=>lemma(w.word)===id))record.relearning.unshift({...found,relearn:true});
+  record.relearning=Array.isArray(record.relearning)?record.relearning:[];
+  // Idempotence: multiple taps are one observation, not multiple failures.
+  if(record.relearning.some(w=>lemma(w.word)===id))return false;
+  record.relearning.unshift({...found,relearn:true});
   record.relearning=record.relearning.slice(0,LIMIT);
-  const s=getState();
+  const s=getState(),now=Date.now();
   if(s){
    s.wordPracticeQueue=s.wordPracticeQueue||{};
-   s.wordPracticeQueue[id]=Date.now();
-   const dict=Object.values(s.dailyDictionary||{}).find(w=>lemma(w?.lemma||w?.word)===id);
-   if(dict){dict.nextDue=Date.now();dict.bridgeLookups=(Number(dict.bridgeLookups)||0)+1;}
-   const srs=Object.values(s.srs||{}).find(w=>lemma(w?.word)===id);
-   if(srs)srs.due=Date.now();
+   s.dailyDictionary=s.dailyDictionary||{};
+   s.srs=s.srs||{};
+   s.wordPracticeQueue[id]=now;
+   let dict=Object.values(s.dailyDictionary).find(w=>lemma(w?.lemma||w?.word)===id);
+   // Some older words exist only in a saved daily snapshot. Enqueueing alone
+   // does not make them available to the SRS engine; register them safely.
+   if(!dict){
+    const earliest=Object.entries(t.days).filter(([dateKey,row])=>
+     dateKey<=date&&(row.today||[]).some(w=>lemma(w.word)===id))
+     .map(([dateKey])=>dateKey).sort()[0];
+    dict=s.dailyDictionary[id]={lemma:found.word,translation_ru:found.ru,
+     level:record.level,firstDate:String(found.first||earliest||date),source:'relearned_vocabulary',
+     correct:0,wrong:0,exposures:1,strength:0};
+   }
+   dict.nextDue=now;
+   dict.bridgeLookups=(Number(dict.bridgeLookups)||0)+1;
+   let srs=Object.values(s.srs).find(w=>lemma(w?.word)===id);
+   if(!srs)srs=s.srs[id]={word:found.word,translation:found.ru,
+    level:record.level,stage:0,seen:0,correct:0};
+   srs.due=now;
   }
   save();return true;
  }
