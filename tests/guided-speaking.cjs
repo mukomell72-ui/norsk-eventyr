@@ -79,6 +79,7 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  assert.equal(session.locked,false,'incorrect response must unlock retry');
  assert.equal(attempts[0].skill,'speaking');
  assert.match(feedback.innerHTML,/22\/100/,'Rejected answer must show a numeric grade');
+ assert.doesNotMatch(feedback.innerHTML,/neGuidedExplain\(\)/,'Feedback does not duplicate the existing contextual help action');
  assert.equal(scores.length,1,'First turn establishes one course score');
  accepted=true;
  await w.checkFree('speaking');
