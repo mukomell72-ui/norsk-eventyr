@@ -77,7 +77,7 @@ assert.equal(session.answerDrafts[staleKey],undefined,'Stale migrated answer dis
 // A late Android keyboard event from the previous field must not re-save it
 // under the NEW prompt's draft key, including after accepted-answer cleanup.
 session.guidedSpeech.index=4;
-box.value='Jeg vil vente til onsdag.';a.restoreLessonDraft(session);box.callbacks.input();
+box.value='';a.restoreLessonDraft(session);box.value='Jeg vil vente til onsdag.';box.callbacks.input();
 const acceptedKey=a.lessonDraftKey(session,'speaking');
 assert.equal(session.answerDrafts[acceptedKey],box.value,'Draft is saved while editing');
 a.discardAcceptedGuidedDraft(session);
