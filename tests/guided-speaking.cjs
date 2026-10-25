@@ -32,7 +32,7 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  const feedback={isConnected:true,innerHTML:''};
  const nodes={freeAnswer:field,freeFb:feedback};
  const scores=[],attempts=[];
- let rerenders=0,checkpoints=0,finishes=0,accepted=false;
+ let rerenders=0,checkpoints=0,finishes=0,discarded=0,accepted=false;
  const lesson={id:'generated-1',level:'A1',_adaptive:{moduleId:'a1-foundation'}};
  const session={lesson,locked:false};
  const state={};
@@ -41,7 +41,7 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
   aiEvaluate:async()=>({ok:true,data:{accepted,score:accepted?95:22,explanation_ru:accepted?'':'Попробуй снова.'}}),
   trackLessonScore:(v)=>scores.push(v),
   NEAdaptive:{recordAttempt:(_state,item)=>attempts.push(item)},
-  saveState:()=>{},renderLesson:()=>{rerenders++},
+  saveState:()=>{},neDiscardAcceptedGuidedDraft:()=>{discarded++},renderLesson:()=>{rerenders++},
   persistLessonCheckpoint:()=>{checkpoints++},
   lessonNext:()=>{finishes++},
   speakText:()=>{}
@@ -50,6 +50,7 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  vm.runInNewContext(speaking,sandbox,{filename:'guided-speaking.js'});
  const start=w.freeEx(lesson,'speaking');
  assert.match(start,/Реплика 1 из 8/);
+ assert.match(start,/name="guided-answer-generated-1-0"/, 'Each guided turn gets a distinct browser form name');
  assert.match(start,/сервисного центра/);
  assert.doesNotMatch(start,/Jeg heter Erik\./,'name must not be revealed before learner asks it');
  assert.doesNotMatch(start,/Erik · сотрудник/,'speaker label must not reveal Erik before he introduces himself');
@@ -73,6 +74,7 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  assert.equal(session.guidedSpeech.turns.length,1);
  assert.equal(rerenders,1);
  assert.equal(checkpoints,1);
+ assert.equal(discarded,1,'Accepted answer must be removed before advancing the turn');
  field.value='Jeg kommer fra Ukraina og bor i Oslo.';
  await w.checkFree('speaking');w.neGuidedNext();
  field.value='Jeg snakker ukrainsk.';
@@ -97,6 +99,7 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  assert.equal(attempts.at(-1).skill,'writing','typed answer must not count as speaking evidence');
  w.neGuidedNext();
  assert.equal(finishes,1,'finish only after all valid turns');
+ assert.equal(discarded,8,'Every accepted dialogue turn discards its editable draft');
  assert.equal(scores.length,9,'each evaluated attempt should contribute evidence');
  // Dynamic replies are used only AFTER the learner passes the scored step.
  // They must survive rerender, while a chat outage falls back to authored text.

@@ -16,7 +16,7 @@ const box={value:'Jeg begynner på lørdag klokka ni.',dataset:{},
 const ctx={window:{addEventListener(){}},document:{getElementById:id=>id==='freeAnswer'?box:null,addEventListener(){}},
  lessonSession:session,lessonDraftTimer:null,setTimeout(fn){slot=fn;return 1},clearTimeout(){slot=null},
  persistLessonCheckpoint(){persisted++},hasAdaptiveGrammar(){return true},Math,Object,Array,String};
-vm.runInNewContext(fragment+'this.drafts={lessonDraftKey,saveLessonDraft,restoreLessonDraft,flushLessonDraft};',ctx);
+vm.runInNewContext(fragment+'this.drafts={lessonDraftKey,saveLessonDraft,restoreLessonDraft,flushLessonDraft,discardAcceptedGuidedDraft};',ctx);
 const a=ctx.drafts;
 a.restoreLessonDraft(session);
 assert.equal(box.dataset.draftMode,'writing');
@@ -60,15 +60,43 @@ session.guidedSpeech.turns.push({answer:box.value});
 session.guidedSpeech.index=2;
 box.value='';a.restoreLessonDraft(session);
 assert.equal(box.value,'','Next dialogue turn begins empty even after autosave');
-// Migration: an older draft from a finished turn must never populate a new one.
+// Older releases used a shared draft key for the entire conversation.
+// Once a turn has been completed, migrating it risks carrying the old answer.
 const legacyKey=a.lessonDraftKey({...session,guidedSpeech:null},'speaking');
 session.answerDrafts[legacyKey]='Tirsdag klokka fem passer for meg.';
-box.value='';a.restoreLessonDraft(session);
-assert.equal(box.value,'Tirsdag klokka fem passer for meg.','A distinct unfinished legacy draft is preserved');
-assert.equal(session.answerDrafts[legacyKey],undefined,'Migrated draft is no longer shared');
-// A legacy draft matching a completed turn is stale and must stay hidden.
+box.value='Stale DOM text';a.restoreLessonDraft(session);
+assert.equal(box.value,'','A later turn must reject ambiguous pre-fix drafts');
+assert.equal(session.answerDrafts[legacyKey],undefined,'Obsolete shared draft key is removed');
+// An already completed answer is never a valid new-turn draft.
 session.guidedSpeech.index=3;
-session.answerDrafts[legacyKey]='Kan du møte meg ved butikken?';
+const staleKey=a.lessonDraftKey(session,'speaking');
+session.answerDrafts[staleKey]='Kan du møte meg ved butikken?';
+box.value='Stale DOM text';a.restoreLessonDraft(session);
+assert.equal(box.value,'','Completed text is not restored even from a current-turn key');
+assert.equal(session.answerDrafts[staleKey],undefined,'Stale migrated answer discarded');
+// A late Android keyboard event from the previous field must not re-save it
+// under the NEW prompt's draft key, including after accepted-answer cleanup.
+session.guidedSpeech.index=4;
+box.value='';a.restoreLessonDraft(session);box.value='Jeg vil vente til onsdag.';box.callbacks.input();
+const acceptedKey=a.lessonDraftKey(session,'speaking');
+assert.equal(session.answerDrafts[acceptedKey],box.value,'Draft is saved while editing');
+a.discardAcceptedGuidedDraft(session);
+assert.equal(session.answerDrafts[acceptedKey],undefined,'Accepted response draft is discarded');
+assert.equal(box.value,'','Accepted answer is removed from the previous editor');
+const oldField={value:'Jeg vil vente til onsdag.',dataset:{draftKey:acceptedKey,draftMode:'speaking'}};
+session.guidedSpeech.turns.push({answer:oldField.value});
+session.guidedSpeech.index=5;
+a.saveLessonDraft('speaking',oldField);
+assert.equal(session.answerDrafts[a.lessonDraftKey(session,'speaking')],undefined,
+ 'A delayed event must not leak previous text to the next question');
+// A legacy first-turn draft may still be migrated because it has no history.
+session.guidedSpeech={lessonId:session.lesson.id,index:0,turns:[]};
+session.answerDrafts={};
+const firstKey=a.lessonDraftKey(session,'speaking');
+const initialLegacyKey=a.lessonDraftKey({...session,guidedSpeech:null},'speaking');
+session.answerDrafts[initialLegacyKey]='Hei, jeg heter Petter.';
 box.value='';a.restoreLessonDraft(session);
-assert.equal(box.value,'','Completed legacy answer must not leak to another turn');
+assert.equal(box.value,'Hei, jeg heter Petter.','Unfinished old-format first-turn draft survives update');
+assert.equal(session.answerDrafts[firstKey],box.value,'Legacy draft is now owned by the first turn');
+assert.equal(session.answerDrafts[initialLegacyKey],undefined,'Shared old key is removed');
 console.log('PASS drafts: cached by task, saved on input, flushed on navigation, restored without XP impact');
