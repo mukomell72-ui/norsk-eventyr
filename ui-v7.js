@@ -74,7 +74,7 @@
           '<button class="brand-v7" onclick="navigate(\'home\')"><span>Norsk Eventyr</span><b>8.2.1</b></button>'+
           '<div class="status-v7"><button class="streak-v7" onclick="navigate(\'hub\')">🔥 <b>'+streak+'</b></button><button class="level-v7" onclick="navigate(\'course\')">'+level+'</button></div>'+
         '</header>'+
-        '<main class="main-v7">'+content+helpMarkupV7()+'</main>'+
+        '<main class="main-v7">'+content+helpMarkupV7(content.includes('class="card guided-speaking"'))+'</main>'+
         navV7(currentRouteV7||active)+
       '</div>';
   };
@@ -83,8 +83,11 @@
     return setTimeout(()=>{if(revision===window.neScreenRevision)action()},delay);
   };
 
-  function helpMarkupV7(){
-    return '<section class="card" style="margin:16px 0"><button class="btn secondary" onclick="v7OpenHelp()" aria-controls="helpPanelV7" aria-expanded="false" id="helpToggleV7">Мне непонятно</button>'+
+  function helpMarkupV7(guided=false){
+    // Guided lessons already provide a help button beside the answer.
+    // Keep the shared help panel for explanations, but do not show a second trigger.
+    return (guided?'<section class="ne-guided-help-mount">':'<section class="card" style="margin:16px 0">')+
+      (guided?'':'<button class="btn secondary" onclick="v7OpenHelp()" aria-controls="helpPanelV7" aria-expanded="false" id="helpToggleV7">Мне непонятно</button>')+
       '<div id="helpPanelV7" hidden><p>Я помогу разобраться, не выполняя задание вместо тебя. Выбери быстрый вопрос или задай свой.</p><div class="ne-help-quick"><button type="button" onclick="v7QuickHelp(\'simple\')">Объясни проще</button><button type="button" onclick="v7QuickHelp(\'example\')">Похожий пример</button><button type="button" onclick="v7QuickHelp(\'why\')">Почему так?</button></div><textarea class="input" id="helpQuestionV7" maxlength="1800" rows="2" placeholder="Что ты хочешь спросить?"></textarea><div class="row" style="margin-top:10px"><button class="btn" id="helpSendV7" onclick="v7AskHelp()">Спросить Нору</button><button class="btn ghost" onclick="v7OpenHelp()">Закрыть</button></div><div id="helpReplyV7" role="status" aria-live="polite" style="white-space:pre-wrap;margin-top:12px"></div></div></section>';
   }
   function v7OpenHelp(){
