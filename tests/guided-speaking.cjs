@@ -100,16 +100,16 @@ assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved
  assert.equal(session.locked,false,'Editing accepted text unlocks the same turn');
  assert.equal(session.guidedSpeech.pending,undefined,'Editing invalidates previous accepted response');
  assert.doesNotMatch(feedback.innerHTML,/Следующая реплика/,'No stale next action after editing');
- assert.doesNotMatch(feedback.innerHTML,/95\\/100/,'Old review disappears after editing');
+ assert(!feedback.innerHTML.includes('95/100'),'Old review disappears after editing');
  await w.checkFree('speaking');
  assert.equal(session.locked,true,'Third submission can be accepted');
- assert.match(feedback.innerHTML,/Jeg bor i Bergen\\./,'New feedback quotes the third submission');
+ assert(feedback.innerHTML.includes('Jeg bor i Bergen.'),'New feedback quotes the third submission');
  assert.equal(scores.length,1,'Third accepted answer cannot add XP');
  w.neGuidedRevise();
  assert.equal(session.locked,false,'Explicit correction action unlocks the field');
  field.value='Hei! Jeg heter Anna, og jeg bor i Tromsø.';
  await w.checkFree('speaking');
- assert.match(feedback.innerHTML,/Jeg bor i Tromsø\\./i);
+ assert(feedback.innerHTML.includes('jeg bor i Tromsø.'),'Fourth grade names the actual checked text');
  assert.equal(scores.length,1,'Fourth submission cannot add XP');
  // Even programmatic changes without a DOM input event cannot accidentally
  // advance the dialogue using an accepted but outdated response.
