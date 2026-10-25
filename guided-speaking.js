@@ -359,8 +359,10 @@ function neGuidedExplain(){
  if(!field)return;
  const task=d?.scene?.steps?.[d.progress.index]?.task||'текущий вопрос';
  field.value='Объясни по-русски простыми словами, почему в этом задании нужно именно так строить фразу: '+String(task).slice(0,350)+'. Что я должен сделать по шагам? Приведи ДРУГОЙ короткий пример и объясни его. Не давай готового ответа на моё текущее задание.';
- if(typeof window.v7AskHelp==='function')window.v7AskHelp();
- else field.focus();
+ if(typeof window.v7AskHelp==='function'){
+  panel?.scrollIntoView?.({block:'nearest',behavior:'smooth'});
+  window.v7AskHelp();
+ }else field.focus();
 }
 function neGuidedNext(){
  const s=window.neLessonSession,d=s?.lesson&&ensure(s.lesson);
