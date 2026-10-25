@@ -125,7 +125,13 @@ function noraAttemptReviewHtml(d,{answer="",ok,firstScore,title="",isCorrection=
  if(!issues.length&&score<100)
   parts.push('<p><small>Подробная причина снижения оценки не подтверждена. Не считай её установленной ошибкой.</small></p>');
  if(!accepted)parts.push('<p><b>Что сделать дальше:</b> Исправь указанные места в своём тексте и снова нажми «Проверить AI». Нора проверит следующую версию. Повторять можно до правильного ответа.</p>');
- return '<div class="feedback '+(accepted?'good':'bad')+' ne-attempt-review" role="status">'+parts.join('')+'</div>';
+ // Keep a useful correction visible; the detailed report is optional.
+ const firstIssue=issues.find(x=>String(x?.explanation_ru||'').trim());
+ const nudge=firstIssue?String(firstIssue.explanation_ru).trim():
+  (accepted?'Смысл понятен. Продолжай разговор.':'Попробуй ещё раз: проверь, отвечает ли фраза на вопрос.');
+ return '<div class="feedback '+(accepted?'good':'bad')+' ne-attempt-review" role="status">'+
+  '<p class="ne-feedback-nudge">'+esc(nudge.slice(0,260))+'</p>'+
+  '<details class="ne-feedback-details"><summary>Подробное объяснение и оценка</summary>'+parts.join('')+'</details></div>';
 }
 function aiLessonFeedbackHtml(d,title,answer=""){
  return noraAttemptReviewHtml(d,{answer,title,ok:d?.accepted===true});
