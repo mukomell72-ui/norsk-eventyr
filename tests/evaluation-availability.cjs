@@ -22,6 +22,8 @@ for(const reason of ['AI_QUOTA_UNAVAILABLE','AI_NOT_CONFIGURED','SESSION_REQUIRE
 }
 assert.equal((app.match(/esc\(evaluationErrorMessage\(r\.error\)\)/g)||[]).length,2,
  'Dialogue and written responses must show the actual failure reason');
+assert(app.includes('verifiedNorwegianHintsHtml(r.verifiedHints)'),
+ 'Free response feedback must display bounded, escaped linguistic hints without awarding XP');
 assert(!app.includes('Проверка временно недоступна. Попробуй ещё раз.'),
  'Ambiguous evaluator failure banner must be removed');
 console.log('PASS evaluation availability: supported model, readable failure reasons, no erroneous grade');

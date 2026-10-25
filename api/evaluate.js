@@ -1,6 +1,7 @@
 import {guard} from "./_guard.js";
 import {normalizeAssessment} from "./_feedback.js";
 import {groundAssessment} from "./_grounded-evaluation.js";
+import {safeNorwegianHints} from "./_safe-norwegian-hints.js";
 
 function parseJson(text){
   const clean=String(text||"").replace(/^\x60\x60\x60json\s*/i,"").replace(/\x60\x60\x60\s*$/,"").trim();
@@ -279,17 +280,36 @@ export default async function handler(req,res){
     // One retry is allowed; otherwise mark evaluation unavailable, not incorrect.
     let verified=null,validationError="NO_VERIFIED_ASSESSMENT";
     for(let attempt=0;attempt<2;attempt++){
-      const raw=await ask(prompt+(attempt?
-        "\nПРЕДЫДУЩИЙ ОТВЕТ НЕ ПРОШЁЛ ПРОВЕРКУ ПО ЦИТАТАМ ИЛИ БАЛЛАМ. Верни только реально существующие фрагменты. Не выдумывай штрафы.":""),
-        1200,"none");
-      const grounded=groundAssessment(parseJson(raw),{answer,question,goal:goal||question,mode});
+      // Use the validator's specific error on retry instead of repeating the
+      // same vague instruction. Never weaken the evidence requirements.
+      const repair=attempt?({
+        UNGROUNDED_ISSUE:"Прошлое замечание содержало неподтверждённую цитату или необоснованное исправление. Перечитай исходный ответ и перепиши issues только с буквальными подстроками. Если не уверен в ошибке, исключи её.",
+        SCORE_DISAGREEMENT:"Счёт не сходится: score должен равняться 100 минус сумма всех deduction в issues. Не назначай отдельные штрафы.",
+        DUPLICATE_ISSUE:"Одинаковую ошибку нельзя указывать дважды. Удали повторяющиеся пункты.",
+        CONTRADICTORY_DECISION:"accepted должно согласовываться со score: при 50 или выше — true, ниже 50 — false.",
+        INVALID_DECISION:"Верни корректные типы JSON: accepted — boolean, score — целое 0–100.",
+        MISSING_EVIDENCE:"Добавь issues как массив реальных ошибок (возможно пустой) максимум из пяти элементов.",
+        INVALID_JSON:"Верни только синтаксически корректный JSON-объект, без Markdown."
+      })[validationError]||"Перепроверь буквальные цитаты, арифметику баллов и структуру JSON. Не придумывай ошибки.":"";
+      const raw=await ask(prompt+(repair?"\nПРОВЕРКА ПЕРВОЙ ПОПЫТКИ НЕ ПРОЙДЕНА: "+repair:""),1200,attempt?"low":"none");
+      let candidate;
+      try{candidate=parseJson(raw)}
+      catch{validationError="INVALID_JSON";continue}
+      const grounded=groundAssessment(candidate,{answer,question,goal:goal||question,mode});
       if(grounded.ok){verified=grounded.assessment;break}
       validationError=grounded.error;
     }
-    if(!verified)return res.status(422).json({
-      error:"FEEDBACK_NOT_VERIFIED",code:"FEEDBACK_NOT_VERIFIED",
-      message_ru:"Нора не смогла подтвердить свои замечания по твоему ответу. Оценка не выставлена и прогресс не изменён."
-    });
+    if(!verified){
+      // Log only the validator's code, never the student's private answer.
+      console.warn("Nora assessment lacked verified evidence",{
+        error:validationError,mode:String(mode).slice(0,40)
+      });
+      return res.status(422).json({
+        error:"FEEDBACK_NOT_VERIFIED",code:"FEEDBACK_NOT_VERIFIED",
+        message_ru:"Не удалось подтвердить оценку. Ответ сохранён; баллы и уровень не изменены.",
+        verified_hints:safeNorwegianHints(answer,{mode})
+      });
+    }
     const parsed=verified;
     parsed.score=Math.max(0,Math.min(100,Math.round(Number(parsed.score)||0)));
     if(!parsed.breakdown||typeof parsed.breakdown!=="object")parsed.breakdown={};

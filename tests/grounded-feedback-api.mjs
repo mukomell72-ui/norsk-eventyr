@@ -29,13 +29,14 @@ globalThis.fetch=async url=>{
  throw new Error('Unexpected network request in test: '+url);
 };
 let serial=0;
-async function evaluate(fakeResults){
+async function evaluate(fakeResults,{submittedAnswer=answer,submittedQuestion=question}={}){
  outcomes=fakeResults;calls=0;
  const req={method:'POST',url:'/api/evaluate',headers:{
   host:'localhost',cookie:'ne_access=qa','x-forwarded-for':'qa-grounded-'+(++serial),
   'x-ne-device-id':'device_qa_grounded_20261022',
   'x-ne-device-name':'QA'
  },body:{answer,question,goal:question,level:'A1',mode:'writing'}};
+ req.body.answer=submittedAnswer;req.body.question=submittedQuestion;req.body.goal=submittedQuestion;
  req.headers['x-ne-session']=createSession(req);
  let code=0,payload=null;
  const res={status(n){code=n;return this},json(x){payload=x;return this},setHeader(){}};
@@ -54,6 +55,14 @@ assert.equal(unsupported.code,422,'Repeated inventions must not create a learnin
 assert.equal(unsupported.payload.code,'FEEDBACK_NOT_VERIFIED');
 assert.equal(unsupported.payload.score,undefined,'Unverified feedback must not affect progress');
 assert.equal(unsupported.calls,2);
+assert.deepEqual(unsupported.payload.verified_hints,[],"No rule-based feedback for unrelated input");
+const screenshot=await evaluate([invented,invented],{
+ submittedAnswer:"Jeg slutter klokka fire. Etter på kommer jeg hjemme. På fredag går jeg i svømmehallen.",
+ submittedQuestion:"Skriv kort om arbeidsdagen og planene dine."
+});
+assert.equal(screenshot.code,422,"Unsupported model feedback must not become a grade");
+assert.equal(screenshot.payload.verified_hints.length,2,"Correct limited hints can still teach");
+assert.equal(screenshot.payload.score,undefined,"Fallback is educational, not grading");
 const perfect=await evaluate([{accepted:true,score:100,issues:[],corrected:'',strengths_ru:[]}]);
 assert.equal(perfect.code,200);
 assert.equal(perfect.payload.score,100);
