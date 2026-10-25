@@ -90,7 +90,7 @@ for(const asset of assets){
    (coachSuffix&&['/access.js','/app.js','/lesson-coach.js','/lesson-coach.css','/language-bridge.js','/language-bridge.css','/cloze-coach.js','/functional-practice.js','/living-words.js'].includes(pathname)?coachSuffix:'')+
    (freshnessSuffix&&['/access.js','/adaptive-teacher.js'].includes(pathname)?freshnessSuffix:'')+
    (bridgeSuffix&&['/access.js','/adaptive-teacher.js','/app.js','/language-bridge.js','/ui-v7.js','/v7.css','/v3.js','/elite.js','/nora-experience.js'].includes(pathname)?bridgeSuffix:'')+
-   (auditSuffix&&['/access.js','/v7.css','/nora-experience.js','/living-day.js','/app.js','/guided-speaking.js','/language-bridge.js','/ui-v7.js'].includes(pathname)?auditSuffix:'');
+   (auditSuffix&&['/access.js','/v7.css','/nora-experience.js','/living-day.js','/app.js','/guided-speaking.js','/language-bridge.js','/ui-v7.js','/adaptive-teacher.js','/word-learning-evidence.js'].includes(pathname)?auditSuffix:'');
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
 }
 }
@@ -143,6 +143,8 @@ const bootstrap=access.match(/const ASSET_REV='[^']+'(?:,LESSON_PATCH='[^']+')?,
 assert(bootstrap,'Dynamic asset dependency list must be declared');
 const scripts=[...bootstrap[1].matchAll(/'([^']+\.js)'/g)].map(m=>m[1]);
 assert(scripts.length>=15,'Critical dynamic scripts dropped');
+assert(scripts.indexOf('word-learning-evidence.js')>scripts.indexOf('lesson-vocabulary-trays.js')&&scripts.indexOf('word-learning-evidence.js')<scripts.indexOf('app.js'),
+ 'Word-usage evidence must load after word trays and before Nora answers');
 for(const filename of scripts){
  const patch=assetRevision?.startsWith('-lesson')&&['app.js','guided-speaking.js','v3.js','adaptive-teacher.js','course-methodology.js','verified-learning-resources.js','norwegian-listening.js','elite.js','ui-v7.js','nordic-quest-play.js','nordic-quest.js','living-day.js','card-grammar.js','card-form-practice.js','mini-path.js','living-words.js'].includes(filename)?baseRevision:'';
  const suffix=(audioSuffix&&['norwegian-listening.js','elite.js'].includes(filename)?audioSuffix:'')+
@@ -161,7 +163,7 @@ for(const filename of scripts){
    (coachSuffix&&['lesson-coach.js','language-bridge.js','cloze-coach.js','functional-practice.js','app.js','living-words.js'].includes(filename)?coachSuffix:'')+
    (freshnessSuffix&&filename==='adaptive-teacher.js'?freshnessSuffix:'')+
    (bridgeSuffix&&['adaptive-teacher.js','app.js','language-bridge.js','ui-v7.js','v3.js','elite.js','nora-experience.js'].includes(filename)?bridgeSuffix:'')+
-   (auditSuffix&&['nora-experience.js','living-day.js','app.js','guided-speaking.js','language-bridge.js','ui-v7.js'].includes(filename)?auditSuffix:'');
+   (auditSuffix&&['nora-experience.js','living-day.js','app.js','guided-speaking.js','language-bridge.js','ui-v7.js','adaptive-teacher.js','word-learning-evidence.js'].includes(filename)?auditSuffix:'');
  assert(assetSet.has('/'+filename+'?v='+v+patch+suffix),'PWA must cache bootstrapped script '+filename);
 }
 for(const m of index.matchAll(/\b(?:src|href)="(\/[^"]+)"/g)){
@@ -195,6 +197,8 @@ if(translationSuffix==='-translate4'){
  assert(index.includes('/access.js?v='+v+assetRevision),
    'Version check must use a fresh bootstrap URL');
 }
+assert(assets.includes('/word-learning-evidence.js?v='+v+auditSuffix),
+ 'Offline word-use evidence module must be precached');
 assert(!assets.some(x=>x.startsWith('/api/')),'Never cache authenticated AI responses');
 assert(sw.includes('u.pathname.startsWith("/api/")'),'Service worker must bypass /api calls');
 console.log('PASS release gate: '+assets.length+' existing PWA assets, atomic precache manifest, release revision, boot order and uncached API');

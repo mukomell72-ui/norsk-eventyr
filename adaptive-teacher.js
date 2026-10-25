@@ -328,7 +328,8 @@ async function runTeacherMission(mission,living=null){
   .map(x=>({word:x.lemma,ru:x.translation,weight:x.difficulty,mastered:true}));
  const bridgeDifficult=bridgeWords.filter(x=>x.difficulty>=18).slice(0,6)
   .map(x=>({word:x.lemma,ru:x.translation,weight:x.difficulty,mastered:x.mastered}));
- const activeWordTrays=window.NEWordTrays?.focus?.({level:mission.level,vocab:window.NELivingDay?.details?.().vocab||[],_adaptive:{moduleId:m.id}})||[];
+ const focusLesson={level:mission.level,vocab:window.NELivingDay?.details?.().vocab||[],_adaptive:{moduleId:m.id}};
+ const activeWordTrays=window.NEWordLearning?.focus?.(focusLesson)||window.NEWordTrays?.focus?.(focusLesson)||[];
  const targetProfile=levelProfile(p,mission.level),
  variations=['Другой собеседник, новый повод разговора.','Другая обстановка и непредвиденное уточнение.','Новая причина просьбы и ограничение по времени.','Та же цель, но другая последовательность действий.'],
  revision=(p.modules[m.id]?.completions||0)+(p.modules[m.id]?.attempts||0),

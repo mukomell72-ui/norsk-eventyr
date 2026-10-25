@@ -211,12 +211,15 @@ assert(overloaded.api.segments(sameInstruction,overloaded.api.entries(),4).some(
    });
    assert.equal(first.self.recallPasses,1,'Independent recall is recorded');
    assert(first.self.nextDue>Date.now()+80000000,'Initial recall schedules tomorrow');
+   assert.equal(first.dict.nextDue,first.self.nextDue,'Dictionary due matches promised recall');
+   assert.equal(first.review.due,first.self.nextDue,'SRS due matches promised recall');
    assert.equal(first.dict.correct,0,'Self-rating and short recall cannot grant dictionary mastery');
    assert.equal(first.review.correct,0,'No SRS mastery from one recall');
    await vocabPage.evaluate(()=>{
     const s=window.neLearnerState,p=s.learningV8.wordSelfChecks.begynne;
     p.nextDue=Date.now()-1000;p.lastRecallAt=Date.now()-2*86400000;
     s.srs.begynne.due=Date.now()-1000;s.dailyDictionary.begynne.nextDue=Date.now()-1000;
+    s.wordPracticeQueue.begynne=Date.now()-1000;
     window.neLessonSession.lesson={vocab:[['et bord','стол']]};
     document.getElementById('vocabHost').innerHTML=
      window.NELanguageBridge.lessonWordReminder(window.neLessonSession.lesson);
@@ -232,6 +235,16 @@ assert(overloaded.api.segments(sameInstruction,overloaded.api.entries(),4).some(
    assert.equal(delayed.status,'recall_ok');
    assert.equal(await vocabPage.evaluate(()=>window.neLearnerState.dailyDictionary.begynne.correct),0,'Word mastery remains tied to normal scored exercises');
    assert(delayed.nextDue>Date.now()+2*86400000,'Due date advances only after independent delayed recall');
+   const cleared=await vocabPage.evaluate(()=>{
+    const s=window.neLearnerState;
+    return {queued:Object.hasOwn(s.wordPracticeQueue,'begynne'),
+     dictDue:s.dailyDictionary.begynne.nextDue,srsDue:s.srs.begynne.due,
+     correct:s.srs.begynne.correct};
+   });
+   assert(!cleared.queued,'Successful independent recall clears stale immediate review request');
+   assert(cleared.dictDue>Date.now()+2*86400000&&cleared.srsDue>Date.now()+2*86400000,
+    'Dictionary and SRS agree on the upcoming delayed review');
+   assert.equal(cleared.correct,0,'A recall does not manufacture normal graded mastery');
    await vocabPage.locator('[data-ne-lesson-word="et bord"]').click();
    await vocabPage.getByRole('button',{name:'Не знаю',exact:true}).click();
    const unknown=await vocabPage.evaluate(()=>{

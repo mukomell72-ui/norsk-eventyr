@@ -622,12 +622,10 @@
     level:lessonLevel(),correct:0,wrong:0,exposures:1,strength:0,
     firstDate:new Date(now).toISOString().slice(0,10),source:'personal_word_check'};
   }
-  const prevDue=Number(dictionary.nextDue);
-  dictionary.nextDue=prevDue>Date.now() ? Math.min(prevDue,dueAt) : dueAt;
+  dictionary.nextDue=dueAt;
   let srs=Object.values(state.srs).find(x=>normNo(x?.word)===key);
   if(!srs)srs=state.srs[key]={word,translation,level:lessonLevel(),stage:0,seen:1,correct:0};
-  const oldDue=Number(srs.due);
-  srs.due=oldDue>Date.now() ? Math.min(oldDue,dueAt) : dueAt;
+  srs.due=dueAt;
   if(immediately){
    state.wordPracticeQueue=state.wordPracticeQueue||{};
    state.wordPracticeQueue[key]=now;
@@ -750,6 +748,11 @@
    const delay=[1,3,7,14,30][Math.min(4,Number(p.delayedPasses)||0)];
    p.nextDue=now+delay*DAY_MS;
    schedulePersonalWord(word,ru,p.nextDue,false);
+   // A successful independent recall resolves an immediate review request.
+   // Keep real scored evidence untouched and preserve the next delayed date.
+   const state=getState();
+   if(state?.wordPracticeQueue&&Object.prototype.hasOwnProperty.call(state.wordPracticeQueue,key))
+    delete state.wordPracticeQueue[key];
    window.saveState?.();
    target.innerHTML='<p><b>Перевод вспомнил правильно.</b> '+esc(word)+
     ' — '+esc(ru)+'</p><p class="muted">'+
