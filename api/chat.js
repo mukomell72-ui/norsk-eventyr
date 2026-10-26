@@ -161,8 +161,10 @@ export default async function handler(req,res){
       out.score_valid=false;out.accepted=false;out.feedback_status="unverified";delete out.score;
     }
     out.assessment_source=voiceTranscript?"voice_transcript":"typed_text";
-    out.error_tag=String(out.error_tag||"").slice(0,50);
-    out.suggested_level=allowedLevels.includes(out.suggested_level)?out.suggested_level:"";
+    if(chatMode!=="scene_practice"){
+      out.error_tag=String(out.error_tag||"").slice(0,50);
+      out.suggested_level=allowedLevels.includes(out.suggested_level)?out.suggested_level:"";
+    }
     return res.status(200).json(out);
   }catch{
     return res.status(500).json({error:"AI_CHAT_FAILED",code:"AI_CHAT_FAILED"});
