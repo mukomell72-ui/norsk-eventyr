@@ -127,7 +127,7 @@ function noraAttemptReviewHtml(d,{answer="",ok,firstScore,title="",isCorrection=
  if(!accepted)parts.push('<p><b>Что сделать дальше:</b> Исправь указанные места в своём тексте и снова нажми «Проверить AI». Нора проверит следующую версию. Повторять можно до правильного ответа.</p>');
  // Keep a useful correction visible; the detailed report is optional.
  const firstIssue=issues.find(x=>String(x?.explanation_ru||'').trim());
- const nudge=firstIssue?String(firstIssue.explanation_ru).trim():
+ const nudge=firstIssue?(String(firstIssue.source_fragment||firstIssue.requirement_quote||'').trim()? '«'+String(firstIssue.source_fragment||firstIssue.requirement_quote).trim()+'»: ':'')+String(firstIssue.explanation_ru).trim():
   (accepted?'Смысл понятен. Продолжай разговор.':'Попробуй ещё раз: проверь, отвечает ли фраза на вопрос.');
  return '<div class="feedback '+(accepted?'good':'bad')+' ne-attempt-review" role="status">'+
   '<p class="ne-feedback-nudge">'+esc(nudge.slice(0,260))+'</p>'+
