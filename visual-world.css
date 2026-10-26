@@ -188,3 +188,11 @@
  --ne-mouth-x:25%;--ne-mouth-y:38%;--ne-mouth-width:13%;--ne-mouth-tilt:0deg;
  --ne-mouth-skin:#b88872;--ne-mouth-outline:#6d4f42
 }
+
+/* Portrait calibration after actual mobile screenshot review: Mari's mouth is
+   higher and slightly farther left than the generic face landmark. */
+.ne-world-portrait-wrap[data-ne-face="mari"]{--ne-mouth-x:28%;--ne-mouth-y:43%}
+.ne-world-character.ne-world-talking .ne-world-mouth,
+.ne-world-guide-face.ne-world-guide-talking .ne-world-mouth{opacity:.78}
+.ne-mouth-skin{opacity:.67}
+.ne-mouth-opening{fill:#603a40;opacity:.74;filter:blur(.45px)}
