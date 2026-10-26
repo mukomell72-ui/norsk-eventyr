@@ -373,6 +373,14 @@ function fullyCorrectAnswer(d){
  return d?.accepted===true&&Number.isFinite(score)&&score===100&&
   (!Array.isArray(d.issues)||d.issues.length===0);
 }
+// Adaptive lessons teach communication, not verbatim perfection. The CEFR
+// advancement checks still use the authentic FIRST attempt and skill evidence.
+function storyAcceptedAnswer(d,l){
+ if(!l?._adaptive)return fullyCorrectAnswer(d);
+ const score=Number(d?.score);
+ const threshold=({A1:70,A2:72,B1:75,B2:78})[l.level]||75;
+ return d?.accepted===true&&Number.isFinite(score)&&score>=threshold;
+}
 function retryCoachFeedback(d,ok,answer=""){
  return noraAttemptReviewHtml(d,{answer,ok,isCorrection:true});
 }
@@ -436,7 +444,7 @@ async function checkDialogue(){
  if(!b.isConnected||lessonSession!==s){s.locked=false;return;}
  if(input.value.trim()!==a){s.locked=false;b.innerHTML='<div class="feedback">Ответ изменён во время проверки. Проверь обновлённый текст ещё раз.</div>';return;}
  if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">'+esc(evaluationErrorMessage(r.error))+verifiedNorwegianHintsHtml(r.verifiedHints)+'</div>';return;}
- const d=r.data,ok=fullyCorrectAnswer(d);
+ const d=r.data,ok=storyAcceptedAnswer(d,l);
  if(typeof d.corrected==="string"&&d.corrected.trim())s.dialogueSuggestion={key:gradeKey,text:d.corrected.trim()};
  const firstAttempt=firstGrade(s,gradeKey,d.score??(ok?70:40),()=>{trackLessonScore(d.score??(ok?70:40),{label:"Диалог",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});if(window.NEAdaptive)NEAdaptive.recordAttempt(state,{level:l.level,skill:spoken?"speaking":"writing",score:d.score??(ok?70:40),moduleId:l?._adaptive?.moduleId||l.id,source:spoken?"dialogue_voice":"dialogue_text",errorTag:d.error_tag||"",targetErrorTag:l?._adaptive?.errorTag||"",transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||""});});
  if(ok&&firstAttempt)window.NEWordLearning?.observe?.({
@@ -566,7 +574,7 @@ async function checkFree(mode){
  if(!b.isConnected||lessonSession!==s){s.locked=false;return}
  if(input.value.trim()!==a){s.locked=false;b.innerHTML='<div class="feedback">Ответ был изменён во время проверки. Проверь новый текст ещё раз.</div>';return}
  if(!r.ok){s.locked=false;b.innerHTML='<div class="feedback bad">'+esc(evaluationErrorMessage(r.error))+verifiedNorwegianHintsHtml(r.verifiedHints)+'</div>';return}
- const d=r.data,ok=fullyCorrectAnswer(d),skill=spoken?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer,
+ const d=r.data,ok=storyAcceptedAnswer(d,l),skill=spoken?"speaking":"writing",isTransfer=!!rem||!!l?._adaptive?.transfer,
  evidenceScore=d.accepted===true?Math.max(0,Math.min(100,Math.round(Number(d.score)||0))):Math.min(40,Math.max(0,Math.round(Number(d.score)||0)));
  const gradeKey="free:"+mode+":"+s.step+(rem?":transfer:"+String(rem.retries||0):""),firstAttempt=firstGrade(s,gradeKey,evidenceScore,()=>{trackLessonScore(evidenceScore,{label:spoken?"Речь":"Письмо",strength:Array.isArray(d.strengths_ru)&&d.strengths_ru[0]||"",improvement:Array.isArray(d.improvements_ru)&&d.improvements_ru[0]||"",explanation:d.explanation_ru||"",corrected:d.corrected||"",rule:d.micro_rule_ru||"",scoreReason:d.score_reason_ru||""});if(window.NEAdaptive){NEAdaptive.recordAttempt(state,{level:l.level,skill,score:evidenceScore,moduleId:l?._adaptive?.moduleId||l?.id,source:mode==="speaking"&&!spoken?"lesson_free_text":rem?"lesson_free_transfer":"lesson_free",errorTag:d.error_tag||"",targetErrorTag:rem?.errorTag||l?._adaptive?.errorTag||"",transfer:isTransfer,reviewKey:l?._adaptive?.reviewKey||""});saveState()}});
  if(ok&&firstAttempt)window.NEWordLearning?.observe?.({
@@ -589,7 +597,7 @@ async function checkFree(mode){
  // Do not replace the original task with a transfer or grant "Next" while
  // the student's current text still has verified mistakes. Keep the draft.
  s.locked=false;
- b.innerHTML=humanFeedback+retryDetails+'<div class="feedback ne-rewrite-guidance"><b>Продолжаем исправлять этот текст.</b><br><small>Нора проверит каждую новую версию. Переход откроется только после ответа без подтверждённых ошибок.</small></div>';
+ b.innerHTML=humanFeedback+retryDetails+'<div class="feedback ne-rewrite-guidance"><b>Продолжаем исправлять этот текст.</b><br><small>Нора проверит каждую новую версию. Переход откроется после содержательного ответа, выполняющего задачу. Ошибки Нора разберёт отдельно.</small></div>';
  input?.focus();
 }
 
