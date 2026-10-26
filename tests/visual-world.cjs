@@ -228,6 +228,21 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
   assert.equal(horizontal,false,'Visual stage overflows mobile viewport');
   fs.mkdirSync(path.join(__dirname,'artifacts'),{recursive:true});
   await page.screenshot({path:path.join(__dirname,'artifacts','nora-living-world-mobile.png'),fullPage:true});
+  await page.locator('.ne-world-partner').evaluate(el=>{
+   el.classList.add('ne-world-talking');
+   el.setAttribute('data-ne-viseme','wide');
+  });
+  const visible=await page.locator('.ne-world-partner .ne-world-mouth').evaluate(el=>{
+   const shape=el.closest('.ne-world-portrait-wrap').getBoundingClientRect();
+   const mouth=el.getBoundingClientRect();
+   return getComputedStyle(el).opacity!=='0'&&mouth.width>5&&mouth.width<shape.width/2&&
+     mouth.left>=shape.left&&mouth.right<=shape.right&&mouth.top>=shape.top&&mouth.bottom<=shape.bottom;
+  });
+  assert.equal(visible,true,'Mouth should stay aligned inside speaking face');
+  await page.screenshot({path:path.join(__dirname,'artifacts','nora-lipsync-speaking-mobile.png'),fullPage:true});
+  await page.locator('.ne-world-partner').evaluate(el=>{el.classList.remove('ne-world-talking');el.removeAttribute('data-ne-viseme')});
+  const still=await page.locator('.ne-world-partner .ne-world-mouth').evaluate(el=>getComputedStyle(el).opacity);
+  assert.equal(still,'0','Mouth must hide when character is silent');
   await page.close();
   console.log('PASS illustrated mobile Chromium: 3 portraits loaded, colorful scene, no horizontal overflow, screenshot stored');
  }finally{await browser.close()}
