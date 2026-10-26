@@ -28,6 +28,7 @@ assert(V,'Living-world module failed to load');
 const markup=V.render({lesson,scene,progress,step:scene.steps[0],moduleId:'a2-work'});
 assert(markup.includes('ne-world-office')&&markup.includes('Нора'), 'Interactive work scenario missing');
 assert(markup.includes('assets/characters/mari.svg'),'Attractive adult character portrait not selected');
+assert(V.theme({id:'a1-mobility'}, {scene:'På bussholdeplassen'})==='street','Bus scenes need outdoor Norwegian setting');
 assert(markup.includes('aria-label="Анимированная жизненная ситуация"'),'Scene lacks accessibility label');
 assert(markup.includes('&lt;неожиданность&gt;')&&!markup.includes('<неожиданность>'),'User-facing scene must escape content');
 assert(markup.includes('&lt;можешь&gt;'),'Spoken lesson goal must escape content');
@@ -70,6 +71,10 @@ assert.equal(JSON.stringify(progress),beforePractice,'Recovery phrases must not 
 assert.equal(saved,beforeCredit,'Recovery phrases may not award XP or fake evidence');
 assert(guided.includes('ne-world-history'),'Conversation history should be collapsible to avoid duplicate visual bubbles');
 assert(style.includes('.ne-world-character')&&style.includes('ne-world-talk'),'No actual character animation');
+const male=V.render({lesson,scene:{...scene,actor:'Lars · sjåfør'},progress:{index:0,turns:[]},step:scene.steps[0],moduleId:'a1-mobility'});
+const female=V.render({lesson,scene:{...scene,actor:'Kari · butikkansatt'},progress:{index:0,turns:[]},step:scene.steps[0],moduleId:'a1-shopping'});
+assert(male.includes('assets/characters/erik.svg'),'Lars must have male character illustration');
+assert(female.includes('assets/characters/ingrid.svg'),'Kari must have female character illustration');
 for(const f of ['ingrid.svg','mari.svg','erik.svg']){
  const img=read('assets/characters/'+f);
  assert(img.includes('<svg')&&img.includes('viewBox='),'Illustration asset incomplete: '+f);
@@ -79,7 +84,7 @@ assert(guided.includes('window.NEVisualWorld?.render?.')&&guided.includes('windo
 const access=read('access.js'),sw=read('sw.js'),html=read('index.html');
 assert(read('nora-experience.js').includes('NEVisualWorld?.guide?.(b)'),'Nora visual guide must appear throughout the lesson');
 assert(access.includes("'visual-world.js','guided-speaking.js'"),'Visual world should load before guided speech');
-assert(sw.includes('/visual-world.js?v=8.3.0-world2')&&sw.includes('/visual-world.css?v=8.3.0-world2'),'Offline assets missing');
+assert(sw.includes('/visual-world.js?v=8.3.0-world3')&&sw.includes('/visual-world.css?v=8.3.0-world2'),'Offline assets missing');
 assert(html.includes('/visual-world.css?v=8.3.0-world2'),'Fresh styles not loaded');
 assert(source.includes('typeof window.saveState')&&source.includes('aria-pressed'),'Avatar state not personal');
 console.log('PASS animated conversations: adult illustrations, escaped scene, learner answers, voice response, continuity, saved avatar, reduced motion and PWA');

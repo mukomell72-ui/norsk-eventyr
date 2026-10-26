@@ -12,7 +12,8 @@
  const actors={
   ingrid:'ingrid',ida:'ingrid',anna:'ingrid',sofie:'mari',mari:'mari',sara:'mari',maja:'mari',
   nora:'nora',anders:'erik',erik:'erik',henrik:'erik',nils:'erik',
-  ola:'erik',knut:'erik',thomas:'erik'
+  ola:'erik',knut:'erik',thomas:'erik',jonas:'erik',lars:'erik',bjørn:'erik',
+  kari:'ingrid',emma:'ingrid',liv:'ingrid',eva:'mari',hanna:'mari',sigrid:'ingrid',lege:'erik'
  };
 
  function actorKey(label){
