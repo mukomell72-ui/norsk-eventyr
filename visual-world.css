@@ -204,3 +204,11 @@
  .ne-world-mouth{display:none!important}
  .ne-world-guide-face.ne-world-guide-talking{animation:none!important}
 }
+
+/* Brief context-sensitive visual response; no facial tracking or emotion inference. */
+.ne-world-character.ne-world-reacting:not(.ne-world-talking) .ne-world-portrait-wrap{animation:ne-world-attend .85s ease-out 1}
+.ne-world-partner[data-ne-reaction="curious"] .ne-world-portrait-wrap{border-color:#d5ebff}
+.ne-world-partner[data-ne-reaction="warm"] .ne-world-portrait-wrap{border-color:#d8f4dc}
+.ne-world-partner[data-ne-reaction="thoughtful"] .ne-world-portrait-wrap{border-color:#f5dfbf}
+@keyframes ne-world-attend{0%,100%{transform:translateY(0) rotate(0)}45%{transform:translateY(-3px) rotate(.8deg)}}
+@media(prefers-reduced-motion:reduce){.ne-world-character.ne-world-reacting .ne-world-portrait-wrap{animation:none!important}}
