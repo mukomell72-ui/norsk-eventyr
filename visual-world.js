@@ -93,7 +93,7 @@
      '<label for="neWorldFreeInput">Твоя произвольная реплика по-норвежски</label>'+
      '<textarea id="neWorldFreeInput" maxlength="350" rows="2" class="input" placeholder="Что ты хочешь сказать?"></textarea>'+
      '<button type="button" class="btn secondary" id="neWorldFreeSend" onclick="NEVisualWorld.sendFree()">Сказать собеседнику</button>'+
-     '<small id="neWorldFreeStatus" role="status" aria-live="polite">До 6 реплик на эту сцену. Требуется интернет и AI. Запись через микрофон доступна в основном задании.</small>'+
+     '<small id="neWorldFreeStatus" role="status" aria-live="polite">До 6 свободных реплик за этот урок. Требуется интернет и AI. Запись через микрофон доступна в основном задании.</small>'+
      '<small>Дополнительная практика: баллы и экзаменационный результат не начисляются.</small></details>'+
    '<details class="ne-world-avatar-picker"><summary>Изменить свой аватар</summary>'+
      '<div class="ne-world-avatar-options" role="group" aria-label="Учебный аватар">'+

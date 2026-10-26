@@ -78,6 +78,71 @@ assert(source.includes('typeof window.saveState')&&source.includes('aria-pressed
 console.log('PASS animated conversations: adult illustrations, escaped scene, learner answers, voice response, continuity, saved avatar, reduced motion and PWA');
 
 (async()=>{
+ const input={value:'Unnskyld, kan du hjelpe meg?',isConnected:true};
+ const button={disabled:false,isConnected:true};
+ const freeStatus={textContent:''};
+ const record=[];
+ const log={};
+ const previousGet=fakeDocument.getElementById;
+ fakeDocument.getElementById=id=>({neWorldFreeInput:input,neWorldFreeSend:button,neWorldFreeStatus:freeStatus,neWorldFreeLog:log}[id]||previousGet(id));
+ fakeDocument.createElement=tag=>({tag,append(){}});
+ log.append=el=>record.push(el);
+ window.neApiPost=async(path,payload)=>{
+  chatCalls++;
+  assert.equal(path,'/api/chat');
+  assert.equal(payload.mode,'roleplay');
+  assert.equal(payload.inputSource,'typed_text');
+  assert(payload.scenario.includes('Свободная необязательная практика'));
+  assert.equal(payload.message,'Unnskyld, kan du hjelpe meg?');
+  return {ok:true,data:{reply_no:'Ja, selvfølgelig! Hva trenger du hjelp med?'}};
+ };
+ const beforeScores=saved,beforeStep=progress.index,beforeTurns=progress.turns.length;
+ assert.equal(await V.sendFree(),true);
+ assert.equal(progress.freeChat.filter(x=>x.role==='user').length,1);
+ assert.equal(progress.freeChat.at(-1).text,'Ja, selvfølgelig! Hva trenger du hjelp med?');
+ assert.equal(input.value,'');
+ assert.equal(checkpoint,1);
+ assert.equal(saved,beforeScores,'Free dialogue cannot mutate grades');
+ assert.equal(progress.index,beforeStep);
+ assert.equal(progress.turns.length,beforeTurns);
+ assert.equal(record.length,2,'Both learner and NPC turns should display');
+ assert.equal(chatCalls,1);
+ assert.equal(button.disabled,false);
+ // Concurrency: parallel submissions must only send one request.
+ let release;
+ window.neApiPost=async()=>new Promise(resolve=>{release=resolve});
+ input.value='Hva gjør du?';
+ const request=V.sendFree();
+ assert.equal(button.disabled,true);
+ assert.equal(await V.sendFree(),false,'Only one concurrent message is allowed');
+ release({ok:true,data:{reply_no:'Jeg jobber her.'}});
+ assert.equal(await request,true);
+ // Responses for other lessons/screens must not write into the new checkpoint.
+ input.value='Kan du anbefale noe?';
+ let resolveOld;
+ window.neApiPost=async()=>new Promise(resolve=>{resolveOld=resolve});
+ const previousSession=window.neLessonSession;
+ const stale=V.sendFree();window.neLessonSession={lesson:{id:'new'},guidedSpeech:{index:0}};
+ resolveOld({ok:true,data:{reply_no:'Hallo der!'}});
+ assert.equal(await stale,false);
+ assert.equal(previousSession.guidedSpeech.freeChat.length,4);
+ window.neLessonSession=previousSession;
+ // Offline failure must preserve text and original assessment.
+ input.value='Hva betyr det?';
+ window.neApiPost=async()=>({ok:false,error:'NETWORK'});
+ const checkpointBefore=checkpoint;
+ assert.equal(await V.sendFree(),false);
+ assert.equal(input.value,'Hva betyr det?');
+ assert.equal(checkpoint,checkpointBefore);
+ // Max 6 user turns even if data is imported into a checkpoint.
+ progress.freeChat=Array.from({length:12},(_,i)=>({role:i%2===0?'user':'assistant',text:'ok'}));
+ assert.equal(await V.sendFree(),false);
+ assert(freeStatus.textContent.includes('Шесть'));
+ progress.freeChat=[];
+ console.log('PASS free conversation: actual AI dialogue, replay-safe history, no XP, checkpoint, concurrency, stale navigation and offline handling');
+})().catch(err=>{console.error(err);process.exitCode=1});
+
+(async()=>{
  const {chromium}=require('playwright');
  const browser=await chromium.launch({headless:true});
  try{
