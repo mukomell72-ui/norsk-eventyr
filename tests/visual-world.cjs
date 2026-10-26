@@ -64,3 +64,32 @@ assert(sw.includes('/visual-world.js?v=8.3.0-world1')&&sw.includes('/visual-worl
 assert(html.includes('/visual-world.css?v=8.3.0-world1'),'Fresh styles not loaded');
 assert(source.includes('typeof window.saveState')&&source.includes('aria-pressed'),'Avatar state not personal');
 console.log('PASS animated conversations: adult illustrations, escaped scene, learner answers, voice response, continuity, saved avatar, reduced motion and PWA');
+
+(async()=>{
+ const {chromium}=require('playwright');
+ const browser=await chromium.launch({headless:true});
+ try{
+  const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:1});
+  const testProgress={index:0,turns:[]};
+  const visual=V.render({lesson,scene,progress:testProgress,step:scene.steps[0],moduleId:'a2-work'});
+  const embedded=visual.replace(/src="(\/assets\/[^"]+)"/g,(_,src)=>{
+   const full=path.join(root,src.slice(1)),buffer=fs.readFileSync(full);
+   const mime=src.endsWith('.svg')?'image/svg+xml':'image/webp';
+   return 'src="data:'+mime+';base64,'+buffer.toString('base64')+'"';
+  });
+  await page.setContent('<!doctype html><html lang="ru"><head><meta name="viewport" content="width=device-width,initial-scale=1">'+
+   '<style>body{margin:0;padding:10px;background:#e7edf2;font-family:system-ui,Arial,sans-serif}main{max-width:720px;margin:auto}</style>'+
+   '<style>'+style+'</style></head><body><main>'+embedded+'</main></body></html>');
+  const found=await page.locator('.ne-world-character').count();
+  assert.equal(found,3,'All three characters must render in Chromium');
+  const missing=await page.locator('.ne-world-character img').evaluateAll(nodes=>nodes.filter(x=>!x.complete||x.naturalWidth===0).length);
+  assert.equal(missing,0,'Characters images must render as real images on Android-size viewport');
+  const horizontal=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
+  assert.equal(horizontal,false,'Visual stage overflows mobile viewport');
+  fs.mkdirSync(path.join(__dirname,'artifacts'),{recursive:true});
+  await page.screenshot({path:path.join(__dirname,'artifacts','nora-living-world-mobile.png'),fullPage:true});
+  await page.close();
+  console.log('PASS illustrated mobile Chromium: 3 portraits loaded, colorful scene, no horizontal overflow, screenshot stored');
+ }finally{await browser.close()}
+})().catch(err=>{console.error(err);process.exitCode=1});
+
