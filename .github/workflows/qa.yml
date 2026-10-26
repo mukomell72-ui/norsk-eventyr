@@ -48,6 +48,7 @@ jobs:
           base="$(git rev-parse refs/remotes/origin/main)"
           head="$(git rev-parse HEAD)"
           git merge-base --is-ancestor "$base" "$head"
+          git diff --check "$base" "$head"
           git worktree add -b local-merge-delivery "$RUNNER_TEMP/norsk-eventyr-local-merged" "$base"
           git -C "$RUNNER_TEMP/norsk-eventyr-local-merged" merge --ff-only "$head"
           test "$(git -C "$RUNNER_TEMP/norsk-eventyr-local-merged" rev-parse HEAD)" = "$head"
