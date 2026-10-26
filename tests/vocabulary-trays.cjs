@@ -34,7 +34,7 @@ assert.equal(s.dailyDictionary.skrive.bridgeLookups,lookupBeforeSecondTap,'Looku
 assert.equal((s.dailyDictionary?.skrive?.correct||0),0,'Looking up a word does not grant mastery');
 assert.equal(s.learningV8.lessonWordTrays.days[day].today.length,5,'Original daily history is preserved');
 assert(!api.markOldForgotten('å lese',day),'Yesterday lookup does not automatically promote into relearning');
-assert.equal(api.focus(lesson).length,6,'Promoted words are included once, not duplicated in review');
+assert.equal(api.focus(lesson,day).length,6,'Promoted words are included once in the selected study day');
 const html=api.render(lesson);
 assert(html.includes('data-ne-tray-column="today"')&&html.includes('data-ne-tray-column="yesterday"')&&html.includes('data-ne-tray-column="older"'),'Three educational panels render');
 assert(html.includes('перевод по нажатию')&&!html.includes('читать'),'Yesterday words remain in the DOM without visible translation before a tap');
