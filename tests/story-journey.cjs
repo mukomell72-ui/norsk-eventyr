@@ -3,11 +3,14 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const root=path.resolve(__dirname,'..');
 const read=file=>fs.readFileSync(path.join(root,file),'utf8');
-const story=read('story-journey.js'),guided=read('guided-speaking.js');
+const story=read('story-journey.js'),advanced=read('story-journey-advanced.js'),guided=read('guided-speaking.js'),curriculum=read('curriculum-v8.js');
 const w={freeEx:()=>'<original>',checkFree:()=>null};
+vm.runInNewContext(advanced,{window:w});
 vm.runInNewContext(story,{window:w});
 vm.runInNewContext(guided,{window:w});
-const pairs=['a1-time','a1-home','a1-shopping','a1-mobility','a1-health','a1-work-school','a1-transfer'];
+const ids=[...curriculum.matchAll(/\['([ab][12]-[^']+)','/g)].map(x=>x[1]);
+assert.equal(ids.length,32,'Exact course roster must remain 32 modules');
+const pairs=ids;
 for(const moduleId of pairs){
  const original=w.NEGuidedSpeaking.definition({_adaptive:{moduleId}});
  assert(original.steps.length>=3,'existing module lost '+moduleId);
@@ -25,8 +28,8 @@ assert.equal(w.NEGuidedSpeaking.definition({_adaptive:{moduleId:'a1-time'}}).ope
  w.NEGuidedSpeaking.definition({_adaptive:{moduleId:'a1-time',storyVariant:0}}).opening,
  'Saved old conversations must remain unchanged');
 assert(read('adaptive-teacher.js').includes('storyVariant,origin:source'),'Variant missing from lesson metadata');
-assert(read('access.js').includes("'story-journey.js','guided-speaking.js'"),'Scripts load in wrong order');
-assert(read('sw.js').includes('/story-journey.js?v=8.3.0-story1'),'Offline story asset missing');
+assert(read('access.js').includes("'story-journey-advanced.js','story-journey.js','guided-speaking.js'"),'Scripts load in wrong order');
+assert(read('sw.js').includes('/story-journey.js?v=8.3.0-story1')&&read('sw.js').includes('/story-journey-advanced.js?v=8.3.0-story2'),'Offline story asset missing');
 (async()=>{
  const lesson={id:'story-a1-time',level:'A1',_adaptive:{moduleId:'a1-time',storyVariant:1}};
  const session={lesson,locked:false};
@@ -49,5 +52,5 @@ assert(read('sw.js').includes('/story-journey.js?v=8.3.0-story1'),'Offline story
  assert.equal(attempts[0].score,78,'Store actual score, do not give unearned 100');
  assert(feedback.innerHTML.includes('Следующая реплика'),'Story lacks onward momentum');
  assert(feedback.innerHTML.includes('bussen'),'Scripted surprise lost its context');
- console.log('PASS story renewal: 14 authored variants, legacy stability, 78/100 acceptance, offline wiring');
+ console.log('PASS story renewal: 64 authored variants across 32 modules, legacy stability, 78/100 acceptance, offline wiring');
 })().catch(e=>{console.error(e);process.exitCode=1});
