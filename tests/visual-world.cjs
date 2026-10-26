@@ -7,7 +7,7 @@ const s={learningV8:{}};
 let own={textContent:''},reaction={hidden:true,textContent:''},picture={src:''},voiceStatus={textContent:''},rescue={hidden:true,textContent:''};
 const elements={neWorldOwnWords:own,neWorldReaction:reaction,neWorldSelfImage:picture,neWorldVoiceStatus:voiceStatus,neWorldPracticeFeedback:rescue};
 let saved=0,spoke='',calls=0,checkpoint=0,chatCalls=0;
-const lesson={id:'l1',level:'A2',_adaptive:{moduleId:'a2-work'}};
+const lesson={id:'l1',level:'A2',vocab:[['billett','билет'],['hjelp','помощь'],['billett','билет']],_adaptive:{moduleId:'a2-work'}};
 const scene={scene:'В офисе <неожиданность>',actor:'Mari · руководитель',opening:'Hei! Når kan du komme?',steps:[
  {task:'Скажи, когда <можешь> прийти.',reply:'Det passer fint.'},
  {task:'Уточни время встречи.',reply:'Vi sees i morgen.'}]};
@@ -146,7 +146,7 @@ assert(guided.includes('window.NEVisualWorld?.render?.')&&guided.includes('windo
 const access=read('access.js'),sw=read('sw.js'),html=read('index.html');
 assert(read('nora-experience.js').includes('NEVisualWorld?.guide?.(b)'),'Nora visual guide must appear throughout the lesson');
 assert(access.includes("'visual-world.js','guided-speaking.js'"),'Visual world should load before guided speech');
-assert(sw.includes('/visual-world.js?v=8.3.0-world9')&&sw.includes('/visual-world.css?v=8.3.0-world6'),'Offline assets missing');
+assert(sw.includes('/visual-world.js?v=8.3.0-world10')&&sw.includes('/visual-world.css?v=8.3.0-world6'),'Offline assets missing');
 assert(html.includes('/visual-world.css?v=8.3.0-world6'),'Fresh styles not loaded');
 assert(source.includes('typeof window.saveState')&&source.includes('aria-pressed'),'Avatar state not personal');
 console.log('PASS animated conversations: adult illustrations, escaped scene, learner answers, voice response, continuity, saved avatar, reduced motion and PWA');
@@ -166,6 +166,7 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
   assert.equal(path,'/api/chat');
   assert.equal(payload.mode,'scene_practice');
   assert.equal(payload.inputSource,'typed_text');
+  assert.deepEqual(Array.from(payload.practiceWords),['billett','hjelp'],'Only distinct active-lesson vocabulary should be recycled');
   assert(payload.scenario.includes('Свободная необязательная практика'));
   assert.equal(payload.message,'Unnskyld, kan du hjelpe meg?');
   return {ok:true,data:{reply_no:'Ja, selvfølgelig! Hva trenger du hjelp med?'}};
@@ -256,7 +257,7 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
  // Max 6 user turns even if data is imported into a checkpoint.
  progress.freeChat=Array.from({length:12},(_,i)=>({role:i%2===0?'user':'assistant',text:'ok'}));
  assert.equal(await V.sendFree(),false);
- assert(freeStatus.textContent.includes('Шесть'));
+ assert(freeStatus.textContent.includes('Шесть'),'Six-turn limit must be shown even when the draft field is empty');
  progress.freeChat=[];
  console.log('PASS free conversation: actual AI dialogue, replay-safe history, no XP, checkpoint, concurrency, stale navigation and offline handling');
 })().catch(err=>{console.error(err);process.exitCode=1});
