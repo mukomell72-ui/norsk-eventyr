@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, feature/living-story-renewal-20261026]
+    branches: [main, feature/living-story-renewal-20261026, feature/animated-living-world-20261026]
 
 permissions:
   contents: read
