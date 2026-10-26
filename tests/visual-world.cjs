@@ -35,6 +35,9 @@ assert(markup.includes('&lt;можешь&gt;'),'Spoken lesson goal must escape c
 assert(markup.includes('NEVisualWorld.speakPartner()')&&markup.includes('NEVisualWorld.speakTask()'),'Speaking cues missing');
 assert(markup.includes('NEVisualWorld.sendFree()')&&markup.includes('Свободный разговор'),'Optional free practice must be in scene');
 assert(markup.includes('NEVisualWorld.dictateFree()'),'Speech recognition must be offered for free roleplay');
+assert(markup.includes('NEVisualWorld.speakLastFree()')&&markup.includes('neWorldFreeReplay'),'Learner needs replay of improvised NPC replies');
+assert(markup.includes('neWorldFreeReplay"')&&markup.includes(' disabled'),'Replay stays disabled before the first NPC answer');
+assert(markup.includes('data-ne-reaction="curious"'),'NPC should visually acknowledge a scene-opening question');
 assert(V.chooseAvatar('ingrid')===true&&s.learningV8.visualWorld.avatar==='ingrid'&&saved===1,'Avatar preference not retained');
 assert.equal(picture.src,'/assets/characters/ingrid.webp');
 assert.equal(V.chooseAvatar('../evil.svg'),false,'Untrusted avatar path allowed');
@@ -71,7 +74,8 @@ assert.equal(JSON.stringify(progress),beforePractice,'Recovery phrases must not 
 assert.equal(saved,beforeCredit,'Recovery phrases may not award XP or fake evidence');
 assert(guided.includes('ne-world-history'),'Conversation history should be collapsible to avoid duplicate visual bubbles');
 assert(style.includes('.ne-world-character')&&style.includes('ne-world-talk'),'No actual character animation');
-const talking={active:false,classList:{add(name){if(name==='ne-world-talking')talking.active=true},remove(name){if(name==='ne-world-talking')talking.active=false}},offsetWidth:100};
+assert(style.includes('ne-world-attend')&&style.includes('prefers-reduced-motion:reduce'),'Character response animation must honor reduced motion');
+const talking={active:false,reaction:'',setAttribute(k,v){if(k==='data-ne-reaction')this.reaction=v},removeAttribute(){},classList:{add(name){if(name==='ne-world-talking')talking.active=true},remove(name){if(name==='ne-world-talking')talking.active=false}},offsetWidth:100};
 const originalSelector=fakeDocument.querySelector,originalAll=fakeDocument.querySelectorAll;
 fakeDocument.querySelector=selector=>selector.includes('data-ne-role="partner"')?talking:originalSelector(selector);
 fakeDocument.querySelectorAll=()=>[talking];
@@ -86,6 +90,9 @@ speechEvents.resume();assert.equal(talking.active,true,'Speech resumes movement'
 speechEvents.end();assert.equal(talking.active,false,'Character stops after speech ends');
 assert(style.includes('ne-world-talking .ne-world-portrait-wrap')&&style.includes('infinite'),'Speech animation should follow utterance');
 assert.equal(V.visemeAt('mamma',0),'closed');
+V.accepted('Takk for hjelpen.','Det er klart!');assert.equal(talking.reaction,'neutral');
+V.accepted('Kan du hjelpe meg?','Selvfølgelig, det kan jeg.');assert.equal(talking.reaction,'warm');
+V.accepted('Når går bussen?','Hvilken buss mener du?');assert.equal(talking.reaction,'curious');
 assert.equal(V.visemeAt('åpne',0),'round');
 assert.equal(V.visemeAt('hei',1),'wide');
 assert.equal(V.visemeAt('fint',0),'teeth');
@@ -139,19 +146,19 @@ assert(guided.includes('window.NEVisualWorld?.render?.')&&guided.includes('windo
 const access=read('access.js'),sw=read('sw.js'),html=read('index.html');
 assert(read('nora-experience.js').includes('NEVisualWorld?.guide?.(b)'),'Nora visual guide must appear throughout the lesson');
 assert(access.includes("'visual-world.js','guided-speaking.js'"),'Visual world should load before guided speech');
-assert(sw.includes('/visual-world.js?v=8.3.0-world8')&&sw.includes('/visual-world.css?v=8.3.0-world5'),'Offline assets missing');
-assert(html.includes('/visual-world.css?v=8.3.0-world5'),'Fresh styles not loaded');
+assert(sw.includes('/visual-world.js?v=8.3.0-world9')&&sw.includes('/visual-world.css?v=8.3.0-world6'),'Offline assets missing');
+assert(html.includes('/visual-world.css?v=8.3.0-world6'),'Fresh styles not loaded');
 assert(source.includes('typeof window.saveState')&&source.includes('aria-pressed'),'Avatar state not personal');
 console.log('PASS animated conversations: adult illustrations, escaped scene, learner answers, voice response, continuity, saved avatar, reduced motion and PWA');
 
 (async()=>{
- const input={value:'Unnskyld, kan du hjelpe meg?',isConnected:true};
- const button={disabled:false,isConnected:true};
+ const input={value:'Unnskyld, kan du hjelpe meg?',isConnected:true,dataset:{}};
+ const button={disabled:false,isConnected:true},replayButton={disabled:true,isConnected:true};
  const freeStatus={textContent:''};
  const record=[];
  const log={};
  const previousGet=fakeDocument.getElementById;
- fakeDocument.getElementById=id=>({neWorldFreeInput:input,neWorldFreeSend:button,neWorldFreeStatus:freeStatus,neWorldFreeLog:log}[id]||previousGet(id));
+ fakeDocument.getElementById=id=>({neWorldFreeInput:input,neWorldFreeSend:button,neWorldFreeStatus:freeStatus,neWorldFreeLog:log,neWorldFreeReplay:replayButton}[id]||previousGet(id));
  fakeDocument.createElement=tag=>({tag,append(){}});
  log.append=el=>record.push(el);
  window.neApiPost=async(path,payload)=>{
@@ -173,6 +180,11 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
  assert.equal(progress.index,beforeStep);
  assert.equal(progress.turns.length,beforeTurns);
  assert.equal(record.length,2,'Both learner and NPC turns should display');
+ assert.equal(replayButton.disabled,false,'Free NPC answer unlocks replay');
+ const beforeReplayScores=saved;
+ assert.equal(V.speakLastFree(),true,'NPC replay should use stored authentic answer');
+ assert.equal(spoke,'Ja, selvfølgelig! Hva trenger du hjelp med?');
+ assert.equal(saved,beforeReplayScores,'Replay must not create new learning evidence');
  assert.equal(chatCalls,1);
  assert.equal(button.disabled,false);
  // Concurrency: parallel submissions must only send one request.
@@ -226,6 +238,7 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
  input.value='';
  recognition.onresult({results:[[{transcript:'Unnskyld, hvor er holdeplassen?'}]]});
  assert.equal(input.value,'Unnskyld, hvor er holdeplassen?');
+ assert.equal(input.dataset.neFromSpeech,'true','Recognized speech must be disclosed as a transcript');
  const beforeStaleMicError=freeStatus.textContent;
  window.neLessonSession={lesson:{id:'different'},guidedSpeech:{index:0}};
  recognition.onerror();
@@ -233,6 +246,13 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
  window.neLessonSession=previousSession;
  recognition.onend();
  delete window.SpeechRecognition;
+ window.neApiPost=async(_path,payload)=>{
+  assert.equal(payload.inputSource,'voice_transcript','Dictation must not be disguised as typed text');
+  return {ok:true,data:{reply_no:'Ja, den ligger rett ved biblioteket.'}};
+ };
+ assert.equal(await V.sendFree(),true);
+ assert.equal(input.dataset.neFromSpeech,'false','Transcript marker must reset after sending');
+ assert.equal(progress.freeChat.at(-1).text,'Ja, den ligger rett ved biblioteket.');
  // Max 6 user turns even if data is imported into a checkpoint.
  progress.freeChat=Array.from({length:12},(_,i)=>({role:i%2===0?'user':'assistant',text:'ok'}));
  assert.equal(await V.sendFree(),false);
