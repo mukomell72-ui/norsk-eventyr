@@ -72,7 +72,7 @@ assert.equal(saved,beforeCredit,'Recovery phrases may not award XP or fake evide
 assert(guided.includes('ne-world-history'),'Conversation history should be collapsible to avoid duplicate visual bubbles');
 assert(style.includes('.ne-world-character')&&style.includes('ne-world-talk'),'No actual character animation');
 for(const p of ['ingrid.webp','mari.webp','erik.webp']){
- assert(sw.includes('/assets/characters/'+p),'Photo portraits must be precached for offline lessons');
+ assert(read('sw.js').includes('/assets/characters/'+p),'Photo portraits must be precached for offline lessons');
 }
 const male=V.render({lesson,scene:{...scene,actor:'Lars · sjåfør'},progress:{index:0,turns:[]},step:scene.steps[0],moduleId:'a1-mobility'});
 const female=V.render({lesson,scene:{...scene,actor:'Kari · butikkansatt'},progress:{index:0,turns:[]},step:scene.steps[0],moduleId:'a1-shopping'});
