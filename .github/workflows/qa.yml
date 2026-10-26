@@ -39,6 +39,33 @@ jobs:
       - name: Run QA suite
         working-directory: tests
         run: npm test
+      - name: Locally fast-forward main and package merged source
+        if: success() && github.ref == 'refs/heads/feature/living-story-renewal-20261026'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p local-merge-out
+          base="$(git rev-parse refs/remotes/origin/main)"
+          head="$(git rev-parse HEAD)"
+          git merge-base --is-ancestor "$base" "$head"
+          git worktree add -b local-merge-delivery "$RUNNER_TEMP/norsk-eventyr-local-merged" "$base"
+          git -C "$RUNNER_TEMP/norsk-eventyr-local-merged" merge --ff-only "$head"
+          test "$(git -C "$RUNNER_TEMP/norsk-eventyr-local-merged" rev-parse HEAD)" = "$head"
+          git -C "$RUNNER_TEMP/norsk-eventyr-local-merged" archive --format=zip --output="$GITHUB_WORKSPACE/local-merge-out/norsk-eventyr-local-merged-source.zip" HEAD
+          git -C "$RUNNER_TEMP/norsk-eventyr-local-merged" bundle create "$GITHUB_WORKSPACE/local-merge-out/norsk-eventyr-local-merged.git.bundle" local-merge-delivery
+          git -C "$RUNNER_TEMP/norsk-eventyr-local-merged" bundle verify "$GITHUB_WORKSPACE/local-merge-out/norsk-eventyr-local-merged.git.bundle"
+          git clone "$GITHUB_WORKSPACE/local-merge-out/norsk-eventyr-local-merged.git.bundle" "$RUNNER_TEMP/norsk-eventyr-verify"
+          test "$(git -C "$RUNNER_TEMP/norsk-eventyr-verify" rev-parse HEAD)" = "$head"
+          printf 'MAIN_BASE=%s\nLOCAL_MERGED=%s\nMERGE_MODE=fast-forward\nQA=passed before packaging\nPRODUCTION_PUBLISHED=no\n' "$base" "$head" > local-merge-out/LOCAL_MERGE_MANIFEST.txt
+          (cd local-merge-out && sha256sum norsk-eventyr-local-merged-source.zip norsk-eventyr-local-merged.git.bundle > SHA256SUMS.txt)
+      - name: Upload verified local merged source and portable Git bundle
+        if: success() && github.ref == 'refs/heads/feature/living-story-renewal-20261026'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Norsk-Eventyr-local-merged-ready
+          path: local-merge-out/*
+          retention-days: 14
+          if-no-files-found: error
       - name: Bundle the exact 8.3.0 staging source after successful QA
         if: success() && github.event_name == 'pull_request' && github.head_ref == 'release/8.3.0-local-staging-20261013'
         env:
