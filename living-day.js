@@ -209,7 +209,7 @@ function open(){
  (d.feedback?'<div class="notice">'+esc(d.feedback)+'</div>':'')+
  '<p class="muted">'+esc(hint)+'</p>'+action+
  (complete?'<button class="btn secondary" onclick="navigate(\'course\',\''+esc(d.level)+'\')">К программе уровня</button>':'')+
- '<button class="btn secondary" onclick="NELivingWords.render()">Слова · дополнительная практика</button>'+ 
+ '<button class="btn secondary" onclick="NELivingWords.render()">Слова · дополнительная практика</button>'+
  '<button class="btn secondary" onclick="NELivingDay.archive()">Архив и повторение уроков →</button>'+
  '<button class="btn ghost" onclick="navigate(\'home\')">← Вернуться на главную</button>'+
  '</section>','home');
