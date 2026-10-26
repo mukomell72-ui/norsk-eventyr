@@ -246,8 +246,8 @@ function neGuidedSpeak(index){
  if(!d)return;
  const text=index===-1?d.scene.opening:(d.progress.turns[index]?.reply||d.progress.pending?.reply||d.scene.steps[index]?.reply);
  if(text&&typeof window.speakText==='function'){
-  window.NEVisualWorld?.animate?.('partner');
-  window.speakText(text,.86);
+  const utterance=window.speakText(text,.86);
+  window.NEVisualWorld?.bindSpeech?.(utterance,'partner');
  }
 }
 
@@ -396,7 +396,7 @@ async function guidedCheck(){
  box.innerHTML=feedback+'<div class="guided-reply">'+actorMessage(scene,reply,index)+'</div>'+ 
   '<button type="button" class="btn secondary" onclick="neGuidedRevise()">Исправить ещё</button>'+
   '<button class="btn lesson-next-v8" onclick="neGuidedNext()">'+(index===scene.steps.length-1?'Завершить разговор →':'Следующая реплика →')+'</button>';
- if(typeof window.speakText==='function'){try{window.speakText(reply,.86)}catch{}}
+ if(typeof window.speakText==='function'){try{const utterance=window.speakText(reply,.86);window.NEVisualWorld?.bindSpeech?.(utterance,'partner')}catch{}}
 }
 function neGuidedExplain(){
  const s=window.neLessonSession,d=s?.lesson&&ensure(s.lesson);

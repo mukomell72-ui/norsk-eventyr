@@ -153,7 +153,7 @@
   const token={};activeSpeech=token;clearSpeechVisual();
   const name=role==='guide'?'ne-world-guide-talking':'ne-world-talking';
   const start=()=>{if(activeSpeech===token)el.classList.add(name)};
-  const end=()=>{el.classList.remove(name);if(activeSpeech===token)activeSpeech=null};
+  const end=()=>{if(activeSpeech===token){el.classList.remove(name);activeSpeech=null}};
   utterance.addEventListener('start',start);
   utterance.addEventListener('end',end);
   utterance.addEventListener('error',end);

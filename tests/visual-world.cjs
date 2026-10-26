@@ -71,6 +71,17 @@ assert.equal(JSON.stringify(progress),beforePractice,'Recovery phrases must not 
 assert.equal(saved,beforeCredit,'Recovery phrases may not award XP or fake evidence');
 assert(guided.includes('ne-world-history'),'Conversation history should be collapsible to avoid duplicate visual bubbles');
 assert(style.includes('.ne-world-character')&&style.includes('ne-world-talk'),'No actual character animation');
+const talking={active:false,classList:{add(name){if(name==='ne-world-talking')talking.active=true},remove(name){if(name==='ne-world-talking')talking.active=false}},offsetWidth:100};
+const originalSelector=fakeDocument.querySelector,originalAll=fakeDocument.querySelectorAll;
+fakeDocument.querySelector=selector=>selector.includes('data-ne-role="partner"')?talking:originalSelector(selector);
+fakeDocument.querySelectorAll=()=>[talking];
+const speechEvents={};
+const utterance={addEventListener(name,callback){speechEvents[name]=callback}};
+assert.equal(V.bindSpeech(utterance,'partner'),true,'Voice must attach speech events');
+assert.equal(talking.active,true,'Speaking character moves during audio');
+speechEvents.end();assert.equal(talking.active,false,'Character stops after speech ends');
+assert(style.includes('ne-world-talking .ne-world-portrait-wrap')&&style.includes('infinite'),'Speech animation should follow utterance');
+fakeDocument.querySelector=originalSelector;fakeDocument.querySelectorAll=originalAll;
 for(const p of ['ingrid.webp','mari.webp','erik.webp']){
  assert(read('sw.js').includes('/assets/characters/'+p),'Photo portraits must be precached for offline lessons');
 }
@@ -83,6 +94,7 @@ for(const f of ['ingrid.svg','mari.svg','erik.svg']){
  assert(img.includes('<svg')&&img.includes('viewBox='),'Illustration asset incomplete: '+f);
  assert(!img.includes('<script'),'SVG contains executable script: '+f);
 }
+assert(read('app.js').includes('speechSynthesis.speak(u);return u}'),'Speech must expose utterance events');
 assert(guided.includes('window.NEVisualWorld?.render?.')&&guided.includes('window.NEVisualWorld?.updateOwn?.')&&guided.includes('window.NEVisualWorld?.accepted?.'),'Native dialogue not connected');
 const access=read('access.js'),sw=read('sw.js'),html=read('index.html');
 assert(read('nora-experience.js').includes('NEVisualWorld?.guide?.(b)'),'Nora visual guide must appear throughout the lesson');

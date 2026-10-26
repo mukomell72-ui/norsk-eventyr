@@ -117,3 +117,13 @@
 .ne-world-free-controls>button{flex:1 1 130px;margin:0;min-height:42px;white-space:normal}
 .ne-world-free-controls>button[aria-pressed="true"]{background:#cfebe5;border-color:#268981}
 .ne-world-free-controls>button:focus-visible{outline:3px solid #197cc4;outline-offset:3px}
+
+/* Speaking portraits move for the utterance duration; reactions remain brief. */
+.ne-world-character.ne-world-talking .ne-world-portrait-wrap{animation:ne-world-talk .65s ease-in-out infinite}
+.ne-world-guide-portrait.ne-world-guide-talking{animation:ne-world-talk .65s ease-in-out infinite}
+.ne-world-character.ne-world-reacting .ne-world-portrait-wrap{animation:ne-world-appear .45s ease-out 1}
+@media(prefers-reduced-motion:reduce){
+ .ne-world-character.ne-world-talking .ne-world-portrait-wrap,
+ .ne-world-guide-portrait.ne-world-guide-talking,
+ .ne-world-character.ne-world-reacting .ne-world-portrait-wrap{animation:none!important}
+}
