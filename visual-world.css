@@ -196,3 +196,11 @@
 .ne-world-guide-face.ne-world-guide-talking .ne-world-mouth{opacity:.78}
 .ne-mouth-skin{opacity:.67}
 .ne-mouth-opening{fill:#603a40;opacity:.74;filter:blur(.45px)}
+
+/* Accessible user control; system reduced-motion disables mouth overlays entirely. */
+.ne-world-lip-toggle{display:block;font:inherit;font-size:13px;font-weight:760;color:#21536b;background:#fff;cursor:pointer;border:1px solid #8abfc8;border-radius:10px;padding:9px 12px;margin:8px 0}
+.ne-world-lip-toggle:focus-visible{outline:3px solid #197cc4;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){
+ .ne-world-mouth{display:none!important}
+ .ne-world-guide-face.ne-world-guide-talking{animation:none!important}
+}
