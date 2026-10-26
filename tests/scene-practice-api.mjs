@@ -3,7 +3,7 @@ import chat from '../api/chat.js';
 import {createSession} from '../api/_guard.js';
 process.env.OPENAI_API_KEY='qa-scene-dummy-key';
 process.env.NE_SESSION_SECRET='qa-scene-test-very-long-signing-key-at-least-32';
-const body={message:'Jeg finner ikke riktig buss. Kan du hjelpe meg?',mode:'scene_practice',level:'A2',scenario:'Voksne på bussholdeplassen. Du er Lars, en forbipasserende.',history:[{role:'assistant',text:'Trenger du hjelp?'}]};
+const body={message:'Jeg finner ikke riktig buss. Kan du hjelpe meg?',mode:'scene_practice',level:'A2',scenario:'Voksne på bussholdeplassen. Du er Lars, en forbipasserende.',history:[{role:'assistant',text:'Trenger du hjelp?'}],practiceWords:['billett','hjelp']};
 let lastPrompt='';
 async function run(output,options={}){
  globalThis.fetch=async(url,config)=>{
@@ -33,6 +33,8 @@ assert.equal(Object.hasOwn(result.data,'score'),false,'Server must strip halluci
 assert.equal(Object.hasOwn(result.data,'suggested_level'),false,'Server must strip level recommendations');
 assert(lastPrompt.includes('scene_practice')&&lastPrompt.includes('bussholdeplassen'),'Conversation lost scenario');
 assert(lastPrompt.includes('Trenger du hjelp?'),'Conversation lost NPC history');
+assert(lastPrompt.includes('Слова из текущего урока: billett, hjelp'),'NPC must receive grounded active lesson words');
+assert(lastPrompt.includes('не больше 1–2 слов'),'NPC should recycle vocabulary sparingly, without becoming an exam');
 result=await run({reply_no:'Я отвечаю по-русски.'});
 assert.equal(result.status,502,'Russian roleplay replies should not be accepted as Bokmål');
 result=await run({reply_no:'<script>alert(1)</script>'});
