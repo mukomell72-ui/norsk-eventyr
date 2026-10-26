@@ -59,8 +59,8 @@ vm.runInNewContext(read('updates.js'),ctx,{filename:'updates.js'});
  assert(read('ui-v8.js').includes('NEUpdates.checkNow()'),'Version check button must be functional');
  assert(read('ui-v7.js').includes('daysLabelV7(state.streak)'),'Streak must inflect days correctly');
  const html=read('index.html'),sw=read('sw.js'),access=read('access.js');
- const bootstrap=html.match(/src="(\/access\\.js\\?v=[^"]+)"/)?.[1];
-  assert(bootstrap&&sw.includes('"'+bootstrap+'"'),'Bootstrap URL must match an actually cached artifact');
+ const bootstrap=html.split('src="/access.js?v=')[1]?.split('"')[0];
+ assert(bootstrap&&sw.includes('"/access.js?v='+bootstrap+'"'),'Bootstrap URL must match an actually cached artifact');
  for(const [filename,revision] of [
   ['ui-v7.js','8.3.0-lesson24-translate4'],
   ['ui-v8.js','8.3.0-translate4'],
