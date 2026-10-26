@@ -64,6 +64,7 @@
   const spoken=progress.turns.filter(x=>x.spoken).length;
   const total=progress.turns.length;
   const actorPortrait=portraits[partner];
+  const replayEnabled=Array.isArray(progress.freeChat)&&progress.freeChat.some(turn=>turn?.role==='assistant'&&String(turn.text||'').trim());
   return '<section class="ne-world ne-world-'+theme(lesson,scene)+'" aria-label="Анимированная жизненная ситуация">'+
    '<div class="ne-world-sky" aria-hidden="true"><span class="ne-world-cloud"></span><span class="ne-world-window"></span><span class="ne-world-lamp"></span></div>'+
    '<div class="ne-world-top"><span class="ne-world-tag">Твоя жизнь в Норвегии · '+e(lesson.level||'A1')+'</span>'+
@@ -72,7 +73,7 @@
    '<div class="ne-world-stage">'+
      '<div class="ne-world-character ne-world-coach" data-ne-role="coach"><div class="ne-world-portrait-wrap" data-ne-face="nora"><img src="'+portraits.nora+'" alt="Нора, виртуальная преподавательница" class="ne-world-portrait" loading="lazy">'+mouthSvg+'</div>'+
      '<div class="ne-world-name">Нора <span>помогает</span></div></div>'+
-     '<div class="ne-world-character ne-world-partner" data-ne-role="partner"><div class="ne-world-portrait-wrap" data-ne-face="'+partner+'"><img src="'+actorPortrait+'" alt="'+e(who)+'" class="ne-world-portrait" loading="lazy">'+mouthSvg+'</div>'+
+     '<div class="ne-world-character ne-world-partner" data-ne-role="partner" data-ne-reaction="'+reactionTone(last)+'"><div class="ne-world-portrait-wrap" data-ne-face="'+partner+'"><img src="'+actorPortrait+'" alt="'+e(who)+'" class="ne-world-portrait" loading="lazy">'+mouthSvg+'</div>'+
      '<div class="ne-world-name">'+e(who)+'</div></div>'+
      '<div class="ne-world-character ne-world-self" data-ne-role="self"><div class="ne-world-portrait-wrap" data-ne-face="'+currentAvatar+'"><img id="neWorldSelfImage" src="'+portraits[currentAvatar]+'" alt="Твой учебный аватар" class="ne-world-portrait" loading="lazy">'+mouthSvg+'</div>'+
      '<div class="ne-world-name">Ты <span>отвечаешь</span></div></div>'+
@@ -104,9 +105,10 @@
        (turn.role==='assistant'?e(who):'Ты')+'</strong><p lang="nb">'+e(String(turn.text||'').slice(0,350))+'</p></div>').join(''):'')+
      '</div>'+
      '<label for="neWorldFreeInput">Твоя произвольная реплика по-норвежски</label>'+
-     '<textarea id="neWorldFreeInput" maxlength="350" rows="2" class="input" placeholder="Что ты хочешь сказать?"></textarea>'+
+     '<textarea id="neWorldFreeInput" maxlength="350" rows="2" class="input" placeholder="Что ты хочешь сказать?" oninput="this.dataset.neFromSpeech=\'false\'"></textarea>'+
      '<div class="ne-world-free-controls"><button type="button" class="btn secondary" id="neWorldFreeMic" onclick="NEVisualWorld.dictateFree()">🎤 Произнести</button>'+
-     '<button type="button" class="btn secondary" id="neWorldFreeSend" onclick="NEVisualWorld.sendFree()">Отправить реплику</button></div>'+
+     '<button type="button" class="btn secondary" id="neWorldFreeSend" onclick="NEVisualWorld.sendFree()">Отправить реплику</button>'+ 
+     '<button type="button" class="btn secondary" id="neWorldFreeReplay" onclick="NEVisualWorld.speakLastFree()"'+(replayEnabled?'':' disabled')+'>Слушать последний ответ</button></div>'+
      '<small id="neWorldFreeStatus" role="status" aria-live="polite">До 6 свободных реплик за урок. Микрофон использует распознавание речи устройства: проверь текст перед отправкой. Для ответа AI необходим интернет.</small>'+
      '<small>Дополнительная практика: баллы и экзаменационный результат не начисляются.</small></details>'+
    '<details class="ne-world-avatar-picker"><summary>Изменить свой аватар</summary>'+
@@ -173,6 +175,21 @@
   void el.offsetWidth;
   el.classList.add('ne-world-reacting');
   return true;
+ }
+ // Presentational cues reflect punctuation and familiar conversational language,
+ // not emotion recognition, a judgement of the learner, or scoring evidence.
+ function reactionTone(reply){
+  const line=String(reply||'').trim().toLowerCase();
+  if(/[?？]\s*$/u.test(line))return 'curious';
+  if(/\b(?:takk|bra|flott|klart|hyggelig)\b|selvfølgelig/u.test(line))return 'warm';
+  if(/\b(?:kanskje|beklager|ikke|dessverre|usikker)\b/u.test(line))return 'thoughtful';
+  return 'neutral';
+ }
+ function reactPartner(reply){
+  const actor=talkingTarget('partner');
+  if(!actor)return false;
+  actor.setAttribute?.('data-ne-reaction',reactionTone(reply));
+  return animate('partner');
  }
 
  // Approximate visemes. SpeechSynthesis boundary timing varies across voices:
@@ -320,6 +337,7 @@
   const el=document.getElementById('neWorldReaction');
   if(el){el.hidden=false;el.textContent='Собеседник: '+String(reply||'').slice(0,320)}
   animate('self');
+  reactPartner(reply);
  }
  const freePending=new WeakSet();
  let freeRecognition=null;
@@ -346,15 +364,16 @@
   if(btn)btn.setAttribute?.('aria-pressed','true');
   freeStatus('Слушаю норвежскую реплику…');
   speech.onresult=event=>{
-   if(window.neLessonSession!==lessonSession||!field.isConnected)return;
+   if(freeRecognition!==speech||window.neLessonSession!==lessonSession||!field.isConnected)return;
    const raw=String(event?.results?.[0]?.[0]?.transcript||'').trim();
    if(!raw)return;
    // Preserve text entered after microphone activation. Never silently erase it.
    const current=field.value.trim();
    field.value=current?current+' '+raw:raw;
+   if(field.dataset)field.dataset.neFromSpeech='true';
    freeStatus('Распознано. Проверь текст, затем отправь реплику.');
   };
-  speech.onerror=()=>{if(window.neLessonSession===lessonSession&&field.isConnected)
+  speech.onerror=()=>{if(freeRecognition===speech&&window.neLessonSession===lessonSession&&field.isConnected)
    freeStatus('Распознавание не завершилось. Попробуй ещё раз или напиши текст.');};
   speech.onend=()=>{
    if(freeRecognition!==speech)return;
@@ -369,6 +388,15 @@
  function freeStatus(message){
   const node=typeof document!=='undefined'&&document.getElementById('neWorldFreeStatus');
   if(node)node.textContent=String(message||'');
+ }
+ function speakLastFree(){
+  const history=window.neLessonSession?.guidedSpeech?.freeChat;
+  if(!Array.isArray(history))return false;
+  const last=[...history].reverse().find(turn=>turn?.role==='assistant'&&typeof turn.text==='string'&&turn.text.trim());
+  if(!last)return false;
+  const spoken=sayPartner(last.text,.85);
+  freeStatus(spoken?'Повторяю последнюю реплику собеседника.':'Озвучка на этом устройстве недоступна. Текст сохранён в истории.');
+  return spoken;
  }
  function appendFree(role,value,label){
   const root=document.getElementById('neWorldFreeLog');
@@ -399,7 +427,7 @@
   try{
    const response=await window.neApiPost('/api/chat',{
     message,level:['A1','A2','B1','B2'].includes(lesson.level)?lesson.level:'A1',
-    mode:'scene_practice',teacherMode:false,inputSource:'typed_text',
+    mode:'scene_practice',teacherMode:false,inputSource:field?.dataset?.neFromSpeech==='true'?'voice_transcript':'typed_text',
     topic:String(scene.scene||'Норвегия').slice(0,130),
     scenario:'Свободная необязательная практика без баллов и без экзамена. Место: '+String(scene.scene||'').slice(0,180)+
       '. Ты реальный человек в роли '+String(scene.actor||'норвежского собеседника').slice(0,100)+
@@ -423,6 +451,10 @@
    appendFree('user',message,'Ты');
    appendFree('assistant',raw,String(scene.actor||'Собеседник').slice(0,70));
    field.value='';
+   if(field.dataset)field.dataset.neFromSpeech='false';
+   const replay=document.getElementById('neWorldFreeReplay');
+   if(replay)replay.disabled=false;
+   reactPartner(raw);
    freeStatus('Собеседник ответил. Ты можешь продолжить разговор или вернуться к заданию.');
    sayPartner(raw,.85);
    return true;
@@ -461,5 +493,5 @@
    synth.speak(u);message('Нора объясняет задание.');
   }catch{message('Озвучка недоступна. Задание написано на экране.')}
  }
- window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,dictateFree,sendFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
+ window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
 })();
