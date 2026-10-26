@@ -285,7 +285,7 @@ if(coachSuffix){
  assert(scripts.indexOf('language-bridge.js')<scripts.indexOf('nora-experience.js')&&
   scripts.indexOf('nora-experience.js')<scripts.indexOf('app.js'),
   'Nora experience should initialize before app screens and after language bridge');
- assert(assets.includes('/nora-experience.js?v='+v+bridgeSuffix+auditSuffix),
+ assert(assets.includes('/nora-experience.js?v='+v+bridgeSuffix+auditSuffix+worldSuffix('/nora-experience.js')),
   'Human-centered Nora lesson experience must be installed offline');
  assert(assets.includes('/v7.css?v='+v+bridgeSuffix+auditSuffix),
   'Human-centered UI styles must use the new cache-busting revision');
