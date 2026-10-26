@@ -147,7 +147,8 @@
   const yesterday=(d.yesterday||[]).filter(w=>!used.has(lemma(w.word))).slice(0,LIMIT);
   const older=(d.older||[]).filter(w=>!used.has(lemma(w.word))&&!yesterday.some(y=>lemma(y.word)===lemma(w.word))).slice(0,LIMIT);
   const blocked=new Set([...today,...yesterday,...older].map(w=>lemma(w.word)));
-  const backfill=studiedHistory(d.date,d.level,blocked).slice(0,Math.max(0,LIMIT-yesterday.length));
+  // Full new-word days stay compact; supplement reviews only on review-only days.
+  const backfill=today.length?[]:studiedHistory(d.date,d.level,blocked).slice(0,Math.max(0,LIMIT-yesterday.length));
   return {date:d.date,level:d.level,today,yesterday:[...yesterday,...backfill],older,
    queuedNew:recent.length>LIMIT?recent.length-LIMIT:0};
  }
