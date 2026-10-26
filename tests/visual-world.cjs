@@ -51,6 +51,12 @@ assert(hidden.includes('Сотрудник'),'A1 undisclosed character role miss
 const current=V.render({lesson,scene,progress,step:scene.steps[1],moduleId:'a2-work'});
 assert(current.includes('Det passer fint.'),'Historical dialogue should carry forward into new stage');
 assert(style.includes('prefers-reduced-motion:reduce'),'Motion accessibility preference unsupported');
+for(const location of ['street','cafe','office','clinic','town']){
+ assert(style.includes("url('/assets/scenes/"+location+".svg')"),'Missing decorative scenery '+location);
+ const svg=read('assets/scenes/'+location+'.svg');
+ assert(svg.startsWith('<svg')&&svg.includes('viewBox')&&!svg.includes('<script'),'Unsafe or missing scene SVG '+location);
+ assert(read('sw.js').includes('/assets/scenes/'+location+'.svg'),'Offline background missing '+location);
+}
 const beforePractice=JSON.stringify(progress),beforeCredit=saved;
 assert.equal(V.practice('repeat'),true);
 assert(rescue.textContent.includes('Kan du gjenta det')&&rescue.textContent.includes('Det passer fint.'));
@@ -72,7 +78,7 @@ assert(guided.includes('window.NEVisualWorld?.render?.')&&guided.includes('windo
 const access=read('access.js'),sw=read('sw.js'),html=read('index.html');
 assert(read('nora-experience.js').includes('NEVisualWorld?.guide?.(b)'),'Nora visual guide must appear throughout the lesson');
 assert(access.includes("'visual-world.js','guided-speaking.js'"),'Visual world should load before guided speech');
-assert(sw.includes('/visual-world.js?v=8.3.0-world1')&&sw.includes('/visual-world.css?v=8.3.0-world1'),'Offline assets missing');
+assert(sw.includes('/visual-world.js?v=8.3.0-world2')&&sw.includes('/visual-world.css?v=8.3.0-world2'),'Offline assets missing');
 assert(html.includes('/visual-world.css?v=8.3.0-world1'),'Fresh styles not loaded');
 assert(source.includes('typeof window.saveState')&&source.includes('aria-pressed'),'Avatar state not personal');
 console.log('PASS animated conversations: adult illustrations, escaped scene, learner answers, voice response, continuity, saved avatar, reduced motion and PWA');
