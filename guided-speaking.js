@@ -220,8 +220,10 @@ function freeExGuided(l){
   transcript.push(actorMessage(scene,turn.reply||scene.steps[i].reply,i));
  }
  transcript.push('</div>');
+ const world=window.NEVisualWorld?.render?.({lesson:l,scene,progress,step,moduleId:normalizeModule(l)})||'';
  return '<article class="card guided-speaking"><div class="eyebrow">Устная речь · диалог с собеседником</div>'+
- '<div class="guided-scene">'+esc(scene.scene)+'</div>'+
+ (world?'<div class="guided-scene" hidden>'+esc(scene.scene)+'</div>':'<div class="guided-scene">'+esc(scene.scene)+'</div>')+
+ world+
  translation+
  '<div class="guided-progress">Реплика '+(progress.index+1)+' из '+scene.steps.length+'</div>'+
  transcript.join('')+
@@ -242,7 +244,10 @@ function neGuidedSpeak(index){
  const d=window.neLessonSession&&ensure(window.neLessonSession.lesson);
  if(!d)return;
  const text=index===-1?d.scene.opening:(d.progress.turns[index]?.reply||d.progress.pending?.reply||d.scene.steps[index]?.reply);
- if(text&&typeof window.speakText==='function')window.speakText(text,.86);
+ if(text&&typeof window.speakText==='function'){
+  window.NEVisualWorld?.animate?.('partner');
+  window.speakText(text,.86);
+ }
 }
 
 async function nextSceneReply(l,scene,progress,answer,spoken,index){
@@ -314,6 +319,8 @@ function neGuidedRevise(){
  s.locked=false;
  const box=document.getElementById('freeFb');
  if(box)box.innerHTML='<div class="feedback" role="status">Ответ изменён. Нажми «Ответить», чтобы проверить текущий текст ещё раз. Первая оценка и XP сохраняются.</div>';
+ window.NEVisualWorld?.updateOwn?.(field.value);
+ const reaction=document.getElementById('neWorldReaction');if(reaction)reaction.hidden=true;
  field.focus?.();
 }
 function neGuidedAnswerEdited(field){
@@ -322,6 +329,7 @@ function neGuidedAnswerEdited(field){
     field!==document.getElementById('freeAnswer')||
     String(field.dataset?.guidedTurn)!==String(p.index))return;
  const value=field.value.trim();
+ window.NEVisualWorld?.updateOwn?.(value);
  if(p.pending){if(value!==p.pending.answer)neGuidedRevise();return;}
  if(typeof p.lastCheckedAnswer==='string'&&value!==p.lastCheckedAnswer){
   delete p.lastCheckedAnswer;
@@ -383,6 +391,7 @@ async function guidedCheck(){
  // Never attach a grade or a "next" button to a changed answer.
  if(input.value.trim()!==a){s.locked=false;box.innerHTML='<div class="feedback">Ответ изменён. Проверь новый текст ещё раз.</div>';return}
  progress.pending={answer:a,spoken,reply};
+ window.NEVisualWorld?.accepted?.(a,reply);
  box.innerHTML=feedback+'<div class="guided-reply">'+actorMessage(scene,reply,index)+'</div>'+ 
   '<button type="button" class="btn secondary" onclick="neGuidedRevise()">Исправить ещё</button>'+
   '<button class="btn lesson-next-v8" onclick="neGuidedNext()">'+(index===scene.steps.length-1?'Завершить разговор →':'Следующая реплика →')+'</button>';
