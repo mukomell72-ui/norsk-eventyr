@@ -206,13 +206,13 @@ const server=http.createServer(async(req,res)=>{
   assert.equal(await disclosure.evaluate(el=>el.open),false,'Russian translation starts closed');
   assert.equal(await taskHost.locator('.prompt').innerText(),'Spør hvor nøkkelen er. Si hvor du leter etter den.');
   assert.equal(await taskHost.locator('.a1-task-support .notice').isVisible(),false,'No Russian task translation before request');
-  assert.equal(await taskHost.locator('summary').innerText(),'Перевести задание');
-  await taskHost.locator('summary').click();
+  assert.equal(await disclosure.locator('summary').innerText(),'Перевести задание');
+  await disclosure.locator('summary').click();
   assert.equal(await disclosure.evaluate(el=>el.open),true,'Learner can request translation');
   assert.equal(await taskHost.locator('.a1-task-support .notice').isVisible(),true);
   assert((await taskHost.locator('.a1-task-support .notice').innerText()).includes('Спроси, где находится ключ'));
   await taskHost.locator('#freeAnswer').fill('Jeg leter etter nøkkelen på kjøkkenet.');
-  await taskHost.locator('summary').click();
+  await disclosure.locator('summary').click();
   assert.equal(await taskHost.locator('#freeAnswer').inputValue(),'Jeg leter etter nøkkelen på kjøkkenet.','Toggling translation must not erase learner answer');
   assert.equal(await disclosure.evaluate(el=>el.open),false,'Translation is closable');
   await page.evaluate(()=>document.getElementById('qa-on-demand-translation').remove());
