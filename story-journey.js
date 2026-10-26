@@ -89,13 +89,18 @@ const teasers={
 function sceneFor(lesson,base,make){
  const meta=lesson?._adaptive;
  const key=String(meta?.moduleId||'').toLowerCase();
- const choices=episodes[key];
+ const choices=episodes[key]||window.NEStoryAdvanced?.[key];
  if(!meta||!choices||!Number.isInteger(meta.storyVariant))return base;
  const variant=((meta.storyVariant% (choices.length+1))+(choices.length+1))%(choices.length+1);
  if(!variant)return base;
  const selected=choices[variant-1];
  return make(selected[0],selected[1],selected[2],selected[3]);
 }
-function teaser(moduleId){return teasers[String(moduleId||'').toLowerCase()]||'Новая ситуация: знакомые слова пригодятся в другом разговоре.';}
+function teaser(moduleId){
+ const key=String(moduleId||'').toLowerCase();
+ if(teasers[key])return teasers[key];
+ const chapters=window.NEStoryAdvanced?.[key];
+ return chapters?.[0]?.[0]||'Новая ситуация: знакомые слова пригодятся в другом разговоре.';
+}
 window.NEStoryJourney=Object.freeze({sceneFor,teaser,variantCount:3});
 })();
