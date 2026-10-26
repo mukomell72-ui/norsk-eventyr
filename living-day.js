@@ -183,13 +183,12 @@ function open(){
  // A saved checkpoint takes precedence over a fresh vocabulary warm-up.
  if(pending?._adaptive?.livingDayId===d.id&&pending._adaptive?.livingScene===d.scene)
   return window.startLesson?.(pending.id);
- if(!pending&&!d.finished&&window.NELivingWords&&!window.NELivingWords.isReady())
-  return window.NELivingWords.render();
+ // Word card practice is voluntary; the story is accessible directly.
  const info=details(),module=window.NECurriculum?.moduleById(d.moduleId),pacing=window.NECourseMethod?.dailyPlan?.(d.plannedMinutes,s.learningV8?.levelSkills?.[d.level]);
  const complete=d.finished===true,oldWork=pending&&pending._adaptive?.livingDayId!==d.id;
  const intro=complete
  ?'На сегодня цель выполнена. Следующий учебный день продолжит маршрут с учётом проверенных навыков.'
- :'Сегодня новая глава: сначала разберись, что произошло, затем помоги собеседнику и ответь своими словами. Знакомые слова вернутся в новой ситуации. Твои ответы и прогресс сохраняются.';
+ :'Сегодня новая история: помоги собеседнику, прояви инициативу, реши практическую ситуацию. Знакомые слова возвращаются естественно в разговоре.';
  const action=complete?'':oldWork
  ?'<button class="btn" onclick="NELivingDay.resumeOlder()">Завершить начатый ранее урок →</button>'
  :'<button class="btn" onclick="NELivingDay.begin()">Продолжить занятие с Норой →</button>';
@@ -210,6 +209,7 @@ function open(){
  (d.feedback?'<div class="notice">'+esc(d.feedback)+'</div>':'')+
  '<p class="muted">'+esc(hint)+'</p>'+action+
  (complete?'<button class="btn secondary" onclick="navigate(\'course\',\''+esc(d.level)+'\')">К программе уровня</button>':'')+
+ '<button class="btn secondary" onclick="NELivingWords.render()">Слова · дополнительная практика</button>'+ 
  '<button class="btn secondary" onclick="NELivingDay.archive()">Архив и повторение уроков →</button>'+
  '<button class="btn ghost" onclick="navigate(\'home\')">← Вернуться на главную</button>'+
  '</section>','home');
@@ -227,7 +227,7 @@ function begin(){
    return window.startLesson?.(pending.id);
   return resumeOlder();
  }
- if(window.NELivingWords&&!window.NELivingWords.isReady())return window.NELivingWords.render();
+ // Neither fresh nor familiar word cards block the lesson.
  const mission=window.NEAdaptive?.moduleMission(s,d.moduleId);
  if(!mission||mission.blocked||mission.module?.id!==d.moduleId){
   d.feedback='Сначала нужно подтвердить предыдущий модуль или уровень.';
