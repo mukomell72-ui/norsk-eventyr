@@ -227,7 +227,6 @@ function freeExGuided(l){
  transcript.join('')+
  (progress.flowNotice?'<div class="notice" role="status">Диалог обновлён: продолжим с вежливой фразы знакомства. Предыдущие реплики сохранены до этого шага.</div>':'')+
  '<div class="guided-task"><b>Твой ход</b><p>'+esc(step.task)+'</p></div>'+
- '<details class="guided-language"><summary>Как Нора помогает</summary>Сначала ответь своими словами. Если возникнет трудность, Нора объяснит правило и предложит попробовать ещё раз.</details>'+
  '<textarea id="freeAnswer" name="guided-answer-'+esc(l.id)+'-'+progress.index+'" data-guided-turn="'+progress.index+'" class="input" rows="2" autocomplete="off" placeholder="Твой ответ по-норвежски…" oninput="this.dataset.fromVoice=\'false\';neGuidedAnswerEdited(this)"></textarea>'+
  '<div class="row guided-controls speech-actions-v831"><button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>'+
  '<button id="guidedSend" class="btn" onclick="checkFree(\'speaking\')">✓ Ответить</button></div>'+
