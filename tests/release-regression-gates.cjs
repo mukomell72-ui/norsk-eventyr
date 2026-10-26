@@ -276,7 +276,7 @@ console.log('PASS release gate: microphone, audio, opt-in translation, progress 
 if(coachSuffix){
  assert(assets.includes('/lesson-coach.js?v='+v+coachSuffix),'PWA must precache the interactive grammar tutor');
  assert(assets.includes('/lesson-coach.css?v='+v+coachSuffix),'PWA must precache tutor styles');
- assert(index.includes('src="/access.js?v='+v+assetRevision+'"'),'Tutor release must bust the HTML loader cache');
+ assert(index.includes('src="/access.js?v='+v+assetRevision+storySuffix('/access.js')+'"'),'Tutor release must bust the HTML loader cache');
  assert(scripts.indexOf('lesson-coach.js')<scripts.indexOf('app.js'),'Tutor must load before the lesson UI');
  assert(app.includes('NELessonCoach?.render(l)'),'Grammar step must mount tutor');
  assert(scripts.indexOf('language-bridge.js')<scripts.indexOf('nora-experience.js')&&
