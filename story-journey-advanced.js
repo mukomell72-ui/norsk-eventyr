@@ -106,7 +106,7 @@ const advanced={
  c('Комната для рабочего собрания занята.','Ida · коллега','Møterommet er opptatt i ettermiddag.',
  ['Спроси об альтернативном помещении или времени.','Det lille rommet er ledig etter tre.'],['Предложи план с учётом размера группы.','Ja, det passer for alle.'],['Сформулируй договорённость и следующий шаг.','Jeg sender invitasjonene.'])
 ],
-'b2-discussion':[
+'b2-argument':[
  c('Руководство обсуждает четырёхдневную рабочую неделю.','Henrik · руководитель','Kan en kortere arbeidsuke fungere hos oss?',
  ['Сформулируй позицию с условиями её применимости.','Men enkelte oppgaver kan ikke vente.'],['Признай риск и предложи компенсационную меру.','Hvordan skal vi måle effekten?'],['Предложи критерии оценки пилотного проекта.','Da har vi et utgangspunkt.']),
  c('Нора предлагает полностью цифровые общественные услуги.','Nora · коллега','Bør alle tjenester bli digitale?',
@@ -141,7 +141,19 @@ const advanced={
  ['Выясни ожидания клиента и ограничения компании.','Vi kan rette feilen, men det tar tid.'],['Сравни решения и обозначь риски.','Hvordan forklarer vi dette til kunden?'],['Предложи план коммуникации и критерии результата.','Da har vi en plan.']),
  c('Муниципальная инициатива должна экономить средства, оставаясь доступной.','Sofie · prosjektleder','Vi må redusere kostnadene uten å svekke tilbudet.',
  ['Определи конфликтующие интересы и критерии успеха.','Et digitalt alternativ kan spare tid.'],['Взвесь выгоды и ограничения цифрового варианта.','Hvordan kan vi teste forslaget?'],['Предложи пилот с измеримыми критериями.','Det er et godt grunnlag.'])
-]
+],
+'b2-listening':[
+ c('Нора просит сопоставить позиции участников сложной дискуссии.','Nora · коллега','De var enige om målet, men uenige om metoden.',
+ ['Перескажи обе позиции и их общий мотив.','Den ene la vekt på tid, den andre på kvalitet.'],['Объясни, почему важен этот контраст.','Men hva mener de med kvalitet?'],['Сформулируй уточнение и осторожный вывод.','Da blir forskjellen tydeligere.']),
+ c('Ида пересказывает лекцию с оговорками и косвенными намёками.','Ida · коллега','Foredragsholderen var positiv, men hadde forbehold.',
+ ['Определи общий настрой и главные оговорки.','Det gjaldt særlig kostnader og effekt.'],['Свяжи детали с аргументом и назови позицию.','Hvordan ville du oppsummert det?'],['Передай доводы своими словами без потери оттенков.','Ja, det gjengir poenget godt.'])
+],
+'b2-presentation':[
+ c('Нора просит представить рабочий процесс новым коллегам.','Nora · коллега','Kan du forklare rutinen til de nye ansatte?',
+ ['Обозначь цель и основные этапы выступления.','Men hva betyr det i praksis?'],['Объясни сложный этап на простом примере.','Hva gjør vi hvis noe går galt?'],['Ответь на неожиданный вопрос и заверши выводом.','Takk, nå er det mye tydeligere.']),
+ c('Нужно представить инициативу незнакомой аудитории.','Sofie · организатор','Du har tre minutter til å presentere forslaget.',
+ ['Начни структурированно, обозначив главную мысль.','Noen lurer på hva dette vil koste.'],['Переформулируй пользу и ограничения понятным языком.','Hva bør vi huske?'],['Суммируй идею и ответь на вопрос аудитории.','Takk for en klar presentasjon.'])
+],
 };
 window.NEStoryAdvanced=Object.freeze(advanced);
 })();
