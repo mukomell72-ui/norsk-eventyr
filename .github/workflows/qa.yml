@@ -145,6 +145,24 @@ jobs:
           path: release-out/*
           retention-days: 14
           if-no-files-found: error
+      - name: Package verified animated-world candidate
+        if: success() && github.ref == 'refs/heads/feature/animated-living-world-20261026'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p candidate-out
+          git diff --check origin/main...HEAD
+          git archive --format=zip --output=candidate-out/norsk-eventyr-animated-world-source.zip HEAD
+          printf 'SOURCE_COMMIT=%s\nBASE=%s\nAUTOMATED_QA=passed\nPRODUCTION_PUBLISHED=no\n' "$(git rev-parse HEAD)" "$(git rev-parse origin/main)" > candidate-out/BUILD_MANIFEST.txt
+          (cd candidate-out && sha256sum norsk-eventyr-animated-world-source.zip > SHA256SUMS.txt)
+      - name: Upload QA-verified animated-world source
+        if: success() && github.ref == 'refs/heads/feature/animated-living-world-20261026'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Norsk-Eventyr-animated-world-verified
+          path: candidate-out/*
+          retention-days: 14
+          if-no-files-found: error
       - name: Store screenshots for manual visual QA
         if: always()
         uses: actions/upload-artifact@v4
