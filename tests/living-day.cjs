@@ -50,7 +50,8 @@ assert(s.learningV8.pausedDays.some(x=>x.id===pending.id),'Old day must stay in 
 assert(!s.activeLesson,'Old checkpoint must be parked, not forced on the new day');
 assert.equal(s.learningV8.pausedCheckpoints['old-lesson'].step,3,'Checkpoint step must be retained');
 w.NELivingWords={isReady:()=>false,render:()=>{views.push('blocked-vocabulary');return false}};
-D.open();assert(views.at(-1)==='blocked-vocabulary','New day should start with its own activity');
+D.open();assert(views.at(-1).includes('NELivingDay.begin()'),'New day must open without mandatory flashcards');
+D.begin();assert.equal(starts.at(-1)[2],0,'Vocabulary queue must not block new speaking mission');
 D.archive();assert(views.at(-1).includes('resumePaused'),'Older checkpoint must be recoverable');
 D.resumePaused('old-lesson');
 assert.deepEqual(resumes,['old-lesson'],'Paused lesson can be resumed explicitly');
