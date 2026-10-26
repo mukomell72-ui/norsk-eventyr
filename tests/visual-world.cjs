@@ -20,7 +20,7 @@ const fakeDocument={
 const window={
  neLearnerState:s,neLessonSession:{lesson,guidedSpeech:progress},NEGuidedSpeaking:{definition:()=>scene},
  saveState:()=>{saved++;return true},persistLessonCheckpoint:()=>{checkpoint++},
- speakText:text=>{spoke=text;calls++}
+ speakText:text=>{spoke=text;calls++;return {text,rate:.86,addEventListener(){}}}
 };
 vm.runInNewContext(source,{window,document:fakeDocument},{filename:'visual-world.js'});
 const V=window.NEVisualWorld;
@@ -90,7 +90,7 @@ speechEvents.resume();assert.equal(talking.active,true,'Speech resumes movement'
 speechEvents.end();assert.equal(talking.active,false,'Character stops after speech ends');
 assert(style.includes('ne-world-talking .ne-world-portrait-wrap')&&style.includes('infinite'),'Speech animation should follow utterance');
 assert.equal(V.visemeAt('mamma',0),'closed');
-V.accepted('Takk for hjelpen.','Det er klart!');assert.equal(talking.reaction,'neutral');
+V.accepted('Takk for hjelpen.','Vi sees på fredag.');assert.equal(talking.reaction,'neutral');
 V.accepted('Kan du hjelpe meg?','Selvfølgelig, det kan jeg.');assert.equal(talking.reaction,'warm');
 V.accepted('Når går bussen?','Hvilken buss mener du?');assert.equal(talking.reaction,'curious');
 assert.equal(V.visemeAt('åpne',0),'round');
