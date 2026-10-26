@@ -229,7 +229,7 @@
    });
    if(window.neLessonSession!==session||session.guidedSpeech!==progress||progress.index!==turnIndex||!field?.isConnected)return false;
    const raw=String(response?.data?.reply_no||'').trim();
-   if(!response?.ok||raw.length<3||raw.length>320||/[<>\\u0000-\\u001f]/u.test(raw)||/[\\u0400-\\u04ff]/u.test(raw)){
+   if(!response?.ok||raw.length<3||raw.length>320||/[<>\u0000-\u001f]/u.test(raw)||/[\u0400-\u04ff]/u.test(raw)){
     freeStatus('Не удалось получить безопасный ответ собеседника. Твоя реплика остаётся в поле; попробуй позже.');
     return false;
    }
