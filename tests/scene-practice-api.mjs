@@ -16,7 +16,7 @@ async function run(output,options={}){
   }
   throw new Error('Unexpected network URL in test: '+url);
  };
- const req={method:'POST',url:'/api/chat',body:{...body,...options},headers:{host:'localhost','x-forwarded-for':'qa-scene-'+Math.random(),'x-ne-device-id':'device_qa_scene_123456','x-ne-device-name':'QA scene'}};
+ const req={method:'POST',url:'/api/chat',body:{...body,...options},headers:{cookie:'ne_access=qa',host:'localhost','x-forwarded-for':'qa-scene-'+Math.random(),'x-ne-device-id':'device_qa_scene_123456','x-ne-device-name':'QA scene'}};
  req.headers['x-ne-session']=createSession(req);
  let status,data;
  const res={status(v){status=v;return this;},json(v){data=v;return this}};
@@ -24,7 +24,7 @@ async function run(output,options={}){
  return {status,data};
 }
 let result=await run({reply_no:'Ja, ta buss nummer to. Skal du til sentrum?',accepted:false,score:0,feedback_status:'incorrect',suggested_level:'B2'});
-assert.equal(result.status,200,'Free dialogue must not reject a natural NPC reply');
+assert.equal(result.status,200,'Free dialogue must not reject a natural NPC reply: '+JSON.stringify(result.data));
 assert.equal(result.data.reply_no,'Ja, ta buss nummer to. Skal du til sentrum?','Creative NPC reply was overwritten with an assessment fallback');
 assert.equal(result.data.accepted,false,'Ungraded dialogue cannot award credit');
 assert.equal(result.data.feedback_status,'not_assessed');
