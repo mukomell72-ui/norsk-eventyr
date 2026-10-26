@@ -9,13 +9,13 @@
   mari:'/assets/characters/mari.webp',
   erik:'/assets/characters/erik.webp'
  });
- const mouthSvg='<svg class="ne-world-mouth" viewBox="0 0 72 42" aria-hidden="true" focusable="false">'+
+ const mouthSvg='<span class="ne-world-mouth" aria-hidden="true"><svg class="ne-world-mouth-svg" viewBox="0 0 72 42" focusable="false">'+
   '<ellipse class="ne-mouth-skin" cx="36" cy="21" rx="35" ry="20"/>'+
   '<ellipse class="ne-mouth-opening" cx="36" cy="23" rx="23" ry="9"/>'+
   '<path class="ne-mouth-upper" d="M13 22 Q24 16 36 19 Q48 16 59 22"/>'+
   '<path class="ne-mouth-lower" d="M14 26 Q36 40 58 26"/>'+
   '<path class="ne-mouth-teeth" d="M22 22 Q36 20 50 22 L48 25 Q36 27 24 25Z"/>'+
-  '</svg>';
+  '</svg></span>';
  const actors={
   ingrid:'ingrid',ida:'ingrid',anna:'ingrid',sofie:'mari',mari:'mari',sara:'mari',maja:'mari',
   nora:'nora',anders:'erik',erik:'erik',henrik:'erik',nils:'erik',

@@ -163,3 +163,9 @@
  .ne-world-guide-face.ne-world-guide-talking{animation:none!important}
  .ne-world-mouth,.ne-mouth-opening{transition:none!important}
 }
+
+/* Viseme anchor is an HTML box: CSS percentage translations on a root SVG
+   vary between browsers and positioned the mouth on the cheek. */
+.ne-world-mouth{display:block;transform:translate(-50%,-50%) rotate(var(--ne-mouth-tilt));}
+.ne-world-mouth-svg{display:block;width:100%;height:auto;overflow:visible}
+[data-ne-face="mari"]{--ne-mouth-x:29%}
