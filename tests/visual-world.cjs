@@ -232,6 +232,7 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
    el.classList.add('ne-world-talking');
    el.setAttribute('data-ne-viseme','wide');
   });
+  await page.waitForTimeout(130);
   const visible=await page.locator('.ne-world-partner .ne-world-mouth').evaluate(el=>{
    const shape=el.closest('.ne-world-portrait-wrap').getBoundingClientRect();
    const mouth=el.getBoundingClientRect();
@@ -241,6 +242,7 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
   assert.equal(visible,true,'Mouth should stay aligned inside speaking face');
   await page.screenshot({path:path.join(__dirname,'artifacts','nora-lipsync-speaking-mobile.png'),fullPage:true});
   await page.locator('.ne-world-partner').evaluate(el=>{el.classList.remove('ne-world-talking');el.removeAttribute('data-ne-viseme')});
+  await page.waitForTimeout(130);
   const still=await page.locator('.ne-world-partner .ne-world-mouth').evaluate(el=>getComputedStyle(el).opacity);
   assert.equal(still,'0','Mouth must hide when character is silent');
   await page.close();
