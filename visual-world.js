@@ -83,6 +83,18 @@
       '<button type="button" onclick="NEVisualWorld.practice(\'think\')">Дать время</button>'+
       '</div><div id="neWorldPracticeFeedback" class="ne-world-practice" role="status" aria-live="polite" hidden></div>'+
       '<small>Произнеси фразу вслух. Это практика без оценки и без продвижения урока.</small></div></div>'+
+   '<details class="ne-world-free"><summary>Свободный разговор · без оценки</summary>'+
+     '<p>Попробуй сказать что-то неожиданное: спросить, возразить, уточнить или начать новую тему в этой ситуации. Персонаж ответит сам.</p>'+
+     '<div class="ne-world-free-log" id="neWorldFreeLog" aria-live="polite">'+
+      (Array.isArray(progress.freeChat)?progress.freeChat.slice(-12).map(turn=>
+       '<div class="ne-world-free-turn ne-world-free-'+(turn.role==='assistant'?'actor':'user')+'"><strong>'+
+       (turn.role==='assistant'?e(who):'Ты')+'</strong><p lang="nb">'+e(String(turn.text||'').slice(0,350))+'</p></div>').join(''):'')+
+     '</div>'+
+     '<label for="neWorldFreeInput">Твоя произвольная реплика по-норвежски</label>'+
+     '<textarea id="neWorldFreeInput" maxlength="350" rows="2" class="input" placeholder="Что ты хочешь сказать?"></textarea>'+
+     '<button type="button" class="btn secondary" id="neWorldFreeSend" onclick="NEVisualWorld.sendFree()">Сказать собеседнику</button>'+
+     '<small id="neWorldFreeStatus" role="status" aria-live="polite">До 6 реплик на эту сцену. Требуется интернет и AI. Запись через микрофон доступна в основном задании.</small>'+
+     '<small>Дополнительная практика: баллы и экзаменационный результат не начисляются.</small></details>'+
    '<details class="ne-world-avatar-picker"><summary>Изменить свой аватар</summary>'+
      '<div class="ne-world-avatar-options" role="group" aria-label="Учебный аватар">'+
      [['erik','Алекс'],['ingrid','Ингрид'],['mari','Мари']].map(([id,name])=>
@@ -174,6 +186,71 @@
   if(el){el.hidden=false;el.textContent='Собеседник: '+String(reply||'').slice(0,320)}
   animate('self');animate('partner');
  }
+ const freePending=new WeakSet();
+ function freeStatus(message){
+  const node=typeof document!=='undefined'&&document.getElementById('neWorldFreeStatus');
+  if(node)node.textContent=String(message||'');
+ }
+ function appendFree(role,value,label){
+  const root=document.getElementById('neWorldFreeLog');
+  if(!root||typeof document.createElement!=='function')return;
+  const div=document.createElement('div');
+  div.className='ne-world-free-turn ne-world-free-'+(role==='assistant'?'actor':'user');
+  const strong=document.createElement('strong'),p=document.createElement('p');
+  strong.textContent=label;p.lang='nb';p.textContent=String(value||'');
+  div.append(strong,p);root.append(div);
+ }
+ async function sendFree(){
+  const session=window.neLessonSession,progress=session?.guidedSpeech,lesson=session?.lesson;
+  const scene=window.NEGuidedSpeaking?.definition?.(lesson);
+  const field=document.getElementById('neWorldFreeInput');
+  const button=document.getElementById('neWorldFreeSend');
+  const message=field?.value?.trim();
+  if(!session||!progress||!scene||!message||freePending.has(progress))return false;
+  if(message.length>350){freeStatus('Не больше 350 символов за реплику.');return false}
+  const history=Array.isArray(progress.freeChat)?progress.freeChat:[];
+  const already=history.filter(t=>t?.role==='user').length;
+  if(already>=6){freeStatus('Шесть свободных реплик использованы. Продолжи основной урок.');return false}
+  if(typeof window.neApiPost!=='function'){freeStatus('Свободный диалог требует подключения к AI. Основной урок доступен.');return false}
+  const turnIndex=progress.index;
+  freePending.add(progress);if(button)button.disabled=true;
+  freeStatus('Собеседник слушает и думает над ответом…');
+  const transcript=[{role:'assistant',text:String(scene.opening||'').slice(0,300)},
+   ...history.slice(-10).filter(x=>x&&(x.role==='assistant'||x.role==='user')).map(x=>({role:x.role,text:String(x.text||'').slice(0,350)}))];
+  try{
+   const response=await window.neApiPost('/api/chat',{
+    message,level:['A1','A2','B1','B2'].includes(lesson.level)?lesson.level:'A1',
+    mode:'roleplay',teacherMode:false,inputSource:'typed_text',
+    topic:String(scene.scene||'Норвегия').slice(0,130),
+    scenario:'Свободная необязательная практика без баллов и без экзамена. Место: '+String(scene.scene||'').slice(0,180)+
+      '. Ты реальный человек в роли '+String(scene.actor||'норвежского собеседника').slice(0,100)+
+      '. Ответь ПО-НОРВЕЖСКИ Bokmål естественно и кратко (1–2 предложения). По возможности задай один неожиданный, но уместный вопрос. Не отвечай за ученика. Не меняй сюжет оценочного урока. Не обещай действительных записей, цен, услуг или встреч.',
+    history:transcript
+   });
+   if(window.neLessonSession!==session||session.guidedSpeech!==progress||progress.index!==turnIndex||!field?.isConnected)return false;
+   const raw=String(response?.data?.reply_no||'').trim();
+   if(!response?.ok||raw.length<3||raw.length>320||/[<>\\u0000-\\u001f]/u.test(raw)||/[\\u0400-\\u04ff]/u.test(raw)){
+    freeStatus('Не удалось получить безопасный ответ собеседника. Твоя реплика остаётся в поле; попробуй позже.');
+    return false;
+   }
+   const updated=[...history.filter(t=>t.role==='user'||t.role==='assistant').slice(1),
+    {role:'user',text:message},{role:'assistant',text:raw}].slice(-12);
+   progress.freeChat=updated;
+   try{window.persistLessonCheckpoint?.()}catch{}
+   appendFree('user',message,'Ты');
+   appendFree('assistant',raw,String(scene.actor||'Собеседник').slice(0,70));
+   field.value='';
+   freeStatus('Собеседник ответил. Ты можешь продолжить разговор или вернуться к заданию.');
+   if(typeof window.speakText==='function'){try{animate('partner');window.speakText(raw,.85)}catch{}}
+   return true;
+  }catch{
+   if(window.neLessonSession===session&&session.guidedSpeech===progress&&progress.index===turnIndex)
+    freeStatus('Соединение не удалось. Ответ не засчитан; введённый текст сохранён.');
+   return false;
+  }finally{
+   freePending.delete(progress);if(button?.isConnected)button.disabled=false;
+  }
+ }
  function guide(brief){
   if(!brief)return '';
   const text=[brief.activity,brief.stage?.note].filter(Boolean).join('. ').slice(0,380);
@@ -201,5 +278,5 @@
    synth.speak(u);message('Нора объясняет задание.');
   }catch{message('Озвучка недоступна. Задание написано на экране.')}
  }
- window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,accepted,theme});
+ window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,sendFree,accepted,theme});
 })();

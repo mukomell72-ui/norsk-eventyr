@@ -87,3 +87,18 @@
 .ne-world-history{margin:9px 0 13px;padding:10px 14px;background:#f9fcfe;border:1px solid #cfdee6;border-radius:12px}
 .ne-world-history summary{cursor:pointer;font-weight:770;font-size:13px;color:#236276}
 .ne-world-history .guided-chat-history{margin:10px 0 0;max-height:350px}
+
+/* Optional natural free dialogue, isolated from assessed lesson turns. */
+.ne-world-free{margin:12px 0 0;padding:12px 14px;border-radius:14px;border:1px solid #b8cddc;background:rgba(253,254,255,.90);color:#245268}
+.ne-world-free>summary{cursor:pointer;font-weight:820;font-size:14px;line-height:1.5}
+.ne-world-free>p{font-size:14px;line-height:1.5;font-weight:500;color:#36556a;margin:10px 0}
+.ne-world-free-log{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;max-height:250px;overflow-y:auto}
+.ne-world-free-turn{max-width:95%;border-radius:14px;padding:9px 12px;background:#e9f3ff;color:#234760;overflow-wrap:anywhere}
+.ne-world-free-actor{align-self:flex-start;background:#e9eef7}
+.ne-world-free-user{align-self:flex-end;background:#e0f5e9}
+.ne-world-free-turn strong{font-size:12px;display:block;color:#387189}
+.ne-world-free-turn p{font-size:15px;font-weight:500;line-height:1.5;margin:3px 0 0}
+.ne-world-free>label{display:block;font-size:13px;font-weight:800;margin:8px 0}
+.ne-world-free>textarea{display:block;width:100%;box-sizing:border-box;min-height:64px;color:#253e56;background:#fff}
+.ne-world-free>button{margin-top:10px;display:block;width:100%}
+.ne-world-free>small{display:block;line-height:1.5;margin-top:9px;font-size:12px;color:#527078}

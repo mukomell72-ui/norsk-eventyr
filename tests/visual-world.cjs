@@ -6,7 +6,7 @@ const source=read('visual-world.js'),style=read('visual-world.css'),guided=read(
 const s={learningV8:{}};
 let own={textContent:''},reaction={hidden:true,textContent:''},picture={src:''},voiceStatus={textContent:''},rescue={hidden:true,textContent:''};
 const elements={neWorldOwnWords:own,neWorldReaction:reaction,neWorldSelfImage:picture,neWorldVoiceStatus:voiceStatus,neWorldPracticeFeedback:rescue};
-let saved=0,spoke='',calls=0;
+let saved=0,spoke='',calls=0,checkpoint=0,chatCalls=0;
 const lesson={id:'l1',level:'A2',_adaptive:{moduleId:'a2-work'}};
 const scene={scene:'В офисе <неожиданность>',actor:'Mari · руководитель',opening:'Hei! Når kan du komme?',steps:[
  {task:'Скажи, когда <можешь> прийти.',reply:'Det passer fint.'},
@@ -19,7 +19,7 @@ const fakeDocument={
 };
 const window={
  neLearnerState:s,neLessonSession:{lesson,guidedSpeech:progress},NEGuidedSpeaking:{definition:()=>scene},
- saveState:()=>{saved++;return true},
+ saveState:()=>{saved++;return true},persistLessonCheckpoint:()=>{checkpoint++},
  speakText:text=>{spoke=text;calls++}
 };
 vm.runInNewContext(source,{window,document:fakeDocument},{filename:'visual-world.js'});
@@ -32,6 +32,7 @@ assert(markup.includes('aria-label="Анимированная жизненна�
 assert(markup.includes('&lt;неожиданность&gt;')&&!markup.includes('<неожиданность>'),'User-facing scene must escape content');
 assert(markup.includes('&lt;можешь&gt;'),'Spoken lesson goal must escape content');
 assert(markup.includes('NEVisualWorld.speakPartner()')&&markup.includes('NEVisualWorld.speakTask()'),'Speaking cues missing');
+assert(markup.includes('NEVisualWorld.sendFree()')&&markup.includes('Свободный разговор'),'Optional free practice must be in scene');
 assert(V.chooseAvatar('ingrid')===true&&s.learningV8.visualWorld.avatar==='ingrid'&&saved===1,'Avatar preference not retained');
 assert.equal(picture.src,'/assets/characters/ingrid.svg');
 assert.equal(V.chooseAvatar('../evil.svg'),false,'Untrusted avatar path allowed');
