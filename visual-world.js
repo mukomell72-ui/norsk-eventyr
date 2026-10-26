@@ -157,64 +157,83 @@
  // Approximate visemes. SpeechSynthesis boundary timing varies across voices:
  // use word/character boundaries when available and a rate-adjusted fallback otherwise.
  function visemeAt(text,index){
-  const c=String(text||'').toLowerCase().charAt(Math.max(0,index))||'';
+  // Approximate visual shapes from Bokmål orthography, not phoneme timings.
+  const source=String(text||'').toLowerCase();
+  const i=Math.min(Math.max(0,Number.isFinite(index)?Math.floor(index):0),Math.max(0,source.length-1));
+  const chunk=source.slice(i,i+4),c=chunk.charAt(0);
+  if(!c||/[\s.,!?;:–—-]/u.test(c))return 'closed';
+  if(/^(skj|sj|kj|gj|ng)/u.test(chunk))return 'mid';
+  if(/^(au|øy)/u.test(chunk))return 'round';
+  if(/^ei/u.test(chunk))return 'wide';
   if(/[bmp]/u.test(c))return 'closed';
   if(/[oøuåyw]/u.test(c))return 'round';
   if(/[fv]/u.test(c))return 'teeth';
   if(/[aæei]/u.test(c))return 'wide';
-  return /[\s.,!?;:]/u.test(c)?'closed':'mid';
+  return 'mid';
  }
  function bindSpeech(utterance,role){
   if(!utterance||typeof utterance!=='object'||typeof utterance.addEventListener!=='function')return false;
   const el=talkingTarget(role);if(!el)return false;
-  if(activeSpeech?.stop)activeSpeech.stop();
-  clearSpeechVisual();
+  activeSpeech?.stop?.();clearSpeechVisual();
   const name=role==='guide'?'ne-world-guide-talking':'ne-world-talking';
-  const text=String(utterance.text||'');
+  const words=String(utterance.text||'');
   const rate=Number.isFinite(utterance.rate)?Math.max(.6,Math.min(1.5,utterance.rate)):1;
-  let timer=null,started=Date.now(),anchorAt=started,charAt=0,hasBoundary=false,finished=false;
+  let timer=null,anchorAt=Date.now(),charAt=0,wordLength=0,hasBoundary=false,finished=false,paused=false;
   const ticket={stop(){finish()}};
   activeSpeech=ticket;
   const setMouth=shape=>{
-   if(activeSpeech!==ticket||finished)return;
+   if(activeSpeech!==ticket||finished||paused)return;
    el.setAttribute?.('data-ne-viseme',shape);
   };
   const tick=()=>{
-   if(activeSpeech!==ticket||finished||!text)return;
-   const now=Date.now();
-   // Browser boundary timestamps are not guaranteed; never pretend this is
-   // acoustic phoneme alignment. Each word is advanced by a gentle estimate.
-   const duration=hasBoundary?Math.max(0,now-anchorAt):Math.max(0,now-started);
-   const pos=charAt+Math.floor(duration*rate/86);
-   setMouth(visemeAt(text,Math.min(text.length-1,pos)));
+   if(activeSpeech!==ticket||finished||paused||!words)return;
+   const elapsed=Math.max(0,Date.now()-anchorAt);
+   const advance=Math.floor(elapsed*rate/88);
+   const limit=hasBoundary&&wordLength>0?wordLength-1:Math.max(0,words.length-1-charAt);
+   const at=Math.min(words.length-1,charAt+Math.min(advance,limit));
+   setMouth(visemeAt(words,at));
   };
   function finish(){
-   if(finished)return;finished=true;
+   if(finished)return;finished=true;paused=false;
    if(timer!==null&&typeof window.clearInterval==='function')window.clearInterval(timer);
    timer=null;el.classList?.remove(name);el.removeAttribute?.('data-ne-viseme');
    if(activeSpeech===ticket)activeSpeech=null;
   }
   const onStart=()=>{
    if(activeSpeech!==ticket||finished)return;
-   started=Date.now();anchorAt=started;charAt=0;
-   el.classList.add(name);
-   setMouth('mid');
-   if(text&&timer===null&&typeof window.setInterval==='function')timer=window.setInterval(tick,92);
+   paused=false;anchorAt=Date.now();charAt=0;
+   el.classList.add(name);setMouth('mid');
+   if(words&&timer===null&&typeof window.setInterval==='function')timer=window.setInterval(tick,88);
   };
   const boundary=event=>{
-   if(activeSpeech!==ticket||finished)return;
+   if(activeSpeech!==ticket||finished||paused)return;
    if(Number.isInteger(event?.charIndex)&&event.charIndex>=0){
-    charAt=Math.min(text.length-1,event.charIndex);
-    anchorAt=Date.now();hasBoundary=true;
+    charAt=Math.min(Math.max(0,words.length-1),event.charIndex);anchorAt=Date.now();hasBoundary=true;
+    wordLength=Number.isInteger(event.charLength)&&event.charLength>0?
+     Math.min(event.charLength,Math.max(1,words.length-charAt)):
+     Math.max(1,(words.slice(charAt).match(/^[^\s,.!?;:]*/u)?.[0]||'').length);
     tick();
    }
   };
+  const onPause=()=>{
+   if(activeSpeech!==ticket||finished)return;
+   paused=true;
+   if(timer!==null&&typeof window.clearInterval==='function')window.clearInterval(timer);
+   timer=null;el.classList?.remove(name);el.setAttribute?.('data-ne-viseme','closed');
+  };
+  const onResume=()=>{
+   if(activeSpeech!==ticket||finished)return;
+   paused=false;anchorAt=Date.now();el.classList.add(name);
+   if(words&&timer===null&&typeof window.setInterval==='function')timer=window.setInterval(tick,88);
+   tick();
+  };
   utterance.addEventListener('start',onStart);
   utterance.addEventListener('boundary',boundary);
+  utterance.addEventListener('pause',onPause);
+  utterance.addEventListener('resume',onResume);
   utterance.addEventListener('end',finish);
   utterance.addEventListener('error',finish);
-  onStart();
-  return true;
+  onStart();return true;
  }
  function sayPartner(text,rate){
   if(typeof window.speakText!=='function')return false;
