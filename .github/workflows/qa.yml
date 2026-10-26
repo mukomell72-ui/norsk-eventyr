@@ -54,7 +54,7 @@ jobs:
           git -C "$RUNNER_TEMP/norsk-eventyr-local-merged" archive --format=zip --output="$GITHUB_WORKSPACE/local-merge-out/norsk-eventyr-local-merged-source.zip" HEAD
           git -C "$RUNNER_TEMP/norsk-eventyr-local-merged" bundle create "$GITHUB_WORKSPACE/local-merge-out/norsk-eventyr-local-merged.git.bundle" local-merge-delivery
           git -C "$RUNNER_TEMP/norsk-eventyr-local-merged" bundle verify "$GITHUB_WORKSPACE/local-merge-out/norsk-eventyr-local-merged.git.bundle"
-          git clone "$GITHUB_WORKSPACE/local-merge-out/norsk-eventyr-local-merged.git.bundle" "$RUNNER_TEMP/norsk-eventyr-verify"
+          git clone --branch local-merge-delivery "$GITHUB_WORKSPACE/local-merge-out/norsk-eventyr-local-merged.git.bundle" "$RUNNER_TEMP/norsk-eventyr-verify"
           test "$(git -C "$RUNNER_TEMP/norsk-eventyr-verify" rev-parse HEAD)" = "$head"
           printf 'MAIN_BASE=%s\nLOCAL_MERGED=%s\nMERGE_MODE=fast-forward\nQA=passed before packaging\nPRODUCTION_PUBLISHED=no\n' "$base" "$head" > local-merge-out/LOCAL_MERGE_MANIFEST.txt
           (cd local-merge-out && sha256sum norsk-eventyr-local-merged-source.zip norsk-eventyr-local-merged.git.bundle > SHA256SUMS.txt)
