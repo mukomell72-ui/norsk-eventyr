@@ -9,6 +9,13 @@
   mari:'/assets/characters/mari.webp',
   erik:'/assets/characters/erik.webp'
  });
+ const mouthSvg='<svg class="ne-world-mouth" viewBox="0 0 72 42" aria-hidden="true" focusable="false">'+
+  '<ellipse class="ne-mouth-skin" cx="36" cy="21" rx="35" ry="20"/>'+
+  '<ellipse class="ne-mouth-opening" cx="36" cy="23" rx="23" ry="9"/>'+
+  '<path class="ne-mouth-upper" d="M13 22 Q24 16 36 19 Q48 16 59 22"/>'+
+  '<path class="ne-mouth-lower" d="M14 26 Q36 40 58 26"/>'+
+  '<path class="ne-mouth-teeth" d="M22 22 Q36 20 50 22 L48 25 Q36 27 24 25Z"/>'+
+  '</svg>';
  const actors={
   ingrid:'ingrid',ida:'ingrid',anna:'ingrid',sofie:'mari',mari:'mari',sara:'mari',maja:'mari',
   nora:'nora',anders:'erik',erik:'erik',henrik:'erik',nils:'erik',
@@ -58,11 +65,11 @@
    '<span class="ne-world-scene-counter">Ситуация '+(progress.index+1)+' / '+scene.steps.length+'</span></div>'+
    '<h3 class="ne-world-location">'+e(scene.scene)+'</h3>'+
    '<div class="ne-world-stage">'+
-     '<div class="ne-world-character ne-world-coach" data-ne-role="coach"><div class="ne-world-portrait-wrap"><img src="'+portraits.nora+'" alt="Нора, виртуальная преподавательница" class="ne-world-portrait" loading="lazy"></div>'+
+     '<div class="ne-world-character ne-world-coach" data-ne-role="coach"><div class="ne-world-portrait-wrap" data-ne-face="nora"><img src="'+portraits.nora+'" alt="Нора, виртуальная преподавательница" class="ne-world-portrait" loading="lazy">'+mouthSvg+'</div>'+
      '<div class="ne-world-name">Нора <span>помогает</span></div></div>'+
-     '<div class="ne-world-character ne-world-partner" data-ne-role="partner"><div class="ne-world-portrait-wrap"><img src="'+actorPortrait+'" alt="'+e(who)+'" class="ne-world-portrait" loading="lazy"></div>'+
+     '<div class="ne-world-character ne-world-partner" data-ne-role="partner"><div class="ne-world-portrait-wrap" data-ne-face="'+partner+'"><img src="'+actorPortrait+'" alt="'+e(who)+'" class="ne-world-portrait" loading="lazy">'+mouthSvg+'</div>'+
      '<div class="ne-world-name">'+e(who)+'</div></div>'+
-     '<div class="ne-world-character ne-world-self" data-ne-role="self"><div class="ne-world-portrait-wrap"><img id="neWorldSelfImage" src="'+portraits[currentAvatar]+'" alt="Твой учебный аватар" class="ne-world-portrait" loading="lazy"></div>'+
+     '<div class="ne-world-character ne-world-self" data-ne-role="self"><div class="ne-world-portrait-wrap" data-ne-face="'+currentAvatar+'"><img id="neWorldSelfImage" src="'+portraits[currentAvatar]+'" alt="Твой учебный аватар" class="ne-world-portrait" loading="lazy">'+mouthSvg+'</div>'+
      '<div class="ne-world-name">Ты <span>отвечаешь</span></div></div>'+
    '</div>'+
    '<div class="ne-world-dialogue" aria-label="Текущий разговор">'+
@@ -121,14 +128,14 @@
   try{if(typeof window.saveState==='function')saved=window.saveState()!==false}catch{saved=false}
   if(!saved){s.learningV8.visualWorld=old;return false}
   const pic=document.getElementById('neWorldSelfImage');
-  if(pic)pic.src=portraits[id];
+  if(pic){pic.src=portraits[id];pic.parentElement?.setAttribute?.('data-ne-face',id)}
   document.querySelectorAll?.('[data-ne-avatar]').forEach(b=>b.setAttribute('aria-pressed',String(b.getAttribute('data-ne-avatar')===id)));
   return true;
  }
  let activeSpeech=null;
  function talkingTarget(role){
   if(typeof document==='undefined')return null;
-  return role==='guide'?document.querySelector('.ne-world-guide-portrait'):
+  return role==='guide'?document.querySelector('.ne-world-guide-face'):
    ['coach','partner','self'].includes(role)?document.querySelector('.ne-world [data-ne-role="'+role+'"]'):null;
  }
  function clearSpeechVisual(){
@@ -146,18 +153,68 @@
   el.classList.add('ne-world-reacting');
   return true;
  }
+
+ // Approximate visemes. SpeechSynthesis boundary timing varies across voices:
+ // use word/character boundaries when available and a rate-adjusted fallback otherwise.
+ function visemeAt(text,index){
+  const c=String(text||'').toLowerCase().charAt(Math.max(0,index))||'';
+  if(/[bmp]/u.test(c))return 'closed';
+  if(/[oøuåyw]/u.test(c))return 'round';
+  if(/[fv]/u.test(c))return 'teeth';
+  if(/[aæei]/u.test(c))return 'wide';
+  return /[\s.,!?;:]/u.test(c)?'closed':'mid';
+ }
  function bindSpeech(utterance,role){
   if(!utterance||typeof utterance!=='object'||typeof utterance.addEventListener!=='function')return false;
-  const el=talkingTarget(role);
-  if(!el)return false;
-  const token={};activeSpeech=token;clearSpeechVisual();
+  const el=talkingTarget(role);if(!el)return false;
+  if(activeSpeech?.stop)activeSpeech.stop();
+  clearSpeechVisual();
   const name=role==='guide'?'ne-world-guide-talking':'ne-world-talking';
-  const start=()=>{if(activeSpeech===token)el.classList.add(name)};
-  const end=()=>{if(activeSpeech===token){el.classList.remove(name);activeSpeech=null}};
-  utterance.addEventListener('start',start);
-  utterance.addEventListener('end',end);
-  utterance.addEventListener('error',end);
-  start();return true;
+  const text=String(utterance.text||'');
+  const rate=Number.isFinite(utterance.rate)?Math.max(.6,Math.min(1.5,utterance.rate)):1;
+  let timer=null,started=Date.now(),anchorAt=started,charAt=0,hasBoundary=false,finished=false;
+  const ticket={stop(){finish()}};
+  activeSpeech=ticket;
+  const setMouth=shape=>{
+   if(activeSpeech!==ticket||finished)return;
+   el.setAttribute?.('data-ne-viseme',shape);
+  };
+  const tick=()=>{
+   if(activeSpeech!==ticket||finished||!text)return;
+   const now=Date.now();
+   // Browser boundary timestamps are not guaranteed; never pretend this is
+   // acoustic phoneme alignment. Each word is advanced by a gentle estimate.
+   const duration=hasBoundary?Math.max(0,now-anchorAt):Math.max(0,now-started);
+   const pos=charAt+Math.floor(duration*rate/86);
+   setMouth(visemeAt(text,Math.min(text.length-1,pos)));
+  };
+  function finish(){
+   if(finished)return;finished=true;
+   if(timer!==null&&typeof window.clearInterval==='function')window.clearInterval(timer);
+   timer=null;el.classList?.remove(name);el.removeAttribute?.('data-ne-viseme');
+   if(activeSpeech===ticket)activeSpeech=null;
+  }
+  const onStart=()=>{
+   if(activeSpeech!==ticket||finished)return;
+   started=Date.now();anchorAt=started;charAt=0;
+   el.classList.add(name);
+   setMouth('mid');
+   if(text&&timer===null&&typeof window.setInterval==='function')timer=window.setInterval(tick,92);
+  };
+  const boundary=event=>{
+   if(activeSpeech!==ticket||finished)return;
+   if(Number.isInteger(event?.charIndex)&&event.charIndex>=0){
+    charAt=Math.min(text.length-1,event.charIndex);
+    anchorAt=Date.now();hasBoundary=true;
+    tick();
+   }
+  };
+  utterance.addEventListener('start',onStart);
+  utterance.addEventListener('boundary',boundary);
+  utterance.addEventListener('end',finish);
+  utterance.addEventListener('error',finish);
+  onStart();
+  return true;
  }
  function sayPartner(text,rate){
   if(typeof window.speakText!=='function')return false;
@@ -330,7 +387,7 @@
   if(!brief)return '';
   const text=[brief.activity,brief.stage?.note].filter(Boolean).join('. ').slice(0,380);
   return '<div class="ne-world-guide" aria-label="Нора сопровождает занятие">'+
-    '<img class="ne-world-guide-portrait" src="'+portraits.nora+'" alt="Нора" loading="lazy">'+
+    '<span class="ne-world-guide-face" data-ne-face="nora"><img class="ne-world-guide-portrait" src="'+portraits.nora+'" alt="Нора" loading="lazy">'+mouthSvg+'</span>'+
     '<div class="ne-world-guide-copy"><strong>Нора рядом</strong><p id="neWorldGuideTask">'+e(text)+'</p>'+
     '<button type="button" class="ne-world-guide-speak" onclick="NEVisualWorld.speakStage()">Послушать инструкцию</button>'+
     '<small id="neWorldGuideStatus" role="status"></small></div></div>';
@@ -353,5 +410,5 @@
    synth.speak(u);message('Нора объясняет задание.');
   }catch{message('Озвучка недоступна. Задание написано на экране.')}
  }
- window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,dictateFree,sendFree,bindSpeech,accepted,theme});
+ window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,dictateFree,sendFree,bindSpeech,visemeAt,accepted,theme});
 })();

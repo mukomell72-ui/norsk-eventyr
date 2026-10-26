@@ -127,3 +127,39 @@
  .ne-world-guide-portrait.ne-world-guide-talking,
  .ne-world-character.ne-world-reacting .ne-world-portrait-wrap{animation:none!important}
 }
+
+/* Small, low-cost SVG visemes over calibrated adult portrait landmarks.
+   Timing uses SpeechSynthesis boundary events, with a coarse fallback.
+   Facial image remains the unmodified original when the character is silent. */
+.ne-world-portrait-wrap[data-ne-face],.ne-world-guide-face[data-ne-face]{
+ --ne-mouth-x:50%;--ne-mouth-y:40%;--ne-mouth-width:20%;
+ --ne-mouth-tilt:-4deg;--ne-mouth-skin:#c78e77;--ne-mouth-outline:#925149
+}
+[data-ne-face="ingrid"]{--ne-mouth-x:67%;--ne-mouth-y:49%;--ne-mouth-width:25%;--ne-mouth-tilt:8deg;--ne-mouth-skin:#d7a181;--ne-mouth-outline:#96584d}
+[data-ne-face="mari"]{--ne-mouth-x:34%;--ne-mouth-y:49%;--ne-mouth-width:24%;--ne-mouth-tilt:8deg;--ne-mouth-skin:#d5a08c;--ne-mouth-outline:#a26154}
+[data-ne-face="erik"]{--ne-mouth-x:25%;--ne-mouth-y:36%;--ne-mouth-width:13%;--ne-mouth-tilt:0deg;--ne-mouth-skin:#b88872;--ne-mouth-outline:#6d4f42}
+.ne-world-guide-face{position:relative;isolation:isolate;display:block;flex:none;width:70px;height:83px;border-radius:16px;overflow:hidden;border:3px solid #fff;box-shadow:0 6px 16px rgba(42,80,83,.13)}
+.ne-world-guide-face .ne-world-guide-portrait{display:block;width:100%;height:100%;border:0;border-radius:0;box-shadow:none;animation:none!important;object-fit:cover;object-position:center 25%}
+.ne-world-guide-face.ne-world-guide-talking{animation:ne-world-talk .65s ease-in-out infinite}
+.ne-world-mouth{position:absolute;pointer-events:none;z-index:2;opacity:0;overflow:visible;
+ top:var(--ne-mouth-y);left:var(--ne-mouth-x);width:var(--ne-mouth-width);height:auto;
+ transform:translate(-50%,-50%) rotate(var(--ne-mouth-tilt));
+ transition:opacity .08s linear}
+.ne-world-character.ne-world-talking .ne-world-mouth,
+.ne-world-guide-face.ne-world-guide-talking .ne-world-mouth{opacity:.95}
+.ne-mouth-skin{fill:var(--ne-mouth-skin);opacity:.83;filter:blur(3px)}
+.ne-mouth-opening{fill:#48272c;transform-box:fill-box;transform-origin:50% 50%;transform:scale(.83,.62);
+ transition:transform .08s linear}
+.ne-mouth-upper,.ne-mouth-lower{stroke:var(--ne-mouth-outline);stroke-width:3;stroke-linecap:round;fill:none;opacity:.8}
+.ne-mouth-teeth{fill:#fff5e9;opacity:0}
+[data-ne-viseme="closed"] .ne-mouth-opening{transform:scale(1,.12)}
+[data-ne-viseme="closed"] .ne-mouth-lower{opacity:.3}
+[data-ne-viseme="wide"] .ne-mouth-opening{transform:scale(1.18,1.25)}
+[data-ne-viseme="round"] .ne-mouth-opening{transform:scale(.55,1.55)}
+[data-ne-viseme="teeth"] .ne-mouth-opening{transform:scale(.9,.6)}
+[data-ne-viseme="teeth"] .ne-mouth-teeth{opacity:.85}
+@media(max-width:460px){.ne-world-guide-face{width:58px;height:72px}}
+@media(prefers-reduced-motion:reduce){
+ .ne-world-guide-face.ne-world-guide-talking{animation:none!important}
+ .ne-world-mouth,.ne-mouth-opening{transition:none!important}
+}

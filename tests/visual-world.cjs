@@ -81,6 +81,17 @@ assert.equal(V.bindSpeech(utterance,'partner'),true,'Voice must attach speech ev
 assert.equal(talking.active,true,'Speaking character moves during audio');
 speechEvents.end();assert.equal(talking.active,false,'Character stops after speech ends');
 assert(style.includes('ne-world-talking .ne-world-portrait-wrap')&&style.includes('infinite'),'Speech animation should follow utterance');
+assert.equal(V.visemeAt('mamma',0),'closed');
+assert.equal(V.visemeAt('åpne',0),'round');
+assert.equal(V.visemeAt('hei',1),'wide');
+assert.equal(V.visemeAt('fint',0),'teeth');
+assert(markup.includes('ne-world-mouth')&&markup.includes('data-ne-face="mari"'),'Partner mouth must align with face');
+assert(V.guide({activity:'Les teksten.'}).includes('ne-world-guide-face'),'Nora must have a mouth overlay in the tutor card');
+const events2={};
+const utterance2={text:'Kan du komme?',rate:.86,addEventListener(type,fn){events2[type]=fn}};
+assert.equal(V.bindSpeech(utterance2,'partner'),true);
+events2.boundary({charIndex:1});events2.error();
+assert.equal(talking.active,false,'Viseme movement must stop on speech error');
 fakeDocument.querySelector=originalSelector;fakeDocument.querySelectorAll=originalAll;
 for(const p of ['ingrid.webp','mari.webp','erik.webp']){
  assert(read('sw.js').includes('/assets/characters/'+p),'Photo portraits must be precached for offline lessons');
@@ -99,7 +110,7 @@ assert(guided.includes('window.NEVisualWorld?.render?.')&&guided.includes('windo
 const access=read('access.js'),sw=read('sw.js'),html=read('index.html');
 assert(read('nora-experience.js').includes('NEVisualWorld?.guide?.(b)'),'Nora visual guide must appear throughout the lesson');
 assert(access.includes("'visual-world.js','guided-speaking.js'"),'Visual world should load before guided speech');
-assert(sw.includes('/visual-world.js?v=8.3.0-world4')&&sw.includes('/visual-world.css?v=8.3.0-world2'),'Offline assets missing');
+assert(sw.includes('/visual-world.js?v=8.3.0-world5')&&sw.includes('/visual-world.css?v=8.3.0-world3'),'Offline assets missing');
 assert(html.includes('/visual-world.css?v=8.3.0-world2'),'Fresh styles not loaded');
 assert(source.includes('typeof window.saveState')&&source.includes('aria-pressed'),'Avatar state not personal');
 console.log('PASS animated conversations: adult illustrations, escaped scene, learner answers, voice response, continuity, saved avatar, reduced motion and PWA');
