@@ -145,5 +145,32 @@
   if(el){el.hidden=false;el.textContent='Собеседник: '+String(reply||'').slice(0,320)}
   animate('self');animate('partner');
  }
- window.NEVisualWorld=Object.freeze({render,updateOwn,chooseAvatar,animate,speakPartner,speakTask,accepted,theme});
+ function guide(brief){
+  if(!brief)return '';
+  const text=[brief.activity,brief.stage?.note].filter(Boolean).join('. ').slice(0,380);
+  return '<div class="ne-world-guide" aria-label="Нора сопровождает занятие">'+
+    '<img class="ne-world-guide-portrait" src="'+portraits.nora+'" alt="Нора" loading="lazy">'+
+    '<div class="ne-world-guide-copy"><strong>Нора рядом</strong><p id="neWorldGuideTask">'+e(text)+'</p>'+
+    '<button type="button" class="ne-world-guide-speak" onclick="NEVisualWorld.speakStage()">Послушать инструкцию</button>'+
+    '<small id="neWorldGuideStatus" role="status"></small></div></div>';
+ }
+ function speakStage(){
+  const field=document.getElementById('neWorldGuideTask');
+  const feedback=document.getElementById('neWorldGuideStatus');
+  const message=(text)=>{if(feedback)feedback.textContent=text};
+  const text=field?.textContent?.trim();
+  if(!text)return;
+  const synth=window.speechSynthesis,Utter=window.SpeechSynthesisUtterance;
+  if(!synth||typeof Utter!=='function'){message('На устройстве нет русского голосового синтеза. Текст уже показан рядом.');return}
+  const voice=(synth.getVoices?.()||[]).find(x=>/^ru(-|_)/i.test(x.lang||''));
+  if(!voice){message('Русский голос не установлен. Задание можно прочитать на экране.');return}
+  try{
+   synth.cancel();
+   const u=new Utter(text);u.voice=voice;u.lang='ru-RU';u.rate=.95;
+   const img=document.querySelector('.ne-world-guide-portrait');
+   if(img){img.classList.remove('ne-world-guide-talking');void img.offsetWidth;img.classList.add('ne-world-guide-talking')}
+   synth.speak(u);message('Нора объясняет задание.');
+  }catch{message('Озвучка недоступна. Задание написано на экране.')}
+ }
+ window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,accepted,theme});
 })();
