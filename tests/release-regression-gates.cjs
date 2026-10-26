@@ -22,8 +22,11 @@ const baseCache='norsk-eventyr-v'+v.replaceAll('.','-');
 const actualCache=(sw.match(/^const CACHE="([^"]+)";/m)||[])[1];
 // New narrative assets use independent cache-busting suffixes. Preserve the
 // established 8.3.0 release gates while verifying the story bundle separately.
-const storyRevision=(actualCache?.startsWith(baseCache)?actualCache.match(/-story[1-9][0-9]*$/)?.[0]:'')||'';
-const assetRevision=actualCache?.startsWith(baseCache)?actualCache.slice(baseCache.length,actualCache.length-storyRevision.length):null;
+const worldRevision=(actualCache?.match(/-world[1-9][0-9]*$/)||[])[0]||'';
+const cacheWithoutWorld=actualCache?.slice(0,actualCache.length-worldRevision.length)||'';
+const storyRevision=(cacheWithoutWorld.startsWith(baseCache)?cacheWithoutWorld.match(/-story[1-9][0-9]*$/)?.[0]:'')||'';
+const worldSuffix=pathname=>['/access.js','/guided-speaking.js','/visual-world.js'].includes(pathname)?'-world1':'';
+const assetRevision=cacheWithoutWorld.startsWith(baseCache)?cacheWithoutWorld.slice(baseCache.length,cacheWithoutWorld.length-storyRevision.length):null;
 const storySuffix=pathname=>pathname==='/access.js'||pathname==='/v8.css'||['/app.js','/guided-speaking.js','/adaptive-teacher.js','/living-day.js','/story-journey.js'].includes(pathname)?'-story1':
  pathname==='/story-journey-advanced.js'?'-story2':'';
 const auditSuffix=(assetRevision?.match(/(-audit[1-9][0-9]*)$/)||[])[1]||'';
@@ -95,7 +98,7 @@ for(const asset of assets){
    (coachSuffix&&['/access.js','/app.js','/lesson-coach.js','/lesson-coach.css','/language-bridge.js','/language-bridge.css','/cloze-coach.js','/functional-practice.js','/living-words.js'].includes(pathname)?coachSuffix:'')+
    (freshnessSuffix&&['/access.js','/adaptive-teacher.js'].includes(pathname)?freshnessSuffix:'')+
    (bridgeSuffix&&['/access.js','/adaptive-teacher.js','/app.js','/language-bridge.js','/ui-v7.js','/v7.css','/v3.js','/elite.js','/nora-experience.js'].includes(pathname)?bridgeSuffix:'')+
-   (auditSuffix&&['/access.js','/v7.css','/nora-experience.js','/living-day.js','/app.js','/guided-speaking.js','/language-bridge.js','/ui-v7.js','/adaptive-teacher.js','/word-learning-evidence.js'].includes(pathname)?auditSuffix:'')+storySuffix(pathname);
+   (auditSuffix&&['/access.js','/v7.css','/nora-experience.js','/living-day.js','/app.js','/guided-speaking.js','/language-bridge.js','/ui-v7.js','/adaptive-teacher.js','/word-learning-evidence.js'].includes(pathname)?auditSuffix:'')+storySuffix(pathname)+worldSuffix(pathname);
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
 }
 }
@@ -107,16 +110,16 @@ if(assetRevision){
 }
 if(assetRevision?.startsWith('-auth')){
   for(const [tag,asset] of [['src','access.js'],['href','access.css']]){
-    const expected=tag+'="/'+asset+'?v='+v+assetRevision+storySuffix('/'+asset)+'"';
+    const expected=tag+'="/'+asset+'?v='+v+assetRevision+storySuffix('/'+asset)+worldSuffix('/'+asset)+'"';
     assert(index.includes(expected),'Page must load fresh authentication bootstrap: '+expected);
-    assert(assets.includes('/'+asset+'?v='+v+assetRevision+storySuffix('/'+asset)),
+    assert(assets.includes('/'+asset+'?v='+v+assetRevision+storySuffix('/'+asset)+worldSuffix('/'+asset)),
       'PWA precache must include fresh authentication bootstrap: '+asset);
   }
 }
 if(assetRevision?.startsWith('-lesson')){
-  assert(index.includes('src="/access.js?v='+v+assetRevision+storySuffix('/access.js')+'"'),
+  assert(index.includes('src="/access.js?v='+v+assetRevision+storySuffix('/access.js')+worldSuffix('/access.js')+'"'),
     'Lesson patch must fetch fresh lesson bootstrap');
-  assert(assets.includes('/access.js?v='+v+assetRevision+storySuffix('/access.js')),
+  assert(assets.includes('/access.js?v='+v+assetRevision+storySuffix('/access.js')+worldSuffix('/access.js')),
     'PWA must precache updated lesson bootstrap');
   assert(access.includes("LESSON_PATCH='"+baseRevision+"'")&&
    (!audioSuffix||access.includes("'"+audioSuffix+"'"))&&
@@ -168,7 +171,7 @@ for(const filename of scripts){
    (coachSuffix&&['lesson-coach.js','language-bridge.js','cloze-coach.js','functional-practice.js','app.js','living-words.js'].includes(filename)?coachSuffix:'')+
    (freshnessSuffix&&filename==='adaptive-teacher.js'?freshnessSuffix:'')+
    (bridgeSuffix&&['adaptive-teacher.js','app.js','language-bridge.js','ui-v7.js','v3.js','elite.js','nora-experience.js'].includes(filename)?bridgeSuffix:'')+
-   (auditSuffix&&['nora-experience.js','living-day.js','app.js','guided-speaking.js','language-bridge.js','ui-v7.js','adaptive-teacher.js','word-learning-evidence.js'].includes(filename)?auditSuffix:'')+storySuffix('/'+filename);
+   (auditSuffix&&['nora-experience.js','living-day.js','app.js','guided-speaking.js','language-bridge.js','ui-v7.js','adaptive-teacher.js','word-learning-evidence.js'].includes(filename)?auditSuffix:'')+storySuffix('/'+filename)+worldSuffix('/'+filename);
  assert(assetSet.has('/'+filename+'?v='+v+patch+suffix),'PWA must cache bootstrapped script '+filename);
 }
 for(const m of index.matchAll(/\b(?:src|href)="(\/[^"]+)"/g)){
