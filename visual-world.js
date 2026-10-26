@@ -163,6 +163,7 @@
   document.querySelectorAll?.('.ne-world-talking,.ne-world-guide-talking').forEach(el=>{
    el.classList?.remove('ne-world-talking');
    el.classList?.remove('ne-world-guide-talking');
+   el.removeAttribute?.('data-ne-viseme');
   });
  }
  function animate(role){
@@ -194,12 +195,13 @@
  function bindSpeech(utterance,role){
   if(!utterance||typeof utterance!=='object'||typeof utterance.addEventListener!=='function')return false;
   if(!lipSyncEnabled()){activeSpeech?.stop?.();clearSpeechVisual();return false}
-  const el=talkingTarget(role);if(!el)return false;
+  // Never leave an old speaking character animated when a scene disappears.
   activeSpeech?.stop?.();clearSpeechVisual();
+  const el=talkingTarget(role);if(!el)return false;
   const name=role==='guide'?'ne-world-guide-talking':'ne-world-talking';
   const words=String(utterance.text||'');
   const rate=Number.isFinite(utterance.rate)?Math.max(.6,Math.min(1.5,utterance.rate)):1;
-  let timer=null,anchorAt=Date.now(),charAt=0,wordLength=0,hasBoundary=false,finished=false,paused=false;
+  let timer=null,anchorAt=Date.now(),charAt=0,wordLength=0,hasBoundary=false,finished=false,paused=false,started=false;
   const ticket={stop(){finish()}};
   activeSpeech=ticket;
   const setMouth=shape=>{
@@ -221,13 +223,13 @@
    if(activeSpeech===ticket)activeSpeech=null;
   }
   const onStart=()=>{
-   if(activeSpeech!==ticket||finished)return;
-   paused=false;anchorAt=Date.now();charAt=0;
+   if(activeSpeech!==ticket||finished||started)return;
+   started=true;paused=false;anchorAt=Date.now();charAt=0;
    el.classList.add(name);setMouth('mid');
    if(words&&timer===null&&typeof window.setInterval==='function')timer=window.setInterval(tick,88);
   };
   const boundary=event=>{
-   if(activeSpeech!==ticket||finished||paused)return;
+   if(activeSpeech!==ticket||finished||paused||!started)return;
    if(Number.isInteger(event?.charIndex)&&event.charIndex>=0){
     charAt=Math.min(Math.max(0,words.length-1),event.charIndex);anchorAt=Date.now();hasBoundary=true;
     wordLength=Number.isInteger(event.charLength)&&event.charLength>0?
@@ -239,12 +241,15 @@
   const onPause=()=>{
    if(activeSpeech!==ticket||finished)return;
    paused=true;
+   if(!started)return;
    if(timer!==null&&typeof window.clearInterval==='function')window.clearInterval(timer);
    timer=null;el.classList?.remove(name);el.setAttribute?.('data-ne-viseme','closed');
   };
   const onResume=()=>{
    if(activeSpeech!==ticket||finished)return;
-   paused=false;anchorAt=Date.now();el.classList.add(name);
+   paused=false;
+   if(!started)return;
+   anchorAt=Date.now();el.classList.add(name);
    if(words&&timer===null&&typeof window.setInterval==='function')timer=window.setInterval(tick,88);
    tick();
   };
@@ -254,7 +259,8 @@
   utterance.addEventListener('resume',onResume);
   utterance.addEventListener('end',finish);
   utterance.addEventListener('error',finish);
-  onStart();return true;
+  // The synth may queue speech. Animate only after its real start event.
+  return true;
  }
  function sayPartner(text,rate){
   if(typeof window.speakText!=='function')return false;
@@ -348,9 +354,14 @@
    field.value=current?current+' '+raw:raw;
    freeStatus('Распознано. Проверь текст, затем отправь реплику.');
   };
-  speech.onerror=()=>freeStatus('Распознавание не завершилось. Попробуй ещё раз или напиши текст.');
-  speech.onend=()=>{if(freeRecognition===speech)freeRecognition=null;
-   const b=document.getElementById('neWorldFreeMic');b?.setAttribute?.('aria-pressed','false');};
+  speech.onerror=()=>{if(window.neLessonSession===lessonSession&&field.isConnected)
+   freeStatus('Распознавание не завершилось. Попробуй ещё раз или напиши текст.');};
+  speech.onend=()=>{
+   if(freeRecognition!==speech)return;
+   freeRecognition=null;
+   if(window.neLessonSession===lessonSession&&field.isConnected)
+    document.getElementById('neWorldFreeMic')?.setAttribute?.('aria-pressed','false');
+  };
   try{speech.start();return true}
   catch{freeRecognition=null;if(btn)btn.setAttribute?.('aria-pressed','false');
    freeStatus('Не получилось начать запись. Проверь разрешение микрофона.');return false;}
@@ -405,7 +416,7 @@
     freeStatus('Не удалось получить безопасный ответ собеседника. Твоя реплика остаётся в поле; попробуй позже.');
     return false;
    }
-   const updated=[...history.filter(t=>t.role==='user'||t.role==='assistant').slice(1),
+   const updated=[...history.filter(t=>t.role==='user'||t.role==='assistant').slice(-10),
     {role:'user',text:message},{role:'assistant',text:raw}].slice(-12);
    progress.freeChat=updated;
    try{window.persistLessonCheckpoint?.()}catch{}
