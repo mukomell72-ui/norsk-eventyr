@@ -277,8 +277,8 @@
   }
   return true;
  }
- function focus(lesson){
-  const s=slots(lesson);if(!s)return [];
+ function focus(lesson,date=localDate()){
+  const s=slots(lesson,date);if(!s)return [];
   return [...s.today.map(x=>({...x,stage:'new'})),...s.yesterday.map(x=>({...x,stage:x.origin==='review-backlog'?'review':'yesterday'})),
    ...s.older.map(x=>({...x,stage:'review'}))]
    .slice(0,15).map(x=>({word:x.word,ru:x.ru,stage:x.stage}));
