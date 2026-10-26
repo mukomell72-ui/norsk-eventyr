@@ -220,7 +220,7 @@
   try{
    const response=await window.neApiPost('/api/chat',{
     message,level:['A1','A2','B1','B2'].includes(lesson.level)?lesson.level:'A1',
-    mode:'roleplay',teacherMode:false,inputSource:'typed_text',
+    mode:'scene_practice',teacherMode:false,inputSource:'typed_text',
     topic:String(scene.scene||'Норвегия').slice(0,130),
     scenario:'Свободная необязательная практика без баллов и без экзамена. Место: '+String(scene.scene||'').slice(0,180)+
       '. Ты реальный человек в роли '+String(scene.actor||'норвежского собеседника').slice(0,100)+

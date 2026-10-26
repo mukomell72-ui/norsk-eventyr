@@ -96,7 +96,7 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
  window.neApiPost=async(path,payload)=>{
   chatCalls++;
   assert.equal(path,'/api/chat');
-  assert.equal(payload.mode,'roleplay');
+  assert.equal(payload.mode,'scene_practice');
   assert.equal(payload.inputSource,'typed_text');
   assert(payload.scenario.includes('Свободная необязательная практика'));
   assert.equal(payload.message,'Unnskyld, kan du hjelpe meg?');

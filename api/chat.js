@@ -20,7 +20,7 @@ export default async function handler(req,res){
   if(message.length>1800) return res.status(413).json({error:"MESSAGE_TOO_LONG",code:"MESSAGE_TOO_LONG"});
   const allowedLevels=["A1","A2","B1","B2"];
   const target=allowedLevels.includes(level)?level:"A1";
-  const allowedModes=["free","corrections","exam","roleplay","explain"];
+  const allowedModes=["free","corrections","exam","roleplay","scene_practice","explain"];
   const chatMode=allowedModes.includes(mode)?mode:"free";
   const xpMission=chatMode==="roleplay"&&String(scenario).includes("XP-миссия Норы");
   const assessEveryTurn=chatMode==="roleplay"||chatMode==="corrections"||teacherMode===true;
@@ -44,7 +44,8 @@ export default async function handler(req,res){
     free:"Веди естественный разговор. Исправляй только ошибки, которые мешают смыслу, и не превращай каждый ответ в урок.",
     corrections:"После каждого ответа кратко исправляй важные ошибки и сразу продолжай разговор.",
     exam:"Веди себя как экзаменатор: не подсказывай формулировки, задавай один вопрос за раз, проси развить ответ. После ответа дай очень краткую учебную обратную связь, но не выставляй официальный балл.",
-    roleplay:"Оставайся в выбранной роли и поддерживай правдоподобный бытовой или рабочий диалог. Проверяй КАЖДЫЙ ответ на смысл, уместность, грамматику, лексику и орфографию. При неправильном ответе не делай вид, что задача выполнена."
+    roleplay:"Оставайся в выбранной роли и поддерживай правдоподобный бытовой или рабочий диалог. Проверяй КАЖДЫЙ ответ на смысл, уместность, грамматику, лексику и орфографию. При неправильном ответе не делай вид, что задача выполнена.",
+    scene_practice:"Это свободная репетиция общения с человеком. Оставайся в роли, отвечай на конкретную реплику и детали разговора, допускай неожиданный поворот темы, задай не больше одного живого вопроса. НЕ ставь баллы, не заставляй повторять правильную формулировку, не используй шаблонные похвалы. Если смысл неясен, по-норвежски переспроси. Отвечай одним-двумя предложениями на Bokmål."
   };
 
   const transcript=cleanHistory.map(x=>(x.role==="assistant"?"Собеседник":"Ученик")+": "+x.text).join("\n");const learned=Array.isArray(practiceWords)?practiceWords.slice(0,15).map(x=>String(x).slice(0,100)).filter(Boolean):[];
@@ -65,7 +66,7 @@ export default async function handler(req,res){
     teacherMode?"Работай как живой преподаватель: поддерживай естественный разговор, исправляй максимум одну главную ошибку за реплику, затем создавай возможность применить исправление в следующем ответе. Не превращай разговор в лекцию и не хвали общими словами.":"",
     "Режим: "+chatMode+".",
     "Тема разговора: "+(String(topic).slice(0,180)||"любая тема, которую выбрал ученик")+".",
-    chatMode==="roleplay"?"Ролевая ситуация: "+(String(scenario).slice(0,1200)||"естественная бытовая ситуация")+".":"",
+    ["roleplay","scene_practice"].includes(chatMode)?"Ролевая ситуация: "+(String(scenario).slice(0,1200)||"естественная бытовая ситуация")+".":"",
     levelRules[target],
     modeRules[chatMode],
     voiceTranscript?"ВАЖНО: реплика ученика — автоматическая расшифровка его ГОЛОСОВОГО ответа, а не собственноручно набранный текст. Ошибки распознавания (особенно написание слов и пунктуация) нельзя объявлять ошибками письма или произношения ученика и нельзя за них снижать балл. Оценивай смысл и лишь однозначные грамматические/лексические ошибки, не требуй дословного совпадения. Ты не получаешь оригинальное аудио, поэтому не оценивай акцент, звуки, ударение и дикцию. При неоднозначной фразе укажи, что распознавание могло ошибиться, и попроси повторить, вместо уверенного утверждения о конкретной ошибке. Это правило имеет приоритет над общими инструкциями о проверке орфографии.":"",
@@ -99,18 +100,18 @@ export default async function handler(req,res){
       "Новая реплика ученика: "+message,
     "",
     "Верни ТОЛЬКО JSON без markdown:",
-    '{"reply_no":"...","translation_ru":"","corrected":"","explanation_ru":"","accepted":true,"feedback_status":"correct|partial|incorrect","score":100,"score_reason_ru":"","error_fragment_ru":"","improvements_ru":[],"error_tag":"","suggested_level":""}',
-    "reply_no: 1–5 предложений на Bokmål и в конце максимум один естественный вопрос.",
+    chatMode==="scene_practice"?'{"reply_no":"...","translation_ru":""}':'{"reply_no":"...","translation_ru":"","corrected":"","explanation_ru":"","accepted":true,"feedback_status":"correct|partial|incorrect","score":100,"score_reason_ru":"","error_fragment_ru":"","improvements_ru":[],"error_tag":"","suggested_level":""}',
+    chatMode==="scene_practice"?"reply_no: 1–2 коротких естественных предложения Bokmål, максимум один вопрос.":"reply_no: 1–5 предложений на Bokmål и в конце максимум один естественный вопрос.",
     "translation_ru: короткий перевод reply_no на русский; нужен для кнопки подсказки, а не для постоянного показа.",
     "error_tag: word_order, verb_form, article, vocabulary, coherence, task или пустая строка.",
-    "accepted=true только когда смысл и контекст удовлетворяют задаче. Частично правильный ответ обычно accepted=true, feedback_status=partial. Для бессмысленной/неуместной реплики accepted=false, feedback_status=incorrect и один посильный повторный вопрос на норвежском.",
+    chatMode==="scene_practice"?"Не добавляй оценки, verified-status или уровень. Свободная беседа не является экзаменом.":"accepted=true только когда смысл и контекст удовлетворяют задаче. Частично правильный ответ обычно accepted=true, feedback_status=partial. Для бессмысленной/неуместной реплики accepted=false, feedback_status=incorrect и один посильный повторный вопрос на норвежском.",
   ].filter(Boolean).join("\n");
 
   try{
     const r=await fetch("https://api.openai.com/v1/responses",{
       method:"POST",
       headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.OPENAI_API_KEY},
-      body:JSON.stringify({model:"gpt-6-luna",input:prompt,reasoning:{effort:"low"},max_output_tokens:chatMode==="explain"?800:1100})
+      body:JSON.stringify({model:"gpt-6-luna",input:prompt,reasoning:{effort:"low"},max_output_tokens:chatMode==="explain"?800:chatMode==="scene_practice"?480:1100})
     });
     const data=await r.json().catch(()=>({}));
     if(!r.ok){
@@ -134,6 +135,16 @@ export default async function handler(req,res){
       out.feedback_status="not_assessed";
       out.accepted=false;
       delete out.score;
+    }else if(chatMode==="scene_practice"){
+      // Formative dialogue: no scoring, CEFR evidence or canned rejections.
+      const reply=out.reply_no.trim();
+      if(reply.length<3||reply.length>350||/[<>\u0000-\u001f\u0400-\u04ff]/u.test(reply))
+        return res.status(502).json({error:"SCENE_REPLY_INVALID",code:"SCENE_REPLY_INVALID"});
+      out.reply_no=reply;out.score_valid=false;
+      out.feedback_status="not_assessed";out.accepted=false;
+      delete out.score;delete out.corrected;delete out.error_tag;
+      delete out.improvements_ru;delete out.score_reason_ru;
+      delete out.suggested_level;delete out.error_fragment_ru;
     }else if(!start){
       const checked=normalizeAssessment(out);
       Object.assign(out,checked);
