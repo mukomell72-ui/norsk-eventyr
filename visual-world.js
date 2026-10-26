@@ -125,13 +125,43 @@
   document.querySelectorAll?.('[data-ne-avatar]').forEach(b=>b.setAttribute('aria-pressed',String(b.getAttribute('data-ne-avatar')===id)));
   return true;
  }
+ let activeSpeech=null;
+ function talkingTarget(role){
+  if(typeof document==='undefined')return null;
+  return role==='guide'?document.querySelector('.ne-world-guide-portrait'):
+   ['coach','partner','self'].includes(role)?document.querySelector('.ne-world [data-ne-role="'+role+'"]'):null;
+ }
+ function clearSpeechVisual(){
+  if(typeof document==='undefined')return;
+  document.querySelectorAll?.('.ne-world-talking,.ne-world-guide-talking').forEach(el=>{
+   el.classList?.remove('ne-world-talking');
+   el.classList?.remove('ne-world-guide-talking');
+  });
+ }
  function animate(role){
-  const el=typeof document!=='undefined'&&document.querySelector('.ne-world [data-ne-role="'+role+'"]');
-  if(!el)return;
-  el.classList.remove('ne-world-talking');
-  // Force the short visual animation to restart without scheduling a timer.
+  const el=talkingTarget(role);
+  if(!el)return false;
+  el.classList.remove('ne-world-reacting');
   void el.offsetWidth;
-  el.classList.add('ne-world-talking');
+  el.classList.add('ne-world-reacting');
+  return true;
+ }
+ function bindSpeech(utterance,role){
+  if(!utterance||typeof utterance!=='object'||typeof utterance.addEventListener!=='function')return false;
+  const el=talkingTarget(role);
+  if(!el)return false;
+  const token={};activeSpeech=token;clearSpeechVisual();
+  const name=role==='guide'?'ne-world-guide-talking':'ne-world-talking';
+  const start=()=>{if(activeSpeech===token)el.classList.add(name)};
+  const end=()=>{el.classList.remove(name);if(activeSpeech===token)activeSpeech=null};
+  utterance.addEventListener('start',start);
+  utterance.addEventListener('end',end);
+  utterance.addEventListener('error',end);
+  start();return true;
+ }
+ function sayPartner(text,rate){
+  if(typeof window.speakText!=='function')return false;
+  try{return bindSpeech(window.speakText(text,rate),'partner')}catch{return false}
  }
  function status(text){
   const el=document.getElementById('neWorldVoiceStatus');if(el)el.textContent=String(text||'');
@@ -141,7 +171,7 @@
   const scene=window.NEGuidedSpeaking?.definition?.(lesson);
   if(!lesson||!progress||!scene)return;
   const text=sceneLine(scene,progress);
-  if(typeof window.speakText==='function'){animate('partner');window.speakText(text,.88);status('Слушай живую норвежскую реплику.')}
+  if(typeof window.speakText==='function'){sayPartner(text,.88);status('Слушай живую норвежскую реплику.')}
   else status('На этом устройстве нет доступной озвучки. Реплика показана на экране.');
  }
  function speakTask(){
@@ -158,7 +188,7 @@
    synth.cancel();
    const u=new Utter('Твоя задача: '+String(task).slice(0,420));
    u.lang='ru-RU';u.voice=voice;u.rate=.95;
-   animate('coach');synth.speak(u);status('Нора озвучивает задание.');
+   bindSpeech(u,'coach');synth.speak(u);status('Нора озвучивает задание.');
   }catch{status('Озвучка сейчас недоступна. Задание показано на экране.')}
  }
  const RESCUE=Object.freeze({
@@ -179,14 +209,14 @@
   status('Произнеси полезную фразу, затем продолжай исходное задание.');
   // The exercise is formative only: no score, no credit, no stage advancement,
   // no transcript mutation and no stored fake voice evidence.
-  if(typeof window.speakText==='function'){try{animate('partner');window.speakText(reply,option.rate)}catch{}}
+  sayPartner(reply,option.rate);
   return true;
  }
  function accepted(answer,reply){
   updateOwn(answer);
   const el=document.getElementById('neWorldReaction');
   if(el){el.hidden=false;el.textContent='Собеседник: '+String(reply||'').slice(0,320)}
-  animate('self');animate('partner');
+  animate('self');
  }
  const freePending=new WeakSet();
  let freeRecognition=null;
@@ -286,7 +316,7 @@
    appendFree('assistant',raw,String(scene.actor||'Собеседник').slice(0,70));
    field.value='';
    freeStatus('Собеседник ответил. Ты можешь продолжить разговор или вернуться к заданию.');
-   if(typeof window.speakText==='function'){try{animate('partner');window.speakText(raw,.85)}catch{}}
+   sayPartner(raw,.85);
    return true;
   }catch{
    if(window.neLessonSession===session&&session.guidedSpeech===progress&&progress.index===turnIndex)
@@ -319,9 +349,9 @@
    synth.cancel();
    const u=new Utter(text);u.voice=voice;u.lang='ru-RU';u.rate=.95;
    const img=document.querySelector('.ne-world-guide-portrait');
-   if(img){img.classList.remove('ne-world-guide-talking');void img.offsetWidth;img.classList.add('ne-world-guide-talking')}
+   if(img)bindSpeech(u,'guide');
    synth.speak(u);message('Нора объясняет задание.');
   }catch{message('Озвучка недоступна. Задание написано на экране.')}
  }
- window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,dictateFree,sendFree,accepted,theme});
+ window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,dictateFree,sendFree,bindSpeech,accepted,theme});
 })();
