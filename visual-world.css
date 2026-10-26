@@ -102,3 +102,13 @@
 .ne-world-free>textarea{display:block;width:100%;box-sizing:border-box;min-height:64px;color:#253e56;background:#fff}
 .ne-world-free>button{margin-top:10px;display:block;width:100%}
 .ne-world-free>small{display:block;line-height:1.5;margin-top:9px;font-size:12px;color:#527078}
+
+/* Immersive local illustrations. Scenery is decorative; characters and text remain crisp. */
+.ne-world .ne-world-sky{background-repeat:no-repeat;background-position:center center;background-size:cover;height:clamp(170px,30vw,260px);opacity:.68}
+.ne-world-street .ne-world-sky{background-image:url('/assets/scenes/street.svg')}
+.ne-world-cafe .ne-world-sky{background-image:url('/assets/scenes/cafe.svg')}
+.ne-world-office .ne-world-sky{background-image:url('/assets/scenes/office.svg')}
+.ne-world-clinic .ne-world-sky{background-image:url('/assets/scenes/clinic.svg')}
+.ne-world-town .ne-world-sky{background-image:url('/assets/scenes/town.svg')}
+.ne-world .ne-world-cloud,.ne-world .ne-world-window,.ne-world .ne-world-lamp,.ne-world .ne-world-sky::before,.ne-world .ne-world-sky::after{display:none}
+@media(max-width:600px){.ne-world .ne-world-sky{height:175px;opacity:.58}}
