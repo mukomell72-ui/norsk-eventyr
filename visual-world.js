@@ -41,6 +41,11 @@
   const p=learner()?.learningV8?.visualWorld;
   return p&&['erik','ingrid','mari'].includes(p.avatar)?p.avatar:'erik';
  }
+ function lipPreference(){return learner()?.learningV8?.visualWorld?.lipSync!==false}
+ function lipSyncEnabled(){
+  if(!lipPreference())return false;
+  try{return !(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches)}catch{return true}
+ }
  function personName(scene,index,moduleId){
   if(moduleId==='a1-foundation'&&index<3&&/Erik/i.test(scene.actor||''))return 'Сотрудник';
   return String(scene.actor||'Собеседник').slice(0,80);
@@ -108,7 +113,8 @@
      '<div class="ne-world-avatar-options" role="group" aria-label="Учебный аватар">'+
      [['erik','Алекс'],['ingrid','Ингрид'],['mari','Мари']].map(([id,name])=>
        '<button type="button" aria-pressed="'+(currentAvatar===id)+'" onclick="NEVisualWorld.chooseAvatar(\''+id+'\')" data-ne-avatar="'+id+'"><img src="'+portraits[id]+'" alt="" loading="lazy"><span>'+e(name)+'</span></button>').join('')+
-     '</div><small>Это вымышленный аватар, не твоя фотография.</small></details>'+
+     '</div><button type="button" class="ne-world-lip-toggle" id="neWorldLipToggle" aria-pressed="'+lipPreference()+'" onclick="NEVisualWorld.toggleLipSync()">Движение губ: '+(lipPreference()?'включено':'выключено')+'</button>'+
+     '<small>Можно отключить движение губ. Если в телефоне включено уменьшение движения, анимация отключается автоматически. Это вымышленный аватар.</small></details>'+
    '<div class="ne-world-footnote">В реальной беседе допустимы разные ответы. Главное — передать смысл, спросить или уточнить по ситуации. '+
    (total?'Ты уже сказал '+spoken+' из '+total+' реплик голосом.':'Попробуй сначала ответить голосом.')+'</div>'+
    '</section>';
@@ -130,6 +136,20 @@
   const pic=document.getElementById('neWorldSelfImage');
   if(pic){pic.src=portraits[id];pic.parentElement?.setAttribute?.('data-ne-face',id)}
   document.querySelectorAll?.('[data-ne-avatar]').forEach(b=>b.setAttribute('aria-pressed',String(b.getAttribute('data-ne-avatar')===id)));
+  return true;
+ }
+ function toggleLipSync(){
+  const state=learner();if(!state)return false;
+  if(!state.learningV8||typeof state.learningV8!=='object')state.learningV8={};
+  const old=state.learningV8.visualWorld;
+  const on=!lipPreference();
+  state.learningV8.visualWorld={...(old||{}),lipSync:on};
+  let saved=true;
+  try{if(typeof window.saveState==='function')saved=window.saveState()!==false}catch{saved=false}
+  if(!saved){state.learningV8.visualWorld=old;return false}
+  const b=document.getElementById('neWorldLipToggle');
+  if(b){b.setAttribute?.('aria-pressed',String(on));b.textContent='Движение губ: '+(on?'включено':'выключено')}
+  if(!on)activeSpeech?.stop?.();
   return true;
  }
  let activeSpeech=null;
@@ -173,6 +193,7 @@
  }
  function bindSpeech(utterance,role){
   if(!utterance||typeof utterance!=='object'||typeof utterance.addEventListener!=='function')return false;
+  if(!lipSyncEnabled()){activeSpeech?.stop?.();clearSpeechVisual();return false}
   const el=talkingTarget(role);if(!el)return false;
   activeSpeech?.stop?.();clearSpeechVisual();
   const name=role==='guide'?'ne-world-guide-talking':'ne-world-talking';
@@ -429,5 +450,5 @@
    synth.speak(u);message('Нора объясняет задание.');
   }catch{message('Озвучка недоступна. Задание написано на экране.')}
  }
- window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,dictateFree,sendFree,bindSpeech,visemeAt,accepted,theme});
+ window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,dictateFree,sendFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
 })();
