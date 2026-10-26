@@ -92,8 +92,9 @@
      '</div>'+
      '<label for="neWorldFreeInput">Твоя произвольная реплика по-норвежски</label>'+
      '<textarea id="neWorldFreeInput" maxlength="350" rows="2" class="input" placeholder="Что ты хочешь сказать?"></textarea>'+
-     '<button type="button" class="btn secondary" id="neWorldFreeSend" onclick="NEVisualWorld.sendFree()">Сказать собеседнику</button>'+
-     '<small id="neWorldFreeStatus" role="status" aria-live="polite">До 6 свободных реплик за этот урок. Требуется интернет и AI. Запись через микрофон доступна в основном задании.</small>'+
+     '<div class="ne-world-free-controls"><button type="button" class="btn secondary" id="neWorldFreeMic" onclick="NEVisualWorld.dictateFree()">🎤 Произнести</button>'+
+     '<button type="button" class="btn secondary" id="neWorldFreeSend" onclick="NEVisualWorld.sendFree()">Отправить реплику</button></div>'+
+     '<small id="neWorldFreeStatus" role="status" aria-live="polite">До 6 свободных реплик за урок. Микрофон использует распознавание речи устройства: проверь текст перед отправкой. Для ответа AI необходим интернет.</small>'+
      '<small>Дополнительная практика: баллы и экзаменационный результат не начисляются.</small></details>'+
    '<details class="ne-world-avatar-picker"><summary>Изменить свой аватар</summary>'+
      '<div class="ne-world-avatar-options" role="group" aria-label="Учебный аватар">'+
@@ -187,6 +188,46 @@
   animate('self');animate('partner');
  }
  const freePending=new WeakSet();
+ let freeRecognition=null;
+ function dictateFree(){
+  const field=document.getElementById('neWorldFreeInput');
+  if(!field)return false;
+  const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(typeof Recognition!=='function'){
+   freeStatus('Распознавание речи на этом устройстве недоступно. Можно написать ответ.');
+   return false;
+  }
+  if(freeRecognition){
+   try{freeRecognition.stop()}catch{}
+   return false;
+  }
+  let speech;
+  try{speech=new Recognition();speech.lang='nb-NO';speech.interimResults=false;speech.maxAlternatives=1;}catch{
+   freeStatus('Микрофон сейчас недоступен. Напиши реплику.');
+   return false;
+  }
+  const atStart=field.value;
+  const lessonSession=window.neLessonSession;
+  freeRecognition=speech;
+  const btn=document.getElementById('neWorldFreeMic');
+  if(btn)btn.setAttribute?.('aria-pressed','true');
+  freeStatus('Слушаю норвежскую реплику…');
+  speech.onresult=event=>{
+   if(window.neLessonSession!==lessonSession||!field.isConnected)return;
+   const raw=String(event?.results?.[0]?.[0]?.transcript||'').trim();
+   if(!raw)return;
+   // Preserve text entered after microphone activation. Never silently erase it.
+   const current=field.value.trim();
+   field.value=current&&current!==atStart?current+' '+raw:atStart.trim()?atStart.trim()+' '+raw:raw;
+   freeStatus('Распознано. Проверь текст, затем отправь реплику.');
+  };
+  speech.onerror=()=>freeStatus('Распознавание не завершилось. Попробуй ещё раз или напиши текст.');
+  speech.onend=()=>{if(freeRecognition===speech)freeRecognition=null;
+   const b=document.getElementById('neWorldFreeMic');b?.setAttribute?.('aria-pressed','false');};
+  try{speech.start();return true}
+  catch{freeRecognition=null;if(btn)btn.setAttribute?.('aria-pressed','false');
+   freeStatus('Не получилось начать запись. Проверь разрешение микрофона.');return false;}
+ }
  function freeStatus(message){
   const node=typeof document!=='undefined'&&document.getElementById('neWorldFreeStatus');
   if(node)node.textContent=String(message||'');
@@ -228,6 +269,10 @@
     history:transcript
    });
    if(window.neLessonSession!==session||session.guidedSpeech!==progress||progress.index!==turnIndex||!field?.isConnected)return false;
+   if(field.value.trim()!==message){
+    freeStatus('Текст изменился во время ответа собеседника. Новая реплика сохранена в поле — отправь её отдельно.');
+    return false;
+   }
    const raw=String(response?.data?.reply_no||'').trim();
    if(!response?.ok||raw.length<3||raw.length>320||/[<>\u0000-\u001f]/u.test(raw)||/[\u0400-\u04ff]/u.test(raw)){
     freeStatus('Не удалось получить безопасный ответ собеседника. Твоя реплика остаётся в поле; попробуй позже.');
@@ -278,5 +323,5 @@
    synth.speak(u);message('Нора объясняет задание.');
   }catch{message('Озвучка недоступна. Задание написано на экране.')}
  }
- window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,sendFree,accepted,theme});
+ window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,dictateFree,sendFree,accepted,theme});
 })();

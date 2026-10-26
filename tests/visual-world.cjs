@@ -33,6 +33,7 @@ assert(markup.includes('&lt;неожиданность&gt;')&&!markup.includes('
 assert(markup.includes('&lt;можешь&gt;'),'Spoken lesson goal must escape content');
 assert(markup.includes('NEVisualWorld.speakPartner()')&&markup.includes('NEVisualWorld.speakTask()'),'Speaking cues missing');
 assert(markup.includes('NEVisualWorld.sendFree()')&&markup.includes('Свободный разговор'),'Optional free practice must be in scene');
+assert(markup.includes('NEVisualWorld.dictateFree()'),'Speech recognition must be offered for free roleplay');
 assert(V.chooseAvatar('ingrid')===true&&s.learningV8.visualWorld.avatar==='ingrid'&&saved===1,'Avatar preference not retained');
 assert.equal(picture.src,'/assets/characters/ingrid.svg');
 assert.equal(V.chooseAvatar('../evil.svg'),false,'Untrusted avatar path allowed');
@@ -141,6 +142,30 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
  assert.equal(await V.sendFree(),false);
  assert.equal(input.value,'Hva betyr det?');
  assert.equal(checkpoint,checkpointBefore);
+ // Typed input altered while an AI response is pending must not be lost.
+ input.value='Hva koster billetten?';
+ let finishTyping;
+ window.neApiPost=async()=>new Promise(resolve=>{finishTyping=resolve});
+ const beforeEdited=checkpoint,changedRequest=V.sendFree();
+ input.value='Kan jeg betale med kort?';
+ finishTyping({ok:true,data:{reply_no:'Ja, det kan du.'}});
+ assert.equal(await changedRequest,false);
+ assert.equal(input.value,'Kan jeg betale med kort?');
+ assert.equal(checkpoint,beforeEdited);
+ // Local microphone populates a draft, never counts as a scored answer.
+ let recognition;
+ window.SpeechRecognition=class{
+  start(){recognition=this;}
+  stop(){this.onend?.();}
+ };
+ const startMic=V.dictateFree();
+ assert.equal(startMic,true);
+ assert.equal(recognition.lang,'nb-NO');
+ input.value='';
+ recognition.onresult({results:[[{transcript:'Unnskyld, hvor er holdeplassen?'}]]});
+ assert.equal(input.value,'Unnskyld, hvor er holdeplassen?');
+ recognition.onend();
+ delete window.SpeechRecognition;
  // Max 6 user turns even if data is imported into a checkpoint.
  progress.freeChat=Array.from({length:12},(_,i)=>({role:i%2===0?'user':'assistant',text:'ok'}));
  assert.equal(await V.sendFree(),false);
