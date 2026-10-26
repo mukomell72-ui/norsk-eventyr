@@ -389,7 +389,8 @@ const server=http.createServer(async(req,res)=>{
   assert.equal(partialRewrite.attempts,firstRewrite.attempts,'Revisions must not add adaptive evidence');
   await page.locator('#freeAnswer').fill('Jeg jobber i dag. Jeg går hjem klokka fem.');
   await page.evaluate(()=>checkFree('writing'));await page.waitForTimeout(230);
-  const correctedRewrite=await page.evaluate(()=>({locked:lessonSession.locked,fb:document.getElementById('freeFb')?.innerText||'',
+  await page.locator('#freeFb .ne-feedback-details > summary').click();
+   const correctedRewrite=await page.evaluate(()=>({locked:lessonSession.locked,fb:document.getElementById('freeFb')?.innerText||'',
     grade:lessonSession.firstGraded?.['free:writing:5'],scores:lessonSession.xpScores.length,attempts:state.learningV8.attempts.length}));
   assert.equal(correctedRewrite.locked,true,'Correct 100/100 allows manual progression');
   assert(correctedRewrite.fb.includes('100/100')&&correctedRewrite.fb.includes('35/100'),
