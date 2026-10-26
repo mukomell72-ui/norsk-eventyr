@@ -105,7 +105,7 @@ assert(display.innerHTML.includes('Измени текст'));
  assert(app.includes('>Исправить ещё</button>'),'Accepted speaking or dialogue response must allow rewrites');
  assert(src.includes("LESSON_PATCH='-lesson24'"),'Fresh lesson assets must be selected');
  assert(index.includes('8.3.0-lesson24'),'Fresh bootstrap must load on mobile');
- assert(sw.includes('norsk-eventyr-v8-3-0-story2-lesson24'),'Offline cache must represent the current story bundle');
+ assert(sw.includes('norsk-eventyr-v8-3-0-lesson24')&&sw.includes('-audit11-story2'),'Offline cache must represent the current story bundle');
  assert(sw.includes('cache:"no-cache"'),'Updated PWA must request fresh app scripts on revisits');
  console.log('PASS AI correction retries: editable, first grade unchanged, latest score shown, refresh ready');
 })().catch(e=>{console.error(e);process.exitCode=1;});
