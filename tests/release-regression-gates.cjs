@@ -22,8 +22,8 @@ const baseCache='norsk-eventyr-v'+v.replaceAll('.','-');
 const actualCache=(sw.match(/^const CACHE="([^"]+)";/m)||[])[1];
 // New narrative assets use independent cache-busting suffixes. Preserve the
 // established 8.3.0 release gates while verifying the story bundle separately.
-const storyRevision=(actualCache?.startsWith(baseCache)?actualCache.slice(baseCache.length).match(/^-story[1-9][0-9]*/)?.[0]:'')||'';
-const assetRevision=actualCache?.startsWith(baseCache)?actualCache.slice(baseCache.length).slice(storyRevision.length):null;
+const storyRevision=(actualCache?.startsWith(baseCache)?actualCache.match(/-story[1-9][0-9]*$/)?.[0]:'')||'';
+const assetRevision=actualCache?.startsWith(baseCache)?actualCache.slice(baseCache.length,actualCache.length-storyRevision.length):null;
 const storySuffix=pathname=>pathname==='/access.js'||pathname==='/v8.css'||['/app.js','/guided-speaking.js','/adaptive-teacher.js','/living-day.js','/story-journey.js'].includes(pathname)?'-story1':
  pathname==='/story-journey-advanced.js'?'-story2':'';
 const auditSuffix=(assetRevision?.match(/(-audit[1-9][0-9]*)$/)||[])[1]||'';
