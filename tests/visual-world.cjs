@@ -78,6 +78,8 @@ fakeDocument.querySelectorAll=()=>[talking];
 const speechEvents={};
 const utterance={addEventListener(name,callback){speechEvents[name]=callback}};
 assert.equal(V.bindSpeech(utterance,'partner'),true,'Voice must attach speech events');
+assert.equal(talking.active,false,'Queued speech must not animate before its start event');
+speechEvents.start();
 assert.equal(talking.active,true,'Speaking character moves during audio');
 speechEvents.pause();assert.equal(talking.active,false,'Speech pause must stop movement');
 speechEvents.resume();assert.equal(talking.active,true,'Speech resumes movement');
@@ -98,16 +100,21 @@ assert(V.guide({activity:'Les teksten.'}).includes('ne-world-guide-face'),'Nora 
 const events2={};
 const utterance2={text:'Kan du komme?',rate:.86,addEventListener(type,fn){events2[type]=fn}};
 assert.equal(V.bindSpeech(utterance2,'partner'),true);
-events2.boundary({charIndex:1});events2.error();
+assert.equal(talking.active,false,'Next utterance must remain still until audio begins');
+events2.start();events2.boundary({charIndex:1});events2.error();
 assert.equal(talking.active,false,'Viseme movement must stop on speech error');
 const voice3Events={};
 const voice3={text:'Jeg snakker nå.',rate:.9,addEventListener(k,v){voice3Events[k]=v}};
 assert.equal(V.bindSpeech(voice3,'partner'),true);
+voice3Events.start();
+assert.equal(talking.active,true,'Voice must animate after start');
 const priorSaves=saved;
 assert.equal(V.toggleLipSync(),true,'Should be able to disable lip animation');
 assert.equal(s.learningV8.visualWorld.lipSync,false);
 assert.equal(saved,priorSaves+1,'Lip-sync setting must be saved');
 assert.equal(talking.active,false,'Turning off animation must stop current visual activity');
+voice3Events.end();
+assert.equal(talking.active,false,'Late events after disabling lips must not restart movement');
 assert.equal(V.bindSpeech(voice3,'partner'),false,'Disabled animation must stay disabled');
 assert.equal(V.toggleLipSync(),true);
 assert.equal(V.lipPreference(),true);
@@ -132,7 +139,7 @@ assert(guided.includes('window.NEVisualWorld?.render?.')&&guided.includes('windo
 const access=read('access.js'),sw=read('sw.js'),html=read('index.html');
 assert(read('nora-experience.js').includes('NEVisualWorld?.guide?.(b)'),'Nora visual guide must appear throughout the lesson');
 assert(access.includes("'visual-world.js','guided-speaking.js'"),'Visual world should load before guided speech');
-assert(sw.includes('/visual-world.js?v=8.3.0-world7')&&sw.includes('/visual-world.css?v=8.3.0-world5'),'Offline assets missing');
+assert(sw.includes('/visual-world.js?v=8.3.0-world8')&&sw.includes('/visual-world.css?v=8.3.0-world5'),'Offline assets missing');
 assert(html.includes('/visual-world.css?v=8.3.0-world5'),'Fresh styles not loaded');
 assert(source.includes('typeof window.saveState')&&source.includes('aria-pressed'),'Avatar state not personal');
 console.log('PASS animated conversations: adult illustrations, escaped scene, learner answers, voice response, continuity, saved avatar, reduced motion and PWA');
@@ -177,6 +184,8 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
  assert.equal(await V.sendFree(),false,'Only one concurrent message is allowed');
  release({ok:true,data:{reply_no:'Jeg jobber her.'}});
  assert.equal(await request,true);
+ assert.deepEqual(Array.from(progress.freeChat,x=>x.role),['user','assistant','user','assistant'],'Free conversation must preserve complete turn pairs');
+ assert.equal(progress.freeChat[0].text,'Unnskyld, kan du hjelpe meg?','First message must not silently disappear');
  // Responses for other lessons/screens must not write into the new checkpoint.
  input.value='Kan du anbefale noe?';
  let resolveOld;
@@ -217,6 +226,11 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
  input.value='';
  recognition.onresult({results:[[{transcript:'Unnskyld, hvor er holdeplassen?'}]]});
  assert.equal(input.value,'Unnskyld, hvor er holdeplassen?');
+ const beforeStaleMicError=freeStatus.textContent;
+ window.neLessonSession={lesson:{id:'different'},guidedSpeech:{index:0}};
+ recognition.onerror();
+ assert.equal(freeStatus.textContent,beforeStaleMicError,'Old microphone error must not change the next lesson');
+ window.neLessonSession=previousSession;
  recognition.onend();
  delete window.SpeechRecognition;
  // Max 6 user turns even if data is imported into a checkpoint.
