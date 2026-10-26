@@ -206,7 +206,6 @@
    freeStatus('Микрофон сейчас недоступен. Напиши реплику.');
    return false;
   }
-  const atStart=field.value;
   const lessonSession=window.neLessonSession;
   freeRecognition=speech;
   const btn=document.getElementById('neWorldFreeMic');
@@ -218,7 +217,7 @@
    if(!raw)return;
    // Preserve text entered after microphone activation. Never silently erase it.
    const current=field.value.trim();
-   field.value=current&&current!==atStart?current+' '+raw:atStart.trim()?atStart.trim()+' '+raw:raw;
+   field.value=current?current+' '+raw:raw;
    freeStatus('Распознано. Проверь текст, затем отправь реплику.');
   };
   speech.onerror=()=>freeStatus('Распознавание не завершилось. Попробуй ещё раз или напиши текст.');
