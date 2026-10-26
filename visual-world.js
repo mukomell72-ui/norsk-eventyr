@@ -46,7 +46,7 @@
   if(!scene||!step||!progress)return '';
   const currentAvatar=preference();
   const who=personName(scene,progress.index,moduleId);
-  const partner=actorKey(who);
+  const partner=actorKey(scene.actor);
   const last=sceneLine(scene,progress);
   const spoken=progress.turns.filter(x=>x.spoken).length;
   const total=progress.turns.length;
