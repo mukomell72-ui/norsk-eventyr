@@ -61,3 +61,16 @@
 @media(max-width:600px){.ne-world{margin:10px -9px 16px;padding:13px 12px;border-radius:20px}.ne-world-location{margin-bottom:12px}.ne-world-stage{gap:6px}.ne-world-portrait-wrap{border-radius:18px 18px 10px 10px;border-width:3px}.ne-world-name span{display:none}.ne-world-dialogue{gap:7px}.ne-world-line{min-height:105px;padding:10px 11px}.ne-world-coaching{padding:12px}.ne-world-audio{flex:1 1 130px;text-align:center}.ne-world-sky{height:170px}}
 @media(max-width:360px){.ne-world-portrait-wrap{width:76px;height:98px}.ne-world-name{padding:5px 7px;font-size:11px}.ne-world-line p{font-size:14px}}
 @media(prefers-reduced-motion:reduce){.ne-world *, .ne-world *::before,.ne-world *::after{animation:none!important;transition:none!important;transform:none!important}}
+
+/* Nora remains present as an optional spoken coach in reading/listening/writing. */
+.ne-world-guide{display:flex;align-items:center;gap:14px;padding:12px 15px;margin:13px 0 17px;border-radius:18px;background:linear-gradient(110deg,#e1f3f0,#fff4ed);color:#264e56;border:1px solid #b4d9d1;box-shadow:0 8px 22px rgba(19,76,76,.08)}
+.ne-world-guide-portrait{object-fit:cover;object-position:center 25%;flex:none;width:70px;height:83px;border-radius:16px;border:3px solid #fff;box-shadow:0 6px 16px rgba(42,80,83,.13);animation:ne-world-breathe 6s ease-in-out infinite}
+.ne-world-guide-portrait.ne-world-guide-talking{animation:ne-world-talk .45s ease-in-out 5}
+.ne-world-guide-copy{min-width:0;flex:1}
+.ne-world-guide-copy strong{font-weight:800;color:#28746d;font-size:13px}
+.ne-world-guide-copy p{margin:4px 0 6px;font-size:clamp(14px,3.4vw,17px);font-weight:700;line-height:1.45}
+.ne-world-guide-speak{border:0;background:transparent;color:#1a6275;font:inherit;font-size:13px;font-weight:800;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:3px 0}
+.ne-world-guide-speak:focus-visible{outline:3px solid #197cc4;outline-offset:3px;border-radius:3px}
+.ne-world-guide-copy small{display:block;font-size:11px;font-weight:500;line-height:1.5;color:#4a6572}
+@media(max-width:460px){.ne-world-guide{gap:10px;padding:10px;border-radius:14px}.ne-world-guide-portrait{width:58px;height:72px}}
+@media(prefers-reduced-motion:reduce){.ne-world-guide-portrait,.ne-world-guide-portrait.ne-world-guide-talking{animation:none!important}}
