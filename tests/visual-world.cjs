@@ -58,6 +58,7 @@ for(const f of ['ingrid.svg','mari.svg','erik.svg']){
 }
 assert(guided.includes('window.NEVisualWorld?.render?.')&&guided.includes('window.NEVisualWorld?.updateOwn?.')&&guided.includes('window.NEVisualWorld?.accepted?.'),'Native dialogue not connected');
 const access=read('access.js'),sw=read('sw.js'),html=read('index.html');
+assert(read('nora-experience.js').includes('NEVisualWorld?.guide?.(b)'),'Nora visual guide must appear throughout the lesson');
 assert(access.includes("'visual-world.js','guided-speaking.js'"),'Visual world should load before guided speech');
 assert(sw.includes('/visual-world.js?v=8.3.0-world1')&&sw.includes('/visual-world.css?v=8.3.0-world1'),'Offline assets missing');
 assert(html.includes('/visual-world.css?v=8.3.0-world1'),'Fresh styles not loaded');
