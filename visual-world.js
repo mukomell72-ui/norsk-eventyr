@@ -398,6 +398,20 @@
   freeStatus(spoken?'Повторяю последнюю реплику собеседника.':'Озвучка на этом устройстве недоступна. Текст сохранён в истории.');
   return spoken;
  }
+ // Contextual recycling only: draw existing Bokmål words from the active lesson.
+ // This does not create a vocabulary grade or mark an item mastered.
+ function sceneWords(lesson){
+  const source=Array.isArray(lesson?.vocab)?lesson.vocab:[];
+  const seen=new Set(),result=[];
+  for(const entry of source){
+   const raw=Array.isArray(entry)?entry[0]:(entry?.no||entry?.word||entry?.lemma);
+   const word=String(raw||'').trim();
+   if(!/^[A-Za-zÆØÅæøå][A-Za-zÆØÅæøå\s-]{1,39}$/u.test(word))continue;
+   const id=word.toLocaleLowerCase('nb-NO');if(seen.has(id))continue;
+   seen.add(id);result.push(word);if(result.length>=5)break;
+  }
+  return result;
+ }
  function appendFree(role,value,label){
   const root=document.getElementById('neWorldFreeLog');
   if(!root||typeof document.createElement!=='function')return;
@@ -413,11 +427,12 @@
   const field=document.getElementById('neWorldFreeInput');
   const button=document.getElementById('neWorldFreeSend');
   const message=field?.value?.trim();
-  if(!session||!progress||!scene||!message||freePending.has(progress))return false;
-  if(message.length>350){freeStatus('Не больше 350 символов за реплику.');return false}
+  if(!session||!progress||!scene||!field||freePending.has(progress))return false;
   const history=Array.isArray(progress.freeChat)?progress.freeChat:[];
   const already=history.filter(t=>t?.role==='user').length;
   if(already>=6){freeStatus('Шесть свободных реплик использованы. Продолжи основной урок.');return false}
+  if(!message)return false;
+  if(message.length>350){freeStatus('Не больше 350 символов за реплику.');return false}
   if(typeof window.neApiPost!=='function'){freeStatus('Свободный диалог требует подключения к AI. Основной урок доступен.');return false}
   const turnIndex=progress.index;
   freePending.add(progress);if(button)button.disabled=true;
@@ -432,7 +447,7 @@
     scenario:'Свободная необязательная практика без баллов и без экзамена. Место: '+String(scene.scene||'').slice(0,180)+
       '. Ты реальный человек в роли '+String(scene.actor||'норвежского собеседника').slice(0,100)+
       '. Ответь ПО-НОРВЕЖСКИ Bokmål естественно и кратко (1–2 предложения). По возможности задай один неожиданный, но уместный вопрос. Не отвечай за ученика. Не меняй сюжет оценочного урока. Не обещай действительных записей, цен, услуг или встреч.',
-    history:transcript
+    history:transcript,practiceWords:sceneWords(lesson)
    });
    if(window.neLessonSession!==session||session.guidedSpeech!==progress||progress.index!==turnIndex||!field?.isConnected)return false;
    if(field.value.trim()!==message){
