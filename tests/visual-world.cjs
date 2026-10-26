@@ -206,4 +206,3 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
   console.log('PASS illustrated mobile Chromium: 3 portraits loaded, colorful scene, no horizontal overflow, screenshot stored');
  }finally{await browser.close()}
 })().catch(err=>{console.error(err);process.exitCode=1});
-
