@@ -74,7 +74,15 @@
       '<div class="ne-world-actions">'+
         '<button type="button" class="ne-world-audio" onclick="NEVisualWorld.speakPartner()">Слушать собеседника</button>'+
         '<button type="button" class="ne-world-audio" onclick="NEVisualWorld.speakTask()">Нора объясняет вслух</button>'+
-      '</div><p class="ne-world-voice-status" id="neWorldVoiceStatus" role="status"></p></div>'+
+      '</div><p class="ne-world-voice-status" id="neWorldVoiceStatus" role="status"></p>'+
+      '<div class="ne-world-rescue" role="group" aria-label="Как выйти из затруднения в реальном разговоре">'+
+      '<strong>Если не расслышал — попроси собеседника помочь.</strong>'+
+      '<div class="ne-world-rescue-actions">'+
+      '<button type="button" onclick="NEVisualWorld.practice(\'repeat\')">Повторить</button>'+
+      '<button type="button" onclick="NEVisualWorld.practice(\'slow\')">Помедленнее</button>'+
+      '<button type="button" onclick="NEVisualWorld.practice(\'think\')">Дать время</button>'+
+      '</div><div id="neWorldPracticeFeedback" class="ne-world-practice" role="status" aria-live="polite" hidden></div>'+
+      '<small>Произнеси фразу вслух. Это практика без оценки и без продвижения урока.</small></div></div>'+
    '<details class="ne-world-avatar-picker"><summary>Изменить свой аватар</summary>'+
      '<div class="ne-world-avatar-options" role="group" aria-label="Учебный аватар">'+
      [['erik','Алекс'],['ingrid','Ингрид'],['mari','Мари']].map(([id,name])=>
@@ -139,6 +147,27 @@
    animate('coach');synth.speak(u);status('Нора озвучивает задание.');
   }catch{status('Озвучка сейчас недоступна. Задание показано на экране.')}
  }
+ const RESCUE=Object.freeze({
+  repeat:{phrase:'Kan du gjenta det, vær så snill?',prefix:'Ja, selvfølgelig. ',rate:.85},
+  slow:{phrase:'Kan du snakke litt saktere?',prefix:'Selvfølgelig. ',rate:.70},
+  think:{phrase:'Kan jeg få litt tid til å tenke?',prefix:'Det går bra. Ta den tiden du trenger.',rate:.84}
+ });
+ function practice(kind){
+  const option=Object.prototype.hasOwnProperty.call(RESCUE,kind)?RESCUE[kind]:null;
+  if(!option)return false;
+  const session=window.neLessonSession,progress=session?.guidedSpeech;
+  const scene=window.NEGuidedSpeaking?.definition?.(session?.lesson);
+  if(!scene||!progress||!Number.isInteger(progress.index))return false;
+  const node=document.getElementById('neWorldPracticeFeedback');if(!node)return false;
+  const reply=kind==='think'?option.prefix:option.prefix+sceneLine(scene,progress);
+  node.textContent='Твоя фраза: «'+option.phrase+'» Возможный ответ собеседника: «'+reply+'»';
+  node.hidden=false;
+  status('Произнеси полезную фразу, затем продолжай исходное задание.');
+  // The exercise is formative only: no score, no credit, no stage advancement,
+  // no transcript mutation and no stored fake voice evidence.
+  if(typeof window.speakText==='function'){try{animate('partner');window.speakText(reply,option.rate)}catch{}}
+  return true;
+ }
  function accepted(answer,reply){
   updateOwn(answer);
   const el=document.getElementById('neWorldReaction');
@@ -172,5 +201,5 @@
    synth.speak(u);message('Нора объясняет задание.');
   }catch{message('Озвучка недоступна. Задание написано на экране.')}
  }
- window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,accepted,theme});
+ window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,accepted,theme});
 })();

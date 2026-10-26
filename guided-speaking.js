@@ -221,12 +221,13 @@ function freeExGuided(l){
  }
  transcript.push('</div>');
  const world=window.NEVisualWorld?.render?.({lesson:l,scene,progress,step,moduleId:normalizeModule(l)})||'';
+ const history=world?'<details class="ne-world-history"><summary>История диалога · '+(progress.turns.length+1)+' реплик собеседника</summary>'+transcript.join('')+'</details>':transcript.join('');
  return '<article class="card guided-speaking"><div class="eyebrow">Устная речь · диалог с собеседником</div>'+
  (world?'<div class="guided-scene" hidden>'+esc(scene.scene)+'</div>':'<div class="guided-scene">'+esc(scene.scene)+'</div>')+
  world+
  translation+
  '<div class="guided-progress">Реплика '+(progress.index+1)+' из '+scene.steps.length+'</div>'+
- transcript.join('')+
+ history+
  (progress.flowNotice?'<div class="notice" role="status">Диалог обновлён: продолжим с вежливой фразы знакомства. Предыдущие реплики сохранены до этого шага.</div>':'')+
  '<div class="guided-task"><b>Твой ход</b><p>'+esc(step.task)+'</p></div>'+
  '<textarea id="freeAnswer" name="guided-answer-'+esc(l.id)+'-'+progress.index+'" data-guided-turn="'+progress.index+'" class="input" rows="2" autocomplete="off" placeholder="Твой ответ по-норвежски…" oninput="this.dataset.fromVoice=\'false\';neGuidedAnswerEdited(this)"></textarea>'+

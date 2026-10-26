@@ -4,8 +4,8 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('nod
 const root=path.join(__dirname,'..'),read=f=>fs.readFileSync(path.join(root,f),'utf8');
 const source=read('visual-world.js'),style=read('visual-world.css'),guided=read('guided-speaking.js');
 const s={learningV8:{}};
-let own={textContent:''},reaction={hidden:true,textContent:''},picture={src:''},voiceStatus={textContent:''};
-const elements={neWorldOwnWords:own,neWorldReaction:reaction,neWorldSelfImage:picture,neWorldVoiceStatus:voiceStatus};
+let own={textContent:''},reaction={hidden:true,textContent:''},picture={src:''},voiceStatus={textContent:''},rescue={hidden:true,textContent:''};
+const elements={neWorldOwnWords:own,neWorldReaction:reaction,neWorldSelfImage:picture,neWorldVoiceStatus:voiceStatus,neWorldPracticeFeedback:rescue};
 let saved=0,spoke='',calls=0;
 const lesson={id:'l1',level:'A2',_adaptive:{moduleId:'a2-work'}};
 const scene={scene:'В офисе <неожиданность>',actor:'Mari · руководитель',opening:'Hei! Når kan du komme?',steps:[
@@ -50,6 +50,17 @@ assert(hidden.includes('Сотрудник'),'A1 undisclosed character role miss
 const current=V.render({lesson,scene,progress,step:scene.steps[1],moduleId:'a2-work'});
 assert(current.includes('Det passer fint.'),'Historical dialogue should carry forward into new stage');
 assert(style.includes('prefers-reduced-motion:reduce'),'Motion accessibility preference unsupported');
+const beforePractice=JSON.stringify(progress),beforeCredit=saved;
+assert.equal(V.practice('repeat'),true);
+assert(rescue.textContent.includes('Kan du gjenta det')&&rescue.textContent.includes('Det passer fint.'));
+assert.equal(V.practice('slow'),true);
+assert(rescue.textContent.includes('Kan du snakke litt saktere'));
+assert.equal(V.practice('think'),true);
+assert(rescue.textContent.includes('Kan jeg få litt tid'));
+assert.equal(V.practice('not-allowed'),false);
+assert.equal(JSON.stringify(progress),beforePractice,'Recovery phrases must not create progress');
+assert.equal(saved,beforeCredit,'Recovery phrases may not award XP or fake evidence');
+assert(guided.includes('ne-world-history'),'Conversation history should be collapsible to avoid duplicate visual bubbles');
 assert(style.includes('.ne-world-character')&&style.includes('ne-world-talk'),'No actual character animation');
 for(const f of ['ingrid.svg','mari.svg','erik.svg']){
  const img=read('assets/characters/'+f);

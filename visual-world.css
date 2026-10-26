@@ -74,3 +74,16 @@
 .ne-world-guide-copy small{display:block;font-size:11px;font-weight:500;line-height:1.5;color:#4a6572}
 @media(max-width:460px){.ne-world-guide{gap:10px;padding:10px;border-radius:14px}.ne-world-guide-portrait{width:58px;height:72px}}
 @media(prefers-reduced-motion:reduce){.ne-world-guide-portrait,.ne-world-guide-portrait.ne-world-guide-talking{animation:none!important}}
+
+/* Real-world communication recovery phrases: useful but ungraded. */
+.ne-world-rescue{border-top:1px solid rgba(34,104,91,.2);padding-top:12px;margin-top:12px}
+.ne-world-rescue strong{display:block;font-weight:770;font-size:13px;color:#255e66;margin-bottom:9px}
+.ne-world-rescue-actions{display:flex;gap:7px;flex-wrap:wrap}
+.ne-world-rescue-actions button{font:inherit;cursor:pointer;flex:1 1 95px;background:#fff;color:#246070;border:1px solid #a2cdce;border-radius:12px;padding:8px 9px;font-size:13px;font-weight:750}
+.ne-world-rescue-actions button:focus-visible{outline:3px solid #197cc4;outline-offset:2px}
+.ne-world-rescue small{display:block;margin-top:8px;font-size:12px;color:#416b72}
+.ne-world-practice{margin-top:10px;background:#fff;color:#195e55;border:1px solid #9bcfc6;border-radius:12px;padding:11px 13px;line-height:1.5}
+.ne-world-practice[hidden]{display:none}
+.ne-world-history{margin:9px 0 13px;padding:10px 14px;background:#f9fcfe;border:1px solid #cfdee6;border-radius:12px}
+.ne-world-history summary{cursor:pointer;font-weight:770;font-size:13px;color:#236276}
+.ne-world-history .guided-chat-history{margin:10px 0 0;max-height:350px}
