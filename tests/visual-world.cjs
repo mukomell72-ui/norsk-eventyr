@@ -111,7 +111,7 @@ const access=read('access.js'),sw=read('sw.js'),html=read('index.html');
 assert(read('nora-experience.js').includes('NEVisualWorld?.guide?.(b)'),'Nora visual guide must appear throughout the lesson');
 assert(access.includes("'visual-world.js','guided-speaking.js'"),'Visual world should load before guided speech');
 assert(sw.includes('/visual-world.js?v=8.3.0-world5')&&sw.includes('/visual-world.css?v=8.3.0-world3'),'Offline assets missing');
-assert(html.includes('/visual-world.css?v=8.3.0-world2'),'Fresh styles not loaded');
+assert(html.includes('/visual-world.css?v=8.3.0-world3'),'Fresh styles not loaded');
 assert(source.includes('typeof window.saveState')&&source.includes('aria-pressed'),'Avatar state not personal');
 console.log('PASS animated conversations: adult illustrations, escaped scene, learner answers, voice response, continuity, saved avatar, reduced motion and PWA');
 
