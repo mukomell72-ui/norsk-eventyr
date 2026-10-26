@@ -169,3 +169,22 @@
 .ne-world-mouth{display:block;transform:translate(-50%,-50%) rotate(var(--ne-mouth-tilt));}
 .ne-world-mouth-svg{display:block;width:100%;height:auto;overflow:visible}
 [data-ne-face="mari"]{--ne-mouth-x:29%}
+
+/* Equal specificity with default landmark declarations is required: unscoped
+   [data-ne-face] rules were overridden by .ne-world-portrait-wrap[data-ne-face]. */
+.ne-world-portrait-wrap[data-ne-face="nora"],.ne-world-guide-face[data-ne-face="nora"]{
+ --ne-mouth-x:50%;--ne-mouth-y:43%;--ne-mouth-width:18%;--ne-mouth-tilt:-5deg;
+ --ne-mouth-skin:#c78e77;--ne-mouth-outline:#925149
+}
+.ne-world-portrait-wrap[data-ne-face="mari"]{
+ --ne-mouth-x:31%;--ne-mouth-y:52%;--ne-mouth-width:21%;--ne-mouth-tilt:8deg;
+ --ne-mouth-skin:#d5a08c;--ne-mouth-outline:#a26154
+}
+.ne-world-portrait-wrap[data-ne-face="ingrid"]{
+ --ne-mouth-x:67%;--ne-mouth-y:54%;--ne-mouth-width:24%;--ne-mouth-tilt:8deg;
+ --ne-mouth-skin:#d7a181;--ne-mouth-outline:#96584d
+}
+.ne-world-portrait-wrap[data-ne-face="erik"]{
+ --ne-mouth-x:25%;--ne-mouth-y:38%;--ne-mouth-width:13%;--ne-mouth-tilt:0deg;
+ --ne-mouth-skin:#b88872;--ne-mouth-outline:#6d4f42
+}

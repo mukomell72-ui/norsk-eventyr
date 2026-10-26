@@ -228,6 +228,14 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
   assert.equal(horizontal,false,'Visual stage overflows mobile viewport');
   fs.mkdirSync(path.join(__dirname,'artifacts'),{recursive:true});
   await page.screenshot({path:path.join(__dirname,'artifacts','nora-living-world-mobile.png'),fullPage:true});
+  const landmarks=await page.locator('.ne-world-partner .ne-world-portrait-wrap').evaluate(el=>({
+   face:el.getAttribute('data-ne-face'),
+   x:getComputedStyle(el).getPropertyValue('--ne-mouth-x').trim(),
+   y:getComputedStyle(el).getPropertyValue('--ne-mouth-y').trim()
+  }));
+  assert.equal(landmarks.face,'mari');
+  assert.equal(landmarks.x,'31%','Individual mouth landmark must override general defaults');
+  assert.equal(landmarks.y,'52%','Mouth landmark must align to lower face');
   await page.locator('.ne-world-partner').evaluate(el=>{
    el.classList.add('ne-world-talking');
    el.setAttribute('data-ne-viseme','wide');
