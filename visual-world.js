@@ -5,9 +5,9 @@
  const e=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[c]));
  const portraits=Object.freeze({
   nora:'/assets/nora-v8.webp',
-  ingrid:'/assets/characters/ingrid.svg',
-  mari:'/assets/characters/mari.svg',
-  erik:'/assets/characters/erik.svg'
+  ingrid:'/assets/characters/ingrid.webp',
+  mari:'/assets/characters/mari.webp',
+  erik:'/assets/characters/erik.webp'
  });
  const actors={
   ingrid:'ingrid',ida:'ingrid',anna:'ingrid',sofie:'mari',mari:'mari',sara:'mari',maja:'mari',
