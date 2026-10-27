@@ -29,7 +29,7 @@ const markup=V.render({lesson,scene,progress,step:scene.steps[0],moduleId:'a2-wo
 assert(markup.includes('ne-world-office')&&markup.includes('Нора'), 'Interactive work scenario missing');
 assert(markup.includes('assets/characters/mari.webp'),'Attractive adult character portrait not selected');
 assert(V.theme({id:'a1-mobility'}, {scene:'På bussholdeplassen'})==='street','Bus scenes need outdoor Norwegian setting');
-assert(markup.includes('aria-label="Анимированная жизненная ситуация"'),'Scene lacks accessibility label');
+assert(markup.includes('aria-label="Практика жизненной ситуации"'),'Scene lacks accessibility label');
 assert(markup.includes('&lt;неожиданность&gt;')&&!markup.includes('<неожиданность>'),'User-facing scene must escape content');
 assert(markup.includes('&lt;можешь&gt;'),'Spoken lesson goal must escape content');
 assert(markup.includes('NEVisualWorld.speakPartner()')&&markup.includes('NEVisualWorld.speakTask()'),'Speaking cues missing');
