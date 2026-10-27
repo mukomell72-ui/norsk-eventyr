@@ -163,6 +163,28 @@
     try{mic.start();if(status)status.textContent='Слушаю '+(language==='ru'?'по-русски':'на норвежском')+'…';return true}
     catch{if(neHelpSpeech===mic)neHelpSpeech=null;if(status)status.textContent='Микрофон сейчас недоступен.';return false}
   }
+  // Recognize explicit help requests even when the learner types them into
+  // the main writing or dialogue box and presses its usual Check button.
+  // A legitimate Norwegian answer must pass through unchanged.
+  function v7HelpFromLessonAnswer(text,source){
+    const raw=String(text||'').trim();
+    if(!/[\u0400-\u04ff]/u.test(raw)||
+       !/(?:не\s+(?:знаю|помню|понимаю|понял|поняла)|забыл(?:а)?|как\s+(?:сказать|будет|перевести)|что\s+(?:значит|означает)|подскажи|помоги|объясни|переведи|повтори|медленнее)/iu.test(raw))return false;
+    const session=window.neLessonSession,panel=document.getElementById('helpPanelV7');
+    const input=document.getElementById('helpQuestionV7');
+    if(!session?.lesson||!panel||!input)return false;
+    if(panel.hidden)v7OpenHelp();
+    const send=document.getElementById('helpSendV7');
+    if(send?.disabled){
+      const box=document.getElementById('helpReplyV7');
+      if(box)box.textContent='Нора отвечает на предыдущий вопрос. Твой исходный ответ не изменён.';
+      return true;
+    }
+    input.value=raw.slice(0,1800);
+    if(input.dataset)input.dataset.fromSpeech=['true','recognition'].includes(String(source?.dataset?.fromVoice||''))?'true':'false';
+    void v7AskHelp();
+    return true;
+  }
   async function v7AskHelp(){
     const input=document.getElementById("helpQuestionV7"),button=document.getElementById("helpSendV7"),box=document.getElementById("helpReplyV7");
     const question=input?.value.trim();if(!question||!button||button.disabled||!box)return;
@@ -212,7 +234,7 @@
       if(box.isConnected&&window.neScreenRevision===revision)box.textContent="Не удалось получить объяснение. Вопрос сохранён — попробуй ещё раз.";
     }finally{if(button.isConnected)button.disabled=false;}
   }
-  Object.assign(window,{v7OpenHelp,v7AskHelp,v7QuickHelp,v7DictateHelp});
+  Object.assign(window,{v7OpenHelp,v7AskHelp,v7QuickHelp,v7DictateHelp,v7HelpFromLessonAnswer});
 
   function guidedV7(){
     const day=todayKeyV7(),wordDue=dueCountV7(),adaptiveDue=window.NEAdaptive?NEAdaptive.dueReviews(state).length:0,
