@@ -83,12 +83,35 @@
     return setTimeout(()=>{if(revision===window.neScreenRevision)action()},delay);
   };
 
+  // Shared on-demand Nora coach. One memory per lesson step, stored in the
+  // existing checkpoint and never reused across unrelated learners or screens.
+  let neHelpSpeech=null;
+  function v7HelpState(session,create=false){
+    if(!session?.lesson)return null;
+    if(!session.helpV8&&create)session.helpV8={historyByStep:{},aidedSteps:{}};
+    return session.helpV8||null;
+  }
+  function v7HelpHistory(session,step){
+    const memory=v7HelpState(session);
+    const history=memory?.historyByStep?.[String(step)];
+    return Array.isArray(history)?history.slice(-8):[];
+  }
   function helpMarkupV7(guided=false){
-    // Guided lessons already provide a help button beside the answer.
-    // Keep the shared help panel for explanations, but do not show a second trigger.
+    const session=window.neLessonSession,step=session?.step;
+    const transcript=v7HelpHistory(session,step).map(turn=>
+      '<div class="ne-help-turn"><b>'+(turn.role==='assistant'?'Нора':'Ты')+'</b><p>'+h(String(turn.text||'').slice(0,1600))+'</p></div>'
+    ).join('');
+    // The generic helper remains available to Nora during guided lessons;
+    // visual-world.js also supplies its specialized in-scene tutor.
     return (guided?'<section class="ne-guided-help-mount">':'<section class="card" style="margin:16px 0">')+
-      (guided?'':'<button class="btn secondary" onclick="v7OpenHelp()" aria-controls="helpPanelV7" aria-expanded="false" id="helpToggleV7">Мне непонятно</button>')+
-      '<div id="helpPanelV7" hidden><p>Я помогу разобраться, не выполняя задание вместо тебя. Выбери быстрый вопрос или задай свой.</p><div class="ne-help-quick"><button type="button" onclick="v7QuickHelp(\'simple\')">Объясни проще</button><button type="button" onclick="v7QuickHelp(\'example\')">Похожий пример</button><button type="button" onclick="v7QuickHelp(\'why\')">Почему так?</button></div><textarea class="input" id="helpQuestionV7" maxlength="1800" rows="2" placeholder="Что ты хочешь спросить?"></textarea><div class="row" style="margin-top:10px"><button class="btn" id="helpSendV7" onclick="v7AskHelp()">Спросить Нору</button><button class="btn ghost" onclick="v7OpenHelp()">Закрыть</button></div><div id="helpReplyV7" role="status" aria-live="polite" style="white-space:pre-wrap;margin-top:12px"></div></div></section>';
+      (guided?'':'<button type="button" class="btn secondary" onclick="v7OpenHelp()" aria-controls="helpPanelV7" aria-expanded="false" id="helpToggleV7">Спросить Нору · русский / norsk</button>')+
+      '<div id="helpPanelV7" hidden><p>Спроси на русском или норвежском, даже смешивая языки. Нора объяснит и поможет продолжить текущую задачу, не решая её вместо тебя. После подсказки ответ считается тренировкой.</p>'+
+      '<div class="ne-help-quick"><button type="button" onclick="v7QuickHelp(\'simple\')">Объясни проще</button><button type="button" onclick="v7QuickHelp(\'example\')">Похожий пример</button><button type="button" onclick="v7QuickHelp(\'why\')">Почему так?</button></div>'+
+      '<div class="ne-help-log" id="helpLogV7" aria-live="polite">'+transcript+'</div>'+
+      '<label for="helpQuestionV7">Вопрос Норе</label><textarea class="input" id="helpQuestionV7" maxlength="1800" rows="2" placeholder="Jeg ... не помню, как будет «живу» ... i Norge?" oninput="this.dataset.fromSpeech=\'false\'"></textarea>'+
+      '<div class="row ne-help-actions" style="margin-top:10px"><button type="button" class="btn secondary" onclick="v7DictateHelp(\'ru\')">🎤 Русский</button><button type="button" class="btn secondary" onclick="v7DictateHelp(\'nb\')">🎤 Norsk</button><button type="button" class="btn" id="helpSendV7" onclick="v7AskHelp()">Спросить Нору</button><button type="button" class="btn ghost" onclick="v7OpenHelp()">Закрыть</button></div>'+
+      '<small>Микрофон распознаёт выбранный язык, а не оба одновременно. Проверь текст перед отправкой. Ответ Норы не начисляет баллы.</small>'+
+      '<div id="helpReplyV7" role="status" aria-live="polite" style="white-space:pre-wrap;margin-top:12px"></div></div></section>';
   }
   function v7OpenHelp(){
     const panel=document.getElementById("helpPanelV7");if(!panel)return;
@@ -108,33 +131,88 @@
     if(panel.hidden)v7OpenHelp();
     input.value=requests[kind];v7AskHelp();
   }
+  function v7DictateHelp(language){
+    const input=document.getElementById('helpQuestionV7'),panel=document.getElementById('helpPanelV7');
+    const status=document.getElementById('helpReplyV7');
+    const locale=language==='ru'?'ru-RU':language==='nb'?'nb-NO':'';
+    if(!locale||!input||!panel)return false;
+    const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(typeof Recognition!=='function'){
+      if(status)status.textContent='Распознавание речи недоступно: напиши вопрос вручную.';
+      return false;
+    }
+    try{neHelpSpeech?.abort?.()}catch{}
+    const old=input.value,revision=window.neScreenRevision,session=window.neLessonSession;
+    let mic;
+    try{mic=new Recognition()}catch{
+      if(status)status.textContent='Не удалось запустить микрофон.';
+      return false;
+    }
+    neHelpSpeech=mic;mic.lang=locale;mic.interimResults=false;mic.maxAlternatives=1;
+    mic.onresult=event=>{
+      if(neHelpSpeech!==mic||window.neScreenRevision!==revision||window.neLessonSession!==session||
+         !input.isConnected||input.value!==old)return;
+      const phrase=String(event.results?.[0]?.[0]?.transcript||'').trim();
+      if(!phrase)return;
+      input.value=[old.trim(),phrase].filter(Boolean).join(' ').slice(0,1800);
+      if(input.dataset)input.dataset.fromSpeech='true';
+      if(status?.isConnected)status.textContent='Проверь распознанную речь, затем нажми «Спросить Нору».';
+    };
+    mic.onerror=()=>{if(neHelpSpeech===mic&&status?.isConnected)status.textContent='Речь не распознана. Напиши вопрос текстом.'};
+    mic.onend=()=>{if(neHelpSpeech===mic)neHelpSpeech=null};
+    try{mic.start();if(status)status.textContent='Слушаю '+(language==='ru'?'по-русски':'на норвежском')+'…';return true}
+    catch{if(neHelpSpeech===mic)neHelpSpeech=null;if(status)status.textContent='Микрофон сейчас недоступен.';return false}
+  }
   async function v7AskHelp(){
     const input=document.getElementById("helpQuestionV7"),button=document.getElementById("helpSendV7"),box=document.getElementById("helpReplyV7");
-    const question=input?.value.trim();if(!question||!button||button.disabled)return;
-    const main=document.querySelector(".main-v7"),copy=main.cloneNode(true);
-    copy.querySelector("#helpPanelV7")?.parentElement.remove();
+    const question=input?.value.trim();if(!question||!button||button.disabled||!box)return;
+    const main=document.querySelector(".main-v7");if(!main)return;
+    const revision=window.neScreenRevision,session=window.neLessonSession,step=session?.step;
+    const copy=main.cloneNode(true);
+    copy.querySelector("#helpPanelV7")?.parentElement?.remove?.();
     const answer=Array.from(main.querySelectorAll("textarea,input")).filter(e=>e.id!=="helpQuestionV7").map(e=>e.value).filter(Boolean).join("\n");
-    const context=(copy.textContent+"\nОтвет ученика: "+answer).slice(0,6000);
-    const history=box._helpHistory||[];
+    const context=(copy.textContent+"\nЧерновик ответа ученика (ещё не проверен): "+answer).slice(0,6000);
+    const inPlacement=!!main.querySelector("#placementUnknown");
+    const history=v7HelpHistory(session,step);
+    const fallback=Array.isArray(box._helpHistory)?box._helpHistory:[];
+    const savedHistory=session?.lesson?history:fallback;
     button.disabled=true;box.textContent="Нора объясняет…";
     try{
-      // During the placement assessment, help may clarify instructions but
-      // must not reveal the answer or become unearned evidence of proficiency.
-      const inPlacement=!!main.querySelector("#placementUnknown");
+      // Diagnostic placement must remain independent of tutor hints.
       const request=inPlacement
         ?"Это диагностический тест. Объясни ученику по-русски только смысл формулировки и что от него требуется. Не называй правильный вариант, не переводи варианты ответов, не решай задание и не выдавай подсказок, раскрывающих решение. Если ученик не знает ответ, предложи нажать «Не знаю». Вопрос ученика: "+question
         :question;
-      const r=await neApiPost("/api/chat",{mode:"explain",message:request,context,level:state.level,history});
-      if(!box.isConnected)return;
-      const explanation=r.ok?String(r.data?.explanation_ru||r.data?.translation_ru||""):"";
-      if(!explanation){box.textContent="Объяснение сейчас недоступно. Вопрос сохранён — попробуй ещё раз.";return;}
-      box.textContent=explanation;
-      box._helpHistory=[...history,{role:"user",text:question},{role:"assistant",text:explanation}].slice(-8);
-      input.value="";
-    }catch{if(box.isConnected)box.textContent="Не удалось получить объяснение. Попробуй ещё раз."}
-    finally{button.disabled=false;}
+      const r=await neApiPost("/api/chat",{mode:"explain",scenario:inPlacement?"":"lesson_help",message:request,
+        inputSource:input?.dataset?.fromSpeech==='true'?'voice_transcript':'typed_text',context,level:state.level,history:savedHistory});
+      // A response to an old screen, question or lesson must never mark evidence.
+      if(!box.isConnected||window.neScreenRevision!==revision||
+         window.neLessonSession!==session||session?.step!==step||input.value.trim()!==question)return;
+      const explanation=r.ok?String(r.data?.explanation_ru||r.data?.translation_ru||"").trim():"";
+      if(!explanation){
+        box.textContent="Объяснение сейчас недоступно. Вопрос сохранён — попробуй ещё раз.";
+        return;
+      }
+      const updated=[...savedHistory,{role:"user",text:question},{role:"assistant",text:explanation}].slice(-8);
+      if(session?.lesson&&!inPlacement){
+        const memory=v7HelpState(session,true);
+        memory.historyByStep=memory.historyByStep||{};
+        memory.aidedSteps=memory.aidedSteps||{};
+        memory.historyByStep[String(step)]=updated;
+        memory.aidedSteps[String(step)]=true;
+        if(session.guidedSpeech?.index>=0){
+          session.guidedSpeech.aidedTurns=session.guidedSpeech.aidedTurns||{};
+          session.guidedSpeech.aidedTurns[String(session.guidedSpeech.index)]=true;
+        }
+        try{window.persistLessonCheckpoint?.()}catch{}
+      }
+      box._helpHistory=updated;
+      box.textContent=explanation+"\n\nЭто подсказка. Продолжи исходное задание самостоятельно.";
+      input.value="";if(input.dataset)input.dataset.fromSpeech='false';
+    }catch{
+      if(box.isConnected&&window.neScreenRevision===revision)box.textContent="Не удалось получить объяснение. Вопрос сохранён — попробуй ещё раз.";
+    }finally{if(button.isConnected)button.disabled=false;}
   }
-  Object.assign(window,{v7OpenHelp,v7AskHelp,v7QuickHelp});
+  Object.assign(window,{v7OpenHelp,v7AskHelp,v7QuickHelp,v7DictateHelp});
 
   function guidedV7(){
     const day=todayKeyV7(),wordDue=dueCountV7(),adaptiveDue=window.NEAdaptive?NEAdaptive.dueReviews(state).length:0,
