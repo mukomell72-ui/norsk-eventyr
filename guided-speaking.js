@@ -372,17 +372,23 @@ async function guidedCheck(){
  // Revisions show an updated grade but cannot award XP repeatedly.
  progress.firstScores=progress.firstScores&&typeof progress.firstScores==='object'&&!Array.isArray(progress.firstScores)?progress.firstScores:{};
  const scoreKey=String(index),firstAttempt=!Object.prototype.hasOwnProperty.call(progress.firstScores,scoreKey);
+ const aidedTurn=progress.aidedTurns?.[scoreKey]===true;
  if(firstAttempt){
   progress.firstScores[scoreKey]=score;
-  window.trackLessonScore(evidence,{label:spoken?'Реплика · речь':'Реплика · текст',strength:e.strengths_ru?.[0]||'',improvement:e.improvements_ru?.[0]||'',explanation:e.explanation_ru||'',corrected:e.corrected||'',rule:e.micro_rule_ru||'',scoreReason:e.score_reason_ru||''});
-  if(window.NEAdaptive){
-   window.NEAdaptive.recordAttempt(window.neLearnerState,{level:l.level,skill,score:evidence,moduleId:l?._adaptive?.moduleId||l.id,source:spoken?'lesson_free':'lesson_free_text',errorTag:e.error_tag||'',targetErrorTag:l?._adaptive?.errorTag||'',transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||''});
-   window.saveState();
+  // An answer after Nora's contextual help remains a learning attempt, not
+  // independent course evidence or a reason to award XP.
+  if(!aidedTurn){
+   window.trackLessonScore(evidence,{label:spoken?'Реплика · речь':'Реплика · текст',strength:e.strengths_ru?.[0]||'',improvement:e.improvements_ru?.[0]||'',explanation:e.explanation_ru||'',corrected:e.corrected||'',rule:e.micro_rule_ru||'',scoreReason:e.score_reason_ru||''});
+   if(window.NEAdaptive){
+    window.NEAdaptive.recordAttempt(window.neLearnerState,{level:l.level,skill,score:evidence,moduleId:l?._adaptive?.moduleId||l.id,source:spoken?'lesson_free':'lesson_free_text',errorTag:e.error_tag||'',targetErrorTag:l?._adaptive?.errorTag||'',transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||''});
+    window.saveState();
+   }
   }
   window.persistLessonCheckpoint?.();
  }
  progress.lastCheckedAnswer=a;
- const feedback=guidedGradeFeedback(e,score,ok,progress.firstScores[scoreKey],a);
+ const feedback=guidedGradeFeedback(e,score,ok,progress.firstScores[scoreKey],a)+
+  (aidedTurn?'<div class="notice" role="status">Ответ дан после подсказки Норы: это тренировка, а не самостоятельная проверка. Умение будет проверено позже без подсказки.</div>':'');
  if(!ok){
   s.locked=false;
   // The contextual help button already appears beside the answer field.
