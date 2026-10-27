@@ -97,7 +97,7 @@
     return Array.isArray(history)?history.slice(-8):[];
   }
   function helpMarkupV7(guided=false){
-    const session=window.neLessonSession,step=session?.step;
+    const session=typeof window!=='undefined'?window.neLessonSession:null,step=session?.step;
     const transcript=v7HelpHistory(session,step).map(turn=>
       '<div class="ne-help-turn"><b>'+(turn.role==='assistant'?'Нора':'Ты')+'</b><p>'+h(String(turn.text||'').slice(0,1600))+'</p></div>'
     ).join('');
