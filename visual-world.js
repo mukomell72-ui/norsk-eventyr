@@ -362,7 +362,9 @@
   tick();job.timer=window.setInterval(tick,70);
   return true;
  }
- function sayPartner(text,rate){
+ let speechUiGeneration=0;
+ function sayPartner(text,rate,onResult){
+  const generation=++speechUiGeneration;
   if(typeof window.speakText!=='function')return false;
   try{
    const scene=window.NEGuidedSpeaking?.definition?.(window.neLessonSession?.lesson);
@@ -372,8 +374,16 @@
    if(!utterance)return false;
    // Audio playback and optional mouth animation are independent.
    // Web Speech fallback has boundaries. AI audio has real PCM events.
-   if(utterance&&typeof utterance.addEventListener==='function')bindSpeech(utterance,'partner');
-   else if(utterance&&typeof utterance.catch==='function')utterance.catch(()=>{});
+   if(utterance&&typeof utterance.addEventListener==='function'){
+    bindSpeech(utterance,'partner');
+    if(typeof onResult==='function')Promise.resolve().then(()=>onResult({source:'device'},generation));
+   }else if(utterance&&typeof utterance.then==='function'){
+    // A failed AI/device playback must not be reported as a spoken line.
+    Promise.resolve(utterance).then(
+     result=>{if(typeof onResult==='function')onResult(result,generation)},
+     ()=>{if(typeof onResult==='function')onResult({source:'unavailable'},generation)}
+    );
+   }else if(typeof onResult==='function')Promise.resolve().then(()=>onResult(utterance,generation));
    return true;
   }catch{return false}
  }
@@ -381,12 +391,19 @@
   const el=document.getElementById('neWorldVoiceStatus');if(el)el.textContent=String(text||'');
  }
  function speakPartner(){
-  const lesson=window.neLessonSession?.lesson,progress=window.neLessonSession?.guidedSpeech;
+  const session=window.neLessonSession,lesson=session?.lesson,progress=session?.guidedSpeech;
   const scene=window.NEGuidedSpeaking?.definition?.(lesson);
-  if(!lesson||!progress||!scene)return;
-  const text=sceneLine(scene,progress);
-  if(typeof window.speakText==='function'){sayPartner(text,.88);status('Слушай живую норвежскую реплику.')}
-  else status('На этом устройстве нет доступной озвучки. Реплика показана на экране.');
+  if(!lesson||!progress||!scene)return false;
+  const text=sceneLine(scene,progress),turn=progress.index;
+  if(typeof window.speakText!=='function'){
+   status('На этом устройстве нет доступной озвучки. Реплика показана на экране.');return false;
+  }
+  const started=sayPartner(text,.88,(result,generation)=>{
+   if(generation!==speechUiGeneration||window.neLessonSession!==session||progress.index!==turn||result?.source==='cancelled')return;
+   status(['ai','human','device'].includes(result?.source)?'Собеседник произносит реплику.':'Звук недоступен — реплика показана на экране.');
+  });
+  status(started?'Собеседник готовит реплику…':'Не удалось запустить звук. Реплика показана на экране.');
+  return started;
  }
  function speakTask(){
   const lesson=window.neLessonSession?.lesson,progress=window.neLessonSession?.guidedSpeech;
@@ -396,12 +413,14 @@
   const index=progress.index,text=('Твоя задача: '+String(task)).slice(0,600);
   if(typeof window.speakText!=='function'){status('Озвучка недоступна. Задание показано на экране.');return}
   expectedSpokenAudio={text,role:'coach'};
+  const generation=++speechUiGeneration;
   status('Нора готовит объяснение на русском…');
   try{Promise.resolve(window.speakText(text,.92,null,'marin','ru-RU')).then(result=>{
-   if(window.neLessonSession?.lesson!==lesson||progress.index!==index)return;
+   if(generation!==speechUiGeneration||window.neLessonSession?.lesson!==lesson||progress.index!==index||result?.source==='cancelled')return;
    status(['ai','human','device'].includes(result?.source)?'Нора объясняет задание.':'Звук недоступен — задание написано на экране.');
-  }).catch(()=>{if(progress.index===index)status('Не удалось воспроизвести объяснение. Задание видно на экране.')})}
-  catch{status('Звук сейчас недоступен. Задание видно на экране.')}
+  }).catch(()=>{if(generation===speechUiGeneration&&window.neLessonSession?.lesson===lesson&&progress.index===index)
+   status('Не удалось воспроизвести объяснение. Задание видно на экране.')})}
+  catch{if(generation===speechUiGeneration)status('Звук сейчас недоступен. Задание видно на экране.')}
  }
  const RESCUE=Object.freeze({
   repeat:{phrase:'Kan du gjenta det, vær så snill?',prefix:'Ja, selvfølgelig. ',rate:.85},
@@ -615,8 +634,12 @@
   if(!Array.isArray(history))return false;
   const last=[...history].reverse().find(turn=>turn?.role==='assistant'&&typeof turn.text==='string'&&turn.text.trim());
   if(!last)return false;
-  const spoken=sayPartner(last.text,.85);
-  freeStatus(spoken?'Повторяю последнюю реплику собеседника.':'Озвучка на этом устройстве недоступна. Текст сохранён в истории.');
+  const session=window.neLessonSession;
+  const spoken=sayPartner(last.text,.85,(result,generation)=>{
+   if(generation!==speechUiGeneration||window.neLessonSession!==session||result?.source==='cancelled')return;
+   freeStatus(['ai','human','device'].includes(result?.source)?'Собеседник повторяет реплику.':'Звук недоступен. Реплика сохранена в истории.');
+  });
+  freeStatus(spoken?'Готовлю повтор реплики…':'Озвучка на этом устройстве недоступна. Текст сохранён в истории.');
   return spoken;
  }
  // Contextual recycling only: draw existing Bokmål words from the active lesson.
@@ -721,12 +744,13 @@
   const text=field?.textContent?.trim();if(!text)return;
   if(typeof window.speakText!=='function'){message('Голос Норы недоступен. Прочитай инструкцию на экране.');return}
   expectedSpokenAudio={text,role:'guide'};
+  const generation=++speechUiGeneration;
   message('Нора готовит инструкцию на русском…');
   try{Promise.resolve(window.speakText(text,.92,null,'marin','ru-RU')).then(result=>{
-   if(!field?.isConnected)return;
+   if(generation!==speechUiGeneration||!field?.isConnected||field.textContent?.trim()!==text||result?.source==='cancelled')return;
    message(['ai','human','device'].includes(result?.source)?'Нора произносит инструкцию.':'Звук недоступен. Прочитай текст на экране.');
-  }).catch(()=>message('Инструкция доступна текстом.'))}
-  catch{message('Голос недоступен. Инструкция написана на экране.')}
+  }).catch(()=>{if(generation===speechUiGeneration&&field?.isConnected)message('Инструкция доступна текстом.')})}
+  catch{if(generation===speechUiGeneration)message('Голос недоступен. Инструкция написана на экране.')}
  }
  window.NEVisualWorld=Object.freeze({freeTurnLimit,tapWords,inspectWord,render,guide,speakStage,onAudioStart,onAudioStop,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,askHelp,dictateHelp,helpFromGuidedAnswer,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
 })();
