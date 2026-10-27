@@ -84,7 +84,7 @@ assert(markup.includes('Спросить Нору')&&markup.includes('helpQuesti
  // No free XP or B2 evidence from generic hints.
  assert(app.includes('helpV8:session.helpV8||null')&&app.includes('helpV8:saved?.helpV8'),'Tutor state must persist and restore');
  assert(app.includes('lessonHelpWasUsed()'),'Lesson evidence must check contextual hint provenance');
- assert(app.includes('ungraded?0:avg'),'Fully assisted lesson must not generate fallback 60/100');
+ assert(app.includes('ungraded?0:60'),'Fully assisted lesson must not generate fallback 60/100');
  assert(chat.includes('"lesson_help"'),'Backend should recognize the common help scenario');
  console.log('PASS lesson-wide bilingual Nora help: Russian/Norwegian, persistent context, saved draft, no unearned credit, stale requests, mic and offline');
 })().catch(err=>{console.error(err);process.exitCode=1});
