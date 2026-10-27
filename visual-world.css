@@ -244,3 +244,12 @@
 .ne-world-word{border:0;background:transparent;color:inherit;font:inherit;line-height:inherit;display:inline;padding:0 1px;min-width:0;text-align:left;border-bottom:1px dotted currentColor;cursor:pointer;white-space:normal}
 .ne-world-word:hover{background:rgba(255,255,255,.15)}
 .ne-world-word:focus-visible{outline:2px solid #185ca0;outline-offset:2px;border-radius:3px}
+
+/* Optional larger tutor view: retains the current lesson and speech controls. */
+.ne-world-guide-expand{margin-left:10px;border:1px solid #8fbab7;border-radius:10px;background:#fff;color:#175e65;font:inherit;font-size:13px;font-weight:750;padding:7px 10px;cursor:pointer}
+.ne-world-guide-expand:focus-visible{outline:3px solid #197cc4;outline-offset:2px}
+.ne-world-guide-expanded{display:flex;flex-direction:column;align-items:stretch}
+.ne-world-guide-expanded .ne-world-guide-face{width:min(100%,260px);height:260px;align-self:center;border-radius:24px;box-shadow:0 12px 30px rgba(20,70,76,.2)}
+.ne-world-guide-expanded .ne-world-guide-portrait{object-position:center 22%}
+.ne-world-guide-expanded .ne-world-guide-copy{width:100%}
+@media(max-width:460px){.ne-world-guide-expanded .ne-world-guide-face{width:min(100%,210px);height:220px}.ne-world-guide-expand{margin:8px 0 0}}
