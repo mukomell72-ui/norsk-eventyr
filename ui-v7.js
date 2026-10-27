@@ -98,7 +98,7 @@
   }
   function helpMarkupV7(guided=false){
     const session=typeof window!=='undefined'?window.neLessonSession:null,step=session?.step;
-    const transcript=v7HelpHistory(session,step).map(turn=>
+    const transcript=(session&&typeof v7HelpHistory==='function'?v7HelpHistory(session,step):[]).map(turn=>
       '<div class="ne-help-turn"><b>'+(turn.role==='assistant'?'Нора':'Ты')+'</b><p>'+h(String(turn.text||'').slice(0,1600))+'</p></div>'
     ).join('');
     // The generic helper remains available to Nora during guided lessons;
