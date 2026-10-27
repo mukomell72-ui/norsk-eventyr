@@ -35,7 +35,7 @@ assert(markup.includes('&lt;можешь&gt;'),'Spoken lesson goal must escape c
 assert(markup.includes('NEVisualWorld.speakPartner()')&&markup.includes('NEVisualWorld.speakTask()'),'Speaking cues missing');
 assert(markup.includes('NEVisualWorld.sendFree()')&&markup.includes('Свободный разговор'),'Optional free practice must be in scene');
 assert(markup.includes('NEVisualWorld.askHelp()')&&markup.includes('neWorldHelpInput'),'Nora contextual help must be visible inside assessed scene');
-assert(markup.includes('NEVisualWorld.dictateHelp(\\'ru\\')')&&markup.includes('NEVisualWorld.dictateHelp(\\'nb\\')'),'Both speech recognition languages must be offered');
+assert(markup.includes("NEVisualWorld.dictateHelp('ru')")&&markup.includes("NEVisualWorld.dictateHelp('nb')"),'Both speech recognition languages must be offered');
 assert(markup.includes('Исходная реплика')&&markup.includes('не оцениваются'),'Help must explain continuity and ungraded status');
 assert(markup.includes('NEVisualWorld.dictateFree()'),'Speech recognition must be offered for free roleplay');
 assert(markup.includes('NEVisualWorld.speakLastFree()')&&markup.includes('neWorldFreeReplay'),'Learner needs replay of improvised NPC replies');
