@@ -34,6 +34,9 @@ assert(markup.includes('&lt;неожиданность&gt;')&&!markup.includes('
 assert(markup.includes('&lt;можешь&gt;'),'Spoken lesson goal must escape content');
 assert(markup.includes('NEVisualWorld.speakPartner()')&&markup.includes('NEVisualWorld.speakTask()'),'Speaking cues missing');
 assert(markup.includes('NEVisualWorld.sendFree()')&&markup.includes('Свободный разговор'),'Optional free practice must be in scene');
+assert(markup.includes('NEVisualWorld.askHelp()')&&markup.includes('neWorldHelpInput'),'Nora contextual help must be visible inside assessed scene');
+assert(markup.includes('NEVisualWorld.dictateHelp(\\'ru\\')')&&markup.includes('NEVisualWorld.dictateHelp(\\'nb\\')'),'Both speech recognition languages must be offered');
+assert(markup.includes('Исходная реплика')&&markup.includes('не оцениваются'),'Help must explain continuity and ungraded status');
 assert(markup.includes('NEVisualWorld.dictateFree()'),'Speech recognition must be offered for free roleplay');
 assert(markup.includes('NEVisualWorld.speakLastFree()')&&markup.includes('neWorldFreeReplay'),'Learner needs replay of improvised NPC replies');
 assert(markup.includes('neWorldFreeReplay"')&&markup.includes(' disabled'),'Replay stays disabled before the first NPC answer');
@@ -259,6 +262,99 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
  assert.equal(await V.sendFree(),false);
  assert(freeStatus.textContent.includes('Шесть'),'Six-turn limit must be shown even when the draft field is empty');
  progress.freeChat=[];
+ // Contextual Nora help: an ungraded bilingual teacher response mid-turn.
+ const helpInput={value:'Jeg ... не помню, как сказать «живу» ... i Norge?',isConnected:true,dataset:{}};
+ const helpSend={disabled:false,isConnected:true};
+ const helpFeedback={textContent:''};
+ const helpLog=[],helpRoot={append:el=>helpLog.push(el)};
+ const originalHelpGet=fakeDocument.getElementById;
+ const mainDraft={value:'Jeg ... i Norge',isConnected:true};
+ fakeDocument.getElementById=id=>({
+  neWorldHelpInput:helpInput,neWorldHelpSend:helpSend,neWorldHelpStatus:helpFeedback,
+  neWorldHelpLog:helpRoot,freeAnswer:mainDraft
+ }[id]||originalHelpGet(id));
+ window.neApiPost=async(path,payload)=>{
+  assert.equal(path,'/api/chat');
+  assert.equal(payload.mode,'explain','Help must never go through scored dialogue evaluation');
+  assert.equal(payload.scenario,'guided_help');
+  assert.equal(payload.inputSource,'typed_text');
+  assert(payload.context.includes('Hei! Når kan du komme?'));
+  assert(payload.context.includes('Jeg ... i Norge'),'Existing draft should be context only');
+  assert.equal(payload.message,'Jeg ... не помню, как сказать «живу» ... i Norge?');
+  return {ok:true,data:{explanation_ru:'Жить — å bo. Сейчас: jeg bor. Попробуй сам.'}};
+ };
+ const helpSaved=saved,helpIndex=progress.index,helpTurns=progress.turns.length,helpCheckpoint=checkpoint;
+ assert.equal(await V.askHelp(),true,'Mixed Russian-Bokmål question should get contextual help');
+ assert.equal(helpSend.disabled,false);
+ assert.equal(progress.helpChat.length,2,'Help history should be persisted separately');
+ assert.equal(progress.helpChat[1].text,'Жить — å bo. Сейчас: jeg bor. Попробуй сам.');
+ assert.equal(helpLog.length,2,'Nora and learner help messages must appear');
+ assert.equal(checkpoint,helpCheckpoint+1,'Help context must survive lesson checkpoint');
+ assert.equal(saved,helpSaved,'Help must not create grades or XP');
+ assert.equal(progress.index,helpIndex,'Help must not skip assessed dialogue turn');
+ assert.equal(progress.turns.length,helpTurns,'Help must not fabricate a verified answer');
+ assert.equal(mainDraft.value,'Jeg ... i Norge','Help must not erase the answer draft');
+ assert.equal(helpInput.value,'','Sent help question should clear only its own input');
+ assert(V.render({lesson,scene,progress,step:scene.steps[helpIndex],moduleId:'a2-work'}).includes('Жить — å bo'),
+  'Saved help should survive a scene re-render');
+ progress.helpChat.push({role:'assistant',text:'<img src=x onerror=alert(1)>'});
+ const safelyRendered=V.render({lesson,scene,progress,step:scene.steps[helpIndex],moduleId:'a2-work'});
+ assert(!safelyRendered.includes('<img src=x onerror'),'AI help text must be escaped');
+ assert(safelyRendered.includes('&lt;img src=x'),'Sanitized text should remain readable');
+ progress.helpChat=progress.helpChat.slice(0,2);
+ // Duplicate clicks and stale async answers must not modify the new active scene.
+ let completeHelp;
+ helpInput.value='Hva betyr dette?';
+ window.neApiPost=async()=>new Promise(done=>{completeHelp=done});
+ const pendingHelp=V.askHelp();
+ assert.equal(helpSend.disabled,true);
+ assert.equal(await V.askHelp(),false,'A single help question may only be sent once');
+ completeHelp({ok:true,data:{explanation_ru:'Det betyr noe.'}});
+ assert.equal(await pendingHelp,true);
+ helpInput.value='Hva betyr et ord?';
+ let oldHelp;
+ window.neApiPost=async()=>new Promise(done=>{oldHelp=done});
+ const oldProgress=window.neLessonSession;
+ const historyBefore=progress.helpChat.length,staleHelp=V.askHelp();
+ window.neLessonSession={lesson:{id:'other'},guidedSpeech:{index:0}};
+ oldHelp({ok:true,data:{explanation_ru:'Should be ignored'}});
+ assert.equal(await staleHelp,false);
+ assert.equal(progress.helpChat.length,historyBefore,'Stale help must not mutate old scene');
+ window.neLessonSession=oldProgress;
+ helpInput.value='Как сказать «живу»?';
+ let changedHelp;
+ window.neApiPost=async()=>new Promise(done=>{changedHelp=done});
+ const beforeHelpEdit=progress.helpChat.length,editingHelp=V.askHelp();
+ helpInput.value='Как будет «жил»?';
+ changedHelp({ok:true,data:{explanation_ru:'å bo'}});
+ assert.equal(await editingHelp,false,'Edited help question should never be silently replaced');
+ assert.equal(helpInput.value,'Как будет «жил»?');
+ assert.equal(progress.helpChat.length,beforeHelpEdit);
+ window.neApiPost=async()=>({ok:false,error:'NETWORK'});
+ assert.equal(await V.askHelp(),false);
+ assert.equal(helpInput.value,'Как будет «жил»?','Offline failure must preserve help draft');
+ assert.equal(progress.helpChat.length,beforeHelpEdit);
+ // Speech recognition is explicitly single-language; users can still type mixed sentences.
+ let helpMic;
+ window.SpeechRecognition=class{
+  start(){helpMic=this}
+  abort(){this.onend?.()}
+ };
+ helpInput.value='';
+ assert.equal(V.dictateHelp('ru'),true);
+ assert.equal(helpMic.lang,'ru-RU');
+ helpMic.onresult({results:[[{transcript:'Как сказать живу?'}]]});
+ assert.equal(helpInput.value,'Как сказать живу?');
+ assert.equal(helpInput.dataset.neFromSpeech,'true');
+ assert.equal(V.dictateHelp('nb'),true);
+ assert.equal(helpMic.lang,'nb-NO');
+ helpMic.onresult({results:[[{transcript:'Hvordan sier jeg det?'}]]});
+ assert.equal(helpInput.value,'Как сказать живу? Hvordan sier jeg det?');
+ assert.equal(V.dictateHelp('en'),false,'Unsupported recognition locale rejected');
+ delete window.SpeechRecognition;
+ assert.equal(mainDraft.value,'Jeg ... i Norge','Microphone for Nora must not overwrite assessed answer');
+ fakeDocument.getElementById=originalHelpGet;
+ console.log('PASS Nora bilingual contextual help: Russian/Norwegian, persisted questions, no grade, retained draft, stale guard, mic modes');
  console.log('PASS free conversation: actual AI dialogue, replay-safe history, no XP, checkpoint, concurrency, stale navigation and offline handling');
 })().catch(err=>{console.error(err);process.exitCode=1});
 
