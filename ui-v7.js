@@ -74,7 +74,7 @@
           '<button class="brand-v7" onclick="navigate(\'home\')"><span>Norsk Eventyr</span><b>8.2.1</b></button>'+
           '<div class="status-v7"><button class="streak-v7" onclick="navigate(\'hub\')">🔥 <b>'+streak+'</b></button><button class="level-v7" onclick="navigate(\'course\')">'+level+'</button></div>'+
         '</header>'+
-        '<main class="main-v7">'+content+helpMarkupV7(content.includes('class="card guided-speaking"'))+'</main>'+
+        '<main class="main-v7">'+content+helpMarkupV7(content.includes('class="card guided-speaking"'),content.includes('lesson-exercise-v6'))+'</main>'+
         navV7(currentRouteV7||active)+
       '</div>';
   };
@@ -96,8 +96,8 @@
     const history=memory?.historyByStep?.[String(step)];
     return Array.isArray(history)?history.slice(-8):[];
   }
-  function helpMarkupV7(guided=false){
-    const session=typeof window!=='undefined'?window.neLessonSession:null,step=session?.step;
+  function helpMarkupV7(guided=false,lessonScreen=false){
+    const session=lessonScreen&&typeof window!=='undefined'?window.neLessonSession:null,step=session?.step;
     const transcript=(session&&typeof v7HelpHistory==='function'?v7HelpHistory(session,step):[]).map(turn=>
       '<div class="ne-help-turn"><b>'+(turn.role==='assistant'?'Нора':'Ты')+'</b><p>'+h(String(turn.text||'').slice(0,1600))+'</p></div>'
     ).join('');
@@ -189,7 +189,7 @@
     const input=document.getElementById("helpQuestionV7"),button=document.getElementById("helpSendV7"),box=document.getElementById("helpReplyV7");
     const question=input?.value.trim();if(!question||!button||button.disabled||!box)return;
     const main=document.querySelector(".main-v7");if(!main)return;
-    const revision=window.neScreenRevision,session=window.neLessonSession,step=session?.step;
+    const revision=window.neScreenRevision,session=main.querySelector('.lesson-exercise-v6')?window.neLessonSession:null,step=session?.step;
     const copy=main.cloneNode(true);
     copy.querySelector("#helpPanelV7")?.parentElement?.remove?.();
     const answer=Array.from(main.querySelectorAll("textarea,input")).filter(e=>e.id!=="helpQuestionV7").map(e=>e.value).filter(Boolean).join("\n");
