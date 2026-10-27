@@ -364,7 +364,7 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
   return {ok:true,data:{explanation_ru:'Å bo — жить; jeg bor — я живу.'}};
  };
  assert.equal(V.helpFromGuidedAnswer('Jeg ... забыл, как будет живу ... i Norge',mainDraft),true);
- await Promise.resolve();await Promise.resolve();
+ await new Promise(resolve=>setImmediate(resolve)); // allow the async AI-help handler to settle
  assert.equal(progress.helpChat.length,originalHelpCount+2,'Spontaneous request should be saved in tutor history');
  assert.equal(mainDraft.value,'Jeg ... забыл, как будет живу ... i Norge','Original answer draft must not disappear');
  assert.equal(progress.index,originalTurn,'Request for help cannot advance the exercise');
