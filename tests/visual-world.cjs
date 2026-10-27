@@ -110,6 +110,8 @@ assert.equal(V.visemeAt('hei!',99),'closed','Sentence-final punctuation should c
 assert(markup.includes('ne-world-mouth')&&markup.includes('data-ne-face="mari"'),'Partner mouth must align with face');
 assert(markup.includes('NEVisualWorld.toggleLipSync()'),'Learner must be able to turn off lip motion');
 assert(V.guide({activity:'Les teksten.'}).includes('ne-world-guide-face'),'Nora must have a mouth overlay in the tutor card');
+assert(V.guide({activity:'Les teksten.'}).includes('NEVisualWorld.toggleGuideStage(this)'),'Nora expanded tutor view must be available during lessons');
+assert(style.includes('.ne-world-guide-expanded'),'Nora expanded view must have responsive styles');
 const events2={};
 const utterance2={text:'Kan du komme?',rate:.86,addEventListener(type,fn){events2[type]=fn}};
 assert.equal(V.bindSpeech(utterance2,'partner'),true);
