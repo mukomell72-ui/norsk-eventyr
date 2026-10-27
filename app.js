@@ -438,6 +438,7 @@ function continueCheckedDialogue(){
 }
 async function checkDialogue(){
  const s=lessonSession,input=document.getElementById("dialogAnswer"),a=input?.value.trim();if(!a||s.locked)return;
+ if(window.v7HelpFromLessonAnswer?.(a,input)===true)return;
  const l=s.lesson,turn=currentDialogueTurn(l),b=document.getElementById("dialogFb"),spoken=input.dataset.fromVoice==="true";saveLessonDraft("dialogue",input);flushLessonDraft();s.locked=true;
  b.innerHTML='<div class="feedback">Проверяю…</div>';
  const gradeKey="dialogue:"+String(s.dialogueIndex||0)+":"+String(s.introReview===true);
@@ -479,10 +480,11 @@ function checkAdaptiveVocab(){
  const l=lessonSession?.lesson;if(!l?._adaptive||lessonSession.locked)return;
  const items=adaptiveVocabItems(l),idx=lessonSession.vocabIndex||0,t=items[idx];if(!t)return lessonNext(5);
  const input=document.getElementById("adaptiveVocabAnswer"),answer=input?.value||"";if(!answer.trim())return;
+ if(window.v7HelpFromLessonAnswer?.(answer,input)===true)return;
  const ok=normalizeVocabAnswer(answer)===normalizeVocabAnswer(t[0]);trackLessonScore(ok?100:30,{label:"Словарь",explanation:ok?"Слово вспомнено самостоятельно.":"Правильный ответ: "+t[0]});
  if(window.NEAdaptive&&!lessonHelpWasUsed()){NEAdaptive.recordAttempt(state,{level:l.level,skill:"vocabulary",score:ok?100:30,moduleId:l._adaptive.moduleId||l.id,source:"vocab_recall",transfer:!!l._adaptive.transfer,reviewKey:l._adaptive.reviewKey||""});saveState()}
  const fb=document.getElementById("fb");
- if(ok){fb.innerHTML='<div class="feedback good"><b>✓ Вспомнил сам</b></div>'}else{fb.innerHTML='<div class="feedback bad"><b>Нужно закрепить.</b> Правильно: '+esc(t[0])+'</div>'}
+ if(ok){fb.innerHTML='<div class="feedback good"><b>'+(lessonHelpWasUsed()?'✓ Вспомнил с подсказкой · закрепим без помощи позже':'✓ Вспомнил сам')+'</b></div>'}else{fb.innerHTML='<div class="feedback bad"><b>Нужно закрепить.</b> Правильно: '+esc(t[0])+'</div>'}
  lessonSession.locked=true;
  fb.insertAdjacentHTML("beforeend",'<button class="btn lesson-next-v8" onclick="continueAdaptiveVocab('+(ok?"true":"false")+')">Дальше →</button>');
 }
@@ -570,6 +572,7 @@ function deferFreeRemediation(){
 }
 async function checkFree(mode){
  const s=lessonSession,input=document.getElementById("freeAnswer"),a=input?.value.trim();if(!a||!s||s.locked)return;
+ if(window.v7HelpFromLessonAnswer?.(a,input)===true)return;
  const l=s.lesson,rem=l?._adaptive&&s.remediation?.mode===mode?s.remediation:null,p=lessonFreeTask(l,mode,rem,s.speakingFollowup===true),b=document.getElementById("freeFb"),spoken=mode==="speaking"&&input.dataset.fromVoice==="true";saveLessonDraft(mode,input);flushLessonDraft();
  s.locked=true;b.innerHTML='<div class="feedback">Проверяю…</div>';
  const r=await aiEvaluate({answer:a,question:p,goal:p,level:l.level,mode:rem?(spoken?"speaking_transfer":"writing_transfer"):(spoken?"speaking":"writing")});
