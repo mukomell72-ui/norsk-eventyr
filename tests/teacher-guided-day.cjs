@@ -54,7 +54,7 @@ assert(guided.includes('function neGuidedExplain()'),'Confusion help must be rea
 assert(ui.includes('Урок с Норой · ')&&ui.includes('lessonarchive'),'One-tap lesson and archive must be accessible');
 assert(gen.includes('Устная практика — приоритет'),'Teacher prompts must emphasize oral practice');
 const cache=read('sw.js'),access=read('access.js'),index=read('index.html');
-assert(index.includes('-audit11-story1-world11" defer>'),'New story bootstrap must invalidate cached lessons');
+assert(index.includes('-audit11-story1-world12" defer>'),'New story bootstrap must invalidate cached lessons');
 for(const name of ['course-methodology.js','guided-speaking.js','living-day.js','ui-v7.js'])
  assert(cache.includes('/'+name+'?v=8.3.0-lesson24')&&access.includes("'-teacher2'"),'Versioned offline lessons required: '+name);
 assert(/-teacher2-coach6-fresh1-bridge8-audit[1-9][0-9]*(?:-story1)?(?:-world[1-9][0-9]*)?" defer><\/script>/.test(index),'App bootstrap must invalidate old lesson cache for the tutor release');
