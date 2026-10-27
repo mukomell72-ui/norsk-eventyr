@@ -228,3 +228,14 @@
 .ne-world-help-turn strong{display:block;color:#215b51;font-size:12px}
 .ne-world-help-turn p{font-size:14px!important;line-height:1.5!important;font-weight:450!important;margin:4px 0 0!important;white-space:pre-wrap}
 @media(max-width:430px){.ne-world-help-controls .btn{flex:1 1 100%;width:100%}}
+
+/* The same personal tutor follows the learner through reading, listening,
+ * vocabulary, writing and speaking; controls remain usable on small phones. */
+.ne-help-log{display:flex;flex-direction:column;gap:8px;max-height:240px;overflow:auto;margin:10px 0}
+.ne-help-turn{background:rgba(237,246,255,.95);border:1px solid #c4dce9;border-radius:12px;padding:9px 11px;overflow-wrap:anywhere}
+.ne-help-turn b{display:block;color:#234c65;font-size:12px}
+.ne-help-turn p{margin:4px 0 0;line-height:1.5;white-space:pre-wrap;font-size:14px}
+.ne-help-actions{display:flex;gap:7px;flex-wrap:wrap}
+.ne-help-actions button{flex:1 1 100px;min-width:0}
+.ne-help-actions button:focus-visible{outline:3px solid #1479b1;outline-offset:2px}
+@media(max-width:420px){.ne-help-actions button{flex:1 1 100%}}
