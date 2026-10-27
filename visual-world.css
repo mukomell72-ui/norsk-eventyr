@@ -293,3 +293,11 @@
  .ne-world-guide .ne-world-guide-face,
  .ne-world-guide .ne-world-guide-portrait { animation:none!important; }
 }
+
+/* Dialogue stage: visible turn-taking and expressive portrait poses. */
+.ne-world-stage-caption{margin:10px auto 14px;text-align:center;font-size:13px;font-weight:700;color:#244d63}
+.ne-world-partner[data-ne-reaction="happy"] .ne-world-portrait-wrap{transform:rotate(-2deg)}
+.ne-world-character.ne-world-talking .ne-world-portrait-wrap{animation:ne-world-speaking-pose .7s ease-in-out infinite alternate;box-shadow:0 0 0 4px rgba(29,131,144,.28),0 8px 18px rgba(33,63,87,.16)}
+.ne-world-guide.ne-world-guide-talking .ne-world-guide-face{box-shadow:0 0 0 4px rgba(29,131,144,.28),0 8px 24px rgba(9,35,55,.18)}
+@keyframes ne-world-speaking-pose{from{transform:translateY(0) rotate(-1.2deg)}to{transform:translateY(-5px) rotate(1.2deg)}}
+@media(prefers-reduced-motion:reduce){.ne-world-character.ne-world-talking .ne-world-portrait-wrap{animation:none!important}}
