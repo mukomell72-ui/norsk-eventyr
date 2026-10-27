@@ -5,7 +5,7 @@ const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('n
 const read=file=>fs.readFileSync(path.join(__dirname,'..',file),'utf8');
 const ui=read('ui-v7.js'),app=read('app.js'),chat=read('api/chat.js');
 const start=ui.indexOf('  let neHelpSpeech=null;');
-const end=ui.indexOf('  Object.assign(window,{v7OpenHelp,v7AskHelp,v7QuickHelp,v7DictateHelp});',start);
+const end=ui.indexOf('  Object.assign(window,{v7OpenHelp,v7AskHelp,v7QuickHelp,v7DictateHelp,v7HelpFromLessonAnswer});',start);
 assert(start>=0&&end>start,'Nora lesson helper must be available globally');
 const source=ui.slice(start,end)+'\nthis.helpers={helpMarkupV7,v7AskHelp,v7DictateHelp,v7OpenHelp,v7HelpHistory,v7HelpFromLessonAnswer};';
 let saved=0,grade=0,request;
