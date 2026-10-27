@@ -89,6 +89,19 @@
         '<button type="button" class="ne-world-audio" onclick="NEVisualWorld.speakPartner()">Слушать собеседника</button>'+
         '<button type="button" class="ne-world-audio" onclick="NEVisualWorld.speakTask()">Нора объясняет вслух</button>'+
       '</div><p class="ne-world-voice-status" id="neWorldVoiceStatus" role="status"></p>'+
+      '<details class="ne-world-help"><summary>Спросить Нору · по-русски или по-норвежски</summary>'+
+       '<p>Забыл слово, не понял вопрос или хочешь узнать другую форму? Спроси здесь, даже смешивая языки. Исходная реплика и твой ответ останутся на месте.</p>'+
+       '<div class="ne-world-help-log" id="neWorldHelpLog" role="log" aria-live="polite">'+
+       (Array.isArray(progress.helpChat)?progress.helpChat.slice(-8).map(turn=>
+        '<div class="ne-world-help-turn"><strong>'+(turn.role==='assistant'?'Нора':'Ты')+'</strong><p>'+e(String(turn.text||'').slice(0,1200))+'</p></div>').join(''):'')+
+       '</div>'+
+       '<label for="neWorldHelpInput">Твой вопрос Норе</label>'+
+       '<textarea id="neWorldHelpInput" class="input" maxlength="420" rows="2" placeholder="Jeg ... забыл, как будет «живу» ... i Norge?" oninput="this.dataset.neFromSpeech=\'false\'"></textarea>'+
+       '<div class="ne-world-help-controls"><button type="button" class="btn secondary" onclick="NEVisualWorld.dictateHelp(\'ru\')">🎤 Русский</button>'+
+       '<button type="button" class="btn secondary" onclick="NEVisualWorld.dictateHelp(\'nb\')">🎤 Norsk</button>'+
+       '<button type="button" class="btn" id="neWorldHelpSend" onclick="NEVisualWorld.askHelp()">Спросить Нору</button></div>'+
+       '<small id="neWorldHelpStatus" role="status" aria-live="polite">Подсказки не оцениваются. Для AI-ответа нужен интернет. Смешанная устная речь распознаётся не всегда точно — можно исправить текст перед отправкой.</small>'+
+       '</details>'+
       '<div class="ne-world-rescue" role="group" aria-label="Как выйти из затруднения в реальном разговоре">'+
       '<strong>Если не расслышал — попроси собеседника помочь.</strong>'+
       '<div class="ne-world-rescue-actions">'+
@@ -339,6 +352,108 @@
   animate('self');
   reactPartner(reply);
  }
+
+ // Optional contextual teacher assistance within a guided speaking turn.
+ // It never calls grading, changes the assessed answer or advances a stage.
+ const helpPending=new WeakSet();
+ let helpRecognition=null;
+ function helpStatus(message){
+  const node=typeof document!=='undefined'&&document.getElementById('neWorldHelpStatus');
+  if(node)node.textContent=String(message||'');
+ }
+ function appendHelp(role,body){
+  const log=document.getElementById('neWorldHelpLog');
+  if(!log||typeof document.createElement!=='function')return;
+  const div=document.createElement('div'),strong=document.createElement('strong'),p=document.createElement('p');
+  div.className='ne-world-help-turn';
+  strong.textContent=role==='assistant'?'Нора':'Ты';
+  p.textContent=String(body||'');
+  div.append(strong,p);log.append(div);
+ }
+ async function askHelp(){
+  const session=window.neLessonSession,progress=session?.guidedSpeech,lesson=session?.lesson;
+  const scene=window.NEGuidedSpeaking?.definition?.(lesson);
+  const input=document.getElementById('neWorldHelpInput');
+  const button=document.getElementById('neWorldHelpSend');
+  const question=String(input?.value||'').trim();
+  if(!session||!lesson||!progress||!scene||!Number.isInteger(progress.index)||
+     !input?.isConnected||helpPending.has(progress)||!question)return false;
+  if(question.length>420){helpStatus('Вопрос должен быть не длиннее 420 символов.');return false}
+  if(typeof window.neApiPost!=='function'){helpStatus('Для ответа Норы нужен интернет. Сам урок доступен.');return false}
+  const turn=progress.index,step=scene.steps[turn];
+  if(!step)return false;
+  const mainAnswer=document.getElementById('freeAnswer');
+  const draft=String(mainAnswer?.value||'').trim().slice(0,420);
+  const history=Array.isArray(progress.helpChat)?progress.helpChat.slice(-6).map(t=>({
+   role:t.role==='assistant'?'assistant':'user',text:String(t.text||'').slice(0,1200)
+  })):[];
+  const context='Текущая сцена: '+String(scene.scene||'').slice(0,160)+
+   '. Собеседник: '+String(scene.actor||'').slice(0,90)+
+   '. Последняя реплика собеседника: '+sceneLine(scene,progress).slice(0,380)+
+   '. Задание: '+String(step.task||'').slice(0,400)+
+   '. Черновик ответа ученика (ещё не проверен): '+draft;
+  helpPending.add(progress);if(button)button.disabled=true;
+  helpStatus('Нора разбирает твой вопрос. Текущий ответ не изменяется…');
+  try{
+   const result=await window.neApiPost('/api/chat',{
+    mode:'explain',scenario:'guided_help',message:question,
+    topic:String(scene.scene||'Норвежский диалог').slice(0,130),
+    level:['A1','A2','B1','B2'].includes(lesson.level)?lesson.level:'A1',
+    history,context,inputSource:input.dataset?.neFromSpeech==='true'?'voice_transcript':'typed_text'
+   });
+   if(window.neLessonSession!==session||session.guidedSpeech!==progress||
+      progress.index!==turn||!input.isConnected)return false;
+   if(input.value.trim()!==question){
+    helpStatus('Ты изменил вопрос, пока Нора отвечала. Новый текст остался в поле — отправь его отдельно.');
+    return false;
+   }
+   const answer=String(result?.data?.explanation_ru||'').trim();
+   if(!result?.ok||!answer||answer.length>3000||/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/u.test(answer)){
+    helpStatus('Нора не смогла ответить. Вопрос и основной ответ не потеряны; попробуй позже.');
+    return false;
+   }
+   progress.helpChat=[...history,{role:'user',text:question},{role:'assistant',text:answer}].slice(-8);
+   try{window.persistLessonCheckpoint?.()}catch{}
+   appendHelp('user',question);appendHelp('assistant',answer);
+   input.value='';if(input.dataset)input.dataset.neFromSpeech='false';
+   helpStatus('Нора объяснила. Вернись к своему ответу: задание осталось тем же. Подсказка не засчитана.');
+   return true;
+  }catch{
+   if(window.neLessonSession===session&&session.guidedSpeech===progress&&progress.index===turn)
+    helpStatus('Нет ответа от AI. Текущий вопрос и исходное задание сохранены.');
+   return false;
+  }finally{
+   helpPending.delete(progress);if(button?.isConnected)button.disabled=false;
+  }
+ }
+ function dictateHelp(lang){
+  const session=window.neLessonSession,input=document.getElementById('neWorldHelpInput');
+  const code=lang==='ru'?'ru-RU':lang==='nb'?'nb-NO':null;
+  if(!code||!session?.guidedSpeech||!input?.isConnected)return false;
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(typeof SR!=='function'){helpStatus('Распознавание речи недоступно. Напиши вопрос в поле.');return false}
+  try{helpRecognition?.abort?.()}catch{}
+  let recognition;
+  try{recognition=new SR()}catch{helpStatus('Не удалось открыть микрофон.');return false}
+  const original=input.value,progress=session.guidedSpeech,turn=progress.index;
+  helpRecognition=recognition;recognition.lang=code;recognition.interimResults=false;recognition.maxAlternatives=1;
+  recognition.onresult=event=>{
+   if(helpRecognition!==recognition||window.neLessonSession!==session||
+      session.guidedSpeech!==progress||progress.index!==turn||!input.isConnected)return;
+   if(input.value!==original){helpStatus('Ты уже изменил вопрос: распознанная речь не заменит твой текст.');return}
+   const phrase=String(event.results?.[0]?.[0]?.transcript||'').trim();
+   if(!phrase)return;
+   input.value=[original.trim(),phrase].filter(Boolean).join(' ').slice(0,420);
+   if(input.dataset)input.dataset.neFromSpeech='true';
+   helpStatus('Проверь распознанный вопрос и нажми «Спросить Нору».');
+  };
+  recognition.onerror=()=>{
+   if(helpRecognition===recognition)helpStatus('Не получилось распознать речь. Напиши вопрос вручную.');
+  };
+  recognition.onend=()=>{if(helpRecognition===recognition)helpRecognition=null};
+  try{recognition.start();helpStatus('Слушаю вопрос ('+(lang==='ru'?'русский':'норвежский')+')…');return true}
+  catch{if(helpRecognition===recognition)helpRecognition=null;helpStatus('Микрофон не запустился.');return false}
+ }
  const freePending=new WeakSet();
  let freeRecognition=null;
  function dictateFree(){
@@ -508,5 +623,5 @@
    synth.speak(u);message('Нора объясняет задание.');
   }catch{message('Озвучка недоступна. Задание написано на экране.')}
  }
- window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
+ window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,askHelp,dictateHelp,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
 })();
