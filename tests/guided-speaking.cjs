@@ -209,5 +209,31 @@ assert.match(speaking,/return window\.neAttemptReviewHtml\(e,\{answer,ok,firstSc
  assert.equal(session.locked,false);
  assert.equal(scores.length,before,'Stale response must not affect progress');
  assert.match(feedback.innerHTML,/изменён во время проверки/);
+ // Help received on the current turn may teach, but must not award
+ // independent speaking evidence, lesson grades or repeatable XP.
+ session.lesson=lesson;session.guidedSpeech={lessonId:lesson.id,index:0,turns:[],flowVersion:2,aidedTurns:{0:true}};
+ session.locked=false;field.value='Hei, jeg heter Anna.';field.dataset.fromVoice='true';field.dataset.guidedTurn='0';
+ w.aiEvaluate=async()=>({ok:true,data:{accepted:true,score:100,issues:[]}});
+ const assistedScoresBefore=scores.length,assistedAttemptsBefore=attempts.length;
+ await w.checkFree('speaking');
+ assert.equal(scores.length,assistedScoresBefore,'Hinted answer must not increase course score or XP');
+ assert.equal(attempts.length,assistedAttemptsBefore,'Hinted answer must not count as independent skill evidence');
+ assert.equal(session.locked,true,'Aided correct answer may still let the learner continue the conversation');
+ assert.match(feedback.innerHTML,/после подсказки Норы/,'Learner must be told why progress evidence is not awarded');
+ w.neGuidedNext();
+ assert.equal(session.guidedSpeech.index,1,'Help-assisted answers can advance through formative dialogue');
+ // A mixed Russian question in the main answer box is help, never graded.
+ session.guidedSpeech=null;session.locked=false;
+ field.value='Jeg ... не знаю, как будет живу ... i Norge';
+ let requestsForHelp=0;
+ w.NEVisualWorld={helpFromGuidedAnswer:(text,input)=>{
+  requestsForHelp++;assert.equal(text,field.value);assert.equal(input,field);return true;
+ }};
+ w.aiEvaluate=async()=>{throw Error('Russian contextual-help request must never be assessed')};
+ await w.checkFree('speaking');
+ assert.equal(requestsForHelp,1);
+ assert.equal(scores.length,assistedScoresBefore);
+ assert.equal(attempts.length,assistedAttemptsBefore);
+ assert.equal(session.locked,false,'Asking Nora for help must not lock the dialogue');
  console.log('Guided speaking: 32 modules, 8 A1 turns, rejected retry, progress, voice evidence, typed fallback OK');
 })().catch(error=>{console.error(error);process.exitCode=1});
