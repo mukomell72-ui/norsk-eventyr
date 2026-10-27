@@ -43,7 +43,7 @@ function levelPlan(level){
  const weeks=LEVEL_WEEKS[level]||LEVEL_WEEKS.A1;
  return {level:LEVEL_WEEKS[level]?level:'A1',weeks,hours:weeks*6,moduleCount:8,expectedStudyDays:weeks*6,daysPerModule:Math.round(weeks*6/8)};
 }
-function courseEstimate(minutes=60){
+function courseEstimate(minutes=45){
  const plan=dailyPlan(minutes),hours=Object.values(HOURS).reduce((s,n)=>s+n,0);
  const hoursPerWeek=plan.minutes*plan.daysPerWeek/60;
  return {dailyMinutes:plan.minutes,hoursPerWeek,coreHours:hours,approxWeeks:Math.ceil(hours/hoursPerWeek)};
