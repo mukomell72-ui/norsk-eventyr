@@ -18,7 +18,7 @@ const box={textContent:'',isConnected:true,_helpHistory:null};
 const panel={hidden:false},toggle={setAttribute(){}};
 const elements={helpQuestionV7:input,helpSendV7:button,helpReplyV7:box,helpPanelV7:panel,helpToggleV7:toggle};
 const main={
-  querySelector:()=>null,
+  querySelector:selector=>selector==='.lesson-exercise-v6'?{}:null,
   cloneNode:()=>({textContent:'Задание: Напиши по-норвежски, где ты живёшь.',querySelector:()=>null}),
   querySelectorAll:()=>[field,input]
 };
@@ -29,7 +29,7 @@ const ctx={window:w,document,state:{level:'A1'},h:t=>String(t).replace(/&/g,'&am
 }};
 vm.runInNewContext(source,ctx,{filename:'ui-v7.js'});
 const t=ctx.helpers;
-const markup=t.helpMarkupV7(false);
+const markup=t.helpMarkupV7(false,true);
 assert(markup.includes('Русский')&&markup.includes('Norsk')&&markup.includes('v7DictateHelp'));
 assert(markup.includes('Спросить Нору')&&markup.includes('helpQuestionV7'));
 (async()=>{
@@ -46,9 +46,9 @@ assert(markup.includes('Спросить Нору')&&markup.includes('helpQuesti
  assert.equal(session.helpV8.historyByStep['4'].length,2);
  assert.equal(input.value,'');
  assert(box.textContent.includes('bor'));
- assert.equal(t.helpMarkupV7(false).includes('Жить — å bo'),true,'Saved lesson help must survive UI rerender');
+ assert.equal(t.helpMarkupV7(false,true).includes('Жить — å bo'),true,'Saved lesson help must survive UI rerender');
  session.helpV8.historyByStep['4'].push({role:'assistant',text:'<script>alert(1)</script>'});
- assert(!t.helpMarkupV7(false).includes('<script>alert(1)</script>'),'Stored text must be escaped');
+ assert(!t.helpMarkupV7(false,true).includes('<script>alert(1)</script>'),'Stored text must be escaped');
  // A delayed response after changing the stage is never allowed to mark another skill.
  let finish;
  input.value='Как прошедшее время?';
