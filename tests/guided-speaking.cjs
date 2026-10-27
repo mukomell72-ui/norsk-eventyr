@@ -9,7 +9,7 @@ const ui=fs.readFileSync(path.join(base,'ui-v7.js'),'utf8');
 const app=fs.readFileSync(path.join(base,'app.js'),'utf8');
 assert.match(app,/function fullyCorrectAnswer\(/,'Native dialogue must demand verified error-free completion');
 assert(app.includes('window.neGuidedAnswerEdited?.(f);'),'Speech recognition must unlock an accepted reply when it changes the answer');
-assert.match(ui,/helpMarkupV7\(content\.includes\('class="card guided-speaking"'\)\)/,
+assert.match(ui,/helpMarkupV7\(content\.includes\('class="card guided-speaking"'\),content\.includes\('lesson-exercise-v6'\)\)/,
  'Guided lesson suppresses the duplicate help trigger');
 const helperStart=ui.indexOf('  function helpMarkupV7(');
 const helperEnd=ui.indexOf('  function v7OpenHelp()',helperStart);
