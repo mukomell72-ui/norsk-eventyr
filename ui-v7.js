@@ -163,13 +163,23 @@
     try{mic.start();if(status)status.textContent='Слушаю '+(language==='ru'?'по-русски':'на норвежском')+'…';return true}
     catch{if(neHelpSpeech===mic)neHelpSpeech=null;if(status)status.textContent='Микрофон сейчас недоступен.';return false}
   }
+  // Only explicit requests about language learning are routed to Nora.
+  // Ordinary questions to an NPC remain valid dialogue answers.
+  function v7IsNoraHelpRequest(text){
+    const raw=String(text||'').trim();
+    if(!raw)return false;
+    if(/[\u0400-\u04ff]/u.test(raw)&&
+       /(?:не\s+(?:знаю|помню|понимаю|понял|поняла)|забыл(?:а)?|как\s+(?:сказать|будет|перевести)|что\s+(?:значит|означает)|подскажи|помоги|объясни|переведи|повтори|медленнее)/iu.test(raw))return true;
+    // Explicitly addressed to Nora, not an ordinary NPC question.
+    if(/^nora\s*[,!:]\s*(?:kan\s+du|hva|hvordan|jeg|forklar|oversett|gjenta)/iu.test(raw))return true;
+    return /^(?:hva\s+betyr\s+(?:ordet|uttrykket|verbet|setningen)|hvordan\s+(?:sier\s+(?:jeg|man)|oversetter\s+(?:jeg|man))\b[^?!.]{0,100}\bpå\s+norsk|kan\s+du\s+(?:forklare|oversette)\s+(?:ordet|uttrykket|verbet|setningen|grammatikken)|jeg\s+(?:husker|vet|forstår)\s+ikke\s+(?:hva\s+(?:ordet|uttrykket)|hvordan\s+(?:jeg|man)\s+sier))/iu.test(raw);
+  }
   // Recognize explicit help requests even when the learner types them into
   // the main writing or dialogue box and presses its usual Check button.
   // A legitimate Norwegian answer must pass through unchanged.
   function v7HelpFromLessonAnswer(text,source){
     const raw=String(text||'').trim();
-    if(!/[\u0400-\u04ff]/u.test(raw)||
-       !/(?:не\s+(?:знаю|помню|понимаю|понял|поняла)|забыл(?:а)?|как\s+(?:сказать|будет|перевести)|что\s+(?:значит|означает)|подскажи|помоги|объясни|переведи|повтори|медленнее)/iu.test(raw))return false;
+    if(!v7IsNoraHelpRequest(raw))return false;
     const session=window.neLessonSession,panel=document.getElementById('helpPanelV7');
     const input=document.getElementById('helpQuestionV7');
     if(!session?.lesson||!panel||!input)return false;
@@ -234,7 +244,7 @@
       if(box.isConnected&&window.neScreenRevision===revision)box.textContent="Не удалось получить объяснение. Вопрос сохранён — попробуй ещё раз.";
     }finally{if(button.isConnected)button.disabled=false;}
   }
-  Object.assign(window,{v7OpenHelp,v7AskHelp,v7QuickHelp,v7DictateHelp,v7HelpFromLessonAnswer});
+  Object.assign(window,{v7OpenHelp,v7AskHelp,v7QuickHelp,v7DictateHelp,v7HelpFromLessonAnswer,neNoraHelpIntent:v7IsNoraHelpRequest});
 
   function guidedV7(){
     const day=todayKeyV7(),wordDue=dueCountV7(),adaptiveDue=window.NEAdaptive?NEAdaptive.dueReviews(state).length:0,

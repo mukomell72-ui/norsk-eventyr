@@ -344,6 +344,9 @@ async function guidedCheck(){
  // A mixed Russian/Bokmål request like «Jeg ... забыл как сказать живу ...»
  // is a request for Nora's help, not a submitted graded Norwegian answer.
  if(window.NEVisualWorld?.helpFromGuidedAnswer?.(a,input)===true)return;
+ // Explicit questions in Bokmål to Nora are teacher help, not dialogue grades.
+ // Regular questions to the scene partner are still assessed normally.
+ if(window.neNoraHelpIntent?.(a)===true&&window.v7HelpFromLessonAnswer?.(a,input)===true)return;
  const {scene,progress}=d,step=scene.steps[progress.index],spoken=['true','recognition'].includes(String(input.dataset.fromVoice||'')),index=progress.index;
  s.locked=true;box.innerHTML='<div class="feedback">Нора проверяет реплику…</div>';
  const context=progress.index===0?scene.opening:(progress.turns[progress.index-1]?.reply||scene.steps[progress.index-1].reply);
