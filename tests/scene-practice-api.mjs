@@ -64,7 +64,7 @@ assert.equal(result.data.explanation_ru,'Du kan si: jeg bor.');
 assert.equal(result.data.feedback_status,'not_assessed');
 assert.equal(Object.hasOwn(result.data,'score'),false,'Unscored help must never grant XP');
 assert(lastPrompt.includes('текущего упражнения или диалога'),'The same tutor must work outside conversation scenes');
-assert(lastPrompt.includes('på Bokmål или смешивать языки'),'Tutor must understand mixed learner questions');
+assert(lastPrompt.includes('на Bokmål или смешивать языки'),'Tutor must understand mixed learner questions');
 
 
 console.log('PASS ungraded NPC API: natural responses preserved, scoring stripped, role memory, input checks and explanation compatibility');
