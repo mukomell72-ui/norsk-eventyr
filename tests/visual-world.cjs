@@ -149,7 +149,7 @@ assert(guided.includes('window.NEVisualWorld?.render?.')&&guided.includes('windo
 const access=read('access.js'),sw=read('sw.js'),html=read('index.html');
 assert(read('nora-experience.js').includes('NEVisualWorld?.guide?.(b)'),'Nora visual guide must appear throughout the lesson');
 assert(access.includes("'visual-world.js','guided-speaking.js'"),'Visual world should load before guided speech');
-assert(sw.includes('/visual-world.js?v=8.3.0-world14')&&sw.includes('/visual-world.css?v=8.3.0-world8'),'Offline assets missing');
+assert(sw.includes('/visual-world.js?v=8.3.0-world15')&&sw.includes('/visual-world.css?v=8.3.0-world8'),'Offline assets missing');
 assert(html.includes('/visual-world.css?v=8.3.0-world8'),'Fresh styles not loaded');
 assert(source.includes('typeof window.saveState')&&source.includes('aria-pressed'),'Avatar state not personal');
 console.log('PASS animated conversations: adult illustrations, escaped scene, learner answers, voice response, continuity, saved avatar, reduced motion and PWA');
@@ -265,11 +265,12 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
  assert.equal(await V.sendFree(),true);
  assert.equal(input.dataset.neFromSpeech,'false','Transcript marker must reset after sending');
  assert.equal(progress.freeChat.at(-1).text,'Ja, den ligger rett ved biblioteket.');
- // Max 6 user turns even if data is imported into a checkpoint.
+ // A2 allows 10 turns, and that count survives truncated history.
+ progress.freeTurnsUsed=10;
  progress.freeChat=Array.from({length:12},(_,i)=>({role:i%2===0?'user':'assistant',text:'ok'}));
  assert.equal(await V.sendFree(),false);
- assert(freeStatus.textContent.includes('Шесть'),'Six-turn limit must be shown even when the draft field is empty');
- progress.freeChat=[];
+ assert(freeStatus.textContent.includes('10'),'A2 turn limit must be visible even when the draft is empty');
+ progress.freeChat=[];progress.freeTurnsUsed=0;
  // Contextual Nora help: an ungraded bilingual teacher response mid-turn.
  const helpInput={value:'Jeg ... не помню, как сказать «живу» ... i Norge?',isConnected:true,dataset:{}};
  const helpSend={disabled:false,isConnected:true};

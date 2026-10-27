@@ -170,6 +170,7 @@
     return {source:"unavailable"};
   }
   function stopSpeechPlayback(){
+    try{window.NEVisualWorld?.onAudioStop?.()}catch{}
     clearTimeout(speechPlaybackTimer);
     if(speechAudio){try{speechAudio.pause()}catch{};speechAudio=null}
     try{window.speechSynthesis?.cancel()}catch{}
@@ -268,10 +269,14 @@
         node.connect(ctx.destination);
         speechAudio={pause:()=>{node.onended=null;try{node.stop()}catch{};try{node.disconnect()}catch{}}};
         node.onended=()=>{
-          if(request===speechRequest){speechAudio=null;restoreSpeechButton(btn)}
+          if(request===speechRequest){
+            try{window.NEVisualWorld?.onAudioStop?.()}catch{}
+            speechAudio=null;restoreSpeechButton(btn)
+          }
           try{node.disconnect()}catch{}
         };
         node.start(0);
+        try{window.NEVisualWorld?.onAudioStart?.({text,buffer,context:ctx,startTime:ctx.currentTime,rate:playRate})}catch{}
         setSpeechButton(btn,"playing");
         return {source:"ai"};
       }catch{
@@ -288,8 +293,15 @@
       recovered=true;speechAudio=null;a.onended=null;a.onerror=null;
       return fallbackSpeech(text,rate,btn,request);
     };
-    a.onplaying=()=>{if(request===speechRequest)setSpeechButton(btn,"playing")};
-    a.onended=()=>{if(request===speechRequest){speechAudio=null;restoreSpeechButton(btn)}};
+    a.onplaying=()=>{if(request===speechRequest){
+      // MediaElement fallback lacks decoded PCM here. Do not invent
+      // phoneme timing when we cannot inspect the audible waveform.
+      setSpeechButton(btn,"playing")
+    }};
+    a.onended=()=>{if(request===speechRequest){
+      try{window.NEVisualWorld?.onAudioStop?.()}catch{}
+      speechAudio=null;restoreSpeechButton(btn)
+    }};
     a.onerror=()=>{recover()};
     let playTimer;
     try{

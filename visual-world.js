@@ -16,6 +16,7 @@
   '<path class="ne-mouth-lower" d="M14 26 Q36 40 58 26"/>'+
   '<path class="ne-mouth-teeth" d="M22 22 Q36 20 50 22 L48 25 Q36 27 24 25Z"/>'+
   '</svg></span>';
+ const actorVoices=Object.freeze({nora:'marin',ingrid:'coral',mari:'sage',erik:'cedar'});
  const actors={
   ingrid:'ingrid',ida:'ingrid',anna:'ingrid',sofie:'mari',mari:'mari',sara:'mari',maja:'mari',
   nora:'nora',anders:'erik',erik:'erik',henrik:'erik',nils:'erik',
@@ -122,7 +123,7 @@
      '<div class="ne-world-free-controls"><button type="button" class="btn secondary" id="neWorldFreeMic" onclick="NEVisualWorld.dictateFree()">🎤 Произнести</button>'+
      '<button type="button" class="btn secondary" id="neWorldFreeSend" onclick="NEVisualWorld.sendFree()">Отправить реплику</button>'+
      '<button type="button" class="btn secondary" id="neWorldFreeReplay" onclick="NEVisualWorld.speakLastFree()"'+(replayEnabled?'':' disabled')+'>Слушать последний ответ</button></div>'+
-     '<small id="neWorldFreeStatus" role="status" aria-live="polite">До 6 свободных реплик за урок. Микрофон использует распознавание речи устройства: проверь текст перед отправкой. Для ответа AI необходим интернет.</small>'+
+     '<small id="neWorldFreeStatus" role="status" aria-live="polite">До '+freeTurnLimit(lesson.level)+' свободных реплик за урок. Микрофон использует распознавание речи устройства: проверь текст перед отправкой. Для ответа AI необходим интернет.</small>'+
      '<small>Дополнительная практика: баллы и экзаменационный результат не начисляются.</small></details>'+
    '<details class="ne-world-avatar-picker"><summary>Изменить свой аватар</summary>'+
      '<div class="ne-world-avatar-options" role="group" aria-label="Учебный аватар">'+
@@ -292,13 +293,57 @@
   // The synth may queue speech. Animate only after its real start event.
   return true;
  }
+ // Use the actual decoded audio's energy envelope for the main AI TTS
+ // playback. This is sound-driven mouth opening, not phonemic lip-sync.
+ let expectedPartnerAudio=null,pcmSpeech=null;
+ function onAudioStop(){
+  if(!pcmSpeech)return false;
+  const job=pcmSpeech;pcmSpeech=null;
+  if(job.timer!==null&&typeof window.clearInterval==='function')window.clearInterval(job.timer);
+  job.el?.classList?.remove('ne-world-talking');
+  job.el?.removeAttribute?.('data-ne-viseme');
+  return true;
+ }
+ function onAudioStart({text,buffer,context,startTime,rate}={}){
+  onAudioStop();
+  if(!expectedPartnerAudio||expectedPartnerAudio!==String(text||'')||!lipSyncEnabled())return false;
+  const el=talkingTarget('partner');
+  if(!el||typeof buffer?.getChannelData!=='function'||!Number.isFinite(buffer.sampleRate)||
+     !Number.isFinite(buffer.duration)||buffer.duration<=0||typeof window.setInterval!=='function')return false;
+  let samples;
+  try{samples=buffer.getChannelData(0)}catch{return false}
+  if(!samples?.length)return false;
+  const started=Number.isFinite(startTime)?startTime:Number(context?.currentTime)||0;
+  const speed=Math.max(.5,Math.min(2,Number(rate)||1));
+  const job={el,timer:null};pcmSpeech=job;
+  el.classList?.add('ne-world-talking');
+  const tick=()=>{
+   if(pcmSpeech!==job||!lipSyncEnabled()){onAudioStop();return}
+   const position=Math.max(0,(Number(context?.currentTime||0)-started)*speed);
+   if(position>=buffer.duration){onAudioStop();return}
+   const center=Math.max(0,Math.min(samples.length-1,Math.floor(position*buffer.sampleRate)));
+   const half=Math.min(360,Math.max(24,Math.floor(buffer.sampleRate*.009)));
+   let sum=0,count=0;
+   for(let i=Math.max(0,center-half);i<=Math.min(samples.length-1,center+half);i+=6){sum+=samples[i]*samples[i];count++}
+   const rms=Math.sqrt(sum/Math.max(1,count));
+   // Sound envelope shapes are not precise Norwegian phonemes.
+   el.setAttribute?.('data-ne-viseme',rms<.012?'closed':rms<.045?'mid':rms<.11?'wide':'round');
+  };
+  tick();job.timer=window.setInterval(tick,70);
+  return true;
+ }
  function sayPartner(text,rate){
   if(typeof window.speakText!=='function')return false;
   try{
-   const utterance=window.speakText(text,rate);
+   const scene=window.NEGuidedSpeaking?.definition?.(window.neLessonSession?.lesson);
+   const voice=actorVoices[actorKey(scene?.actor)]||'marin';
+   expectedPartnerAudio=String(text||'');
+   const utterance=window.speakText(text,rate,null,voice);
    if(!utterance)return false;
    // Audio playback and optional mouth animation are independent.
-   bindSpeech(utterance,'partner');
+   // Web Speech fallback has boundaries. AI audio has real PCM events.
+   if(utterance&&typeof utterance.addEventListener==='function')bindSpeech(utterance,'partner');
+   else if(utterance&&typeof utterance.catch==='function')utterance.catch(()=>{});
    return true;
   }catch{return false}
  }
@@ -485,6 +530,7 @@
   try{recognition.start();helpStatus('Слушаю вопрос ('+(lang==='ru'?'русский':'норвежский')+')…');return true}
   catch{if(helpRecognition===recognition)helpRecognition=null;helpStatus('Микрофон не запустился.');return false}
  }
+ const freeTurnLimit=level=>level==='B2'||level==='B1'?12:level==='A2'?10:8;
  const freePending=new WeakSet();
  let freeRecognition=null;
  function dictateFree(){
@@ -575,8 +621,10 @@
   const message=field?.value?.trim();
   if(!session||!progress||!scene||!field||freePending.has(progress))return false;
   const history=Array.isArray(progress.freeChat)?progress.freeChat:[];
-  const already=history.filter(t=>t?.role==='user').length;
-  if(already>=6){freeStatus('Шесть свободных реплик использованы. Продолжи основной урок.');return false}
+  // Pruning the visible history must not reset the real conversation limit.
+  const already=Math.max(Number(progress.freeTurnsUsed)||0,history.filter(t=>t?.role==='user').length);
+  const limit=freeTurnLimit(lesson.level);
+  if(already>=limit){freeStatus('Лимит '+limit+' свободных реплик использован. Продолжи основной урок.');return false}
   if(!message)return false;
   if(message.length>350){freeStatus('Не больше 350 символов за реплику.');return false}
   if(typeof window.neApiPost!=='function'){freeStatus('Свободный диалог требует подключения к AI. Основной урок доступен.');return false}
@@ -608,6 +656,7 @@
    const updated=[...history.filter(t=>t.role==='user'||t.role==='assistant').slice(-10),
     {role:'user',text:message},{role:'assistant',text:raw}].slice(-12);
    progress.freeChat=updated;
+   progress.freeTurnsUsed=already+1;
    try{window.persistLessonCheckpoint?.()}catch{}
    appendFree('user',message,'Ты');
    appendFree('assistant',raw,String(scene.actor||'Собеседник').slice(0,70));
@@ -654,5 +703,5 @@
    synth.speak(u);message('Нора объясняет задание.');
   }catch{message('Озвучка недоступна. Задание написано на экране.')}
  }
- window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,askHelp,dictateHelp,helpFromGuidedAnswer,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
+ window.NEVisualWorld=Object.freeze({freeTurnLimit,render,guide,speakStage,onAudioStart,onAudioStop,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,askHelp,dictateHelp,helpFromGuidedAnswer,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
 })();

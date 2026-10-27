@@ -25,7 +25,7 @@ const actualCache=(sw.match(/^const CACHE="([^"]+)";/m)||[])[1];
 const worldRevision=(actualCache?.match(/-world[1-9][0-9]*$/)||[])[0]||'';
 const cacheWithoutWorld=actualCache?.slice(0,actualCache.length-worldRevision.length)||'';
 const storyRevision=(cacheWithoutWorld.startsWith(baseCache)?cacheWithoutWorld.match(/-story[1-9][0-9]*$/)?.[0]:'')||'';
-const worldSuffix=pathname=>['/access.js','/visual-world.js'].includes(pathname)?'-world14':pathname==='/visual-world.css'?'-world8':(['/app.js','/ui-v7.js'].includes(pathname)?'-help3':pathname==='/guided-speaking.js'?'-world3':pathname==='/nora-experience.js'?'-world1':'');
+const worldSuffix=pathname=>['/access.js','/visual-world.js'].includes(pathname)?'-world15':pathname==='/visual-world.css'?'-world8':(['/app.js','/ui-v7.js'].includes(pathname)?'-help3':pathname==='/guided-speaking.js'?'-world3':pathname==='/nora-experience.js'?'-world1':pathname==='/v3.js'?'-voice1':'');
 const assetRevision=cacheWithoutWorld.startsWith(baseCache)?cacheWithoutWorld.slice(baseCache.length,cacheWithoutWorld.length-storyRevision.length):null;
 const storySuffix=pathname=>pathname==='/access.js'||pathname==='/v8.css'||['/app.js','/guided-speaking.js','/adaptive-teacher.js','/living-day.js','/story-journey.js'].includes(pathname)?'-story1':
  pathname==='/story-journey-advanced.js'?'-story2':'';
@@ -291,7 +291,7 @@ if(coachSuffix){
   'Human-centered UI styles must use the new cache-busting revision');
  assert(app.includes('NEExperience?.lessonHeader?.('),'New mission context must mount in lesson UI');
  assert(read('v3.js').includes('NEExperience?.lessonHeader?.('),'Legacy lesson render must mount Nora experience');
- assert(assets.includes('/v3.js?v='+v+baseRevision+bridgeSuffix),'Offline legacy lesson must reload on release');
+ assert(assets.includes('/v3.js?v='+v+baseRevision+bridgeSuffix+worldSuffix('/v3.js')),'Offline legacy lesson must reload on release');
  assert(app.includes('NELanguageBridge?.controlHtml?.()'),'Language bridge must offer an opt-out on the homepage');
  assert(assets.includes('/language-bridge.js?v='+v+coachSuffix+bridgeSuffix+auditSuffix),'PWA must precache the language bridge');
  assert(assets.includes('/cloze-coach.js?v='+v+coachSuffix),'PWA must cache word explanation engine');
