@@ -120,7 +120,7 @@
      '<label for="neWorldFreeInput">Твоя произвольная реплика по-норвежски</label>'+
      '<textarea id="neWorldFreeInput" maxlength="350" rows="2" class="input" placeholder="Что ты хочешь сказать?" oninput="this.dataset.neFromSpeech=\'false\'"></textarea>'+
      '<div class="ne-world-free-controls"><button type="button" class="btn secondary" id="neWorldFreeMic" onclick="NEVisualWorld.dictateFree()">🎤 Произнести</button>'+
-     '<button type="button" class="btn secondary" id="neWorldFreeSend" onclick="NEVisualWorld.sendFree()">Отправить реплику</button>'+ 
+     '<button type="button" class="btn secondary" id="neWorldFreeSend" onclick="NEVisualWorld.sendFree()">Отправить реплику</button>'+
      '<button type="button" class="btn secondary" id="neWorldFreeReplay" onclick="NEVisualWorld.speakLastFree()"'+(replayEnabled?'':' disabled')+'>Слушать последний ответ</button></div>'+
      '<small id="neWorldFreeStatus" role="status" aria-live="polite">До 6 свободных реплик за урок. Микрофон использует распознавание речи устройства: проверь текст перед отправкой. Для ответа AI необходим интернет.</small>'+
      '<small>Дополнительная практика: баллы и экзаменационный результат не начисляются.</small></details>'+
