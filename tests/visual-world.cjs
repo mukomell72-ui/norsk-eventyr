@@ -278,7 +278,7 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
   assert.equal(payload.mode,'explain','Help must never go through scored dialogue evaluation');
   assert.equal(payload.scenario,'guided_help');
   assert.equal(payload.inputSource,'typed_text');
-  assert(payload.context.includes('Hei! Når kan du komme?'));
+  assert(payload.context.includes('Det passer fint.'),'Help must use current partner turn, not the opening line');
   assert(payload.context.includes('Jeg ... i Norge'),'Existing draft should be context only');
   assert.equal(payload.message,'Jeg ... не помню, как сказать «живу» ... i Norge?');
   return {ok:true,data:{explanation_ru:'Жить — å bo. Сейчас: jeg bor. Попробуй сам.'}};
