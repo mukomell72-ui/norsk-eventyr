@@ -4,11 +4,11 @@
 'use strict';
 const LEVEL_WEEKS=Object.freeze({A1:16,A2:20,B1:28,B2:36});
 const DAY_PARTS=[
- ['Повторение через интервалы',10],
- ['Новая тема и грамматика',12],
- ['Аудирование, чтение и понимание',13],
- ['Разговор с Норой и обратная связь',20],
- ['Письмо и выводы',5]
+ ['Повторение через интервалы',7],
+ ['Новая тема и грамматика',7],
+ ['Аудирование, чтение и понимание',9],
+ ['Разговор с Норой и обратная связь',18],
+ ['Письмо и выводы',4]
 ];
 const STAGES=[
  {key:'introduce',title:'1. Знакомство с ситуацией',instruction:'Разбери ситуацию, ключевые фразы и грамматическую основу. Дай короткую опору на русском, затем попроси ученика ответить вслух простой полезной фразой и изменить её для себя. Не показывай готовый ответ в проверке.'},
@@ -17,10 +17,10 @@ const STAGES=[
  {key:'transfer',title:'4. Применение без подсказок',instruction:'Создай неожиданную, но жизненную ситуацию с той же целью. Потребуй самостоятельную устную реакцию, уточнение и поддержание разговора без шаблона, а затем короткий письменный итог. Проверяй перенос навыка после паузы, не узнавание готового образца.'}
 ];
 const HOURS=Object.freeze(Object.fromEntries(Object.entries(LEVEL_WEEKS).map(([level,weeks])=>[level,weeks*6])));
-function dailyPlan(minutes=60,skillProfile=null){
- const chosen=Number.isFinite(Number(minutes))?Math.round(Number(minutes)):60;
+function dailyPlan(minutes=45,skillProfile=null){
+ const chosen=Number.isFinite(Number(minutes))?Math.round(Number(minutes)):45;
  const total=Math.max(20,Math.min(90,chosen));
- const points=DAY_PARTS.map((p,i)=>({label:p[0],minutes:i===4?0:Math.floor(p[1]*total/60)}));
+ const points=DAY_PARTS.map((p,i)=>({label:p[0],minutes:i===4?0:Math.floor(p[1]*total/45)}));
  points[4].minutes=total-points.slice(0,4).reduce((sum,x)=>sum+x.minutes,0);
  const mapping={vocabulary:0,grammar:1,listening:2,reading:2,speaking:3,writing:4};
  const scores=Object.keys(mapping).map(k=>({skill:k,score:Number(skillProfile?.[k])}));
