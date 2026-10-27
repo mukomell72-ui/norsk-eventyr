@@ -102,7 +102,7 @@
      '<div class="ne-world-character ne-world-self" data-ne-role="self"><div class="ne-world-portrait-wrap" data-ne-face="'+currentAvatar+'"><img id="neWorldSelfImage" src="'+portraits[currentAvatar]+'" alt="Твой учебный аватар" class="ne-world-portrait" loading="lazy">'+mouthSvg+'</div>'+
      '<div class="ne-world-name">Ты <span>отвечаешь</span></div></div>'+
    '</div>'+
-   '<div class="ne-world-stage-caption" aria-live="polite">Нора помогает · '+e(who)+' ждёт твоего ответа</div>'+ 
+   '<div class="ne-world-stage-caption" aria-live="polite">Нора помогает · '+e(who)+' ждёт твоего ответа</div>'+
    '<div class="ne-world-dialogue" aria-label="Текущий разговор">'+
      '<div class="ne-world-line ne-world-line-partner"><span>'+e(who)+'</span><p lang="nb" aria-label="Слова в реплике можно нажать для перевода">'+tapWords(last)+'</p></div>'+
      '<div class="ne-world-line ne-world-line-self" aria-live="off"><span>Твой ответ</span><p id="neWorldOwnWords" lang="nb">'+e(progress.pending?.answer||'Твои слова появятся здесь…')+'</p></div>'+
