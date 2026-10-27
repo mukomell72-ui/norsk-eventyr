@@ -253,3 +253,43 @@
 .ne-world-guide-expanded .ne-world-guide-portrait{object-position:center 22%}
 .ne-world-guide-expanded .ne-world-guide-copy{width:100%}
 @media(max-width:460px){.ne-world-guide-expanded .ne-world-guide-face{width:min(100%,210px);height:220px}.ne-world-guide-expand{margin:8px 0 0}}
+
+
+/* Visible first-stage character prototype: Nora is present before a learner scrolls
+   to the speaking exercise. This is stylized 2D motion, not video or 3D animation. */
+@keyframes ne-tutor-presence {
+  0%,100% { transform:translateY(0) rotate(-.7deg) scale(1); }
+  35% { transform:translateY(-5px) rotate(.6deg) scale(1.012); }
+  70% { transform:translateY(-2px) rotate(-.3deg) scale(1.006); }
+}
+@keyframes ne-tutor-attend {
+  0%,100% { filter:brightness(1); }
+  50% { filter:brightness(1.055); }
+}
+.ne-world-guide .ne-world-guide-face {
+  width:clamp(104px,28vw,174px);
+  height:clamp(130px,34vw,194px);
+  flex:0 0 auto;
+  border-radius:20px;
+  overflow:hidden;
+  box-shadow:0 8px 24px rgba(9,35,55,.18);
+  animation:ne-tutor-presence 4.8s ease-in-out infinite;
+}
+.ne-world-guide .ne-world-guide-portrait {
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  object-position:center 24%;
+  animation:ne-tutor-attend 5.2s ease-in-out infinite;
+}
+.ne-world-guide .ne-world-guide-copy { flex:1 1 210px; min-width:0; }
+.ne-world-guide-expanded .ne-world-guide-face { width:min(100%,260px);height:260px; }
+@media(max-width:430px) {
+ .ne-world-guide { align-items:center; }
+ .ne-world-guide .ne-world-guide-face { width:118px;height:146px; }
+ .ne-world-guide-expanded .ne-world-guide-face { width:min(100%,230px);height:240px; }
+}
+@media(prefers-reduced-motion:reduce) {
+ .ne-world-guide .ne-world-guide-face,
+ .ne-world-guide .ne-world-guide-portrait { animation:none!important; }
+}
