@@ -25,7 +25,7 @@ const actualCache=(sw.match(/^const CACHE="([^"]+)";/m)||[])[1];
 const worldRevision=(actualCache?.match(/-world[1-9][0-9]*$/)||[])[0]||'';
 const cacheWithoutWorld=actualCache?.slice(0,actualCache.length-worldRevision.length)||'';
 const storyRevision=(cacheWithoutWorld.startsWith(baseCache)?cacheWithoutWorld.match(/-story[1-9][0-9]*$/)?.[0]:'')||'';
-const worldSuffix=pathname=>['/access.js','/visual-world.js'].includes(pathname)?'-world12':pathname==='/visual-world.css'?'-world7':(pathname==='/guided-speaking.js'?'-world2':pathname==='/nora-experience.js'?'-world1':'');
+const worldSuffix=pathname=>['/access.js','/visual-world.js'].includes(pathname)?'-world13':pathname==='/visual-world.css'?'-world8':(['/app.js','/ui-v7.js'].includes(pathname)?'-help1':pathname==='/guided-speaking.js'?'-world2':pathname==='/nora-experience.js'?'-world1':'');
 const assetRevision=cacheWithoutWorld.startsWith(baseCache)?cacheWithoutWorld.slice(baseCache.length,cacheWithoutWorld.length-storyRevision.length):null;
 const storySuffix=pathname=>pathname==='/access.js'||pathname==='/v8.css'||['/app.js','/guided-speaking.js','/adaptive-teacher.js','/living-day.js','/story-journey.js'].includes(pathname)?'-story1':
  pathname==='/story-journey-advanced.js'?'-story2':'';
