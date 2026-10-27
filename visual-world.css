@@ -212,3 +212,19 @@
 .ne-world-partner[data-ne-reaction="thoughtful"] .ne-world-portrait-wrap{border-color:#f5dfbf}
 @keyframes ne-world-attend{0%,100%{transform:translateY(0) rotate(0)}45%{transform:translateY(-3px) rotate(.8deg)}}
 @media(prefers-reduced-motion:reduce){.ne-world-character.ne-world-reacting .ne-world-portrait-wrap{animation:none!important}}
+
+/* In-scene contextual Nora help: ungraded, accessible and light on mobile. */
+.ne-world-help{margin:13px 0;padding:11px 13px;border-radius:14px;background:rgba(247,255,251,.96);border:1px solid #a1cbbb;color:#234f49}
+.ne-world-help>summary{cursor:pointer;font-size:14px;font-weight:820;line-height:1.6}
+.ne-world-help>p{font-size:13px;line-height:1.55;font-weight:500;margin:9px 0 12px;color:#375d58}
+.ne-world-help>label{display:block;margin:9px 0 6px;font-size:13px;font-weight:780}
+.ne-world-help>textarea{display:block;box-sizing:border-box;width:100%;min-height:66px;font-size:16px;background:white;color:#183e41}
+.ne-world-help-controls{display:flex;gap:8px;flex-wrap:wrap;margin:9px 0}
+.ne-world-help-controls .btn{flex:1 1 auto;min-width:90px}
+.ne-world-help button:focus-visible{outline:3px solid #197cc4;outline-offset:2px}
+.ne-world-help small{display:block;margin-top:8px;font-size:12px;line-height:1.55;color:#3d635f}
+.ne-world-help-log{display:flex;flex-direction:column;gap:6px;max-height:275px;overflow:auto;margin:8px 0}
+.ne-world-help-turn{background:#fff;border:1px solid #cde2d8;border-radius:12px;padding:9px 10px;overflow-wrap:anywhere}
+.ne-world-help-turn strong{display:block;color:#215b51;font-size:12px}
+.ne-world-help-turn p{font-size:14px!important;line-height:1.5!important;font-weight:450!important;margin:4px 0 0!important;white-space:pre-wrap}
+@media(max-width:430px){.ne-world-help-controls .btn{flex:1 1 100%;width:100%}}
