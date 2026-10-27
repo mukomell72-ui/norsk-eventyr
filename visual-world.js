@@ -485,6 +485,7 @@
     return false;
    }
    progress.helpChat=[...history,{role:'user',text:question},{role:'assistant',text:answer}].slice(-8);
+   window.NEWordTrays?.recordTutorWord?.({question,explanation:answer,lesson});
    // A hint about the current turn means the next answer is guided practice,
    // not independent evidence of mastery, even when it is fully correct.
    if(!progress.aidedTurns||typeof progress.aidedTurns!=='object'||Array.isArray(progress.aidedTurns))progress.aidedTurns={};

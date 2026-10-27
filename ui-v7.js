@@ -237,6 +237,7 @@
         }
         try{window.persistLessonCheckpoint?.()}catch{}
       }
+      if(session?.lesson&&!inPlacement)window.NEWordTrays?.recordTutorWord?.({question,explanation,lesson:session.lesson});
       box._helpHistory=updated;
       box.textContent=explanation+"\n\nЭто подсказка. Продолжи исходное задание самостоятельно.";
       input.value="";if(input.dataset)input.dataset.fromSpeech='false';
