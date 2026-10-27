@@ -7,7 +7,7 @@ const ui=read('ui-v7.js'),app=read('app.js'),chat=read('api/chat.js');
 const start=ui.indexOf('  let neHelpSpeech=null;');
 const end=ui.indexOf('  Object.assign(window,{v7OpenHelp,v7AskHelp,v7QuickHelp,v7DictateHelp});',start);
 assert(start>=0&&end>start,'Nora lesson helper must be available globally');
-const source=ui.slice(start,end)+'\nthis.helpers={helpMarkupV7,v7AskHelp,v7DictateHelp,v7OpenHelp,v7HelpHistory};';
+const source=ui.slice(start,end)+'\nthis.helpers={helpMarkupV7,v7AskHelp,v7DictateHelp,v7OpenHelp,v7HelpHistory,v7HelpFromLessonAnswer};';
 let saved=0,grade=0,request;
 const session={lesson:{id:'a1-new',level:'A1'},step:4,locked:false,guidedSpeech:null};
 const w={neLessonSession:session,neScreenRevision:5,persistLessonCheckpoint:()=>saved++};
@@ -81,6 +81,22 @@ assert(markup.includes('Спросить Нору')&&markup.includes('helpQuesti
  assert.equal(t.v7DictateHelp('fr'),false);
  assert.equal(called,1,'Microphone does not submit user data or grade the task');
  assert.equal(field.value,'Jeg ... i Norge');
+ // Even when the user writes Russian into the main graded field and clicks Check,
+ // Nora should explain without deleting text or starting AI grading.
+ session.step=5;box.textContent='';input.value='';field.value='Jeg ... забыл как сказать живу ... i Norge';
+ ctx.neApiPost=async(_url,args)=>{
+   grade++;assert.equal(args.mode,'explain');
+   assert.equal(args.message,'Jeg ... забыл как сказать живу ... i Norge');
+   return {ok:true,data:{explanation_ru:'Å bo, jeg bor.'}};
+ };
+ assert.equal(t.v7HelpFromLessonAnswer(field.value,field),true);
+ await new Promise(done=>setImmediate(done));
+ assert.equal(grade,1,'Main answer goes to the tutorial explanation, not a scored AI endpoint');
+ assert.equal(session.helpV8.aidedSteps['5'],true);
+ assert.equal(field.value,'Jeg ... забыл как сказать живу ... i Norge','Help must not delete the learner answer');
+ assert.equal(t.v7HelpFromLessonAnswer('Jeg bor i Norge',field),false,'Regular Norwegian answer must be evaluated normally');
+ assert(app.includes('v7HelpFromLessonAnswer?.(a,input)')&&app.includes('v7HelpFromLessonAnswer?.(answer,input)'),
+   'Main dialogue, writing and vocabulary checkers must detect mixed help requests first');
  // No free XP or B2 evidence from generic hints.
  assert(app.includes('helpV8:session.helpV8||null')&&app.includes('helpV8:saved?.helpV8'),'Tutor state must persist and restore');
  assert(app.includes('lessonHelpWasUsed()'),'Lesson evidence must check contextual hint provenance');
