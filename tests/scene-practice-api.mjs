@@ -43,4 +43,17 @@ result=await run({reply_no:'Du kan prøve busstoppet der borte.'},{mode:'scene_p
 assert.equal(result.status,200);
 result=await run({reply_no:'Du kan prøve busstoppet der borte.'},{mode:'explain'});
 assert.equal(result.status,200,'Existing explanation mode must remain supported');
+result=await run({reply_no:'',explanation_ru:'«Живу» — bor. Infinitiv: å bo.',score:100,accepted:true},{
+ mode:'explain',scenario:'guided_help',message:'Jeg ... не знаю, как сказать живу ... i Norge?',
+ inputSource:'voice_transcript',context:'Текущая сцена: магазин. Задание: опиши, где живёшь. Черновик: Jeg ... i Norge.'
+});
+assert.equal(result.status,200,'In-scene teacher explanations need the existing explain API');
+assert.equal(result.data.explanation_ru,'«Живу» — bor. Infinitiv: å bo.','Mixed-language explanation must be preserved');
+assert.equal(result.data.feedback_status,'not_assessed','A help question is never assessed');
+assert.equal(result.data.score_valid,false);
+assert.equal(Object.hasOwn(result.data,'score'),false,'No hallucinated grade for asking for help');
+assert(lastPrompt.includes('по-русски, на Bokmål или смешивать языки'),'Guided tutor should allow mixed-language questions');
+assert(lastPrompt.includes('не изменяй номер реплики'),'Help must not advance a guided dialogue');
+assert(lastPrompt.includes('Jeg ... i Norge'),'Help prompt must retain the student's unfinished answer');
+
 console.log('PASS ungraded NPC API: natural responses preserved, scoring stripped, role memory, input checks and explanation compatibility');
