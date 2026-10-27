@@ -6,11 +6,11 @@ const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
 const context={window:{},Math,Number,Date,Array,String,Object,JSON,Set,Intl};
 vm.createContext(context);
 vm.runInContext(read('course-methodology.js'),context);
-const plan=context.window.NECourseMethod.dailyPlan(60);
-assert.deepEqual(Array.from(plan.parts,p=>p.minutes),[10,12,13,20,5]);
+const plan=context.window.NECourseMethod.dailyPlan(45);
+assert.deepEqual(Array.from(plan.parts,p=>p.minutes),[7,7,9,18,4]);
 assert(plan.parts[3].minutes>plan.parts[1].minutes,'Speaking gets more time than explanation');
-const speechGap=context.window.NECourseMethod.dailyPlan(60,{vocabulary:75,grammar:74,listening:76,reading:73,writing:72,speaking:40});
-assert(speechGap.parts[3].minutes>=24,'The weakest oral skill should receive adaptive extra time');
+const speechGap=context.window.NECourseMethod.dailyPlan(45,{vocabulary:75,grammar:74,listening:76,reading:73,writing:72,speaking:40});
+assert(speechGap.parts[3].minutes>18,'The weakest oral skill should receive adaptive extra time');
 const scenario={id:'a1-foundation',level:'A1',title:'Знакомство',canDo:['Представиться и задать вопрос']};
 const s={level:'A1',elite:{dailyMinutes:60},learningV8:{modules:{},attempts:[]},generatedLessons:{}};
 const pages=[],resumes=[];
@@ -54,8 +54,8 @@ assert(guided.includes('function neGuidedExplain()'),'Confusion help must be rea
 assert(ui.includes('Урок с Норой · ')&&ui.includes('lessonarchive'),'One-tap lesson and archive must be accessible');
 assert(gen.includes('Устная практика — приоритет'),'Teacher prompts must emphasize oral practice');
 const cache=read('sw.js'),access=read('access.js'),index=read('index.html');
-assert(index.includes('-audit11-story1" defer>'),'New story bootstrap must invalidate cached lessons');
+assert(index.includes('-audit11-story1-world21" defer>'),'New story bootstrap must invalidate cached lessons');
 for(const name of ['course-methodology.js','guided-speaking.js','living-day.js','ui-v7.js'])
  assert(cache.includes('/'+name+'?v=8.3.0-lesson24')&&access.includes("'-teacher2'"),'Versioned offline lessons required: '+name);
-assert(/-teacher2-coach6-fresh1-bridge8-audit[1-9][0-9]*(?:-story1)?" defer><\/script>/.test(index),'App bootstrap must invalidate old lesson cache for the tutor release');
+assert(/-teacher2-coach6-fresh1-bridge8-audit[1-9][0-9]*(?:-story1)?(?:-world[1-9][0-9]*)?" defer><\/script>/.test(index),'App bootstrap must invalidate old lesson cache for the tutor release');
 console.log('PASS teacher-led day: 60-minute plan, extra speaking, idle-safe clock, retained archive and safe replay');

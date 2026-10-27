@@ -191,6 +191,45 @@
   }
   save();return true;
  }
+ // A word asked about during a lesson should reappear, but never become
+ // a fabricated error or an independent CEFR/XP observation.
+ function recordTutorWord({question,explanation,lesson}={}){
+  const q=String(question||'').trim(),answer=String(explanation||'').trim();
+  if(!lesson||!['A1','A2','B1','B2'].includes(lesson.level)||q.length>1800||answer.length>3000||
+     !/(?:не\s+(?:знаю|помню)|забыл(?:а)?|как\s+(?:сказать|будет)|что\s+(?:значит|означает)|hva\s+betyr|hvordan\s+sier)/iu.test(q))return null;
+  const candidates=sourceWords(lesson).filter(w=>lemma(w.word).length>=3||/^å\s+[a-zæøå]{2}$/iu.test(w.word));
+  const normalize=value=>String(value||'').normalize('NFKC').toLocaleLowerCase('nb-NO');
+  const escaped=x=>Array.from(x).map(c=>/[\\^$.*+?()[\]{}|]/.test(c)?'\\'+c:c).join('');
+  const no=normalize(answer);
+  const found=candidates.find(w=>{
+   const word=normalize(w.word),bare=normalize(lemma(w.word));
+   return new RegExp('(?:^|[^\\p{L}])'+escaped(word)+'(?=$|[^\\p{L}])','iu').test(no)||
+    (q.toLocaleLowerCase('ru-RU').includes(bare)&&new RegExp('(?:^|[^\\p{L}])'+escaped(bare)+'(?=$|[^\\p{L}])','iu').test(no));
+  });
+  if(!found)return null;
+  const state=getState(),id=lemma(found.word),now=Date.now(),tomorrow=now+DAY;
+  if(!state||!id)return null;
+  db(); // Initialize private learningV8 if tutor is used before a tray render.
+  state.dailyDictionary=state.dailyDictionary||{};
+  state.wordPracticeQueue=state.wordPracticeQueue||{};
+  state.srs=state.srs||{};
+  let record=Object.values(state.dailyDictionary).find(x=>lemma(x?.lemma||x?.word)===id);
+  if(!record)record=state.dailyDictionary[id]={lemma:found.word,translation_ru:found.ru,
+   level:lesson.level,firstDate:localDate(),source:'tutor_word_review',correct:0,wrong:0,
+   exposures:0,strength:0};
+  const date=localDate(),flags=state.learningV8?.tutorWordQueries||{},unique=date+'|'+id;
+  if(flags[unique])return found.word; // Repeating the same question is not an extra failure.
+  const lastDue=Number(record.nextDue)||0;
+  record.nextDue=lastDue>now&&lastDue<tomorrow?lastDue:tomorrow;
+  state.wordPracticeQueue[id]=record.nextDue;
+  if(!state.srs[id])state.srs[id]={word:found.word,translation:found.ru,level:lesson.level,
+   stage:0,seen:0,correct:0,due:tomorrow};
+  else if(Number(state.srs[id].due||0)>tomorrow)state.srs[id].due=tomorrow;
+  state.learningV8.tutorWordQueries={...flags,[unique]:true};
+  const keys=Object.keys(state.learningV8.tutorWordQueries).sort();
+  for(const old of keys.slice(0,Math.max(0,keys.length-100)))delete state.learningV8.tutorWordQueries[old];
+  save();return found.word;
+ }
  function info(w,shown){
   const row=window.NECardGrammar?.describe?.({word:w.word,translation:w.ru})||null;
   const forms=row?.verified&&Array.isArray(row.forms)?row.forms.slice(0,6):[];
@@ -290,5 +329,5 @@
   document.head.appendChild(el);
  }
  styles();
- window.NEWordTrays=Object.freeze({ensure,slots,render,select,reveal,focus,markOldForgotten,lemma,localDate,offset});
+ window.NEWordTrays=Object.freeze({ensure,slots,render,select,reveal,focus,markOldForgotten,recordTutorWord,lemma,localDate,offset});
 })();

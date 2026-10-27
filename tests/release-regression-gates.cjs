@@ -22,8 +22,11 @@ const baseCache='norsk-eventyr-v'+v.replaceAll('.','-');
 const actualCache=(sw.match(/^const CACHE="([^"]+)";/m)||[])[1];
 // New narrative assets use independent cache-busting suffixes. Preserve the
 // established 8.3.0 release gates while verifying the story bundle separately.
-const storyRevision=(actualCache?.startsWith(baseCache)?actualCache.match(/-story[1-9][0-9]*$/)?.[0]:'')||'';
-const assetRevision=actualCache?.startsWith(baseCache)?actualCache.slice(baseCache.length,actualCache.length-storyRevision.length):null;
+const worldRevision=(actualCache?.match(/-world[1-9][0-9]*$/)||[])[0]||'';
+const cacheWithoutWorld=actualCache?.slice(0,actualCache.length-worldRevision.length)||'';
+const storyRevision=(cacheWithoutWorld.startsWith(baseCache)?cacheWithoutWorld.match(/-story[1-9][0-9]*$/)?.[0]:'')||'';
+const worldSuffix=pathname=>['/access.js'].includes(pathname)?'-world21':pathname==='/visual-world.js'?'-world22':pathname==='/visual-world.css'?'-world12':(['/app.js','/ui-v7.js'].includes(pathname)?'-help5':pathname==='/guided-speaking.js'?'-world3':pathname==='/nora-experience.js'?'-world1':pathname==='/v3.js'?'-voice2':pathname==='/lesson-vocabulary-trays.js'?'-review1':['/living-day.js','/adaptive-teacher.js'].includes(pathname)?'-continuity1':'');
+const assetRevision=cacheWithoutWorld.startsWith(baseCache)?cacheWithoutWorld.slice(baseCache.length,cacheWithoutWorld.length-storyRevision.length):null;
 const storySuffix=pathname=>pathname==='/access.js'||pathname==='/v8.css'||['/app.js','/guided-speaking.js','/adaptive-teacher.js','/living-day.js','/story-journey.js'].includes(pathname)?'-story1':
  pathname==='/story-journey-advanced.js'?'-story2':'';
 const auditSuffix=(assetRevision?.match(/(-audit[1-9][0-9]*)$/)||[])[1]||'';
@@ -95,7 +98,7 @@ for(const asset of assets){
    (coachSuffix&&['/access.js','/app.js','/lesson-coach.js','/lesson-coach.css','/language-bridge.js','/language-bridge.css','/cloze-coach.js','/functional-practice.js','/living-words.js'].includes(pathname)?coachSuffix:'')+
    (freshnessSuffix&&['/access.js','/adaptive-teacher.js'].includes(pathname)?freshnessSuffix:'')+
    (bridgeSuffix&&['/access.js','/adaptive-teacher.js','/app.js','/language-bridge.js','/ui-v7.js','/v7.css','/v3.js','/elite.js','/nora-experience.js'].includes(pathname)?bridgeSuffix:'')+
-   (auditSuffix&&['/access.js','/v7.css','/nora-experience.js','/living-day.js','/app.js','/guided-speaking.js','/language-bridge.js','/ui-v7.js','/adaptive-teacher.js','/word-learning-evidence.js'].includes(pathname)?auditSuffix:'')+storySuffix(pathname);
+   (auditSuffix&&['/access.js','/v7.css','/nora-experience.js','/living-day.js','/app.js','/guided-speaking.js','/language-bridge.js','/ui-v7.js','/adaptive-teacher.js','/word-learning-evidence.js'].includes(pathname)?auditSuffix:'')+storySuffix(pathname)+worldSuffix(pathname);
   assert.equal(query,expected,'Mixed asset revision in service worker: '+asset);
 }
 }
@@ -107,16 +110,16 @@ if(assetRevision){
 }
 if(assetRevision?.startsWith('-auth')){
   for(const [tag,asset] of [['src','access.js'],['href','access.css']]){
-    const expected=tag+'="/'+asset+'?v='+v+assetRevision+storySuffix('/'+asset)+'"';
+    const expected=tag+'="/'+asset+'?v='+v+assetRevision+storySuffix('/'+asset)+worldSuffix('/'+asset)+'"';
     assert(index.includes(expected),'Page must load fresh authentication bootstrap: '+expected);
-    assert(assets.includes('/'+asset+'?v='+v+assetRevision+storySuffix('/'+asset)),
+    assert(assets.includes('/'+asset+'?v='+v+assetRevision+storySuffix('/'+asset)+worldSuffix('/'+asset)),
       'PWA precache must include fresh authentication bootstrap: '+asset);
   }
 }
 if(assetRevision?.startsWith('-lesson')){
-  assert(index.includes('src="/access.js?v='+v+assetRevision+storySuffix('/access.js')+'"'),
+  assert(index.includes('src="/access.js?v='+v+assetRevision+storySuffix('/access.js')+worldSuffix('/access.js')+'"'),
     'Lesson patch must fetch fresh lesson bootstrap');
-  assert(assets.includes('/access.js?v='+v+assetRevision+storySuffix('/access.js')),
+  assert(assets.includes('/access.js?v='+v+assetRevision+storySuffix('/access.js')+worldSuffix('/access.js')),
     'PWA must precache updated lesson bootstrap');
   assert(access.includes("LESSON_PATCH='"+baseRevision+"'")&&
    (!audioSuffix||access.includes("'"+audioSuffix+"'"))&&
@@ -168,7 +171,7 @@ for(const filename of scripts){
    (coachSuffix&&['lesson-coach.js','language-bridge.js','cloze-coach.js','functional-practice.js','app.js','living-words.js'].includes(filename)?coachSuffix:'')+
    (freshnessSuffix&&filename==='adaptive-teacher.js'?freshnessSuffix:'')+
    (bridgeSuffix&&['adaptive-teacher.js','app.js','language-bridge.js','ui-v7.js','v3.js','elite.js','nora-experience.js'].includes(filename)?bridgeSuffix:'')+
-   (auditSuffix&&['nora-experience.js','living-day.js','app.js','guided-speaking.js','language-bridge.js','ui-v7.js','adaptive-teacher.js','word-learning-evidence.js'].includes(filename)?auditSuffix:'')+storySuffix('/'+filename);
+   (auditSuffix&&['nora-experience.js','living-day.js','app.js','guided-speaking.js','language-bridge.js','ui-v7.js','adaptive-teacher.js','word-learning-evidence.js'].includes(filename)?auditSuffix:'')+storySuffix('/'+filename)+worldSuffix('/'+filename);
  assert(assetSet.has('/'+filename+'?v='+v+patch+suffix),'PWA must cache bootstrapped script '+filename);
 }
 for(const m of index.matchAll(/\b(?:src|href)="(\/[^"]+)"/g)){
@@ -195,7 +198,7 @@ if(translationSuffix==='-translate3'){
 if(translationSuffix==='-translate4'){
  for(const pathname of ['/ui-v7.js','/ui-v8.js','/updates.js']){
   const rev=pathname==='/ui-v7.js'?baseRevision:'';
-  assert(assetSet.has(pathname+'?v='+v+rev+translationSuffix+(stampSuffix&&['/ui-v8.js','/updates.js'].includes(pathname)?stampSuffix:'')+(teacherSuffix&&pathname==='/ui-v7.js'?teacherSuffix:'')+(bridgeSuffix&&pathname==='/ui-v7.js'?bridgeSuffix:'')+(auditSuffix&&pathname==='/ui-v7.js'?auditSuffix:'')),'Installed PWA must fetch fresh version UI: '+pathname);
+  assert(assetSet.has(pathname+'?v='+v+rev+translationSuffix+(stampSuffix&&['/ui-v8.js','/updates.js'].includes(pathname)?stampSuffix:'')+(teacherSuffix&&pathname==='/ui-v7.js'?teacherSuffix:'')+(bridgeSuffix&&pathname==='/ui-v7.js'?bridgeSuffix:'')+(auditSuffix&&pathname==='/ui-v7.js'?auditSuffix:'')+worldSuffix(pathname)),'Installed PWA must fetch fresh version UI: '+pathname);
  }
  assert(sw.includes('NE_GET_VERSION')&&sw.includes('cache:CACHE'),
    'Installed SW must reveal its actual active cache revision via MessageChannel');
@@ -276,19 +279,19 @@ console.log('PASS release gate: microphone, audio, opt-in translation, progress 
 if(coachSuffix){
  assert(assets.includes('/lesson-coach.js?v='+v+coachSuffix),'PWA must precache the interactive grammar tutor');
  assert(assets.includes('/lesson-coach.css?v='+v+coachSuffix),'PWA must precache tutor styles');
- assert(index.includes('src="/access.js?v='+v+assetRevision+storySuffix('/access.js')+'"'),'Tutor release must bust the HTML loader cache');
+ assert(index.includes('src="/access.js?v='+v+assetRevision+storySuffix('/access.js')+worldSuffix('/access.js')+'"'),'Tutor release must bust the HTML loader cache');
  assert(scripts.indexOf('lesson-coach.js')<scripts.indexOf('app.js'),'Tutor must load before the lesson UI');
  assert(app.includes('NELessonCoach?.render(l)'),'Grammar step must mount tutor');
  assert(scripts.indexOf('language-bridge.js')<scripts.indexOf('nora-experience.js')&&
   scripts.indexOf('nora-experience.js')<scripts.indexOf('app.js'),
   'Nora experience should initialize before app screens and after language bridge');
- assert(assets.includes('/nora-experience.js?v='+v+bridgeSuffix+auditSuffix),
+ assert(assets.includes('/nora-experience.js?v='+v+bridgeSuffix+auditSuffix+worldSuffix('/nora-experience.js')),
   'Human-centered Nora lesson experience must be installed offline');
  assert(assets.includes('/v7.css?v='+v+bridgeSuffix+auditSuffix),
   'Human-centered UI styles must use the new cache-busting revision');
  assert(app.includes('NEExperience?.lessonHeader?.('),'New mission context must mount in lesson UI');
  assert(read('v3.js').includes('NEExperience?.lessonHeader?.('),'Legacy lesson render must mount Nora experience');
- assert(assets.includes('/v3.js?v='+v+baseRevision+bridgeSuffix),'Offline legacy lesson must reload on release');
+ assert(assets.includes('/v3.js?v='+v+baseRevision+bridgeSuffix+worldSuffix('/v3.js')),'Offline legacy lesson must reload on release');
  assert(app.includes('NELanguageBridge?.controlHtml?.()'),'Language bridge must offer an opt-out on the homepage');
  assert(assets.includes('/language-bridge.js?v='+v+coachSuffix+bridgeSuffix+auditSuffix),'PWA must precache the language bridge');
  assert(assets.includes('/cloze-coach.js?v='+v+coachSuffix),'PWA must cache word explanation engine');

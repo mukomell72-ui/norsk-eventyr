@@ -220,11 +220,14 @@ function freeExGuided(l){
   transcript.push(actorMessage(scene,turn.reply||scene.steps[i].reply,i));
  }
  transcript.push('</div>');
+ const world=window.NEVisualWorld?.render?.({lesson:l,scene,progress,step,moduleId:normalizeModule(l)})||'';
+ const history=world?'<details class="ne-world-history"><summary>История диалога · '+(progress.turns.length+1)+' реплик собеседника</summary>'+transcript.join('')+'</details>':transcript.join('');
  return '<article class="card guided-speaking"><div class="eyebrow">Устная речь · диалог с собеседником</div>'+
- '<div class="guided-scene">'+esc(scene.scene)+'</div>'+
+ (world?'<div class="guided-scene" hidden>'+esc(scene.scene)+'</div>':'<div class="guided-scene">'+esc(scene.scene)+'</div>')+
+ world+
  translation+
  '<div class="guided-progress">Реплика '+(progress.index+1)+' из '+scene.steps.length+'</div>'+
- transcript.join('')+
+ history+
  (progress.flowNotice?'<div class="notice" role="status">Диалог обновлён: продолжим с вежливой фразы знакомства. Предыдущие реплики сохранены до этого шага.</div>':'')+
  '<div class="guided-task"><b>Твой ход</b><p>'+esc(step.task)+'</p></div>'+
  '<textarea id="freeAnswer" name="guided-answer-'+esc(l.id)+'-'+progress.index+'" data-guided-turn="'+progress.index+'" class="input" rows="2" autocomplete="off" placeholder="Твой ответ по-норвежски…" oninput="this.dataset.fromVoice=\'false\';neGuidedAnswerEdited(this)"></textarea>'+
@@ -242,7 +245,10 @@ function neGuidedSpeak(index){
  const d=window.neLessonSession&&ensure(window.neLessonSession.lesson);
  if(!d)return;
  const text=index===-1?d.scene.opening:(d.progress.turns[index]?.reply||d.progress.pending?.reply||d.scene.steps[index]?.reply);
- if(text&&typeof window.speakText==='function')window.speakText(text,.86);
+ if(text&&typeof window.speakText==='function'){
+  const utterance=window.speakText(text,.86);
+  window.NEVisualWorld?.bindSpeech?.(utterance,'partner');
+ }
 }
 
 async function nextSceneReply(l,scene,progress,answer,spoken,index){
@@ -314,6 +320,8 @@ function neGuidedRevise(){
  s.locked=false;
  const box=document.getElementById('freeFb');
  if(box)box.innerHTML='<div class="feedback" role="status">Ответ изменён. Нажми «Ответить», чтобы проверить текущий текст ещё раз. Первая оценка и XP сохраняются.</div>';
+ window.NEVisualWorld?.updateOwn?.(field.value);
+ const reaction=document.getElementById('neWorldReaction');if(reaction)reaction.hidden=true;
  field.focus?.();
 }
 function neGuidedAnswerEdited(field){
@@ -322,6 +330,7 @@ function neGuidedAnswerEdited(field){
     field!==document.getElementById('freeAnswer')||
     String(field.dataset?.guidedTurn)!==String(p.index))return;
  const value=field.value.trim();
+ window.NEVisualWorld?.updateOwn?.(value);
  if(p.pending){if(value!==p.pending.answer)neGuidedRevise();return;}
  if(typeof p.lastCheckedAnswer==='string'&&value!==p.lastCheckedAnswer){
   delete p.lastCheckedAnswer;
@@ -332,6 +341,12 @@ function neGuidedAnswerEdited(field){
 async function guidedCheck(){
  const s=window.neLessonSession,l=s?.lesson,d=l&&ensure(l),input=document.getElementById('freeAnswer'),a=input?.value.trim(),box=document.getElementById('freeFb');
  if(!d||!input||!box||!a||s.locked)return;
+ // A mixed Russian/Bokmål request like «Jeg ... забыл как сказать живу ...»
+ // is a request for Nora's help, not a submitted graded Norwegian answer.
+ if(window.NEVisualWorld?.helpFromGuidedAnswer?.(a,input)===true)return;
+ // Explicit questions in Bokmål to Nora are teacher help, not dialogue grades.
+ // Regular questions to the scene partner are still assessed normally.
+ if(window.neNoraHelpIntent?.(a)===true&&window.v7HelpFromLessonAnswer?.(a,input)===true)return;
  const {scene,progress}=d,step=scene.steps[progress.index],spoken=['true','recognition'].includes(String(input.dataset.fromVoice||'')),index=progress.index;
  s.locked=true;box.innerHTML='<div class="feedback">Нора проверяет реплику…</div>';
  const context=progress.index===0?scene.opening:(progress.turns[progress.index-1]?.reply||scene.steps[progress.index-1].reply);
@@ -360,17 +375,23 @@ async function guidedCheck(){
  // Revisions show an updated grade but cannot award XP repeatedly.
  progress.firstScores=progress.firstScores&&typeof progress.firstScores==='object'&&!Array.isArray(progress.firstScores)?progress.firstScores:{};
  const scoreKey=String(index),firstAttempt=!Object.prototype.hasOwnProperty.call(progress.firstScores,scoreKey);
+ const aidedTurn=progress.aidedTurns?.[scoreKey]===true;
  if(firstAttempt){
   progress.firstScores[scoreKey]=score;
-  window.trackLessonScore(evidence,{label:spoken?'Реплика · речь':'Реплика · текст',strength:e.strengths_ru?.[0]||'',improvement:e.improvements_ru?.[0]||'',explanation:e.explanation_ru||'',corrected:e.corrected||'',rule:e.micro_rule_ru||'',scoreReason:e.score_reason_ru||''});
-  if(window.NEAdaptive){
-   window.NEAdaptive.recordAttempt(window.neLearnerState,{level:l.level,skill,score:evidence,moduleId:l?._adaptive?.moduleId||l.id,source:spoken?'lesson_free':'lesson_free_text',errorTag:e.error_tag||'',targetErrorTag:l?._adaptive?.errorTag||'',transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||''});
-   window.saveState();
+  // An answer after Nora's contextual help remains a learning attempt, not
+  // independent course evidence or a reason to award XP.
+  if(!aidedTurn){
+   window.trackLessonScore(evidence,{label:spoken?'Реплика · речь':'Реплика · текст',strength:e.strengths_ru?.[0]||'',improvement:e.improvements_ru?.[0]||'',explanation:e.explanation_ru||'',corrected:e.corrected||'',rule:e.micro_rule_ru||'',scoreReason:e.score_reason_ru||''});
+   if(window.NEAdaptive){
+    window.NEAdaptive.recordAttempt(window.neLearnerState,{level:l.level,skill,score:evidence,moduleId:l?._adaptive?.moduleId||l.id,source:spoken?'lesson_free':'lesson_free_text',errorTag:e.error_tag||'',targetErrorTag:l?._adaptive?.errorTag||'',transfer:!!l?._adaptive?.transfer,reviewKey:l?._adaptive?.reviewKey||''});
+    window.saveState();
+   }
   }
   window.persistLessonCheckpoint?.();
  }
  progress.lastCheckedAnswer=a;
- const feedback=guidedGradeFeedback(e,score,ok,progress.firstScores[scoreKey],a);
+ const feedback=guidedGradeFeedback(e,score,ok,progress.firstScores[scoreKey],a)+
+  (aidedTurn?'<div class="notice" role="status">Ответ дан после подсказки Норы: это тренировка, а не самостоятельная проверка. Умение будет проверено позже без подсказки.</div>':'');
  if(!ok){
   s.locked=false;
   // The contextual help button already appears beside the answer field.
@@ -383,10 +404,11 @@ async function guidedCheck(){
  // Never attach a grade or a "next" button to a changed answer.
  if(input.value.trim()!==a){s.locked=false;box.innerHTML='<div class="feedback">Ответ изменён. Проверь новый текст ещё раз.</div>';return}
  progress.pending={answer:a,spoken,reply};
+ window.NEVisualWorld?.accepted?.(a,reply);
  box.innerHTML=feedback+'<div class="guided-reply">'+actorMessage(scene,reply,index)+'</div>'+ 
   '<button type="button" class="btn secondary" onclick="neGuidedRevise()">Исправить ещё</button>'+
   '<button class="btn lesson-next-v8" onclick="neGuidedNext()">'+(index===scene.steps.length-1?'Завершить разговор →':'Следующая реплика →')+'</button>';
- if(typeof window.speakText==='function'){try{window.speakText(reply,.86)}catch{}}
+ if(typeof window.speakText==='function'){try{const utterance=window.speakText(reply,.86);window.NEVisualWorld?.bindSpeech?.(utterance,'partner')}catch{}}
 }
 function neGuidedExplain(){
  const s=window.neLessonSession,d=s?.lesson&&ensure(s.lesson);

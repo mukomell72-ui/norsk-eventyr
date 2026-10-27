@@ -136,9 +136,10 @@
   // during the original tap. Never treat a browser voice as proof of sound.
   const SPEECH_WAIT_MS=18500,SPEECH_RETRY_COOLDOWN_MS=0;
   let speechPrimeTimer=null,speechPlaybackTimer=null,speechFallbackUntil=0,speechAudioReady=null;
-  function norwegianVoice(){
+  function norwegianVoice(language="nb-NO"){
     try{
       const voices=window.speechSynthesis?.getVoices?.()||[];
+      if(language==="ru-RU")return voices.find(v=>/^ru([-_]|$)/i.test(v.lang||""))||null;
       return voices.find(v=>/^nb([-_]|$)/i.test(v.lang||""))||
         voices.find(v=>/^no([-_]|$)/i.test(v.lang||""))||
         voices.find(v=>/^nn([-_]|$)/i.test(v.lang||""))||null;
@@ -170,6 +171,7 @@
     return {source:"unavailable"};
   }
   function stopSpeechPlayback(){
+    try{window.NEVisualWorld?.onAudioStop?.()}catch{}
     clearTimeout(speechPlaybackTimer);
     if(speechAudio){try{speechAudio.pause()}catch{};speechAudio=null}
     try{window.speechSynthesis?.cancel()}catch{}
@@ -186,7 +188,7 @@
       speechAudioReady?.catch?.(()=>{});
     }catch{speechAudioReady=null}
   }
-  function speechKey(text,level,voice="marin"){return String(level||"A1")+"\n"+String(voice||"marin")+"\n"+String(text||"").trim()}
+  function speechKey(text,level,voice="marin",language="nb-NO"){return String(level||"A1")+"\n"+String(language||"nb-NO")+"\n"+String(voice||"marin")+"\n"+String(text||"").trim()}
   function trimSpeechCache(){
     while(speechCache.size>SPEECH_CACHE_LIMIT){
       const [key,item]=speechCache.entries().next().value||[];
@@ -195,8 +197,8 @@
       speechCache.delete(key);
     }
   }
-  async function getSpeechAudio(text,level,voice="marin"){
-    const key=speechKey(text,level,voice),cached=speechCache.get(key);
+  async function getSpeechAudio(text,level,voice="marin",language="nb-NO"){
+    const key=speechKey(text,level,voice,language),cached=speechCache.get(key);
     if(cached?.url)return cached;
     if(cached?.promise)return cached.promise;
     if(Date.now()<speechFallbackUntil)throw new Error("SPEECH_COOLDOWN");
@@ -204,7 +206,7 @@
     const timer=setTimeout(()=>controller.abort(),SPEECH_WAIT_MS);
     const promise=(async()=>{
       try{
-        const r=await apiPost("/api/speech",{text,level,voice},{signal:controller.signal});
+        const r=await apiPost("/api/speech",{text,level,voice,language},{signal:controller.signal});
         if(!r.ok||!r.response)throw new Error(r.error||"SPEECH_FAILED");
         const blob=await r.response.blob();
         if(controller.signal.aborted||blob.size<128||(blob.type&&!/^audio\//i.test(blob.type)))throw new Error("INVALID_SPEECH_AUDIO");
@@ -225,12 +227,12 @@
     if(!String(text||"").trim()||window.NEHumanVoice?.has?.(text)||Date.now()<speechFallbackUntil)return;
     speechPrimeTimer=setTimeout(()=>{if(document.visibilityState!=="hidden")getSpeechAudio(text,level).catch(()=>{})},350);
   }
-  function fallbackSpeech(text,rate=.9,btn=null,request=speechRequest){
-    const voice=norwegianVoice(),synth=window.speechSynthesis;
+  function fallbackSpeech(text,rate=.9,btn=null,request=speechRequest,language="nb-NO"){
+    const voice=norwegianVoice(language),synth=window.speechSynthesis;
     if(!voice||!synth||typeof window.SpeechSynthesisUtterance!=="function")return reportSpeechFailure(btn,request);
     try{
       const u=new SpeechSynthesisUtterance(text);
-      u.lang="nb-NO";u.voice=voice;u.rate=Math.max(.75,Math.min(1.15,Number(rate)||.9));
+      u.lang=language;u.voice=voice;u.rate=Math.max(.75,Math.min(1.15,Number(rate)||.9));
       let started=false,completed=false;
       u.onstart=()=>{
         if(request!==speechRequest)return;
@@ -251,7 +253,7 @@
       return {source:"device"};
     }catch{return reportSpeechFailure(btn,request)}
   }
-  async function playSpeechAudio(item,text,rate,btn,request){
+  async function playSpeechAudio(item,text,rate,btn,request,language="nb-NO"){
     const ctx=speechAudioContext;
     const playRate=Math.max(.75,Math.min(1.25,Number(rate)/.9||1));
     // Use Web Audio: unlike HTMLAudioElement.play(), playback after async
@@ -268,10 +270,14 @@
         node.connect(ctx.destination);
         speechAudio={pause:()=>{node.onended=null;try{node.stop()}catch{};try{node.disconnect()}catch{}}};
         node.onended=()=>{
-          if(request===speechRequest){speechAudio=null;restoreSpeechButton(btn)}
+          if(request===speechRequest){
+            try{window.NEVisualWorld?.onAudioStop?.()}catch{}
+            speechAudio=null;restoreSpeechButton(btn)
+          }
           try{node.disconnect()}catch{}
         };
         node.start(0);
+        try{window.NEVisualWorld?.onAudioStart?.({text,buffer,context:ctx,startTime:ctx.currentTime,rate:playRate})}catch{}
         setSpeechButton(btn,"playing");
         return {source:"ai"};
       }catch{
@@ -286,10 +292,17 @@
     const recover=()=>{
       if(recovered||request!==speechRequest)return {source:"cancelled"};
       recovered=true;speechAudio=null;a.onended=null;a.onerror=null;
-      return fallbackSpeech(text,rate,btn,request);
+      return fallbackSpeech(text,rate,btn,request,language);
     };
-    a.onplaying=()=>{if(request===speechRequest)setSpeechButton(btn,"playing")};
-    a.onended=()=>{if(request===speechRequest){speechAudio=null;restoreSpeechButton(btn)}};
+    a.onplaying=()=>{if(request===speechRequest){
+      // MediaElement fallback lacks decoded PCM here. Do not invent
+      // phoneme timing when we cannot inspect the audible waveform.
+      setSpeechButton(btn,"playing")
+    }};
+    a.onended=()=>{if(request===speechRequest){
+      try{window.NEVisualWorld?.onAudioStop?.()}catch{}
+      speechAudio=null;restoreSpeechButton(btn)
+    }};
     a.onerror=()=>{recover()};
     let playTimer;
     try{
@@ -299,7 +312,8 @@
     }catch{a.pause();return recover()}
     finally{clearTimeout(playTimer)}
   }
-  speakText=async function(text,rate=.9,btn=null,voice="marin"){
+  speakText=async function(text,rate=.9,btn=null,voice="marin",language="nb-NO"){
+    language=language==="ru-RU"?"ru-RU":"nb-NO";
     text=String(text||"").trim();
     if(!text)return {source:"unavailable"};
     btn=btn||(document.activeElement?.tagName==="BUTTON"?document.activeElement:null);
@@ -308,7 +322,7 @@
     unlockAudioContext();
     // AI remains primary on all devices: installed Android voice listings are
     // not proof that synthesized speech actually makes sound.
-    if(window.NEHumanVoice?.has?.(text)){
+    if(language==="nb-NO"&&window.NEHumanVoice?.has?.(text)){
       try{
         setSpeechButton(btn,"loading");
         if(await window.NEHumanVoice.play(text,rate)){
@@ -322,12 +336,12 @@
     const level=(lessonSession?.lesson?.level)||state.level||"A1";
     setSpeechButton(btn,"loading");
     try{
-      const item=await getSpeechAudio(text,level,voice);
+      const item=await getSpeechAudio(text,level,voice,language);
       if(request!==speechRequest)return {source:"cancelled"};
-      return await playSpeechAudio(item,text,rate,btn,request);
+      return await playSpeechAudio(item,text,rate,btn,request,language);
     }catch{
       if(request!==speechRequest)return {source:"cancelled"};
-      return fallbackSpeech(text,rate,btn,request);
+      return fallbackSpeech(text,rate,btn,request,language);
     }
   };
   function speakWord(text,btn=null){return speakText(String(text||"").trim(),.9,btn)}

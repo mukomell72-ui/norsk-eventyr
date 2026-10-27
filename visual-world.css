@@ -1,0 +1,303 @@
+/* Living World: accessible illustrated dialogues; no impact on grading. */
+.ne-world{--ne-ink:#203042;--ne-mist:rgba(255,255,255,.87);--ne-glass:rgba(255,255,255,.94);--ne-world-edge:rgba(40,77,111,.19);position:relative;isolation:isolate;overflow:hidden;margin:16px 0 20px;border:1px solid var(--ne-world-edge);border-radius:26px;padding:18px 18px 16px;color:var(--ne-ink);background:linear-gradient(170deg,#c6defa 0%,#f3e7db 66%,#dbcbac 100%);box-shadow:0 16px 46px rgba(14,47,76,.13)}
+.ne-world-street{background:linear-gradient(165deg,#8ec6ee 0%,#e3eef7 45%,#ddc2a2 100%)}
+.ne-world-cafe{background:linear-gradient(165deg,#f7c2a4 0%,#fff0d6 52%,#c7b4a0 100%)}
+.ne-world-office{background:linear-gradient(165deg,#b0cde2 0%,#deecf2 53%,#c6ded7 100%)}
+.ne-world-clinic{background:linear-gradient(165deg,#b1dfe2 0%,#ecf8f5 55%,#c6e5df 100%)}
+.ne-world-town{background:linear-gradient(165deg,#c7b6e4 0%,#ecdfeb 53%,#c7d9e1 100%)}
+.ne-world-sky{position:absolute;inset:0 0 auto;height:220px;z-index:-1;overflow:hidden;pointer-events:none}
+.ne-world-sky::before{content:"";position:absolute;top:52px;right:-5%;width:190px;height:135px;border:9px solid rgba(255,255,255,.18);border-radius:16px;transform:rotate(-14deg)}
+.ne-world-sky::after{content:"";position:absolute;left:-8%;bottom:-35px;width:120%;height:85px;background:repeating-linear-gradient(90deg,rgba(255,255,255,.2) 0 12px,transparent 12px 28px);transform:skewY(-4deg)}
+.ne-world-cloud{display:block;position:absolute;left:14%;top:35px;width:90px;height:25px;border-radius:45px;background:rgba(255,255,255,.38);filter:blur(1px);animation:ne-cloud-drift 15s ease-in-out infinite alternate}
+.ne-world-window{position:absolute;right:13%;top:22px;width:84px;height:90px;border:6px solid rgba(255,255,255,.33);border-radius:14px;transform:rotate(7deg)}
+.ne-world-window::after{content:"";position:absolute;inset:43% 0 auto;border-top:5px solid rgba(255,255,255,.27)}
+.ne-world-lamp{position:absolute;left:6%;top:25px;width:50px;height:50px;background:#fff6dd;filter:blur(18px);opacity:.55}
+.ne-world-top{display:flex;flex-wrap:wrap;justify-content:space-between;gap:8px;align-items:center;position:relative;z-index:1}
+.ne-world-tag{padding:7px 11px;border-radius:50px;font-size:12px;font-weight:800;letter-spacing:.02em;background:rgba(255,255,255,.87);color:#235d72}
+.ne-world-scene-counter{font-size:12px;font-weight:800;color:#334961}
+.ne-world-location{position:relative;z-index:1;font-size:clamp(17px,4.2vw,22px);line-height:1.4;letter-spacing:-.01em;margin:13px 2px 18px;max-width:65ch;color:#28394a}
+.ne-world-stage{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:end;gap:clamp(7px,2.5vw,20px);max-width:650px;margin:auto;min-height:146px}
+.ne-world-character{display:flex;flex-direction:column;align-items:center;gap:6px;min-width:0;filter:drop-shadow(0 10px 12px rgba(23,44,75,.18))}
+.ne-world-portrait-wrap{position:relative;width:clamp(88px,20vw,145px);height:clamp(104px,24vw,168px);border:4px solid rgba(255,255,255,.85);border-radius:26px 26px 14px 14px;overflow:hidden;background:linear-gradient(155deg,#dceaff,#f8f7ef);box-shadow:0 8px 18px rgba(33,63,87,.16);transform-origin:bottom center;animation:ne-world-breathe 5s ease-in-out infinite}
+.ne-world-partner .ne-world-portrait-wrap{animation-delay:-1.5s;border-color:#f8fafb}
+.ne-world-self .ne-world-portrait-wrap{animation-delay:-3s;border-color:#d0f6dc}
+.ne-world-portrait{display:block;width:100%;height:100%;object-fit:cover;object-position:center 22%;background:#edf1fa}
+.ne-world-coach .ne-world-portrait{object-position:50% 26%}
+.ne-world-character.ne-world-talking .ne-world-portrait-wrap{animation:ne-world-talk .45s ease-in-out 5;box-shadow:0 0 0 6px rgba(77,178,174,.35),0 10px 24px rgba(22,71,70,.25)}
+.ne-world-partner.ne-world-talking .ne-world-portrait-wrap{box-shadow:0 0 0 6px rgba(95,122,208,.32),0 10px 24px rgba(22,71,70,.25)}
+.ne-world-name{font-size:clamp(12px,2.7vw,14px);font-weight:850;max-width:100%;text-align:center;line-height:1.25;background:var(--ne-glass);color:#243d54;border-radius:50px;padding:5px 10px;white-space:normal;word-break:break-word}
+.ne-world-name span{font-weight:500;opacity:.7}
+.ne-world-dialogue{display:grid;gap:9px;grid-template-columns:1fr 1fr;align-items:start;margin-top:14px}
+.ne-world-line{padding:13px 15px;border-radius:18px;min-height:95px;box-shadow:0 7px 13px rgba(32,64,82,.08);overflow-wrap:anywhere;background:rgba(255,255,255,.94);color:#213d51}
+.ne-world-line-partner{border-bottom-left-radius:5px}
+.ne-world-line-self{border-bottom-right-radius:5px;background:#e2f9e9}
+.ne-world-line>span{font-size:12px;font-weight:800;color:#3b6e86}
+.ne-world-line-self>span{color:#23754f}
+.ne-world-line p{margin:6px 0 0;font-size:clamp(15px,3.5vw,19px);line-height:1.5}
+.ne-world-next{grid-column:1/-1;padding:12px 14px;background:#f9fcff;border:1px solid #bbd3e5;border-radius:14px;color:#174865;animation:ne-world-appear .35s ease-out}
+.ne-world-next[hidden]{display:none}
+.ne-world-coaching{margin-top:14px;padding:15px 17px;border:1px solid #a7cfca;background:#f4fffa;border-radius:18px;color:#22453c}
+.ne-world-coach-head{font-size:13px;font-weight:850;color:#28776d}
+.ne-world-coaching p:not(.ne-world-voice-status){margin:8px 0 12px;font-size:clamp(16px,3.7vw,20px);line-height:1.45;font-weight:730}
+.ne-world-actions{display:flex;gap:9px;flex-wrap:wrap}
+.ne-world-audio{font:inherit;cursor:pointer;border:1px solid #9fc0cd;border-radius:12px;padding:10px 12px;background:#fff;color:#22566b;font-weight:740;font-size:14px;transition:transform .2s,background .2s}
+.ne-world-audio:hover,.ne-world-audio:focus-visible{background:#ddf2ef;transform:translateY(-2px)}
+.ne-world-audio:focus-visible,.ne-world-avatar-options button:focus-visible{outline:3px solid #197cc4;outline-offset:3px}
+.ne-world-voice-status{font-size:12px;margin:7px 0 0!important;min-height:1em;color:#38596b}
+.ne-world-avatar-picker{margin:12px 0 0;border-radius:12px;background:rgba(255,255,255,.72);padding:10px 13px;color:#315066}
+.ne-world-avatar-picker summary{cursor:pointer;font-size:13px;font-weight:800}
+.ne-world-avatar-options{display:flex;gap:10px;flex-wrap:wrap;padding:12px 0}
+.ne-world-avatar-options button{font:inherit;min-width:80px;background:#fff;color:#233f56;border:2px solid transparent;border-radius:15px;display:flex;gap:5px;align-items:center;flex-direction:column;padding:8px;cursor:pointer;font-size:12px}
+.ne-world-avatar-options button[aria-pressed="true"]{border-color:#2789a1;box-shadow:0 0 0 2px #caeef3}
+.ne-world-avatar-options img{height:65px;width:57px;object-fit:cover;border-radius:9px}
+.ne-world-avatar-picker small{display:block;font-size:12px;color:#45657b}
+.ne-world-footnote{margin-top:12px;font-size:12px;line-height:1.5;color:#3c5c65}
+.ne-world+.guided-scene{margin-top:10px}
+.ne-world+ .guided-progress{margin-top:6px}
+@keyframes ne-world-breathe{0%,100%{transform:rotate(-.7deg) translateY(0)}50%{transform:rotate(.7deg) translateY(-4px)}}
+@keyframes ne-world-talk{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-4px) scale(1.025)}}
+@keyframes ne-world-appear{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:translateY(0)}}
+@keyframes ne-cloud-drift{to{transform:translateX(45px)}}
+@media(max-width:600px){.ne-world{margin:10px -9px 16px;padding:13px 12px;border-radius:20px}.ne-world-location{margin-bottom:12px}.ne-world-stage{gap:6px}.ne-world-portrait-wrap{border-radius:18px 18px 10px 10px;border-width:3px}.ne-world-name span{display:none}.ne-world-dialogue{gap:7px}.ne-world-line{min-height:105px;padding:10px 11px}.ne-world-coaching{padding:12px}.ne-world-audio{flex:1 1 130px;text-align:center}.ne-world-sky{height:170px}}
+@media(max-width:360px){.ne-world-portrait-wrap{width:76px;height:98px}.ne-world-name{padding:5px 7px;font-size:11px}.ne-world-line p{font-size:14px}}
+@media(prefers-reduced-motion:reduce){.ne-world *, .ne-world *::before,.ne-world *::after{animation:none!important;transition:none!important;transform:none!important}}
+
+/* Nora remains present as an optional spoken coach in reading/listening/writing. */
+.ne-world-guide{display:flex;align-items:center;gap:14px;padding:12px 15px;margin:13px 0 17px;border-radius:18px;background:linear-gradient(110deg,#e1f3f0,#fff4ed);color:#264e56;border:1px solid #b4d9d1;box-shadow:0 8px 22px rgba(19,76,76,.08)}
+.ne-world-guide-portrait{object-fit:cover;object-position:center 25%;flex:none;width:70px;height:83px;border-radius:16px;border:3px solid #fff;box-shadow:0 6px 16px rgba(42,80,83,.13);animation:ne-world-breathe 6s ease-in-out infinite}
+.ne-world-guide-portrait.ne-world-guide-talking{animation:ne-world-talk .45s ease-in-out 5}
+.ne-world-guide-copy{min-width:0;flex:1}
+.ne-world-guide-copy strong{font-weight:800;color:#28746d;font-size:13px}
+.ne-world-guide-copy p{margin:4px 0 6px;font-size:clamp(14px,3.4vw,17px);font-weight:700;line-height:1.45}
+.ne-world-guide-speak{border:0;background:transparent;color:#1a6275;font:inherit;font-size:13px;font-weight:800;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:3px 0}
+.ne-world-guide-speak:focus-visible{outline:3px solid #197cc4;outline-offset:3px;border-radius:3px}
+.ne-world-guide-copy small{display:block;font-size:11px;font-weight:500;line-height:1.5;color:#4a6572}
+@media(max-width:460px){.ne-world-guide{gap:10px;padding:10px;border-radius:14px}.ne-world-guide-portrait{width:58px;height:72px}}
+@media(prefers-reduced-motion:reduce){.ne-world-guide-portrait,.ne-world-guide-portrait.ne-world-guide-talking{animation:none!important}}
+
+/* Real-world communication recovery phrases: useful but ungraded. */
+.ne-world-rescue{border-top:1px solid rgba(34,104,91,.2);padding-top:12px;margin-top:12px}
+.ne-world-rescue strong{display:block;font-weight:770;font-size:13px;color:#255e66;margin-bottom:9px}
+.ne-world-rescue-actions{display:flex;gap:7px;flex-wrap:wrap}
+.ne-world-rescue-actions button{font:inherit;cursor:pointer;flex:1 1 95px;background:#fff;color:#246070;border:1px solid #a2cdce;border-radius:12px;padding:8px 9px;font-size:13px;font-weight:750}
+.ne-world-rescue-actions button:focus-visible{outline:3px solid #197cc4;outline-offset:2px}
+.ne-world-rescue small{display:block;margin-top:8px;font-size:12px;color:#416b72}
+.ne-world-practice{margin-top:10px;background:#fff;color:#195e55;border:1px solid #9bcfc6;border-radius:12px;padding:11px 13px;line-height:1.5}
+.ne-world-practice[hidden]{display:none}
+.ne-world-history{margin:9px 0 13px;padding:10px 14px;background:#f9fcfe;border:1px solid #cfdee6;border-radius:12px}
+.ne-world-history summary{cursor:pointer;font-weight:770;font-size:13px;color:#236276}
+.ne-world-history .guided-chat-history{margin:10px 0 0;max-height:350px}
+
+/* Optional natural free dialogue, isolated from assessed lesson turns. */
+.ne-world-free{margin:12px 0 0;padding:12px 14px;border-radius:14px;border:1px solid #b8cddc;background:rgba(253,254,255,.90);color:#245268}
+.ne-world-free>summary{cursor:pointer;font-weight:820;font-size:14px;line-height:1.5}
+.ne-world-free>p{font-size:14px;line-height:1.5;font-weight:500;color:#36556a;margin:10px 0}
+.ne-world-free-log{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;max-height:250px;overflow-y:auto}
+.ne-world-free-turn{max-width:95%;border-radius:14px;padding:9px 12px;background:#e9f3ff;color:#234760;overflow-wrap:anywhere}
+.ne-world-free-actor{align-self:flex-start;background:#e9eef7}
+.ne-world-free-user{align-self:flex-end;background:#e0f5e9}
+.ne-world-free-turn strong{font-size:12px;display:block;color:#387189}
+.ne-world-free-turn p{font-size:15px;font-weight:500;line-height:1.5;margin:3px 0 0}
+.ne-world-free>label{display:block;font-size:13px;font-weight:800;margin:8px 0}
+.ne-world-free>textarea{display:block;width:100%;box-sizing:border-box;min-height:64px;color:#253e56;background:#fff}
+.ne-world-free>button{margin-top:10px;display:block;width:100%}
+.ne-world-free>small{display:block;line-height:1.5;margin-top:9px;font-size:12px;color:#527078}
+
+/* Immersive local illustrations. Scenery is decorative; characters and text remain crisp. */
+.ne-world .ne-world-sky{background-repeat:no-repeat;background-position:center center;background-size:cover;height:clamp(170px,30vw,260px);opacity:.68}
+.ne-world-street .ne-world-sky{background-image:url('/assets/scenes/street.svg')}
+.ne-world-cafe .ne-world-sky{background-image:url('/assets/scenes/cafe.svg')}
+.ne-world-office .ne-world-sky{background-image:url('/assets/scenes/office.svg')}
+.ne-world-clinic .ne-world-sky{background-image:url('/assets/scenes/clinic.svg')}
+.ne-world-town .ne-world-sky{background-image:url('/assets/scenes/town.svg')}
+.ne-world .ne-world-cloud,.ne-world .ne-world-window,.ne-world .ne-world-lamp,.ne-world .ne-world-sky::before,.ne-world .ne-world-sky::after{display:none}
+@media(max-width:600px){.ne-world .ne-world-sky{height:175px;opacity:.58}}
+
+.ne-world-free-controls{display:flex;gap:9px;flex-wrap:wrap;margin-top:11px}
+.ne-world-free-controls>button{flex:1 1 130px;margin:0;min-height:42px;white-space:normal}
+.ne-world-free-controls>button[aria-pressed="true"]{background:#cfebe5;border-color:#268981}
+.ne-world-free-controls>button:focus-visible{outline:3px solid #197cc4;outline-offset:3px}
+
+/* Speaking portraits move for the utterance duration; reactions remain brief. */
+.ne-world-character.ne-world-talking .ne-world-portrait-wrap{animation:ne-world-talk .65s ease-in-out infinite}
+.ne-world-guide-portrait.ne-world-guide-talking{animation:ne-world-talk .65s ease-in-out infinite}
+.ne-world-character.ne-world-reacting .ne-world-portrait-wrap{animation:ne-world-appear .45s ease-out 1}
+@media(prefers-reduced-motion:reduce){
+ .ne-world-character.ne-world-talking .ne-world-portrait-wrap,
+ .ne-world-guide-portrait.ne-world-guide-talking,
+ .ne-world-character.ne-world-reacting .ne-world-portrait-wrap{animation:none!important}
+}
+
+/* Small, low-cost SVG visemes over calibrated adult portrait landmarks.
+   Timing uses SpeechSynthesis boundary events, with a coarse fallback.
+   Facial image remains the unmodified original when the character is silent. */
+.ne-world-portrait-wrap[data-ne-face],.ne-world-guide-face[data-ne-face]{
+ --ne-mouth-x:50%;--ne-mouth-y:40%;--ne-mouth-width:20%;
+ --ne-mouth-tilt:-4deg;--ne-mouth-skin:#c78e77;--ne-mouth-outline:#925149
+}
+[data-ne-face="ingrid"]{--ne-mouth-x:67%;--ne-mouth-y:49%;--ne-mouth-width:25%;--ne-mouth-tilt:8deg;--ne-mouth-skin:#d7a181;--ne-mouth-outline:#96584d}
+[data-ne-face="mari"]{--ne-mouth-x:34%;--ne-mouth-y:49%;--ne-mouth-width:24%;--ne-mouth-tilt:8deg;--ne-mouth-skin:#d5a08c;--ne-mouth-outline:#a26154}
+[data-ne-face="erik"]{--ne-mouth-x:25%;--ne-mouth-y:36%;--ne-mouth-width:13%;--ne-mouth-tilt:0deg;--ne-mouth-skin:#b88872;--ne-mouth-outline:#6d4f42}
+.ne-world-guide-face{position:relative;isolation:isolate;display:block;flex:none;width:70px;height:83px;border-radius:16px;overflow:hidden;border:3px solid #fff;box-shadow:0 6px 16px rgba(42,80,83,.13)}
+.ne-world-guide-face .ne-world-guide-portrait{display:block;width:100%;height:100%;border:0;border-radius:0;box-shadow:none;animation:none!important;object-fit:cover;object-position:center 25%}
+.ne-world-guide-face.ne-world-guide-talking{animation:ne-world-talk .65s ease-in-out infinite}
+.ne-world-mouth{position:absolute;pointer-events:none;z-index:2;opacity:0;overflow:visible;
+ top:var(--ne-mouth-y);left:var(--ne-mouth-x);width:var(--ne-mouth-width);height:auto;
+ transform:translate(-50%,-50%) rotate(var(--ne-mouth-tilt));
+ transition:opacity .08s linear}
+.ne-world-character.ne-world-talking .ne-world-mouth,
+.ne-world-guide-face.ne-world-guide-talking .ne-world-mouth{opacity:.95}
+.ne-mouth-skin{fill:var(--ne-mouth-skin);opacity:.83;filter:blur(3px)}
+.ne-mouth-opening{fill:#48272c;transform-box:fill-box;transform-origin:50% 50%;transform:scale(.83,.62);
+ transition:transform .08s linear}
+.ne-mouth-upper,.ne-mouth-lower{stroke:var(--ne-mouth-outline);stroke-width:3;stroke-linecap:round;fill:none;opacity:.8}
+.ne-mouth-teeth{fill:#fff5e9;opacity:0}
+[data-ne-viseme="closed"] .ne-mouth-opening{transform:scale(1,.12)}
+[data-ne-viseme="closed"] .ne-mouth-lower{opacity:.3}
+[data-ne-viseme="wide"] .ne-mouth-opening{transform:scale(1.18,1.25)}
+[data-ne-viseme="round"] .ne-mouth-opening{transform:scale(.55,1.55)}
+[data-ne-viseme="teeth"] .ne-mouth-opening{transform:scale(.9,.6)}
+[data-ne-viseme="teeth"] .ne-mouth-teeth{opacity:.85}
+@media(max-width:460px){.ne-world-guide-face{width:58px;height:72px}}
+@media(prefers-reduced-motion:reduce){
+ .ne-world-guide-face.ne-world-guide-talking{animation:none!important}
+ .ne-world-mouth,.ne-mouth-opening{transition:none!important}
+}
+
+/* Viseme anchor is an HTML box: CSS percentage translations on a root SVG
+   vary between browsers and positioned the mouth on the cheek. */
+.ne-world-mouth{display:block;transform:translate(-50%,-50%) rotate(var(--ne-mouth-tilt));}
+.ne-world-mouth-svg{display:block;width:100%;height:auto;overflow:visible}
+[data-ne-face="mari"]{--ne-mouth-x:29%}
+
+/* Equal specificity with default landmark declarations is required: unscoped
+   [data-ne-face] rules were overridden by .ne-world-portrait-wrap[data-ne-face]. */
+.ne-world-portrait-wrap[data-ne-face="nora"],.ne-world-guide-face[data-ne-face="nora"]{
+ --ne-mouth-x:50%;--ne-mouth-y:43%;--ne-mouth-width:18%;--ne-mouth-tilt:-5deg;
+ --ne-mouth-skin:#c78e77;--ne-mouth-outline:#925149
+}
+.ne-world-portrait-wrap[data-ne-face="mari"]{
+ --ne-mouth-x:31%;--ne-mouth-y:52%;--ne-mouth-width:21%;--ne-mouth-tilt:8deg;
+ --ne-mouth-skin:#d5a08c;--ne-mouth-outline:#a26154
+}
+.ne-world-portrait-wrap[data-ne-face="ingrid"]{
+ --ne-mouth-x:67%;--ne-mouth-y:54%;--ne-mouth-width:24%;--ne-mouth-tilt:8deg;
+ --ne-mouth-skin:#d7a181;--ne-mouth-outline:#96584d
+}
+.ne-world-portrait-wrap[data-ne-face="erik"]{
+ --ne-mouth-x:25%;--ne-mouth-y:38%;--ne-mouth-width:13%;--ne-mouth-tilt:0deg;
+ --ne-mouth-skin:#b88872;--ne-mouth-outline:#6d4f42
+}
+
+/* Portrait calibration after actual mobile screenshot review: Mari's mouth is
+   higher and slightly farther left than the generic face landmark. */
+.ne-world-portrait-wrap[data-ne-face="mari"]{--ne-mouth-x:28%;--ne-mouth-y:43%}
+.ne-world-character.ne-world-talking .ne-world-mouth,
+.ne-world-guide-face.ne-world-guide-talking .ne-world-mouth{opacity:.78}
+.ne-mouth-skin{opacity:.67}
+.ne-mouth-opening{fill:#603a40;opacity:.74;filter:blur(.45px)}
+
+/* Accessible user control; system reduced-motion disables mouth overlays entirely. */
+.ne-world-lip-toggle{display:block;font:inherit;font-size:13px;font-weight:760;color:#21536b;background:#fff;cursor:pointer;border:1px solid #8abfc8;border-radius:10px;padding:9px 12px;margin:8px 0}
+.ne-world-lip-toggle:focus-visible{outline:3px solid #197cc4;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){
+ .ne-world-mouth{display:none!important}
+ .ne-world-guide-face.ne-world-guide-talking{animation:none!important}
+}
+
+/* Brief context-sensitive visual response; no facial tracking or emotion inference. */
+.ne-world-character.ne-world-reacting:not(.ne-world-talking) .ne-world-portrait-wrap{animation:ne-world-attend .85s ease-out 1}
+.ne-world-partner[data-ne-reaction="curious"] .ne-world-portrait-wrap{border-color:#d5ebff}
+.ne-world-partner[data-ne-reaction="warm"] .ne-world-portrait-wrap{border-color:#d8f4dc}
+.ne-world-partner[data-ne-reaction="thoughtful"] .ne-world-portrait-wrap{border-color:#f5dfbf}
+@keyframes ne-world-attend{0%,100%{transform:translateY(0) rotate(0)}45%{transform:translateY(-3px) rotate(.8deg)}}
+@media(prefers-reduced-motion:reduce){.ne-world-character.ne-world-reacting .ne-world-portrait-wrap{animation:none!important}}
+
+/* In-scene contextual Nora help: ungraded, accessible and light on mobile. */
+.ne-world-help{margin:13px 0;padding:11px 13px;border-radius:14px;background:rgba(247,255,251,.96);border:1px solid #a1cbbb;color:#234f49}
+.ne-world-help>summary{cursor:pointer;font-size:14px;font-weight:820;line-height:1.6}
+.ne-world-help>p{font-size:13px;line-height:1.55;font-weight:500;margin:9px 0 12px;color:#375d58}
+.ne-world-help>label{display:block;margin:9px 0 6px;font-size:13px;font-weight:780}
+.ne-world-help>textarea{display:block;box-sizing:border-box;width:100%;min-height:66px;font-size:16px;background:white;color:#183e41}
+.ne-world-help-controls{display:flex;gap:8px;flex-wrap:wrap;margin:9px 0}
+.ne-world-help-controls .btn{flex:1 1 auto;min-width:90px}
+.ne-world-help button:focus-visible{outline:3px solid #197cc4;outline-offset:2px}
+.ne-world-help small{display:block;margin-top:8px;font-size:12px;line-height:1.55;color:#3d635f}
+.ne-world-help-log{display:flex;flex-direction:column;gap:6px;max-height:275px;overflow:auto;margin:8px 0}
+.ne-world-help-turn{background:#fff;border:1px solid #cde2d8;border-radius:12px;padding:9px 10px;overflow-wrap:anywhere}
+.ne-world-help-turn strong{display:block;color:#215b51;font-size:12px}
+.ne-world-help-turn p{font-size:14px!important;line-height:1.5!important;font-weight:450!important;margin:4px 0 0!important;white-space:pre-wrap}
+@media(max-width:430px){.ne-world-help-controls .btn{flex:1 1 100%;width:100%}}
+
+/* The same personal tutor follows the learner through reading, listening,
+ * vocabulary, writing and speaking; controls remain usable on small phones. */
+.ne-help-log{display:flex;flex-direction:column;gap:8px;max-height:240px;overflow:auto;margin:10px 0}
+.ne-help-turn{background:rgba(237,246,255,.95);border:1px solid #c4dce9;border-radius:12px;padding:9px 11px;overflow-wrap:anywhere}
+.ne-help-turn b{display:block;color:#234c65;font-size:12px}
+.ne-help-turn p{margin:4px 0 0;line-height:1.5;white-space:pre-wrap;font-size:14px}
+.ne-help-actions{display:flex;gap:7px;flex-wrap:wrap}
+.ne-help-actions button{flex:1 1 100px;min-width:0}
+.ne-help-actions button:focus-visible{outline:3px solid #1479b1;outline-offset:2px}
+@media(max-width:420px){.ne-help-actions button{flex:1 1 100%}}
+
+/* Unfamiliar Norwegian words are accessible, ungraded requests for help. */
+.ne-world-word{border:0;background:transparent;color:inherit;font:inherit;line-height:inherit;display:inline;padding:0 1px;min-width:0;text-align:left;border-bottom:1px dotted currentColor;cursor:pointer;white-space:normal}
+.ne-world-word:hover{background:rgba(255,255,255,.15)}
+.ne-world-word:focus-visible{outline:2px solid #185ca0;outline-offset:2px;border-radius:3px}
+
+/* Optional larger tutor view: retains the current lesson and speech controls. */
+.ne-world-guide-expand{margin-left:10px;border:1px solid #8fbab7;border-radius:10px;background:#fff;color:#175e65;font:inherit;font-size:13px;font-weight:750;padding:7px 10px;cursor:pointer}
+.ne-world-guide-expand:focus-visible{outline:3px solid #197cc4;outline-offset:2px}
+.ne-world-guide-expanded{display:flex;flex-direction:column;align-items:stretch}
+.ne-world-guide-expanded .ne-world-guide-face{width:min(100%,260px);height:260px;align-self:center;border-radius:24px;box-shadow:0 12px 30px rgba(20,70,76,.2)}
+.ne-world-guide-expanded .ne-world-guide-portrait{object-position:center 22%}
+.ne-world-guide-expanded .ne-world-guide-copy{width:100%}
+@media(max-width:460px){.ne-world-guide-expanded .ne-world-guide-face{width:min(100%,210px);height:220px}.ne-world-guide-expand{margin:8px 0 0}}
+
+
+/* Visible first-stage character prototype: Nora is present before a learner scrolls
+   to the speaking exercise. This is stylized 2D motion, not video or 3D animation. */
+@keyframes ne-tutor-presence {
+  0%,100% { transform:translateY(0) rotate(-.7deg) scale(1); }
+  35% { transform:translateY(-5px) rotate(.6deg) scale(1.012); }
+  70% { transform:translateY(-2px) rotate(-.3deg) scale(1.006); }
+}
+@keyframes ne-tutor-attend {
+  0%,100% { filter:brightness(1); }
+  50% { filter:brightness(1.055); }
+}
+.ne-world-guide .ne-world-guide-face {
+  width:clamp(104px,28vw,174px);
+  height:clamp(130px,34vw,194px);
+  flex:0 0 auto;
+  border-radius:20px;
+  overflow:hidden;
+  box-shadow:0 8px 24px rgba(9,35,55,.18);
+  animation:ne-tutor-presence 4.8s ease-in-out infinite;
+}
+.ne-world-guide .ne-world-guide-portrait {
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  object-position:center 24%;
+  animation:ne-tutor-attend 5.2s ease-in-out infinite;
+}
+.ne-world-guide .ne-world-guide-copy { flex:1 1 210px; min-width:0; }
+.ne-world-guide-expanded .ne-world-guide-face { width:min(100%,260px);height:260px; }
+@media(max-width:430px) {
+ .ne-world-guide { align-items:center; }
+ .ne-world-guide .ne-world-guide-face { width:118px;height:146px; }
+ .ne-world-guide-expanded .ne-world-guide-face { width:min(100%,230px);height:240px; }
+}
+@media(prefers-reduced-motion:reduce) {
+ .ne-world-guide .ne-world-guide-face,
+ .ne-world-guide .ne-world-guide-portrait { animation:none!important; }
+}
+
+/* Dialogue stage: visible turn-taking and expressive portrait poses. */
+.ne-world-stage-caption{margin:10px auto 14px;text-align:center;font-size:13px;font-weight:700;color:#244d63}
+.ne-world-partner[data-ne-reaction="happy"] .ne-world-portrait-wrap{transform:rotate(-2deg)}
+.ne-world-character.ne-world-talking .ne-world-portrait-wrap{animation:ne-world-speaking-pose .7s ease-in-out infinite alternate;box-shadow:0 0 0 4px rgba(29,131,144,.28),0 8px 18px rgba(33,63,87,.16)}
+.ne-world-guide.ne-world-guide-talking .ne-world-guide-face{box-shadow:0 0 0 4px rgba(29,131,144,.28),0 8px 24px rgba(9,35,55,.18)}
+@keyframes ne-world-speaking-pose{from{transform:translateY(0) rotate(-1.2deg)}to{transform:translateY(-5px) rotate(1.2deg)}}
+@media(prefers-reduced-motion:reduce){.ne-world-character.ne-world-talking .ne-world-portrait-wrap{animation:none!important}}

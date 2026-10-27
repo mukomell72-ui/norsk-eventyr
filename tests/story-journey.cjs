@@ -28,7 +28,7 @@ assert.equal(w.NEGuidedSpeaking.definition({_adaptive:{moduleId:'a1-time'}}).ope
  w.NEGuidedSpeaking.definition({_adaptive:{moduleId:'a1-time',storyVariant:0}}).opening,
  'Saved old conversations must remain unchanged');
 assert(read('adaptive-teacher.js').includes('storyVariant,origin:source'),'Variant missing from lesson metadata');
-assert(read('access.js').includes("'story-journey-advanced.js','story-journey.js','guided-speaking.js'"),'Scripts load in wrong order');
+assert(read('access.js').includes("'story-journey-advanced.js','story-journey.js','visual-world.js','guided-speaking.js'"),'Scripts load in wrong order');
 assert(read('sw.js').includes('/story-journey.js?v=8.3.0-story1')&&read('sw.js').includes('/story-journey-advanced.js?v=8.3.0-story2'),'Offline story asset missing');
 (async()=>{
  const lesson={id:'story-a1-time',level:'A1',_adaptive:{moduleId:'a1-time',storyVariant:1}};

@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, feature/living-story-renewal-20261026]
+    branches: [main, feature/living-story-renewal-20261026, feature/animated-living-world-20261026]
 
 permissions:
   contents: read
@@ -143,6 +143,27 @@ jobs:
         with:
           name: Norsk-Eventyr-8.3.0-audit-fixes-release-candidate
           path: release-out/*
+          retention-days: 14
+          if-no-files-found: error
+      - name: Package exact tested animated-world branch for local Vercel preview
+        if: success() && ((github.event_name == 'pull_request' && github.head_ref == 'feature/animated-living-world-20261026') || github.ref == 'refs/heads/feature/animated-living-world-20261026')
+        shell: bash
+        env:
+          NE_SOURCE_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p candidate-out
+          git cat-file -e "${NE_SOURCE_REF}^{commit}"
+          git diff --check "origin/main...${NE_SOURCE_REF}"
+          git archive --format=zip --output=candidate-out/norsk-eventyr-animated-world-source.zip "${NE_SOURCE_REF}"
+          printf 'SOURCE_COMMIT=%s\nBASE=%s\nAUTOMATED_QA=passed\nRELEASE_TARGET=Vercel Preview (not production)\nPRODUCTION_PUBLISHED=no\n' "${NE_SOURCE_REF}" "$(git rev-parse origin/main)" > candidate-out/BUILD_MANIFEST.txt
+          (cd candidate-out && sha256sum norsk-eventyr-animated-world-source.zip > SHA256SUMS.txt)
+      - name: Upload QA-verified animated-world source for local testing
+        if: success() && ((github.event_name == 'pull_request' && github.head_ref == 'feature/animated-living-world-20261026') || github.ref == 'refs/heads/feature/animated-living-world-20261026')
+        uses: actions/upload-artifact@v4
+        with:
+          name: Norsk-Eventyr-animated-world-verified
+          path: candidate-out/*
           retention-days: 14
           if-no-files-found: error
       - name: Store screenshots for manual visual QA

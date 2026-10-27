@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 232" role="img" aria-label="Взрослый персонаж ingrid">
+<defs><radialGradient id="bg"><stop stop-color="#fff" stop-opacity=".8"/><stop offset="1" stop-color="#f5a7a9"/></radialGradient>
+<linearGradient id="skin" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#f9d8bc"/><stop offset=".52" stop-color="#efb995"/><stop offset="1" stop-color="#a56d59"/></linearGradient>
+<linearGradient id="hair" x1="0" x2="1"><stop stop-color="#6d342e"/><stop offset=".62" stop-color="#a65e44"/><stop offset="1" stop-color="#6d342e"/></linearGradient>
+<linearGradient id="jacket" x1="0" x2="1"><stop stop-color="#c95363"/><stop offset="1" stop-color="#223950"/></linearGradient></defs>
+<rect width="192" height="232" rx="26" fill="url(#bg)"/><circle cx="150" cy="36" r="45" fill="#fff" opacity=".19"/>
+<path d="M12 232 Q24 162 69 157 L124 157 Q173 162 183 232Z" fill="url(#jacket)"/>
+<path d="M75 155 L79 133 L112 133 L117 156 L96 182Z" fill="url(#skin)"/>
+<path d="M70 157 L94 187 L118 156 L127 162 L112 232 L80 232 L64 163Z" fill="#f7e4d8"/>
+<path d="M47 100 C30 66 39 22 90 15 C146 8 161 58 143 112 L128 147 L50 144Z" fill="url(#hair)" />
+ <path d="M44 93 Q29 138 46 183 L65 183 L63 109Z" fill="#6d342e" opacity=".92"/>
+ <path d="M142 87 Q157 144 143 184 L125 184 L127 105Z" fill="#6d342e" opacity=".94"/><ellipse cx="96" cy="93" rx="47" ry="64" fill="url(#skin)"/>
+<ellipse cx="49" cy="105" rx="8" ry="14" fill="#efb995"/><ellipse cx="143" cy="105" rx="8" ry="14" fill="#efb995"/>
+<path d="M58 87 Q73 80 86 88 M106 88 Q120 80 136 87" stroke="#6d342e" fill="none" stroke-width="4" stroke-linecap="round"/>
+<ellipse cx="74" cy="98" rx="10" ry="6" fill="#fff"/><ellipse cx="118" cy="98" rx="10" ry="6" fill="#fff"/>
+<circle cx="74" cy="98" r="5" fill="#4a605a"/><circle cx="118" cy="98" r="5" fill="#4a605a"/>
+<circle cx="76" cy="96" r="2" fill="#fff"/><circle cx="120" cy="96" r="2" fill="#fff"/>
+<path d="M95 101 L91 123 Q96 127 102 122" stroke="#ad735d" fill="none" stroke-linejoin="round" stroke-width="2.5"/>
+<path d="M81 139 Q96 149 112 138 Q96 156 81 139Z" fill="#ad4d60"/>
+<path d="M85 140 Q96 145 108 140" stroke="#f8d3c3" fill="none" stroke-width="2"/>
+<ellipse cx="63" cy="119" rx="11" ry="7" fill="#d88580" opacity=".25"/><ellipse cx="129" cy="119" rx="11" ry="7" fill="#d88580" opacity=".25"/>
+<path d="M49 80 Q44 42 76 28 Q111 19 139 45 Q116 49 99 39 Q76 64 52 76Z" fill="url(#hair)"/><path d="M57 36 Q90 21 132 49 Q127 76 118 82 Q129 52 105 41Z" fill="#a65e44" opacity=".65"/>
+<circle cx="48" cy="116" r="4" fill="#e7c272"/><circle cx="144" cy="116" r="4" fill="#e7c272"/>
+</svg>

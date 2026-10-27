@@ -194,7 +194,8 @@
   const b=brief(lesson,session,total);
   const dots=ACTS.map((a,i)=>'<span class="'+(i<b.stage.index?'done':i===b.stage.index?'now':'')+
    '" title="'+safe(a.name)+'"></span>').join('');
-  return '<section class="ne-mission-head" aria-label="Одна история, четыре действия">'+
+  const visualGuide=window.NEVisualWorld?.guide?.(b)||'';
+  return visualGuide+'<section class="ne-mission-head" aria-label="Одна история, четыре действия">'+
    '<div class="ne-mission-overline">ТВОЯ СИТУАЦИЯ · '+safe(lesson?.level||'A1')+'</div>'+
    '<div class="ne-mission-main"><div><h2>'+safe(b.stage.name)+'</h2>'+
    '<p data-bridge-instruction="true">'+safe(b.activity)+'. '+safe(b.stage.note)+'</p></div>'+

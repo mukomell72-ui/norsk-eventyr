@@ -74,7 +74,7 @@
           '<button class="brand-v7" onclick="navigate(\'home\')"><span>Norsk Eventyr</span><b>8.2.1</b></button>'+
           '<div class="status-v7"><button class="streak-v7" onclick="navigate(\'hub\')">🔥 <b>'+streak+'</b></button><button class="level-v7" onclick="navigate(\'course\')">'+level+'</button></div>'+
         '</header>'+
-        '<main class="main-v7">'+content+helpMarkupV7(content.includes('class="card guided-speaking"'))+'</main>'+
+        '<main class="main-v7">'+content+helpMarkupV7(content.includes('class="card guided-speaking"'),content.includes('lesson-exercise-v6'))+'</main>'+
         navV7(currentRouteV7||active)+
       '</div>';
   };
@@ -83,12 +83,35 @@
     return setTimeout(()=>{if(revision===window.neScreenRevision)action()},delay);
   };
 
-  function helpMarkupV7(guided=false){
-    // Guided lessons already provide a help button beside the answer.
-    // Keep the shared help panel for explanations, but do not show a second trigger.
+  // Shared on-demand Nora coach. One memory per lesson step, stored in the
+  // existing checkpoint and never reused across unrelated learners or screens.
+  let neHelpSpeech=null;
+  function v7HelpState(session,create=false){
+    if(!session?.lesson)return null;
+    if(!session.helpV8&&create)session.helpV8={historyByStep:{},aidedSteps:{}};
+    return session.helpV8||null;
+  }
+  function v7HelpHistory(session,step){
+    const memory=v7HelpState(session);
+    const history=memory?.historyByStep?.[String(step)];
+    return Array.isArray(history)?history.slice(-8):[];
+  }
+  function helpMarkupV7(guided=false,lessonScreen=false){
+    const session=lessonScreen&&typeof window!=='undefined'?window.neLessonSession:null,step=session?.step;
+    const transcript=(session&&typeof v7HelpHistory==='function'?v7HelpHistory(session,step):[]).map(turn=>
+      '<div class="ne-help-turn"><b>'+(turn.role==='assistant'?'Нора':'Ты')+'</b><p>'+h(String(turn.text||'').slice(0,1600))+'</p></div>'
+    ).join('');
+    // The generic helper remains available to Nora during guided lessons;
+    // visual-world.js also supplies its specialized in-scene tutor.
     return (guided?'<section class="ne-guided-help-mount">':'<section class="card" style="margin:16px 0">')+
-      (guided?'':'<button class="btn secondary" onclick="v7OpenHelp()" aria-controls="helpPanelV7" aria-expanded="false" id="helpToggleV7">Мне непонятно</button>')+
-      '<div id="helpPanelV7" hidden><p>Я помогу разобраться, не выполняя задание вместо тебя. Выбери быстрый вопрос или задай свой.</p><div class="ne-help-quick"><button type="button" onclick="v7QuickHelp(\'simple\')">Объясни проще</button><button type="button" onclick="v7QuickHelp(\'example\')">Похожий пример</button><button type="button" onclick="v7QuickHelp(\'why\')">Почему так?</button></div><textarea class="input" id="helpQuestionV7" maxlength="1800" rows="2" placeholder="Что ты хочешь спросить?"></textarea><div class="row" style="margin-top:10px"><button class="btn" id="helpSendV7" onclick="v7AskHelp()">Спросить Нору</button><button class="btn ghost" onclick="v7OpenHelp()">Закрыть</button></div><div id="helpReplyV7" role="status" aria-live="polite" style="white-space:pre-wrap;margin-top:12px"></div></div></section>';
+      (guided?'':'<button type="button" class="btn secondary" onclick="v7OpenHelp()" aria-controls="helpPanelV7" aria-expanded="false" id="helpToggleV7">Спросить Нору · русский / norsk</button>')+
+      '<div id="helpPanelV7" hidden><p>Спроси на русском или норвежском, даже смешивая языки. Нора объяснит и поможет продолжить текущую задачу, не решая её вместо тебя. После подсказки ответ считается тренировкой.</p>'+
+      '<div class="ne-help-quick"><button type="button" onclick="v7QuickHelp(\'simple\')">Объясни проще</button><button type="button" onclick="v7QuickHelp(\'example\')">Похожий пример</button><button type="button" onclick="v7QuickHelp(\'why\')">Почему так?</button></div>'+
+      '<div class="ne-help-log" id="helpLogV7" aria-live="polite">'+transcript+'</div>'+
+      '<label for="helpQuestionV7">Вопрос Норе</label><textarea class="input" id="helpQuestionV7" maxlength="1800" rows="2" placeholder="Jeg ... не помню, как будет «живу» ... i Norge?" oninput="this.dataset.fromSpeech=\'false\'"></textarea>'+
+      '<div class="row ne-help-actions" style="margin-top:10px"><button type="button" class="btn secondary" onclick="v7DictateHelp(\'ru\')">🎤 Русский</button><button type="button" class="btn secondary" onclick="v7DictateHelp(\'nb\')">🎤 Norsk</button><button type="button" class="btn" id="helpSendV7" onclick="v7AskHelp()">Спросить Нору</button><button type="button" class="btn ghost" onclick="v7OpenHelp()">Закрыть</button></div>'+
+      '<small>Микрофон распознаёт выбранный язык, а не оба одновременно. Проверь текст перед отправкой. Ответ Норы не начисляет баллы.</small>'+
+      '<div id="helpReplyV7" role="status" aria-live="polite" style="white-space:pre-wrap;margin-top:12px"></div></div></section>';
   }
   function v7OpenHelp(){
     const panel=document.getElementById("helpPanelV7");if(!panel)return;
@@ -108,33 +131,121 @@
     if(panel.hidden)v7OpenHelp();
     input.value=requests[kind];v7AskHelp();
   }
+  function v7DictateHelp(language){
+    const input=document.getElementById('helpQuestionV7'),panel=document.getElementById('helpPanelV7');
+    const status=document.getElementById('helpReplyV7');
+    const locale=language==='ru'?'ru-RU':language==='nb'?'nb-NO':'';
+    if(!locale||!input||!panel)return false;
+    const Recognition=window.SpeechRecognition||window.webkitSpeechRecognition;
+    if(typeof Recognition!=='function'){
+      if(status)status.textContent='Распознавание речи недоступно: напиши вопрос вручную.';
+      return false;
+    }
+    try{neHelpSpeech?.abort?.()}catch{}
+    const old=input.value,revision=window.neScreenRevision,session=window.neLessonSession;
+    let mic;
+    try{mic=new Recognition()}catch{
+      if(status)status.textContent='Не удалось запустить микрофон.';
+      return false;
+    }
+    neHelpSpeech=mic;mic.lang=locale;mic.interimResults=false;mic.maxAlternatives=1;
+    mic.onresult=event=>{
+      if(neHelpSpeech!==mic||window.neScreenRevision!==revision||window.neLessonSession!==session||
+         !input.isConnected||input.value!==old)return;
+      const phrase=String(event.results?.[0]?.[0]?.transcript||'').trim();
+      if(!phrase)return;
+      input.value=[old.trim(),phrase].filter(Boolean).join(' ').slice(0,1800);
+      if(input.dataset)input.dataset.fromSpeech='true';
+      if(status?.isConnected)status.textContent='Проверь распознанную речь, затем нажми «Спросить Нору».';
+    };
+    mic.onerror=()=>{if(neHelpSpeech===mic&&status?.isConnected)status.textContent='Речь не распознана. Напиши вопрос текстом.'};
+    mic.onend=()=>{if(neHelpSpeech===mic)neHelpSpeech=null};
+    try{mic.start();if(status)status.textContent='Слушаю '+(language==='ru'?'по-русски':'на норвежском')+'…';return true}
+    catch{if(neHelpSpeech===mic)neHelpSpeech=null;if(status)status.textContent='Микрофон сейчас недоступен.';return false}
+  }
+  // Only explicit requests about language learning are routed to Nora.
+  // Ordinary questions to an NPC remain valid dialogue answers.
+  function v7IsNoraHelpRequest(text){
+    const raw=String(text||'').trim();
+    if(!raw)return false;
+    if(/[\u0400-\u04ff]/u.test(raw)&&
+       /(?:не\s+(?:знаю|помню|понимаю|понял|поняла)|забыл(?:а)?|как\s+(?:сказать|будет|перевести)|что\s+(?:значит|означает)|подскажи|помоги|объясни|переведи|повтори|медленнее)/iu.test(raw))return true;
+    // Explicitly addressed to Nora, not an ordinary NPC question.
+    if(/^nora\s*[,!:]\s*(?:kan\s+du|hva|hvordan|jeg|forklar|oversett|gjenta)/iu.test(raw))return true;
+    return /^(?:hva\s+betyr\s+(?:ordet|uttrykket|verbet|setningen)|hvordan\s+(?:sier\s+(?:jeg|man)|oversetter\s+(?:jeg|man))\b[^?!.]{0,100}\bpå\s+norsk|kan\s+du\s+(?:forklare|oversette)\s+(?:ordet|uttrykket|verbet|setningen|grammatikken)|jeg\s+(?:husker|vet|forstår)\s+ikke\s+(?:hva\s+(?:ordet|uttrykket)|hvordan\s+(?:jeg|man)\s+sier))/iu.test(raw);
+  }
+  // Recognize explicit help requests even when the learner types them into
+  // the main writing or dialogue box and presses its usual Check button.
+  // A legitimate Norwegian answer must pass through unchanged.
+  function v7HelpFromLessonAnswer(text,source){
+    const raw=String(text||'').trim();
+    if(!v7IsNoraHelpRequest(raw))return false;
+    const session=window.neLessonSession,panel=document.getElementById('helpPanelV7');
+    const input=document.getElementById('helpQuestionV7');
+    if(!session?.lesson||!panel||!input)return false;
+    if(panel.hidden)v7OpenHelp();
+    const send=document.getElementById('helpSendV7');
+    if(send?.disabled){
+      const box=document.getElementById('helpReplyV7');
+      if(box)box.textContent='Нора отвечает на предыдущий вопрос. Твой исходный ответ не изменён.';
+      return true;
+    }
+    input.value=raw.slice(0,1800);
+    if(input.dataset)input.dataset.fromSpeech=['true','recognition'].includes(String(source?.dataset?.fromVoice||''))?'true':'false';
+    void v7AskHelp();
+    return true;
+  }
   async function v7AskHelp(){
     const input=document.getElementById("helpQuestionV7"),button=document.getElementById("helpSendV7"),box=document.getElementById("helpReplyV7");
-    const question=input?.value.trim();if(!question||!button||button.disabled)return;
-    const main=document.querySelector(".main-v7"),copy=main.cloneNode(true);
-    copy.querySelector("#helpPanelV7")?.parentElement.remove();
+    const question=input?.value.trim();if(!question||!button||button.disabled||!box)return;
+    const main=document.querySelector(".main-v7");if(!main)return;
+    const revision=window.neScreenRevision,session=main.querySelector('.lesson-exercise-v6')?window.neLessonSession:null,step=session?.step;
+    const copy=main.cloneNode(true);
+    copy.querySelector("#helpPanelV7")?.parentElement?.remove?.();
     const answer=Array.from(main.querySelectorAll("textarea,input")).filter(e=>e.id!=="helpQuestionV7").map(e=>e.value).filter(Boolean).join("\n");
-    const context=(copy.textContent+"\nОтвет ученика: "+answer).slice(0,6000);
-    const history=box._helpHistory||[];
+    const context=(copy.textContent+"\nЧерновик ответа ученика (ещё не проверен): "+answer).slice(0,6000);
+    const inPlacement=!!main.querySelector("#placementUnknown");
+    const history=v7HelpHistory(session,step);
+    const fallback=Array.isArray(box._helpHistory)?box._helpHistory:[];
+    const savedHistory=session?.lesson?history:fallback;
     button.disabled=true;box.textContent="Нора объясняет…";
     try{
-      // During the placement assessment, help may clarify instructions but
-      // must not reveal the answer or become unearned evidence of proficiency.
-      const inPlacement=!!main.querySelector("#placementUnknown");
+      // Diagnostic placement must remain independent of tutor hints.
       const request=inPlacement
         ?"Это диагностический тест. Объясни ученику по-русски только смысл формулировки и что от него требуется. Не называй правильный вариант, не переводи варианты ответов, не решай задание и не выдавай подсказок, раскрывающих решение. Если ученик не знает ответ, предложи нажать «Не знаю». Вопрос ученика: "+question
         :question;
-      const r=await neApiPost("/api/chat",{mode:"explain",message:request,context,level:state.level,history});
-      if(!box.isConnected)return;
-      const explanation=r.ok?String(r.data?.explanation_ru||r.data?.translation_ru||""):"";
-      if(!explanation){box.textContent="Объяснение сейчас недоступно. Вопрос сохранён — попробуй ещё раз.";return;}
-      box.textContent=explanation;
-      box._helpHistory=[...history,{role:"user",text:question},{role:"assistant",text:explanation}].slice(-8);
-      input.value="";
-    }catch{if(box.isConnected)box.textContent="Не удалось получить объяснение. Попробуй ещё раз."}
-    finally{button.disabled=false;}
+      const r=await neApiPost("/api/chat",{mode:"explain",scenario:inPlacement?"":"lesson_help",message:request,
+        inputSource:input?.dataset?.fromSpeech==='true'?'voice_transcript':'typed_text',context,level:state.level,history:savedHistory});
+      // A response to an old screen, question or lesson must never mark evidence.
+      if(!box.isConnected||window.neScreenRevision!==revision||
+         window.neLessonSession!==session||session?.step!==step||input.value.trim()!==question)return;
+      const explanation=r.ok?String(r.data?.explanation_ru||r.data?.translation_ru||"").trim():"";
+      if(!explanation){
+        box.textContent="Объяснение сейчас недоступно. Вопрос сохранён — попробуй ещё раз.";
+        return;
+      }
+      const updated=[...savedHistory,{role:"user",text:question},{role:"assistant",text:explanation}].slice(-8);
+      if(session?.lesson&&!inPlacement){
+        const memory=v7HelpState(session,true);
+        memory.historyByStep=memory.historyByStep||{};
+        memory.aidedSteps=memory.aidedSteps||{};
+        memory.historyByStep[String(step)]=updated;
+        memory.aidedSteps[String(step)]=true;
+        if(session.guidedSpeech?.index>=0){
+          session.guidedSpeech.aidedTurns=session.guidedSpeech.aidedTurns||{};
+          session.guidedSpeech.aidedTurns[String(session.guidedSpeech.index)]=true;
+        }
+        try{window.persistLessonCheckpoint?.()}catch{}
+      }
+      if(session?.lesson&&!inPlacement)window.NEWordTrays?.recordTutorWord?.({question,explanation,lesson:session.lesson});
+      box._helpHistory=updated;
+      box.textContent=explanation+"\n\nЭто подсказка. Продолжи исходное задание самостоятельно.";
+      input.value="";if(input.dataset)input.dataset.fromSpeech='false';
+    }catch{
+      if(box.isConnected&&window.neScreenRevision===revision)box.textContent="Не удалось получить объяснение. Вопрос сохранён — попробуй ещё раз.";
+    }finally{if(button.isConnected)button.disabled=false;}
   }
-  Object.assign(window,{v7OpenHelp,v7AskHelp,v7QuickHelp});
+  Object.assign(window,{v7OpenHelp,v7AskHelp,v7QuickHelp,v7DictateHelp,v7HelpFromLessonAnswer,neNoraHelpIntent:v7IsNoraHelpRequest});
 
   function guidedV7(){
     const day=todayKeyV7(),wordDue=dueCountV7(),adaptiveDue=window.NEAdaptive?NEAdaptive.dueReviews(state).length:0,
@@ -157,7 +268,13 @@
       done:steps.filter(x=>x.done).length,total:steps.length,planned:plan?.minutes||60,
       mins:steps.filter(x=>!x.done).reduce((a,x)=>a+x.mins,0)};
   }
-  function v7ContinueToday(){return navigate('livingday')}
+  // One tap starts or resumes the lesson. Finished days show their result.
+  function v7ContinueToday(){
+    const engine=window.NELivingDay;
+    if(!engine?.begin)return navigate('livingday');
+    if(engine.details?.(false)?.finished)return navigate('livingday');
+    return engine.begin();
+  }
   function v7Step(i){return navigate('livingday')}
 
   function dailyWordsV7(){
@@ -207,7 +324,7 @@
       {number:1,start:1,end:5,done:false},{number:2,start:6,end:10,done:false},
       {number:3,start:11,end:15,done:false}
     ]).map(step=>
-      '<button class="route-step-v7 '+(step.done?'done':'')+'" onclick="v7ContinueToday()">'+
+      '<button class="route-step-v7 '+(step.done?'done':'')+'" onclick="NELivingWords.render()">'+
        '<span class="route-icon-v7">'+(step.done?'✓':step.number)+'</span>'+
        '<div><b>Слова · мини-этап '+step.number+'</b><small>'+step.start+'–'+step.end+
         ' · перевод, предложение, быстрая проверка</small></div>'+
@@ -269,14 +386,14 @@
       const syllabus=window.NECourseMethod?.modulePlan(m,state);
       return '<button class="near-lesson-v7 '+(isDone?"done ":"")+(locked?"locked":"")+'" onclick="teacherStartModule(\''+js(m.id)+'\')"><span>'+(isDone?"✓":i+1)+'</span><div><b>'+h(m.title)+'</b><small>'+h(m.canDo?.[0]||"Практическая цель")+'</small>'+(syllabus?'<small>'+h(syllabus.stageTitle)+' · '+h(m.grammar)+'</small>'+(syllabus.verifiedStages!==null?'<small>Подтверждено этапов: '+syllabus.verifiedStages+'/4</small>':''):'')+'</div><em>'+mastery+'%</em></button>';
     }).join("");
-    const levelSchedule=window.NECourseMethod?.levelPlan(courseLevel),daily=window.NECourseMethod?.dailyPlan(Math.max(45,state.elite?.dailyMinutes||60));
+    const levelSchedule=window.NECourseMethod?.levelPlan(courseLevel),daily=window.NECourseMethod?.dailyPlan(45);
     const legacy=coreLessonsV7(courseLevel),topics=(typeof TOPIC_CATALOG!=="undefined"?TOPIC_CATALOG:[]).filter(x=>x.level===courseLevel).slice(0,8);
     shell(
       '<section class="course-v7">'+
         '<section class="course-hero-v7"><div class="course-copy-v7"><small>Адаптивный путь Bokmål · A1–B2</small><h1>Курс '+h(courseLevel)+'</h1><p>Каждый модуль закрывается только после доказательств по навыкам, а не после просмотра урока.</p></div><div class="level-tabs-v7">'+LEVELS_V7.map(l=>'<button class="'+(l===courseLevel?"active":"")+'" onclick="renderCourse(\''+l+'\')">'+l+'</button>').join("")+'</div>'+
         '<div class="progress-card-v7"><div><b>'+h(courseLevel)+'</b><small>'+done+' из '+modules.length+' модулей освоено</small></div><i><em style="width:'+routeProgress+'%"></em></i><strong>'+routeProgress+'%</strong></div>'+
         '<div class="notice" style="margin-top:12px"><b>Профиль навыков: '+profile+'%</b> · '+(gate?.pass?"уровень подтверждён внутренними критериями":"уровень ещё не подтверждён")+'. Маршрут и профиль — разные показатели.</div>'+
-        (levelSchedule?'<div class="notice" style="margin-top:10px"><b>Учебная программа, не разрозненные уроки.</b> 8 модулей по порядку; каждый включает ситуацию, разбор, аудирование, речевую практику и перенос навыка. Ориентир '+levelSchedule.weeks+' недель при занятиях по 60 мин × 6 дней. Твой дневной план: '+daily.minutes+' минут. Сроки ориентировочные, переход только по навыкам.</div>':'')+'</section>'+
+        (levelSchedule?'<div class="notice" style="margin-top:10px"><b>Учебная программа, не разрозненные уроки.</b> 8 модулей по порядку; каждый включает ситуацию, разбор, аудирование, речевую практику и перенос навыка. Программа рассчитана на последовательное освоение навыков. Занятия по 45 мин × 6 дней в неделю; сроки зависят от прогресса. Твой дневной план: '+daily.minutes+' минут. Сроки ориентировочные, переход только по навыкам.</div>':'')+'</section>'+
         '<section class="course-map-v7"><div class="map-shade-v7"></div><div class="map-title-v7"><small>32-модульный маршрут</small><b>'+h(courseLevel)+' · '+h(next?.title||"Повторение")+'</b></div>'+nodes+
           (next?'<button class="map-continue-v7" onclick="teacherStartModule(\''+js(next.id)+'\')">Продолжить с Норой →</button>':'')+
         '</section>'+

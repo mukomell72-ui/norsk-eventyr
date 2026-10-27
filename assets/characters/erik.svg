@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 232" role="img" aria-label="Взрослый персонаж erik">
+<defs><radialGradient id="bg"><stop stop-color="#fff" stop-opacity=".8"/><stop offset="1" stop-color="#b1c4df"/></radialGradient>
+<linearGradient id="skin" x1="0" x2="1" y1="0" y2="1"><stop stop-color="#f9d8bc"/><stop offset=".52" stop-color="#dda883"/><stop offset="1" stop-color="#a56d59"/></linearGradient>
+<linearGradient id="hair" x1="0" x2="1"><stop stop-color="#5a3e30"/><stop offset=".62" stop-color="#8a5c3e"/><stop offset="1" stop-color="#5a3e30"/></linearGradient>
+<linearGradient id="jacket" x1="0" x2="1"><stop stop-color="#304966"/><stop offset="1" stop-color="#223950"/></linearGradient></defs>
+<rect width="192" height="232" rx="26" fill="url(#bg)"/><circle cx="150" cy="36" r="45" fill="#fff" opacity=".19"/>
+<path d="M12 232 Q24 162 69 157 L124 157 Q173 162 183 232Z" fill="url(#jacket)"/>
+<path d="M75 155 L79 133 L112 133 L117 156 L96 182Z" fill="url(#skin)"/>
+<path d="M70 157 L94 187 L118 156 L127 162 L112 232 L80 232 L64 163Z" fill="#e5e9e8"/>
+<path d="M49 87 Q34 36 74 25 Q113 7 141 43 L145 88 L132 65 Q112 45 86 47 Q60 49 50 81Z" fill="url(#hair)"/><ellipse cx="96" cy="93" rx="47" ry="64" fill="url(#skin)"/>
+<ellipse cx="49" cy="105" rx="8" ry="14" fill="#dda883"/><ellipse cx="143" cy="105" rx="8" ry="14" fill="#dda883"/>
+<path d="M58 87 Q73 80 86 88 M106 88 Q120 80 136 87" stroke="#5a3e30" fill="none" stroke-width="4" stroke-linecap="round"/>
+<ellipse cx="74" cy="98" rx="10" ry="6" fill="#fff"/><ellipse cx="118" cy="98" rx="10" ry="6" fill="#fff"/>
+<circle cx="74" cy="98" r="5" fill="#57645a"/><circle cx="118" cy="98" r="5" fill="#57645a"/>
+<circle cx="76" cy="96" r="2" fill="#fff"/><circle cx="120" cy="96" r="2" fill="#fff"/>
+<path d="M95 101 L91 123 Q96 127 102 122" stroke="#ad735d" fill="none" stroke-linejoin="round" stroke-width="2.5"/>
+<path d="M81 139 Q96 149 112 138 Q96 156 81 139Z" fill="#a1685d"/>
+<path d="M85 140 Q96 145 108 140" stroke="#f8d3c3" fill="none" stroke-width="2"/>
+<ellipse cx="63" cy="119" rx="11" ry="7" fill="#d88580" opacity=".25"/><ellipse cx="129" cy="119" rx="11" ry="7" fill="#d88580" opacity=".25"/>
+<path d="M46 79 Q36 39 76 28 Q113 10 144 51 Q118 54 107 39 Q75 59 50 64Z" fill="url(#hair)"/>
+
+</svg>
