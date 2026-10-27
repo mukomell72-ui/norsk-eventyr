@@ -37,10 +37,10 @@ for(const level of C.levels){
  }
 }
 assert.equal(seen,32);
-const target=M.courseEstimate(60);
+const target=M.courseEstimate(45);
 assert.equal(target.coreHours,600);
-assert.equal(target.hoursPerWeek,6);
-assert.equal(target.approxWeeks,100);
+assert.equal(target.hoursPerWeek,4.5);
+assert.equal(target.approxWeeks,134);
 for(const m of [20,30,45,60,75]){
  const plan=M.dailyPlan(m);
  assert.equal(plan.minutes,m);
@@ -48,11 +48,11 @@ for(const m of [20,30,45,60,75]){
  assert.equal(plan.parts.reduce((s,p)=>s+p.minutes,0),m);
  assert(plan.parts.every(p=>p.minutes>=0));
 }
-assert.deepEqual(Array.from(M.dailyPlan(60).parts,x=>x.minutes),[10,12,13,20,5]);
+assert.deepEqual(Array.from(M.dailyPlan(45).parts,x=>x.minutes),[7,7,9,18,4]);
 const struggling=M.dailyPlan(60,{vocabulary:80,grammar:80,listening:77,reading:81,writing:75,speaking:42});
 assert.equal(struggling.parts.reduce((sum,p)=>sum+p.minutes,0),60);
-assert(struggling.parts[3].minutes>20,'Verified speaking weakness receives additional time without extending the hour');
-assert.deepEqual(Array.from(M.dailyPlan(60,{vocabulary:35,grammar:35,listening:35,reading:35,writing:35,speaking:35}).parts,x=>x.minutes),[10,12,13,20,5]);
+assert(struggling.parts[3].minutes>24,'Verified speaking weakness receives additional time without extending the hour');
+assert.deepEqual(Array.from(M.dailyPlan(45,{vocabulary:35,grammar:35,listening:35,reading:35,writing:35,speaking:35}).parts,x=>x.minutes),[7,7,9,18,4]);
 assert(M.dailyPlan(60).parts[3].minutes>M.dailyPlan(60).parts[1].minutes,'Oral practice must receive more time than formal grammar');
 const access=read('access.js'),sw=read('sw.js'),adaptive=read('adaptive-teacher.js'),generate=read('api/generate.js'),coursePage=read('ui-v7.js'),settings=read('ui-v8.js');
 assert(access.includes("'curriculum-v8.js','course-methodology.js','verified-learning-resources.js','practice-foundations.js'"),'Course plan must load after curriculum and before adaptive teacher');
@@ -61,4 +61,4 @@ assert(adaptive.includes('courseObjective:courseStep?.objective'),'Adaptive teac
 assert(generate.includes('teacherMode&&courseStage'),'AI should stay within instructor-ordered stage');
 assert(coursePage.includes('levelSchedule.weeks'),'Course overview must expose duration and ordering');
 assert(settings.includes('[20,30,45,60,75]'),'Profile must offer full study days');
-console.log('PASS structured course: 32 sequenced chapters, 4 teacher phases, 600 h planning model and mobile PWA integration');
+console.log('PASS structured course: 32 sequenced chapters, 4 teacher phases, 45-minute daily planning model and mobile PWA integration');
