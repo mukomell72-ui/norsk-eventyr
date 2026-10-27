@@ -22,6 +22,16 @@ const pcm=new Float32Array(88200).fill(.12),ctx={currentTime:0};
 const data={text:scene.opening,buffer:{duration:2,sampleRate:44100,getChannelData:()=>pcm},context:ctx,startTime:0,rate:1};
 assert.equal(V.onAudioStart(data),true);
 assert.equal(active,true);assert.equal(mouth,'round','PCM amplitude must drive the mouth');
+// Stereo AI speech must animate even when only the right channel has sound.
+const silentLeft=new Float32Array(88200),speakingRight=new Float32Array(88200).fill(.12);
+const stereo={...data,buffer:{duration:2,sampleRate:44100,numberOfChannels:2,
+ getChannelData:channel=>channel===0?silentLeft:speakingRight}};
+assert.equal(V.onAudioStart(stereo),true);
+assert.equal(active,true);
+assert.notEqual(mouth,'closed','Right-channel-only speech must animate the mouth');
+speakingRight.fill(0);running();
+assert.equal(mouth,'closed','Silence in both stereo channels must close the mouth');
+assert.equal(V.onAudioStart(data),true);
 ctx.currentTime=1.1;pcm.fill(0);running();assert.equal(mouth,'closed');
 ctx.currentTime=2.01;running();assert.equal(active,false);assert.equal(running,null);
 assert.equal(V.onAudioStart({...data,text:'unrelated audio'}),false);

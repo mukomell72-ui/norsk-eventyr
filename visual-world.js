@@ -330,9 +330,14 @@
   const el=talkingTarget(expectedSpokenAudio.role);
   if(!el||typeof buffer?.getChannelData!=='function'||!Number.isFinite(buffer.sampleRate)||
      !Number.isFinite(buffer.duration)||buffer.duration<=0||typeof window.setInterval!=='function')return false;
-  let samples;
-  try{samples=buffer.getChannelData(0)}catch{return false}
-  if(!samples?.length)return false;
+  // A stereo voice may be silent in one channel. Measure both channels
+  // rather than assuming the first channel contains the speaker.
+  let channels;
+  try{
+   const count=Math.max(1,Math.min(2,Math.floor(Number(buffer.numberOfChannels)||1)));
+   channels=Array.from({length:count},(_,i)=>buffer.getChannelData(i)).filter(samples=>samples?.length);
+  }catch{return false}
+  if(!channels.length)return false;
   const started=Number.isFinite(startTime)?startTime:Number(context?.currentTime)||0;
   const speed=Math.max(.5,Math.min(2,Number(rate)||1));
   const job={el,timer:null};pcmSpeech=job;
@@ -341,10 +346,15 @@
    if(pcmSpeech!==job||!lipSyncEnabled()){onAudioStop();return}
    const position=Math.max(0,(Number(context?.currentTime||0)-started)*speed);
    if(position>=buffer.duration){onAudioStop();return}
-   const center=Math.max(0,Math.min(samples.length-1,Math.floor(position*buffer.sampleRate)));
+   const center=Math.max(0,Math.floor(position*buffer.sampleRate));
    const half=Math.min(360,Math.max(24,Math.floor(buffer.sampleRate*.009)));
    let sum=0,count=0;
-   for(let i=Math.max(0,center-half);i<=Math.min(samples.length-1,center+half);i+=6){sum+=samples[i]*samples[i];count++}
+   for(const samples of channels){
+    const at=Math.min(samples.length-1,center);
+    for(let i=Math.max(0,at-half);i<=Math.min(samples.length-1,at+half);i+=6){
+     sum+=samples[i]*samples[i];count++;
+    }
+   }
    const rms=Math.sqrt(sum/Math.max(1,count));
    // Sound envelope shapes are not precise Norwegian phonemes.
    el.setAttribute?.('data-ne-viseme',rms<.012?'closed':rms<.045?'mid':rms<.11?'wide':'round');
