@@ -59,6 +59,6 @@ assert(access.includes("'curriculum-v8.js','course-methodology.js','verified-lea
 assert(sw.includes('/course-methodology.js?v=8.3.0-lesson24'),'PWA must pre-cache course plan');
 assert(adaptive.includes('courseObjective:courseStep?.objective'),'Adaptive teacher must send stage objective to lesson generator');
 assert(generate.includes('teacherMode&&courseStage'),'AI should stay within instructor-ordered stage');
-assert(coursePage.includes('levelSchedule.weeks'),'Course overview must expose duration and ordering');
+assert(coursePage.includes('Занятия по 45 мин × 6 дней'),'Course overview must expose duration and ordering');
 assert(settings.includes('[20,30,45,60,75]'),'Profile must offer full study days');
 console.log('PASS structured course: 32 sequenced chapters, 4 teacher phases, 45-minute daily planning model and mobile PWA integration');
