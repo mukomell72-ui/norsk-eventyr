@@ -55,5 +55,16 @@ assert.equal(Object.hasOwn(result.data,'score'),false,'No hallucinated grade for
 assert(lastPrompt.includes('по-русски, на Bokmål или смешивать языки'),'Guided tutor should allow mixed-language questions');
 assert(lastPrompt.includes('не изменяй номер реплики'),'Help must not advance a guided dialogue');
 assert(lastPrompt.includes('Jeg ... i Norge'),'Help prompt must retain the unfinished answer');
+result=await run({explanation_ru:'Du kan si: jeg bor.',score:99,accepted:true},{
+ mode:'explain',scenario:'lesson_help',level:'A1',message:'Hva betyr «bor»?',
+ context:'Текущий урок: Письмо. Черновик: Jeg ... i Norge.',inputSource:'typed_text'
+});
+assert.equal(result.status,200,'Every lesson must support contextual bilingual Nora explanations');
+assert.equal(result.data.explanation_ru,'Du kan si: jeg bor.');
+assert.equal(result.data.feedback_status,'not_assessed');
+assert.equal(Object.hasOwn(result.data,'score'),false,'Unscored help must never grant XP');
+assert(lastPrompt.includes('текущего упражнения или диалога'),'The same tutor must work outside conversation scenes');
+assert(lastPrompt.includes('på Bokmål или смешивать языки'),'Tutor must understand mixed learner questions');
+
 
 console.log('PASS ungraded NPC API: natural responses preserved, scoring stripped, role memory, input checks and explanation compatibility');
