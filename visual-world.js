@@ -321,6 +321,7 @@
   const job=pcmSpeech;pcmSpeech=null;
   if(job.timer!==null&&typeof window.clearInterval==='function')window.clearInterval(job.timer);
   job.el?.classList?.remove('ne-world-talking');
+  job.el?.classList?.remove('ne-world-guide-talking');
   job.el?.removeAttribute?.('data-ne-viseme');
   return true;
  }
@@ -341,7 +342,7 @@
   const started=Number.isFinite(startTime)?startTime:Number(context?.currentTime)||0;
   const speed=Math.max(.5,Math.min(2,Number(rate)||1));
   const job={el,timer:null};pcmSpeech=job;
-  el.classList?.add('ne-world-talking');
+  el.classList?.add(expectedSpokenAudio.role==='guide'?'ne-world-guide-talking':'ne-world-talking');
   const tick=()=>{
    if(pcmSpeech!==job||!lipSyncEnabled()){onAudioStop();return}
    const position=Math.max(0,(Number(context?.currentTime||0)-started)*speed);
@@ -415,7 +416,9 @@
   expectedSpokenAudio={text,role:'coach'};
   const generation=++speechUiGeneration;
   status('Нора готовит объяснение на русском…');
-  try{Promise.resolve(window.speakText(text,.92,null,'marin','ru-RU')).then(result=>{
+  try{const playback=window.speakText(text,.92,null,'marin','ru-RU');
+  if(playback&&typeof playback.addEventListener==='function')bindSpeech(playback,'guide');
+  Promise.resolve(playback).then(result=>{
    if(generation!==speechUiGeneration||window.neLessonSession?.lesson!==lesson||progress.index!==index||result?.source==='cancelled')return;
    status(['ai','human','device'].includes(result?.source)?'Нора объясняет задание.':'Звук недоступен — задание написано на экране.');
   }).catch(()=>{if(generation===speechUiGeneration&&window.neLessonSession?.lesson===lesson&&progress.index===index)
