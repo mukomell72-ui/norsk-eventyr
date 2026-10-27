@@ -54,6 +54,6 @@ assert.equal(result.data.score_valid,false);
 assert.equal(Object.hasOwn(result.data,'score'),false,'No hallucinated grade for asking for help');
 assert(lastPrompt.includes('по-русски, на Bokmål или смешивать языки'),'Guided tutor should allow mixed-language questions');
 assert(lastPrompt.includes('не изменяй номер реплики'),'Help must not advance a guided dialogue');
-assert(lastPrompt.includes('Jeg ... i Norge'),'Help prompt must retain the student's unfinished answer');
+assert(lastPrompt.includes('Jeg ... i Norge'),'Help prompt must retain the unfinished answer');
 
 console.log('PASS ungraded NPC API: natural responses preserved, scoring stripped, role memory, input checks and explanation compatibility');
