@@ -49,6 +49,9 @@
  }
  function personName(scene,index,moduleId){
   if(moduleId==='a1-foundation'&&index<3&&/Erik/i.test(scene.actor||''))return 'Сотрудник';
+  const opening=String(scene?.opening||'');
+  const named=opening.match(/\b(?:jeg heter|mitt navn er)\s+([A-ZÆØÅ][a-zæøå]+)/i);
+  if(named&&String(scene.actor||'').toLowerCase().includes('нор'))return named[1];
   return String(scene.actor||'Собеседник').slice(0,80);
  }
  function sceneLine(scene,progress){
@@ -86,7 +89,7 @@
   const total=progress.turns.length;
   const actorPortrait=portraits[partner];
   const replayEnabled=Array.isArray(progress.freeChat)&&progress.freeChat.some(turn=>turn?.role==='assistant'&&String(turn.text||'').trim());
-  return '<section class="ne-world ne-world-'+theme(lesson,scene)+'" aria-label="Анимированная жизненная ситуация">'+
+  return '<section class="ne-world ne-world-'+theme(lesson,scene)+'" aria-label="Практика жизненной ситуации">'+
    '<div class="ne-world-sky" aria-hidden="true"><span class="ne-world-cloud"></span><span class="ne-world-window"></span><span class="ne-world-lamp"></span></div>'+
    '<div class="ne-world-top"><span class="ne-world-tag">Твоя жизнь в Норвегии · '+e(lesson.level||'A1')+'</span>'+
    '<span class="ne-world-scene-counter">Ситуация '+(progress.index+1)+' / '+scene.steps.length+'</span></div>'+
