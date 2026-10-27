@@ -370,6 +370,27 @@
   p.textContent=String(body||'');
   div.append(strong,p);log.append(div);
  }
+ // Recognize an explicit Russian request for help inside the assessed answer box.
+ // Ordinary Bokmål questions remain valid assessed dialogue answers.
+ function helpFromGuidedAnswer(text,source){
+  const raw=String(text||'').trim();
+  if(!/[\u0400-\u04ff]/u.test(raw)||
+     !/(?:не\s+(?:знаю|помню|понимаю|понял|поняла)|забыл(?:а)?|как\s+(?:сказать|будет|перевести)|что\s+(?:значит|означает)|подскажи|помоги|объясни|переведи|повтори|медленнее)/iu.test(raw))return false;
+  const helpField=document.getElementById('neWorldHelpInput');
+  const progress=window.neLessonSession?.guidedSpeech;
+  if(!helpField?.isConnected||!progress)return false;
+  const details=document.querySelector?.('.ne-world-help');
+  if(details)details.open=true;
+  if(helpPending.has(progress)){
+   helpStatus('Нора уже отвечает на предыдущий вопрос. Дождись ответа или исправь запрос.');
+   return true;
+  }
+  helpField.value=raw.slice(0,420);
+  if(helpField.dataset)helpField.dataset.neFromSpeech=['true','recognition'].includes(String(source?.dataset?.fromVoice||''))?'true':'false';
+  // Do not erase the learner's unfinished Bokmål answer, or produce a grade.
+  void askHelp();
+  return true;
+ }
  async function askHelp(){
   const session=window.neLessonSession,progress=session?.guidedSpeech,lesson=session?.lesson;
   const scene=window.NEGuidedSpeaking?.definition?.(lesson);
@@ -623,5 +644,5 @@
    synth.speak(u);message('Нора объясняет задание.');
   }catch{message('Озвучка недоступна. Задание написано на экране.')}
  }
- window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,askHelp,dictateHelp,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
+ window.NEVisualWorld=Object.freeze({render,guide,speakStage,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,askHelp,dictateHelp,helpFromGuidedAnswer,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
 })();
