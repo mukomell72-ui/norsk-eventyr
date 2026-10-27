@@ -315,7 +315,7 @@
  }
  // Use the actual decoded audio's energy envelope for the main AI TTS
  // playback. This is sound-driven mouth opening, not phonemic lip-sync.
- let expectedPartnerAudio=null,pcmSpeech=null;
+ let expectedSpokenAudio=null,pcmSpeech=null;
  function onAudioStop(){
   if(!pcmSpeech)return false;
   const job=pcmSpeech;pcmSpeech=null;
@@ -326,8 +326,8 @@
  }
  function onAudioStart({text,buffer,context,startTime,rate}={}){
   onAudioStop();
-  if(!expectedPartnerAudio||expectedPartnerAudio!==String(text||'')||!lipSyncEnabled())return false;
-  const el=talkingTarget('partner');
+  if(!expectedSpokenAudio||expectedSpokenAudio.text!==String(text||'')||!lipSyncEnabled())return false;
+  const el=talkingTarget(expectedSpokenAudio.role);
   if(!el||typeof buffer?.getChannelData!=='function'||!Number.isFinite(buffer.sampleRate)||
      !Number.isFinite(buffer.duration)||buffer.duration<=0||typeof window.setInterval!=='function')return false;
   let samples;
@@ -357,7 +357,7 @@
   try{
    const scene=window.NEGuidedSpeaking?.definition?.(window.neLessonSession?.lesson);
    const voice=actorVoices[actorKey(scene?.actor)]||'marin';
-   expectedPartnerAudio=String(text||'');
+   expectedSpokenAudio={text:String(text||''),role:'partner'};
    const utterance=window.speakText(text,rate,null,voice);
    if(!utterance)return false;
    // Audio playback and optional mouth animation are independent.
@@ -383,17 +383,15 @@
   const scene=window.NEGuidedSpeaking?.definition?.(lesson);
   const task=scene?.steps?.[progress?.index]?.task;
   if(!task)return;
-  const synth=window.speechSynthesis,Utter=window.SpeechSynthesisUtterance;
-  if(!synth||typeof Utter!=='function'){status('Русская озвучка недоступна. Задание Норы написано под персонажами.');return}
-  const voices=synth.getVoices?.()||[];
-  const voice=voices.find(x=>/^ru(-|_)/i.test(x.lang||''));
-  if(!voice){status('На устройстве нет русского голоса. Читай подсказку Норы на экране.');return}
-  try{
-   synth.cancel();
-   const u=new Utter('Твоя задача: '+String(task).slice(0,420));
-   u.lang='ru-RU';u.voice=voice;u.rate=.95;
-   bindSpeech(u,'coach');synth.speak(u);status('Нора озвучивает задание.');
-  }catch{status('Озвучка сейчас недоступна. Задание показано на экране.')}
+  const index=progress.index,text=('Твоя задача: '+String(task)).slice(0,600);
+  if(typeof window.speakText!=='function'){status('Озвучка недоступна. Задание показано на экране.');return}
+  expectedSpokenAudio={text,role:'coach'};
+  status('Нора готовит объяснение на русском…');
+  try{Promise.resolve(window.speakText(text,.92,null,'marin','ru-RU')).then(result=>{
+   if(window.neLessonSession?.lesson!==lesson||progress.index!==index)return;
+   status(['ai','human','device'].includes(result?.source)?'Нора объясняет задание.':'Звук недоступен — задание написано на экране.');
+  }).catch(()=>{if(progress.index===index)status('Не удалось воспроизвести объяснение. Задание видно на экране.')})}
+  catch{status('Звук сейчас недоступен. Задание видно на экране.')}
  }
  const RESCUE=Object.freeze({
   repeat:{phrase:'Kan du gjenta det, vær så snill?',prefix:'Ja, selvfølgelig. ',rate:.85},
@@ -709,20 +707,16 @@
  function speakStage(){
   const field=document.getElementById('neWorldGuideTask');
   const feedback=document.getElementById('neWorldGuideStatus');
-  const message=(text)=>{if(feedback)feedback.textContent=text};
-  const text=field?.textContent?.trim();
-  if(!text)return;
-  const synth=window.speechSynthesis,Utter=window.SpeechSynthesisUtterance;
-  if(!synth||typeof Utter!=='function'){message('На устройстве нет русского голосового синтеза. Текст уже показан рядом.');return}
-  const voice=(synth.getVoices?.()||[]).find(x=>/^ru(-|_)/i.test(x.lang||''));
-  if(!voice){message('Русский голос не установлен. Задание можно прочитать на экране.');return}
-  try{
-   synth.cancel();
-   const u=new Utter(text);u.voice=voice;u.lang='ru-RU';u.rate=.95;
-   const img=document.querySelector('.ne-world-guide-portrait');
-   if(img)bindSpeech(u,'guide');
-   synth.speak(u);message('Нора объясняет задание.');
-  }catch{message('Озвучка недоступна. Задание написано на экране.')}
+  const message=text=>{if(feedback?.isConnected!==false&&feedback)feedback.textContent=text};
+  const text=field?.textContent?.trim();if(!text)return;
+  if(typeof window.speakText!=='function'){message('Голос Норы недоступен. Прочитай инструкцию на экране.');return}
+  expectedSpokenAudio={text,role:'guide'};
+  message('Нора готовит инструкцию на русском…');
+  try{Promise.resolve(window.speakText(text,.92,null,'marin','ru-RU')).then(result=>{
+   if(!field?.isConnected)return;
+   message(['ai','human','device'].includes(result?.source)?'Нора произносит инструкцию.':'Звук недоступен. Прочитай текст на экране.');
+  }).catch(()=>message('Инструкция доступна текстом.'))}
+  catch{message('Голос недоступен. Инструкция написана на экране.')}
  }
  window.NEVisualWorld=Object.freeze({freeTurnLimit,tapWords,inspectWord,render,guide,speakStage,onAudioStart,onAudioStop,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,askHelp,dictateHelp,helpFromGuidedAnswer,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
 })();

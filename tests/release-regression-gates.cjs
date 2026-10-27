@@ -25,7 +25,7 @@ const actualCache=(sw.match(/^const CACHE="([^"]+)";/m)||[])[1];
 const worldRevision=(actualCache?.match(/-world[1-9][0-9]*$/)||[])[0]||'';
 const cacheWithoutWorld=actualCache?.slice(0,actualCache.length-worldRevision.length)||'';
 const storyRevision=(cacheWithoutWorld.startsWith(baseCache)?cacheWithoutWorld.match(/-story[1-9][0-9]*$/)?.[0]:'')||'';
-const worldSuffix=pathname=>['/access.js','/visual-world.js'].includes(pathname)?'-world17':pathname==='/visual-world.css'?'-world9':(['/app.js','/ui-v7.js'].includes(pathname)?'-help5':pathname==='/guided-speaking.js'?'-world3':pathname==='/nora-experience.js'?'-world1':pathname==='/v3.js'?'-voice1':pathname==='/lesson-vocabulary-trays.js'?'-review1':['/living-day.js','/adaptive-teacher.js'].includes(pathname)?'-continuity1':'');
+const worldSuffix=pathname=>['/access.js','/visual-world.js'].includes(pathname)?'-world18':pathname==='/visual-world.css'?'-world9':(['/app.js','/ui-v7.js'].includes(pathname)?'-help5':pathname==='/guided-speaking.js'?'-world3':pathname==='/nora-experience.js'?'-world1':pathname==='/v3.js'?'-voice2':pathname==='/lesson-vocabulary-trays.js'?'-review1':['/living-day.js','/adaptive-teacher.js'].includes(pathname)?'-continuity1':'');
 const assetRevision=cacheWithoutWorld.startsWith(baseCache)?cacheWithoutWorld.slice(baseCache.length,cacheWithoutWorld.length-storyRevision.length):null;
 const storySuffix=pathname=>pathname==='/access.js'||pathname==='/v8.css'||['/app.js','/guided-speaking.js','/adaptive-teacher.js','/living-day.js','/story-journey.js'].includes(pathname)?'-story1':
  pathname==='/story-journey-advanced.js'?'-story2':'';
