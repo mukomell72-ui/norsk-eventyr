@@ -738,7 +738,17 @@
     '<span class="ne-world-guide-face" data-ne-face="nora"><img class="ne-world-guide-portrait" src="'+portraits.nora+'" alt="Нора" loading="lazy">'+mouthSvg+'</span>'+
     '<div class="ne-world-guide-copy"><strong>Нора рядом</strong><p id="neWorldGuideTask">'+e(text)+'</p>'+
     '<button type="button" class="ne-world-guide-speak" onclick="NEVisualWorld.speakStage()">Послушать инструкцию</button>'+
+    '<button type="button" class="ne-world-guide-expand" aria-expanded="false" onclick="NEVisualWorld.toggleGuideStage(this)">Показать Нору крупнее</button>' +
     '<small id="neWorldGuideStatus" role="status"></small></div></div>';
+ }
+ function toggleGuideStage(button){
+  const guide=button?.closest?.('.ne-world-guide');
+  if(!guide)return false;
+  const expanded=!guide.classList.contains('ne-world-guide-expanded');
+  guide.classList.toggle('ne-world-guide-expanded',expanded);
+  button.setAttribute('aria-expanded',String(expanded));
+  button.textContent=expanded?'Свернуть Нору':'Показать Нору крупнее';
+  return expanded;
  }
  function speakStage(){
   const field=document.getElementById('neWorldGuideTask');
@@ -755,5 +765,5 @@
   }).catch(()=>{if(generation===speechUiGeneration&&field?.isConnected)message('Инструкция доступна текстом.')})}
   catch{if(generation===speechUiGeneration)message('Голос недоступен. Инструкция написана на экране.')}
  }
- window.NEVisualWorld=Object.freeze({freeTurnLimit,tapWords,inspectWord,render,guide,speakStage,onAudioStart,onAudioStop,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,askHelp,dictateHelp,helpFromGuidedAnswer,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
+ window.NEVisualWorld=Object.freeze({freeTurnLimit,tapWords,inspectWord,render,guide,toggleGuideStage,speakStage,onAudioStart,onAudioStop,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,askHelp,dictateHelp,helpFromGuidedAnswer,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
 })();
