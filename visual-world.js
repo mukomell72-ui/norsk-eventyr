@@ -294,7 +294,13 @@
  }
  function sayPartner(text,rate){
   if(typeof window.speakText!=='function')return false;
-  try{return bindSpeech(window.speakText(text,rate),'partner')}catch{return false}
+  try{
+   const utterance=window.speakText(text,rate);
+   if(!utterance)return false;
+   // Audio playback and optional mouth animation are independent.
+   bindSpeech(utterance,'partner');
+   return true;
+  }catch{return false}
  }
  function status(text){
   const el=document.getElementById('neWorldVoiceStatus');if(el)el.textContent=String(text||'');

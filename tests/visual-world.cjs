@@ -189,6 +189,14 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
  assert.equal(V.speakLastFree(),true,'NPC replay should use stored authentic answer');
  assert.equal(spoke,'Ja, selvfølgelig! Hva trenger du hjelp med?');
  assert.equal(saved,beforeReplayScores,'Replay must not create new learning evidence');
+ // Turning off visual mouth motion must never silence the actor or misreport replay failure.
+ assert.equal(V.toggleLipSync(),true);
+ assert.equal(V.speakLastFree(),true,'Audio replay must work with lip animation disabled');
+ assert.equal(spoke,'Ja, selvfølgelig! Hva trenger du hjelp med?');
+ assert.equal(V.toggleLipSync(),true);
+ window.matchMedia=()=>({matches:true});
+ assert.equal(V.speakLastFree(),true,'Reduced-motion preference must not disable voice replay');
+ delete window.matchMedia;
  assert.equal(chatCalls,1);
  assert.equal(button.disabled,false);
  // Concurrency: parallel submissions must only send one request.
