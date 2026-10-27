@@ -353,6 +353,23 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
  assert.equal(V.dictateHelp('en'),false,'Unsupported recognition locale rejected');
  delete window.SpeechRecognition;
  assert.equal(mainDraft.value,'Jeg ... i Norge','Microphone for Nora must not overwrite assessed answer');
+ // A mixed-language request typed directly as an assessed dialogue answer
+ // must open Nora help instead of reaching the grading path.
+ const originalHelpCount=progress.helpChat.length,originalTurn=progress.index;
+ mainDraft.value='Jeg ... забыл, как будет живу ... i Norge';
+ window.neApiPost=async(path,payload)=>{
+  assert.equal(path,'/api/chat');
+  assert.equal(payload.mode,'explain','Mixed-language question must bypass scoring');
+  assert.equal(payload.message,mainDraft.value);
+  return {ok:true,data:{explanation_ru:'Å bo — жить; jeg bor — я живу.'}};
+ };
+ assert.equal(V.helpFromGuidedAnswer('Jeg ... забыл, как будет живу ... i Norge',mainDraft),true);
+ await Promise.resolve();await Promise.resolve();
+ assert.equal(progress.helpChat.length,originalHelpCount+2,'Spontaneous request should be saved in tutor history');
+ assert.equal(mainDraft.value,'Jeg ... забыл, как будет живу ... i Norge','Original answer draft must not disappear');
+ assert.equal(progress.index,originalTurn,'Request for help cannot advance the exercise');
+ assert.equal(V.helpFromGuidedAnswer('Jeg bor i Norge',mainDraft),false,'A real Bokmål answer must reach grading');
+ assert(guided.includes('helpFromGuidedAnswer?.(a,input)'),'Assessed dialogue must route contextual help first');
  fakeDocument.getElementById=originalHelpGet;
  console.log('PASS Nora bilingual contextual help: Russian/Norwegian, persisted questions, no grade, retained draft, stale guard, mic modes');
  console.log('PASS free conversation: actual AI dialogue, replay-safe history, no XP, checkpoint, concurrency, stale navigation and offline handling');
