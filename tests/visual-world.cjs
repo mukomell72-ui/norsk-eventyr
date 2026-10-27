@@ -33,6 +33,9 @@ assert(markup.includes('aria-label="Анимированная жизненна�
 assert(markup.includes('&lt;неожиданность&gt;')&&!markup.includes('<неожиданность>'),'User-facing scene must escape content');
 assert(markup.includes('&lt;можешь&gt;'),'Spoken lesson goal must escape content');
 assert(markup.includes('NEVisualWorld.speakPartner()')&&markup.includes('NEVisualWorld.speakTask()'),'Speaking cues missing');
+assert(markup.includes('NEVisualWorld.inspectWord(this)'),'Norwegian word taps must open Nora help');
+assert(V.tapWords('Hei, bor du i Norge?').includes('data-ne-word="bor"'));
+assert(!V.tapWords('<script>malicious</script>').includes('<script>'),'Never render untrusted HTML');
 assert(markup.includes('NEVisualWorld.sendFree()')&&markup.includes('Свободный разговор'),'Optional free practice must be in scene');
 assert(markup.includes('NEVisualWorld.askHelp()')&&markup.includes('neWorldHelpInput'),'Nora contextual help must be visible inside assessed scene');
 assert(markup.includes("NEVisualWorld.dictateHelp('ru')")&&markup.includes("NEVisualWorld.dictateHelp('nb')"),'Both speech recognition languages must be offered');
@@ -57,7 +60,7 @@ const hidden=V.render({lesson:{...lesson,_adaptive:{moduleId:'a1-foundation'}},
 assert(!hidden.includes('Erik · сотрудник'),'A1 character name must not be leaked before disclosure');
 assert(hidden.includes('Сотрудник'),'A1 undisclosed character role missing');
 const current=V.render({lesson,scene,progress,step:scene.steps[1],moduleId:'a2-work'});
-assert(current.includes('Det passer fint.'),'Historical dialogue should carry forward into new stage');
+assert(current.includes('data-ne-word="passer"')&&current.includes('data-ne-word="fint"'),'Historical dialogue should remain tappable');
 assert(style.includes('prefers-reduced-motion:reduce'),'Motion accessibility preference unsupported');
 for(const location of ['street','cafe','office','clinic','town']){
  assert(style.includes("url('/assets/scenes/"+location+".svg')"),'Missing decorative scenery '+location);

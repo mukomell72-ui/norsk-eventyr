@@ -5,6 +5,21 @@
 'use strict';
 const LEVELS=['A1','A2','B1','B2'],SCENES=3;
 const SCENE_LABELS=['Разбираемся в ситуации','Пробуем в новом разговоре','Говорим и действуем самостоятельно'];
+ // The three episodes are a single saved story. Store only preset stage names,
+ // never private free-text answers or untrusted AI-generated descriptions.
+ function chapterRecap(day){
+  const records=Array.isArray(day?.recap)?day.recap:[];
+  return records.slice(0,SCENES).filter(x=>Number.isInteger(x.scene)&&x.scene>=0&&x.scene<SCENES)
+   .map(x=>({scene:x.scene,label:SCENE_LABELS[x.scene]}));
+ }
+ function lessonContinuity(day){
+  const seen=chapterRecap(day);
+  if(!seen.length)return '';
+  return 'В этой же теме ученик уже завершил этапы: '+seen.map(x=>x.label).join('; ')+
+   '. Продолжай одну понятную жизненную историю с другим поворотом ситуации. '+
+   'Не представляй персонажа повторно без причины, не копируй старые реплики и не сообщай готовые ответы. ';
+ }
+
 const esc=value=>typeof window.esc==='function'?window.esc(String(value??'')):String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const localDay=()=>new Date().toLocaleDateString('sv-SE');
 const learner=()=>window.neLearnerState;
@@ -170,7 +185,7 @@ function details(create=true){
  objective:module?.canDo?.[0]||module?.title||'',description:module?.contexts||'',
  stageKey:d.stageKey,scene:d.scene,total:SCENES,finished:d.finished===true,
  plannedMinutes:d.plannedMinutes||60,feedback:d.feedback||'',sceneTitle:SCENE_LABELS[Math.min(d.scene,SCENES-1)],
- scores:d.scores.slice(),activeMinutes:Math.floor((Number(d.activeMs)||0)/60000)};
+ scores:d.scores.slice(),recap:chapterRecap(d),activeMinutes:Math.floor((Number(d.activeMs)||0)/60000)};
 }
 function lessonPending(s){
  const id=s?.activeLesson?.id;
@@ -189,6 +204,9 @@ function open(){
  const intro=complete
  ?'На сегодня цель выполнена. Следующий учебный день продолжит маршрут с учётом проверенных навыков.'
  :'Сегодня новая история: помоги собеседнику, прояви инициативу, реши практическую ситуацию. Знакомые слова возвращаются естественно в разговоре.';
+ const chapters=chapterRecap(d),minutesLeft=Math.max(0,(d.plannedMinutes||60)-Math.floor((Number(d.activeMs)||0)/60000));
+ const recapHtml=chapters.length?'<section class="ne-story-recap" aria-label="Что мы уже прошли"><h2>Нора помнит нашу историю</h2>'+chapters.map(x=>'<p>✓ '+esc(x.label)+'</p>').join('')+
+  (!complete?'<p>Сейчас: '+esc(SCENE_LABELS[d.scene]||'Повторение')+'. Продолжим с новой ситуацией без повторного знакомства.</p>':'')+'</section>':'';
  const action=complete?'':oldWork
  ?'<button class="btn" onclick="NELivingDay.resumeOlder()">Завершить начатый ранее урок →</button>'
  :'<button class="btn" onclick="NELivingDay.begin()">Продолжить занятие с Норой →</button>';
@@ -200,19 +218,33 @@ function open(){
  '<div class="eyebrow">'+esc(d.level)+' · Твой учебный день</div>'+
  '<h1>'+esc(info.title)+'</h1>'+
  (!complete?'<p class="ne-story-hook"><b>Что случится сегодня?</b> '+esc(window.NEStoryJourney?.teaser?.(d.moduleId)||'Новая жизненная ситуация с Норой.')+'</p>':'')+
- '<p><b>Цель:</b> '+esc(info.objective)+'</p>'+
+ '<p><b>Цель:</b> '+esc(info.objective)+'</p>'+recapHtml+
  '<p>'+esc(intro)+'</p>'+
  '<div class="progress" aria-label="Прогресс сегодняшнего занятия"><i style="width:'+Math.round(d.scene/SCENES*100)+'%"></i></div>'+
  '<p><b>'+(complete?'Занятие завершено':esc(SCENE_LABELS[d.scene]))+'</b> · '+d.scene+' из '+SCENES+' ситуаций отработано</p>'+
- '<p class="muted">Цель: '+(d.plannedMinutes||60)+' мин активной работы. Учтено на экране занятия: <b id="neLivingActiveMinutes">'+Math.floor((Number(d.activeMs)||0)/60000)+' мин</b>. Неактивность более 3 минут и закрытая вкладка не учитываются. Прогресс зависит от самостоятельных ответов, а не от таймера.</p>'+
+ '<p class="muted">План занятия: '+(d.plannedMinutes||60)+' мин активной работы. Учтено на экране занятия: <b id="neLivingActiveMinutes">'+Math.floor((Number(d.activeMs)||0)/60000)+' мин</b>. Неактивность более 3 минут и закрытая вкладка не учитываются. Прогресс зависит от самостоятельных ответов, а не от таймера.</p>'+
  (pacing?'<details class="card" style="margin:12px 0"><summary>Личный план занятия · '+pacing.minutes+' мин</summary>'+pacing.parts.map(part=>'<div class="metric"><span>'+esc(part.label)+'</span><strong>'+part.minutes+' мин</strong></div>').join('')+'<small class="muted">Время распределено по текущему профилю навыков; это план, а не гарантированная длительность.</small></details>':'')+
  (d.feedback?'<div class="notice">'+esc(d.feedback)+'</div>':'')+
  '<p class="muted">'+esc(hint)+'</p>'+action+
  (complete?'<button class="btn secondary" onclick="navigate(\'course\',\''+esc(d.level)+'\')">К программе уровня</button>':'')+
+ (complete&&minutesLeft>0?'<section class="card ne-day-consolidation" aria-label="Дополнительная тренировка">'+
+ '<h2>Продолжить практику по желанию</h2><p>Ты подтвердил учебные действия, но отработал '+Math.floor((Number(d.activeMs)||0)/60000)+' из запланированных '+(d.plannedMinutes||60)+' минут. Это ориентир, а не обязательный таймер или оценка знаний.</p>'+
+ '<button class="btn secondary" onclick="NELivingDay.consolidate(\'conversation\')">Свободный разговор с Норой</button>'+
+ '<button class="btn secondary" onclick="NELivingDay.consolidate(\'words\')">Повторить трудные слова</button>'+
+ '<button class="btn secondary" onclick="NELivingDay.consolidate(\'listening\')">Потренировать понимание на слух</button></section>':'')+
  '<button class="btn secondary" onclick="NELivingWords.render()">Слова · дополнительная практика</button>'+
  '<button class="btn secondary" onclick="NELivingDay.archive()">Архив и повторение уроков →</button>'+
  '<button class="btn ghost" onclick="navigate(\'home\')">← Вернуться на главную</button>'+
  '</section>','home');
+}
+function consolidate(kind){
+ const d=current(false);
+ if(!d?.finished)return open();
+ // Formative extra practice cannot restart mastery or certify a level.
+ if(kind==='conversation')return window.NEExperience?.openFollowup?.()||window.navigate?.('chat');
+ if(kind==='words')return window.NELivingWords?.render?.()||window.navigate?.('review');
+ if(kind==='listening')return window.navigate?.('listeninglab');
+ return false;
 }
 function resumeOlder(){
  const s=learner(),pending=lessonPending(s);
@@ -273,6 +305,8 @@ function onLessonFinished(lesson,outcome,average){
   persist();return {advanced:false,finished:false,reason:d.feedback};
  }
  d.scores.push(Math.round(score));
+ d.recap=chapterRecap(d);
+ if(!d.recap.some(x=>x.scene===d.scene))d.recap.push({scene:d.scene,label:SCENE_LABELS[d.scene]});
  d.lessonIds=Array.isArray(d.lessonIds)?d.lessonIds:[];
  if(!d.lessonIds.includes(lesson.id))d.lessonIds.push(lesson.id);
  d.scene++;
@@ -284,5 +318,5 @@ function onLessonFinished(lesson,outcome,average){
  persist();
  return {advanced:true,finished:d.finished,reason:d.finished?'Учебный день пройден.':'Переходим к следующей ситуации той же темы.'};
 }
-window.NELivingDay=Object.freeze({open,begin,resumeOlder,resumePaused,details,onLessonFinished,estimate,archive,replay,clockPulse});
+window.NELivingDay=Object.freeze({open,begin,resumeOlder,resumePaused,details,onLessonFinished,estimate,archive,replay,consolidate,lessonContinuity,clockPulse});
 })();

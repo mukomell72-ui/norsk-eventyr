@@ -56,6 +56,26 @@
   if(index===0)return scene.opening;
   return String(progress.turns[index-1]?.reply||scene.steps[index-1]?.reply||scene.opening);
  }
+ // An explicit word tap opens the same ungraded Nora explanation.
+ // Preserve the original sentence and do not invent word meanings.
+ function tapWords(text){
+  const parts=String(text||'').match(/[\p{L}]+(?:['’\-][\p{L}]+)*|[^\p{L}]+/gu)||[];
+  return parts.map(part=>/^[a-zæøå]{2,}(?:['’\-][a-zæøå]+)*$/iu.test(part)
+   ?'<button type="button" class="ne-world-word" data-ne-word="'+e(part)+'" onclick="NEVisualWorld.inspectWord(this)" aria-label="'+e(part)+' — спросить у Норы о значении">'+e(part)+'</button>':e(part)).join('');
+ }
+ function inspectWord(button){
+  const word=String(button?.dataset?.neWord||'').trim();
+  if(!/^[a-zæøå]{2,}(?:['’\-][a-zæøå]+)*$/iu.test(word)||word.length>45)return false;
+  const session=window.neLessonSession,lesson=session?.lesson,progress=session?.guidedSpeech;
+  const scene=window.NEGuidedSpeaking?.definition?.(lesson);
+  const input=document.getElementById('neWorldHelpInput');
+  if(!lesson||!scene||!progress||!input?.isConnected)return false;
+  const details=document.querySelector?.('.ne-world-help');if(details)details.open=true;
+  if(helpPending.has(progress)){helpStatus('Нора уже отвечает на вопрос. Твой выбор сохранён.');return false}
+  input.value='Объясни слово «'+word+'» в реплике собеседника: короткий перевод, значение здесь и пример на Bokmål.';
+  if(input.dataset)input.dataset.neFromSpeech='false';
+  void askHelp();return true;
+ }
  function render({lesson,scene,progress,step,moduleId}){
   if(!scene||!step||!progress)return '';
   const currentAvatar=preference();
@@ -80,7 +100,7 @@
      '<div class="ne-world-name">Ты <span>отвечаешь</span></div></div>'+
    '</div>'+
    '<div class="ne-world-dialogue" aria-label="Текущий разговор">'+
-     '<div class="ne-world-line ne-world-line-partner"><span>'+e(who)+'</span><p lang="nb">'+e(last)+'</p></div>'+
+     '<div class="ne-world-line ne-world-line-partner"><span>'+e(who)+'</span><p lang="nb" aria-label="Слова в реплике можно нажать для перевода">'+tapWords(last)+'</p></div>'+
      '<div class="ne-world-line ne-world-line-self" aria-live="off"><span>Твой ответ</span><p id="neWorldOwnWords" lang="nb">'+e(progress.pending?.answer||'Твои слова появятся здесь…')+'</p></div>'+
      '<div class="ne-world-next" id="neWorldReaction" aria-live="polite" hidden></div>'+
    '</div>'+
@@ -704,5 +724,5 @@
    synth.speak(u);message('Нора объясняет задание.');
   }catch{message('Озвучка недоступна. Задание написано на экране.')}
  }
- window.NEVisualWorld=Object.freeze({freeTurnLimit,render,guide,speakStage,onAudioStart,onAudioStop,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,askHelp,dictateHelp,helpFromGuidedAnswer,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
+ window.NEVisualWorld=Object.freeze({freeTurnLimit,tapWords,inspectWord,render,guide,speakStage,onAudioStart,onAudioStop,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,askHelp,dictateHelp,helpFromGuidedAnswer,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
 })();

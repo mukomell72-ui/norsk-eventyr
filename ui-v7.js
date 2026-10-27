@@ -268,7 +268,13 @@
       done:steps.filter(x=>x.done).length,total:steps.length,planned:plan?.minutes||60,
       mins:steps.filter(x=>!x.done).reduce((a,x)=>a+x.mins,0)};
   }
-  function v7ContinueToday(){return navigate('livingday')}
+  // One tap starts or resumes the lesson. Finished days show their result.
+  function v7ContinueToday(){
+    const engine=window.NELivingDay;
+    if(!engine?.begin)return navigate('livingday');
+    if(engine.details?.(false)?.finished)return navigate('livingday');
+    return engine.begin();
+  }
   function v7Step(i){return navigate('livingday')}
 
   function dailyWordsV7(){
@@ -318,7 +324,7 @@
       {number:1,start:1,end:5,done:false},{number:2,start:6,end:10,done:false},
       {number:3,start:11,end:15,done:false}
     ]).map(step=>
-      '<button class="route-step-v7 '+(step.done?'done':'')+'" onclick="v7ContinueToday()">'+
+      '<button class="route-step-v7 '+(step.done?'done':'')+'" onclick="NELivingWords.render()">'+
        '<span class="route-icon-v7">'+(step.done?'✓':step.number)+'</span>'+
        '<div><b>Слова · мини-этап '+step.number+'</b><small>'+step.start+'–'+step.end+
         ' · перевод, предложение, быстрая проверка</small></div>'+
