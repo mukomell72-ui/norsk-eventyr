@@ -287,6 +287,7 @@ console.log('PASS animated conversations: adult illustrations, escaped scene, le
  assert.equal(await V.askHelp(),true,'Mixed Russian-Bokmål question should get contextual help');
  assert.equal(helpSend.disabled,false);
  assert.equal(progress.helpChat.length,2,'Help history should be persisted separately');
+ assert.equal(progress.aidedTurns[String(helpIndex)],true,'Nora hint must mark the current turn as aided');
  assert.equal(progress.helpChat[1].text,'Жить — å bo. Сейчас: jeg bor. Попробуй сам.');
  assert.equal(helpLog.length,2,'Nora and learner help messages must appear');
  assert.equal(checkpoint,helpCheckpoint+1,'Help context must survive lesson checkpoint');
