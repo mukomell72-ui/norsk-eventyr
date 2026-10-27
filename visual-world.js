@@ -434,6 +434,10 @@
     return false;
    }
    progress.helpChat=[...history,{role:'user',text:question},{role:'assistant',text:answer}].slice(-8);
+   // A hint about the current turn means the next answer is guided practice,
+   // not independent evidence of mastery, even when it is fully correct.
+   if(!progress.aidedTurns||typeof progress.aidedTurns!=='object'||Array.isArray(progress.aidedTurns))progress.aidedTurns={};
+   progress.aidedTurns[String(turn)]=true;
    try{window.persistLessonCheckpoint?.()}catch{}
    appendHelp('user',question);appendHelp('assistant',answer);
    input.value='';if(input.dataset)input.dataset.neFromSpeech='false';
