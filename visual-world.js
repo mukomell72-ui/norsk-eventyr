@@ -82,8 +82,12 @@
  function render({lesson,scene,progress,step,moduleId}){
   if(!scene||!step||!progress)return '';
   const currentAvatar=preference();
-  const who=personName(scene,progress.index,moduleId);
-  const partner=actorKey(scene.actor);
+  const teaching=window.NESceneCourse?.forTurn?.(lesson,scene,progress.index)||null;
+  const who=teaching?.speaker?.name||personName(scene,progress.index,moduleId);
+  const partner=teaching?.speaker?.face||actorKey(scene.actor);
+  const others=teaching?Array.from(new Map([...teaching.participants,...teaching.lead.map(x=>x.speaker)]
+   .filter(x=>!['nora','self',teaching.speaker.id].includes(x.id))
+   .map(x=>[x.id,x])).values()):[];
   const last=sceneLine(scene,progress);
   const spoken=progress.turns.filter(x=>x.spoken).length;
   const total=progress.turns.length;
@@ -94,25 +98,38 @@
    '<div class="ne-world-top"><span class="ne-world-tag">Твоя жизнь в Норвегии · '+e(lesson.level||'A1')+'</span>'+
    '<span class="ne-world-scene-counter">Ситуация '+(progress.index+1)+' / '+scene.steps.length+'</span></div>'+
    '<h3 class="ne-world-location">'+e(scene.scene)+'</h3>'+
+   (teaching?.introduction?'<div class="ne-scene-intro"><b>Нора знакомит тебя с участниками</b><p>'+e(teaching.introduction)+'</p>'+
+    '<div class="ne-scene-roster">'+teaching.participants.filter(x=>x.id!=='self').map(x=>'<span>'+e(x.name)+' · '+e(x.role)+'</span>').join('')+'</div></div>':'')+
    '<div class="ne-world-stage">'+
      '<div class="ne-world-character ne-world-coach" data-ne-role="coach"><div class="ne-world-portrait-wrap" data-ne-face="nora"><img src="'+portraits.nora+'" alt="Нора, виртуальная преподавательница" class="ne-world-portrait" loading="lazy">'+mouthSvg+'</div>'+
      '<div class="ne-world-name">Нора <span>помогает</span></div></div>'+
      '<div class="ne-world-character ne-world-partner" data-ne-role="partner" data-ne-reaction="'+reactionTone(last)+'"><div class="ne-world-portrait-wrap" data-ne-face="'+partner+'"><img src="'+actorPortrait+'" alt="'+e(who)+'" class="ne-world-portrait" loading="lazy">'+mouthSvg+'</div>'+
      '<div class="ne-world-name">'+e(who)+'</div></div>'+
+     (others.length?others.map(x=>'<div class="ne-world-character ne-world-guest" data-ne-role="guest-'+e(x.id)+'"><div class="ne-world-portrait-wrap" data-ne-face="'+e(x.face)+'"><img src="'+portraits[x.face]+'" alt="'+e(x.name)+'" class="ne-world-portrait" loading="lazy">'+mouthSvg+'</div><div class="ne-world-name">'+e(x.name)+'</div></div>').join(''):'')+
      '<div class="ne-world-character ne-world-self" data-ne-role="self"><div class="ne-world-portrait-wrap" data-ne-face="'+currentAvatar+'"><img id="neWorldSelfImage" src="'+portraits[currentAvatar]+'" alt="Твой учебный аватар" class="ne-world-portrait" loading="lazy">'+mouthSvg+'</div>'+
      '<div class="ne-world-name">Ты <span>отвечаешь</span></div></div>'+
    '</div>'+
    
+   (teaching?.lead?.length?'<div class="ne-scene-group" aria-label="Разговор между участниками">'+teaching.lead.map((turn,i)=>
+     '<div class="ne-scene-group-line" data-ne-role="aside-'+i+'">'+
+      '<img src="'+portraits[turn.speaker.face]+'" alt="" loading="lazy"><div><small>'+e(turn.speaker.name)+' → '+e(turn.recipient)+'</small>'+
+      '<p lang="nb">'+tapWords(turn.text)+'</p><button type="button" onclick="NEVisualWorld.speakAside('+i+')">🔊 Слушать</button></div></div>').join('')+'</div>':'')+
    '<div class="ne-world-dialogue" aria-label="Текущий разговор">'+
-     '<div class="ne-world-line ne-world-line-partner"><span>'+e(who)+'</span><p lang="nb" aria-label="Слова в реплике можно нажать для перевода">'+tapWords(last)+'</p></div>'+
+     '<div class="ne-world-line ne-world-line-partner"><span>'+e(who)+(teaching?' → тебе':'')+'</span><p lang="nb" aria-label="Слова в реплике можно нажать для перевода">'+tapWords(last)+'</p></div>'+
      
    '</div>'+
+   (teaching?'<div class="ne-scene-own" id="neSceneOwn" hidden><img id="neSceneOwnAvatar" src="'+portraits[currentAvatar]+'" alt="" loading="lazy"><div><b>Ты → '+e(who)+'</b><p id="neSceneOwnWords" lang="nb"></p></div></div>':'')+
    '<div class="ne-world-coaching"><div class="ne-world-coach-head">Нора · твоя задача сейчас</div>'+
       '<p id="neWorldTask">'+e(step.task)+'</p>'+
       '<div class="ne-world-actions">'+
         '<button type="button" class="ne-world-audio" onclick="NEVisualWorld.speakPartner()">🔊 Слушать</button>'+
         '<button type="button" class="ne-world-audio" onclick="NEVisualWorld.speakTask()">🔊 Задание</button>'+
-      '</div><p class="ne-world-voice-status" id="neWorldVoiceStatus" role="status"></p>'+
+      '</div>'+
+      (teaching?.teacher?'<details class="ne-scene-teacher"><summary>Нора объясняет: '+e(teaching.teacher.focus)+'</summary>'+
+       '<p>'+e(teaching.teacher.explain)+'</p><p><b>Другой пример:</b> <span lang="nb">'+e(teaching.teacher.example)+'</span></p>'+
+       '<div class="ne-scene-words">'+teaching.teacher.words.map(([no,ru])=>'<span><b lang="nb">'+e(no)+'</b> — '+e(ru)+'</span>').join('')+'</div>'+
+       '<button type="button" onclick="NEVisualWorld.speakLesson()">🔊 Слушать объяснение</button></details>':'')+
+      '<p class="ne-world-voice-status" id="neWorldVoiceStatus" role="status"></p>'+
       '<details class="ne-world-help"><summary>Спросить Нору</summary>'+
        '<p>Не понял слово или правило? Спроси на русском или norsk.</p>'+
        '<div class="ne-world-help-log" id="neWorldHelpLog" role="log" aria-live="polite">'+
@@ -159,8 +176,13 @@
    '</section>';
  }
  function avatarSettings(){
-  const currentAvatar=preference();
-  return '<section class="card ne-world-avatar-settings"><h3>Персонаж в диалогах</h3>'+
+  const currentAvatar=preference(),prefs=learner()?.learningV8?.visualWorld||{};
+  const gender=['male','female'].includes(prefs.gender)?prefs.gender:null;
+  return '<section class="card ne-world-avatar-settings"><h3>Мой персонаж</h3>'+
+    '<p class="muted">Выбери мужской или женский аватар. Это настройка внешности, а не оценка способностей.</p>'+
+    '<div class="ne-scene-gender" role="group" aria-label="Пол аватара">'+
+     [['male','Мужской'],['female','Женский']].map(([id,label])=>
+     '<button type="button" aria-pressed="'+(gender===id)+'" onclick="NEVisualWorld.chooseGender(\''+id+'\')">'+label+'</button>').join('')+'</div>'+
   '<details class="ne-world-avatar-picker"><summary>Изменить свой аватар</summary>'+
      '<div class="ne-world-avatar-options" role="group" aria-label="Учебный аватар">'+
      [['erik','Алекс'],['ingrid','Ингрид'],['mari','Мари']].map(([id,name])=>
@@ -179,13 +201,34 @@ function updateOwn(value){
   const s=learner();if(!s)return false;
   if(!s.learningV8||typeof s.learningV8!=='object')s.learningV8={};
   const old=s.learningV8.visualWorld;
-  s.learningV8.visualWorld={...(old||{}),avatar:id};
+  s.learningV8.visualWorld={...(old||{}),avatar:id,gender:id==='erik'?'male':'female'};
   let saved=true;
   try{if(typeof window.saveState==='function')saved=window.saveState()!==false}catch{saved=false}
   if(!saved){s.learningV8.visualWorld=old;return false}
   const pic=document.getElementById('neWorldSelfImage');
   if(pic){pic.src=portraits[id];pic.parentElement?.setAttribute?.('data-ne-face',id)}
+  const acceptedPic=document.getElementById('neSceneOwnAvatar');if(acceptedPic)acceptedPic.src=portraits[id];
   document.querySelectorAll?.('[data-ne-avatar]').forEach(b=>b.setAttribute('aria-pressed',String(b.getAttribute('data-ne-avatar')===id)));
+  const settings=document.querySelector?.('.ne-world-avatar-settings');
+  if(settings?.outerHTML)settings.outerHTML=avatarSettings();
+  return true;
+ }
+ function chooseGender(gender){
+  if(!['male','female'].includes(gender))return false;
+  const state=learner();if(!state)return false;
+  if(!state.learningV8||typeof state.learningV8!=='object')state.learningV8={};
+  const prior=state.learningV8.visualWorld;
+  const current=preference();
+  const avatar=gender==='male'?'erik':(current==='mari'?'mari':'ingrid');
+  state.learningV8.visualWorld={...(prior||{}),gender,avatar};
+  let saved=true;
+  try{if(typeof window.saveState==='function')saved=window.saveState()!==false}catch{saved=false}
+  if(!saved){state.learningV8.visualWorld=prior;return false}
+  const pic=document.getElementById('neWorldSelfImage');
+  if(pic){pic.src=portraits[avatar];pic.parentElement?.setAttribute?.('data-ne-face',avatar)}
+  const own=document.getElementById('neSceneOwnAvatar');if(own)own.src=portraits[avatar];
+  const settings=document.querySelector?.('.ne-world-avatar-settings');
+  if(settings?.outerHTML)settings.outerHTML=avatarSettings();
   return true;
  }
  function toggleLipSync(){
@@ -206,7 +249,8 @@ function updateOwn(value){
  function talkingTarget(role){
   if(typeof document==='undefined')return null;
   return role==='guide'?document.querySelector('.ne-world-guide-face'):
-   ['coach','partner','self'].includes(role)?document.querySelector('.ne-world [data-ne-role="'+role+'"]'):null;
+   (['coach','partner','self'].includes(role)||/^aside-[0-9]{1,2}$/.test(role))?
+    document.querySelector('.ne-world [data-ne-role="'+role+'"]'):null;
  }
  function clearSpeechVisual(){
   if(typeof document==='undefined')return;
@@ -378,19 +422,19 @@ function updateOwn(value){
   return true;
  }
  let speechUiGeneration=0;
- function sayPartner(text,rate,onResult){
+ function sayPartner(text,rate,onResult,speaker,role='partner'){
   const generation=++speechUiGeneration;
   if(typeof window.speakText!=='function')return false;
   try{
    const scene=window.NEGuidedSpeaking?.definition?.(window.neLessonSession?.lesson);
-   const voice=actorVoices[actorKey(scene?.actor)]||'marin';
-   expectedSpokenAudio={text:String(text||''),role:'partner'};
+   const voice=actorVoices[actorKey(speaker||scene?.actor)]||'marin';
+   expectedSpokenAudio={text:String(text||''),role};
    const utterance=window.speakText(text,rate,null,voice);
    if(!utterance)return false;
    // Audio playback and optional mouth animation are independent.
    // Web Speech fallback has boundaries. AI audio has real PCM events.
    if(utterance&&typeof utterance.addEventListener==='function'){
-    bindSpeech(utterance,'partner');
+    bindSpeech(utterance,role);
     if(typeof onResult==='function')Promise.resolve().then(()=>onResult({source:'device'},generation));
    }else if(utterance&&typeof utterance.then==='function'){
     // A failed AI/device playback must not be reported as a spoken line.
@@ -413,12 +457,34 @@ function updateOwn(value){
   if(typeof window.speakText!=='function'){
    status('На этом устройстве нет доступной озвучки. Реплика показана на экране.');return false;
   }
+  const speaker=window.NESceneCourse?.forTurn?.(lesson,scene,turn)?.speaker?.id;
   const started=sayPartner(text,.88,(result,generation)=>{
    if(generation!==speechUiGeneration||window.neLessonSession!==session||progress.index!==turn||result?.source==='cancelled')return;
    status(['ai','human','device'].includes(result?.source)?'Собеседник произносит реплику.':'Звук недоступен — реплика показана на экране.');
-  });
+  },speaker);
   status(started?'Собеседник готовит реплику…':'Не удалось запустить звук. Реплика показана на экране.');
   return started;
+ }
+ function speakAside(index){
+  const session=window.neLessonSession,lesson=session?.lesson,progress=session?.guidedSpeech;
+  const scene=window.NEGuidedSpeaking?.definition?.(lesson);
+  const meta=window.NESceneCourse?.forTurn?.(lesson,scene,progress?.index);
+  const turn=Number.isInteger(index)?meta?.lead?.[index]:null;
+  if(!turn)return false;
+  const started=sayPartner(turn.text,.87,null,turn.speaker.id,'aside-'+index);
+  status(started?'Произносит '+turn.speaker.name+'.':'Озвучка недоступна.');
+  return started;
+ }
+ function speakLesson(){
+  const session=window.neLessonSession,lesson=session?.lesson,progress=session?.guidedSpeech;
+  const scene=window.NEGuidedSpeaking?.definition?.(lesson);
+  const teacher=window.NESceneCourse?.forTurn?.(lesson,scene,progress?.index)?.teacher;
+  if(!teacher||typeof window.speakText!=='function')return false;
+  const text=('Нора объясняет. '+teacher.explain+' Другой пример: '+teacher.example).slice(0,750);
+  try{const utterance=window.speakText(text,.9,null,'marin','ru-RU');
+    if(utterance?.addEventListener)bindSpeech(utterance,'coach');
+    return !!utterance;
+  }catch{return false}
  }
  function speakTask(){
   const lesson=window.neLessonSession?.lesson,progress=window.neLessonSession?.guidedSpeech;
@@ -462,6 +528,8 @@ function updateOwn(value){
  }
  function accepted(answer,reply){
   updateOwn(answer);
+  const own=document.getElementById('neSceneOwn'),words=document.getElementById('neSceneOwnWords');
+  if(own&&words){words.textContent=String(answer||'').slice(0,700);own.hidden=false}
   const el=document.getElementById('neWorldReaction');
   if(el){el.hidden=false;el.textContent='Собеседник: '+String(reply||'').slice(0,320)}
   animate('self');
@@ -782,5 +850,5 @@ function updateOwn(value){
   }).catch(()=>{if(generation===speechUiGeneration&&field?.isConnected)message('Инструкция доступна текстом.')})}
   catch{if(generation===speechUiGeneration)message('Голос недоступен. Инструкция написана на экране.')}
  }
- window.NEVisualWorld=Object.freeze({freeTurnLimit,tapWords,inspectWord,render,renderFree,avatarSettings,guide,toggleGuideStage,speakStage,onAudioStart,onAudioStop,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,askHelp,dictateHelp,helpFromGuidedAnswer,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
+ window.NEVisualWorld=Object.freeze({freeTurnLimit,tapWords,inspectWord,render,renderFree,avatarSettings,chooseGender,speakAside,speakLesson,guide,toggleGuideStage,speakStage,onAudioStart,onAudioStop,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,askHelp,dictateHelp,helpFromGuidedAnswer,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
 })();

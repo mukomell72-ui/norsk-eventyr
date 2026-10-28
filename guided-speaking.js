@@ -217,6 +217,10 @@ function freeExGuided(l){
  for(let i=0;i<progress.turns.length;i++){
   const turn=progress.turns[i];
   transcript.push('<div class="guided-bubble guided-bubble-user"><small>Ты</small><p lang="nb">'+esc(turn.answer||'')+'</p></div>');
+  // Display ungraded group context as part of the story history, not as a test.
+  const side=window.NESceneCourse?.forTurn?.(l,scene,i+1)?.lead||[];
+  for(const line of side)transcript.push('<div class="guided-bubble guided-bubble-actor"><small>'+
+   esc(line.speaker.name)+' → '+esc(line.recipient)+'</small><p lang="nb">'+esc(line.text)+'</p></div>');
   transcript.push(actorMessage(scene,turn.reply||scene.steps[i].reply,i));
  }
  transcript.push('</div>');
@@ -324,6 +328,7 @@ function neGuidedRevise(){
  if(box)box.innerHTML='<div class="feedback" role="status">Ответ изменён. Нажми «Ответить», чтобы проверить текущий текст ещё раз. Первая оценка и XP сохраняются.</div>';
  window.NEVisualWorld?.updateOwn?.(field.value);
  const reaction=document.getElementById('neWorldReaction');if(reaction)reaction.hidden=true;
+ const own=document.getElementById('neSceneOwn');if(own)own.hidden=true;
  const optional=document.getElementById('neWorldOptionalFree');if(optional)optional.hidden=true;
  field.focus?.();
 }
