@@ -417,3 +417,23 @@
  .guided-speaking .ne-world-stage .ne-world-portrait-wrap{width:42px;height:50px}
 }
 @media(prefers-reduced-motion:reduce){.ne-scene-group-line,.ne-scene-own{animation:none!important;transition:none!important}}
+
+/* First exercise also looks like a real dialogue, without duplicate task blocks. */
+.ne-scene-lesson-intro{display:grid;gap:10px;margin-bottom:14px}
+.ne-scene-context{margin:0!important;font-size:13px!important;line-height:1.5!important;color:#416477!important}
+.ne-scene-exchange{background:#f2f8fc;border:1px solid #c0d7e7;border-radius:16px;padding:12px;min-width:0}
+.ne-scene-intro-person{display:flex;align-items:center;gap:10px;font-weight:800;color:#1c4e66;font-size:14px}
+.ne-scene-intro-person img{width:44px;height:50px;border-radius:12px;object-fit:cover;flex:none}
+.ne-scene-intro-person small{font-weight:700;color:#357a8a;font-size:12px}
+.ne-scene-intro-quote{margin:8px 0!important;font-size:clamp(17px,4vw,22px)!important;line-height:1.45!important;font-weight:700;color:#102f42;overflow-wrap:anywhere}
+.ne-scene-intro-actions{display:flex;flex-wrap:wrap;gap:7px}
+.ne-scene-intro-actions button{background:#143a55;color:white;border:1px solid #274c63;padding:8px 11px;border-radius:10px;font-size:13px;font-weight:750;cursor:pointer}
+.ne-scene-turn-prompt{padding:11px 12px;border-radius:13px;background:#e4f4ea;color:#174d39}
+.ne-scene-turn-prompt b{font-size:14px}
+.ne-scene-turn-prompt p{margin:6px 0 0!important;font-size:15px!important;line-height:1.45!important}
+.ne-scene-study{padding:9px 11px;border:1px solid #d1dce1;border-radius:11px}
+.ne-scene-study summary{cursor:pointer;font-size:13px;font-weight:750}
+.ne-scene-study>div{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.ne-scene-study span{background:#ecf4f9;border-radius:7px;padding:4px 7px;font-size:12px}
+.ne-scene-intro-response{margin:8px 0!important}
+@media(max-width:460px){.ne-scene-exchange{padding:10px}.ne-scene-intro-person img{width:40px;height:46px}}

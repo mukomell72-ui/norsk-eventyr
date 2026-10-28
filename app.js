@@ -354,9 +354,14 @@ function situatedDialogueTurn(l){
   };
  }
  const scene=String(l.dialogueScene||"").trim()||("Практическая ситуация: "+String(l.title||"общение по-норвежски"));
- const speaker=String(l.dialogueSpeaker||"").trim()||"Нора · собеседница";
- const task=String(l.dialogueTask||"").trim()||String(l.speaking||"").trim()||
-  "Объясни собеседнице своими словами по-норвежски, как эта фраза относится к тебе.";
+ const named=phrase.match(/\bJeg\s+(?:heter|er)\s+([A-ZÆØÅ][a-zæøå]+)\b/u);
+ const speaker=String(l.dialogueSpeaker||"").trim()||(named?named[1]+" · собеседник":"Нора · собеседница");
+ const originalTask=String(l.dialogueTask||"").trim()||String(l.speaking||"").trim()||
+  "Объясни собеседнику своими словами по-норвежски, как эта фраза относится к тебе.";
+ // When a person asks "Hva heter du?", the answer must include an introduction.
+ // If a second goal requires where you live, say so without contradicting the question.
+ const asksName=/\bhva heter du\b/i.test(phrase),asksHome=/\bhvor du bor\b|\bbor\b|где живёшь/iu.test(originalTask);
+ const task=asksName?(asksHome?"Поздоровайся, назови своё имя и скажи, где ты живёшь.":"Поздоровайся и назови своё имя."):originalTask;
  const lead=String(l.dialogueIntro||"").trim();
  return {phrase,ru:l.ru,scene,speaker,lead,task,goal:task,dialogueLabel:"Разговор в ситуации"};
 }
@@ -416,13 +421,17 @@ function lessonIntro(l){
  const speaker=turn.speaker||"Нора · собеседница";
  const task=turn.task||turn.goal||"Ответь на реплику собеседницы по-норвежски.";
  const lead=turn.lead?'<div class="dialogue-lead-v83">'+esc(turn.lead)+'</div>':"";
- return `<article class="card lesson-intro-v6">
+ const introScene=window.NEVisualWorld?.renderIntro?.({lesson:l,turn,words})||"";
+ const legacyIntro=`
  <div class="dialogue-scene-v83"><small>СИТУАЦИЯ · ${esc(l.level)}</small><p>${esc(scene)}</p><b>${esc(speaker)}</b></div>
  <div class="phrase-v6"><small>${esc(turn.dialogueLabel||"Реплика собеседника")}</small>${lead}<div class="prompt" lang="nb">${esc(shown.phrase)}</div>
  <div class="phrase-actions-v6"><button onclick="speakText('${escJs(shown.phrase)}',.82,this)">🔊 Прослушать</button><button onclick="toggle('tr')">RU Перевод</button></div>
  <div id="tr" class="translation compact-translation-v6" style="display:none">${esc(shown.ru)}</div></div>
  ${window.NELanguageBridge?.taskDirection?.("dialogue",l.level)||""}<div class="dialogue-task-v83"><b>Твоё задание</b><p data-bridge-instruction="true">${esc(task)}</p></div>
  <div class="lesson-words-v6">${words.slice(0,8).map(v=>`<span><b>${esc(v[0])}</b><small>${esc(v[1])}</small></span>`).join("")}</div>
+`;
+ return `<article class="card lesson-intro-v6">
+ ${introScene||legacyIntro}
  <div class="answer-label-v6"><b>Твой ответ</b><span>текстом или голосом</span></div>
  <textarea id="dialogAnswer" class="input lesson-answer-v6" rows="2" placeholder="Ответь собеседнику по-норвежски…" oninput="this.dataset.fromVoice='false'"></textarea>
  <small class="muted">Черновик сохраняется автоматически, даже если проверка временно недоступна.</small>
@@ -461,7 +470,7 @@ async function checkDialogue(){
  });
  
  if(ok){
-  b.innerHTML=(window.NEExperience?.response?.(true,"dialogue")||"")+firstGradeNote(s,gradeKey)+(firstAttempt?aiLessonFeedbackHtml(d,"✓ Задача выполнена",a):retryCoachFeedback(d,true,a))+'<button type="button" class="btn secondary" onclick="reviseCheckedAnswer(\'dialogue\')">Исправить ещё</button><button class="btn lesson-next-v8" onclick="continueCheckedDialogue()">Дальше →</button>';
+  b.innerHTML=(window.NEVisualWorld?.renderIntroReply?.(a,turn)||"")+(window.NEExperience?.response?.(true,"dialogue")||"")+firstGradeNote(s,gradeKey)+(firstAttempt?aiLessonFeedbackHtml(d,"✓ Задача выполнена",a):retryCoachFeedback(d,true,a))+'<button type="button" class="btn secondary" onclick="reviseCheckedAnswer(\'dialogue\')">Исправить ещё</button><button class="btn lesson-next-v8" onclick="continueCheckedDialogue()">Дальше →</button>';
   return;
  }
  s.locked=false;b.innerHTML=(window.NEExperience?.response?.(false,"dialogue")||"")+firstGradeNote(s,gradeKey)+noraAttemptReviewHtml(d,{answer:a,ok:false,isCorrection:!firstAttempt});input.focus();

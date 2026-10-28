@@ -79,6 +79,49 @@
   if(input.dataset)input.dataset.neFromSpeech='false';
   void askHelp();return true;
  }
+ 
+ // The opening stage of every lesson also participates in the same character-led UI.
+ // This is presentation only; existing evaluation and checkpoint logic remains untouched.
+ function renderIntro({lesson,turn,words=[]}={}){
+  if(!turn||!String(turn.phrase||'').trim())return '';
+  const source=String(turn.speaker||'Нора · собеседница');
+  const who=source.split(' · ')[0].trim()||'Собеседник';
+  const actor=actorKey(who),image=portraits[actor]||portraits.nora;
+  const text=String(turn.phrase||'');
+  const task=String(turn.task||turn.goal||'Ответь по-норвежски.');
+  const asksName=/\bhva heter du\b/i.test(text),help=asksName?
+   'Вопрос «Hva heter du?» означает «Как тебя зовут?». Сначала представься. Если по заданию нужно, добавь, где живёшь.':
+   'Послушай собеседника и ответь своими словами по смыслу ситуации. Если не понял вопрос, попроси Нору объяснить его.';
+  return '<section class="ne-scene-lesson-intro" aria-label="Начало разговора с персонажем">'+
+   '<p class="ne-scene-context">'+e(turn.scene||'Знакомство')+'</p>'+
+   '<div class="ne-scene-exchange">'+
+    '<div class="ne-scene-intro-person"><img src="'+image+'" alt="'+e(who)+'" loading="lazy"><span>'+e(who)+' <small>→ тебе</small></span></div>'+
+    '<div class="ne-scene-intro-quote" lang="nb">'+e(text)+'</div>'+
+    '<div class="ne-scene-intro-actions"><button type="button" data-ne-intro-phrase="'+e(text)+'" data-ne-intro-actor="'+e(actor)+'" onclick="NEVisualWorld.speakIntro(this)">🔊 Слушать '+e(who)+'</button>'+
+    '<button type="button" onclick="toggle(\'tr\')">Перевод</button></div>'+
+    '<div id="tr" class="translation compact-translation-v6" style="display:none">'+e(turn.ru||'')+'</div>'+
+   '</div>'+
+   '<div class="ne-scene-turn-prompt"><b>Теперь твой ход → '+e(who)+'</b><p>'+e(task)+'</p></div>'+
+   '<details class="ne-scene-teacher"><summary>Нора объясняет вопрос</summary><p>'+e(help)+'</p>'+
+   '<p>После объяснения попробуй составить собственную реплику.</p></details>'+
+   (Array.isArray(words)&&words.length?
+    '<details class="ne-scene-study"><summary>Нужные слова ('+Math.min(8,words.length)+')</summary><div>'+
+     words.slice(0,8).filter(x=>Array.isArray(x)&&x.length>=2).map(x=>
+     '<span><b lang="nb">'+e(x[0])+'</b> — '+e(x[1])+'</span>').join('')+'</div></details>':'')+
+   '</section>';
+ }
+ function speakIntro(button){
+  const text=String(button?.dataset?.neIntroPhrase||'').slice(0,420);
+  const actor=String(button?.dataset?.neIntroActor||'nora');
+  if(!text||!Object.prototype.hasOwnProperty.call(actorVoices,actor)||typeof window.speakText!=='function')return false;
+  try{return !!window.speakText(text,.85,null,actorVoices[actor],'nb-NO')}catch{return false}
+ }
+ function renderIntroReply(answer,turn){
+  const who=String(turn?.speaker||'Собеседник').split(' · ')[0]||'собеседнику';
+  return '<div class="ne-scene-own ne-scene-intro-response"><img src="'+portraits[preference()]+'" alt="Твой аватар" loading="lazy">'+
+   '<div><b>Ты → '+e(who)+'</b><p lang="nb">'+e(String(answer||'').slice(0,700))+'</p></div></div>';
+ }
+
  function render({lesson,scene,progress,step,moduleId}){
   if(!scene||!step||!progress)return '';
   const currentAvatar=preference();
@@ -850,5 +893,5 @@ function updateOwn(value){
   }).catch(()=>{if(generation===speechUiGeneration&&field?.isConnected)message('Инструкция доступна текстом.')})}
   catch{if(generation===speechUiGeneration)message('Голос недоступен. Инструкция написана на экране.')}
  }
- window.NEVisualWorld=Object.freeze({freeTurnLimit,tapWords,inspectWord,render,renderFree,avatarSettings,chooseGender,speakAside,speakLesson,guide,toggleGuideStage,speakStage,onAudioStart,onAudioStop,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,askHelp,dictateHelp,helpFromGuidedAnswer,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
+ window.NEVisualWorld=Object.freeze({freeTurnLimit,tapWords,inspectWord,render,renderIntro,renderIntroReply,speakIntro,renderFree,avatarSettings,chooseGender,speakAside,speakLesson,guide,toggleGuideStage,speakStage,onAudioStart,onAudioStop,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,askHelp,dictateHelp,helpFromGuidedAnswer,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
 })();

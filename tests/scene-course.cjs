@@ -50,6 +50,21 @@ assert.equal(state.learningV8.visualWorld.avatar,'erik');
 assert.equal(state.learningV8.visualWorld.gender,'male');
 assert(!visual.chooseGender('invalid'));
 assert(visual.avatarSettings().includes('Женский'));
+const intro=visual.renderIntro({lesson,turn:{
+ speaker:'Anna · новая коллега',phrase:'God morgen! Jeg heter Anna. Hva heter du?',
+ task:'Поздоровайся, назови своё имя и скажи, где живёшь.',scene:'Первое знакомство',
+ ru:'Доброе утро! Меня зовут Анна. Как тебя зовут?'
+},words:[['hva','что']]});
+assert(intro.includes('Anna')&&intro.includes('→ тебе'));
+assert(intro.includes('Поздоровайся, назови своё имя'));
+assert(!intro.includes('Слова для живой речи'),'Word-list overload must be collapsed');
+assert(intro.includes('Нора объясняет вопрос'));
+assert(intro.includes('data-ne-intro-phrase='));
+assert(visual.renderIntroReply('Hei! Jeg heter Petro.',{speaker:'Anna · коллега'}).includes('Ты → Anna'));
+assert(read('app.js').includes('const introScene=window.NEVisualWorld?.renderIntro?.('),
+  'Opening exercise must use visual scene');
+assert(read('app.js').includes('asksName?(asksHome?'), 'Naming and residence goal must be aligned');
+assert(read('access.js').includes("'-scene2'"), 'New JS must not be stale');
 const previous=JSON.stringify(session.guidedSpeech);
 assert.equal(course.forTurn({...lesson,_adaptive:{moduleId:'a1-home',storyVariant:1}},scene,1),null,'Keep story variants untouched');
 assert.equal(JSON.stringify(session.guidedSpeech),previous,'Presentation cannot alter graded progress');
