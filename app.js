@@ -83,15 +83,16 @@ function clearerTaskPrompt(prompt){
 }
 // A single evidence-led explanation is used for EVERY graded attempt:
 // guided dialogue, ordinary dialogue, writing and speaking corrections.
-function noraAttemptReviewHtml(d,{answer="",ok,firstScore,title="",isCorrection=false}={}){
+function noraAttemptReviewHtml(d,{answer="",ok,firstScore,title="",isCorrection=false,aidedTurn=false}={}){
  const score=Math.max(0,Math.min(100,Math.round(Number(d?.score)||0)));
  const accepted=typeof ok==="boolean"?ok:d?.accepted===true;
  const source=String(answer||"");
  const issues=Array.isArray(d?.issues)?d.issues.slice(0,5):[];
- const heading=title||(accepted?(score===100?"Ответ принят без ошибок":"Ответ принят, но есть что улучшить"):"Ответ пока требует исправления");
+ const heading=title||(aidedTurn?(accepted?"Ответ принят после подсказки":"Ответ требует исправления после подсказки"):(accepted?(score===100?"Ответ принят без ошибок":"Ответ принят, но есть что улучшить"):"Ответ пока требует исправления"));
  const parts=['<b>'+esc(heading)+' · '+score+'/100</b>'];
  if(source)parts.push('<p><small><b>Проверен именно этот ответ:</b> <span lang="nb">'+esc(source.slice(0,700))+'</span></small></p>');
- if(firstScore!==undefined&&firstScore!==null)
+ if(aidedTurn)parts.push('<p><small>Баллы показаны только для тренировки: подсказка использована, самостоятельное подтверждение навыка и XP не засчитываются. Проверка без подсказки будет позже.</small></p>');
+ else if(firstScore!==undefined&&firstScore!==null)
   parts.push('<p><small>Первая оценка: '+esc(firstScore)+'/100. Текущая оценка: '+score+'/100. За повторные исправления XP не начисляются.</small></p>');
  else if(isCorrection)parts.push('<p><small>Текущая оценка исправления: '+score+'/100. Первая оценка и XP не пересчитываются.</small></p>');
  const strengths=Array.isArray(d?.strengths_ru)?d.strengths_ru.slice(0,2):[];
@@ -130,8 +131,13 @@ function noraAttemptReviewHtml(d,{answer="",ok,firstScore,title="",isCorrection=
  const firstIssue=issues.find(x=>String(x?.explanation_ru||'').trim());
  const nudge=firstIssue?(String(firstIssue.source_fragment||firstIssue.requirement_quote||'').trim()? '«'+String(firstIssue.source_fragment||firstIssue.requirement_quote).trim()+'»: ':'')+String(firstIssue.explanation_ru).trim():
   (accepted?'Смысл понятен. Продолжай разговор.':'Попробуй ещё раз: проверь, отвечает ли фраза на вопрос.');
+ const verdict=aidedTurn?(accepted?'Ответ принят после подсказки — это тренировка.':'Ответ после подсказки пока требует исправления.'):
+  (accepted?(issues.length?'Ответ принят, но есть замечания.':'Ответ принят: задача выполнена.'):'Ответ пока не принят.');
+ const next=accepted?(aidedTurn?'Продолжай разговор. Позже ответь на похожий вопрос самостоятельно, без подсказки.':'Продолжай разговор и попробуй использовать эту конструкцию самостоятельно.'):'Исправь отмеченное место и проверь ответ ещё раз.';
  return '<div class="feedback '+(accepted?'good':'bad')+' ne-attempt-review" role="status">'+
-  '<p class="ne-feedback-nudge">'+esc(nudge.slice(0,260))+'</p>'+
+  '<p class="ne-feedback-verdict"><b>'+esc(verdict)+'</b> <span>'+score+'/100'+(aidedTurn?' · тренировка':'')+'</span></p>'+
+  '<p class="ne-feedback-nudge"><b>Почему:</b> '+esc(nudge.slice(0,260))+'</p>'+
+  '<p class="ne-feedback-next"><b>Дальше:</b> '+esc(next)+'</p>'+
   '<details class="ne-feedback-details"><summary>Подробное объяснение и оценка</summary>'+parts.join('')+'</details></div>';
 }
 function aiLessonFeedbackHtml(d,title,answer=""){

@@ -7,6 +7,10 @@ const curriculum=fs.readFileSync(path.join(base,'curriculum-v8.js'),'utf8');
 const speaking=fs.readFileSync(path.join(base,'guided-speaking.js'),'utf8');
 const ui=fs.readFileSync(path.join(base,'ui-v7.js'),'utf8');
 const app=fs.readFileSync(path.join(base,'app.js'),'utf8');
+const v8css=fs.readFileSync(path.join(base,'v8.css'),'utf8');
+assert.match(app,/aidedTurn=false/,'Guided training feedback must identify assisted submissions');
+assert.match(v8css,/#freeFb>\.notice\{/,'Aided notice must have an accessible light-card contrast override');
+assert.match(v8css,/padding-bottom:calc\(230px/,'Lesson content needs clearance above the fixed mobile dock');
 assert.match(app,/function fullyCorrectAnswer\(/,'Native dialogue must demand verified error-free completion');
 assert(app.includes('window.neGuidedAnswerEdited?.(f);'),'Speech recognition must unlock an accepted reply when it changes the answer');
 assert.match(ui,/helpMarkupV7\(content\.includes\('class="card guided-speaking"'\),content\.includes\('lesson-exercise-v6'\)\)/,
@@ -41,7 +45,7 @@ assert.match(speaking,/window\.aiEvaluate/,'every stage must be evaluated');
 assert.match(speaking,/accepted===true/,'must check explicit acceptance');
 assert.match(speaking,/isConnected/,'must reject stale responses');
 assert.match(speaking,/mode==='speaking'/,'legacy writing flow must be preserved');
-assert.match(speaking,/return window\.neAttemptReviewHtml\(e,\{answer,ok,firstScore\}\)/,
+assert.match(speaking,/return window\.neAttemptReviewHtml\(e,\{answer,ok,firstScore,aidedTurn\}\)/,
  'Every corrected speaking turn must use the same evidence-backed breakdown as writing and dialogue');
 
 (async()=>{

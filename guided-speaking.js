@@ -287,9 +287,9 @@ async function nextSceneReply(l,scene,progress,answer,spoken,index){
  }catch{return null}
  finally{if(timer!==null)window.clearTimeout(timer)}
 }
-function guidedGradeFeedback(e,score,ok,firstScore,answer){
+function guidedGradeFeedback(e,score,ok,firstScore,answer,aidedTurn=false){
  if(typeof window.neAttemptReviewHtml==='function')
-  return window.neAttemptReviewHtml(e,{answer,ok,firstScore});
+  return window.neAttemptReviewHtml(e,{answer,ok,firstScore,aidedTurn});
  const issues=Array.isArray(e.issues)?e.issues:[];
  const perfect=ok&&score===100&&issues.length===0;
  const title=perfect?'Ответ принят без ошибок':ok?'Ответ принят с замечаниями':'Ответ пока не принят';
@@ -307,7 +307,7 @@ function guidedGradeFeedback(e,score,ok,firstScore,answer){
   if(e.corrected&&String(e.corrected).trim()!==String(answer||'').trim())
    parts.push('<p><b>Естественный вариант:</b> <span lang="nb">'+esc(e.corrected)+'</span></p>');
  }
- return '<div class="feedback '+(ok?'good':'bad')+'" role="status">'+parts.join('')+'</div>';
+ return '<div class="feedback '+(ok?'good':'bad')+'" role="status">'+(aidedTurn?'<p><b>Ответ после подсказки:</b> тренировка, не самостоятельная проверка. XP не начисляются.</p>':'')+parts.join('')+'</div>';
 }
 // Once a reply has been accepted, allow unlimited formative corrections of
 // THIS turn. Editing invalidates the accepted response and its outdated feedback,
@@ -390,8 +390,7 @@ async function guidedCheck(){
   window.persistLessonCheckpoint?.();
  }
  progress.lastCheckedAnswer=a;
- const feedback=guidedGradeFeedback(e,score,ok,progress.firstScores[scoreKey],a)+
-  (aidedTurn?'<div class="notice" role="status">Ответ дан после подсказки Норы: это тренировка, а не самостоятельная проверка. Умение будет проверено позже без подсказки.</div>':'');
+ const feedback=guidedGradeFeedback(e,score,ok,progress.firstScores[scoreKey],a,aidedTurn);
  if(!ok){
   s.locked=false;
   // The contextual help button already appears beside the answer field.
