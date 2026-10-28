@@ -225,17 +225,19 @@ function freeExGuided(l){
  return '<article class="card guided-speaking"><div class="eyebrow">Устная речь · диалог с собеседником</div>'+
  (world?'<div class="guided-scene" hidden>'+esc(scene.scene)+'</div>':'<div class="guided-scene">'+esc(scene.scene)+'</div>')+
  world+
- translation+
- '<div class="guided-progress">Реплика '+(progress.index+1)+' из '+scene.steps.length+'</div>'+
- history+
+ (world?'':translation)+
+ (world?'':'<div class="guided-progress">Реплика '+(progress.index+1)+' из '+scene.steps.length+'</div>')+
  (progress.flowNotice?'<div class="notice" role="status">Диалог обновлён: продолжим с вежливой фразы знакомства. Предыдущие реплики сохранены до этого шага.</div>':'')+
- '<div class="guided-task"><b>Твой ход</b><p>'+esc(step.task)+'</p></div>'+
+ (world?'':'<div class="guided-task"><b>Твой ход</b><p>'+esc(step.task)+'</p></div>')+
  '<textarea id="freeAnswer" name="guided-answer-'+esc(l.id)+'-'+progress.index+'" data-guided-turn="'+progress.index+'" class="input" rows="2" autocomplete="off" placeholder="Твой ответ по-норвежски…" oninput="this.dataset.fromVoice=\'false\';neGuidedAnswerEdited(this)"></textarea>'+
  '<div class="row guided-controls speech-actions-v831"><button id="micBtn" class="btn secondary" onclick="toggleMic()">🎤 Говорить</button>'+
  '<button id="guidedSend" class="btn" onclick="checkFree(\'speaking\')">✓ Ответить</button></div>'+
- '<button class="btn ghost" type="button" onclick="neGuidedExplain()">Не понимаю: почему так и что делать?</button>'+
- '<small class="muted">Голосом — тренировка речи. Текстом — тренировка письма. Произношение по расшифровке не оценивается.</small>'+
- '<div id="freeFb" aria-live="polite"></div></article>';
+ (world?'':'<button class="btn ghost" type="button" onclick="neGuidedExplain()">Не понимаю: почему так и что делать?</button>')+
+ '<small class="muted">Голосом — речь, текстом — письмо. Произношение автоматически не оценивается.</small>'+
+ '<div id="freeFb" aria-live="polite"></div>'+
+ history+
+ (window.NEVisualWorld?.renderFree?.({lesson:l,scene,progress})||'')+
+ '</article>';
 }
 window.freeEx=function(l,mode){
  if(mode==='speaking'&&l&&window.neLessonSession&&!window.neLessonSession.remediation&&!window.neLessonSession.speakingFollowup)return freeExGuided(l);
@@ -322,6 +324,7 @@ function neGuidedRevise(){
  if(box)box.innerHTML='<div class="feedback" role="status">Ответ изменён. Нажми «Ответить», чтобы проверить текущий текст ещё раз. Первая оценка и XP сохраняются.</div>';
  window.NEVisualWorld?.updateOwn?.(field.value);
  const reaction=document.getElementById('neWorldReaction');if(reaction)reaction.hidden=true;
+ const optional=document.getElementById('neWorldOptionalFree');if(optional)optional.hidden=true;
  field.focus?.();
 }
 function neGuidedAnswerEdited(field){

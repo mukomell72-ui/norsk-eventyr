@@ -352,3 +352,27 @@
     animation:none!important;
   }
 }
+
+/* One conversation turn, task, and input on mobile. */
+.guided-speaking .ne-world{margin:8px 0 12px;padding:12px;border-radius:18px;box-shadow:0 8px 22px rgba(14,47,76,.09)}
+.guided-speaking .ne-world-sky{height:100px;opacity:.23}
+.guided-speaking .ne-world-location{font-size:clamp(15px,3.7vw,18px);margin:8px 0}
+.guided-speaking .ne-world-stage{display:flex;justify-content:flex-start;gap:12px;min-height:0;margin:8px 0}
+.guided-speaking .ne-world-character{gap:3px;filter:none}
+.guided-speaking .ne-world-portrait-wrap{width:46px;height:54px;border-width:2px;border-radius:12px}
+.guided-speaking .ne-world-name{font-size:11px;padding:3px 6px}
+.guided-speaking .ne-world-dialogue{display:block;margin-top:8px}
+.guided-speaking .ne-world-line{min-height:0;box-shadow:none;padding:10px 12px}
+.guided-speaking .ne-world-line p{font-size:clamp(16px,3.6vw,19px);line-height:1.46}
+.guided-speaking .ne-world-coaching{margin-top:10px;padding:12px}
+.guided-speaking .ne-world-coaching p:not(.ne-world-voice-status){font-size:clamp(16px,3.5vw,19px);line-height:1.42;margin:6px 0 8px}
+.guided-speaking .ne-world-actions .ne-world-audio{flex:1 1 110px;padding:7px 9px;font-size:12px}
+.guided-speaking .ne-world-voice-status:empty{display:none}
+.guided-speaking .ne-world-help,.guided-speaking .ne-world-rescue{margin:8px 0 0;padding:8px 11px;background:rgba(255,255,255,.83);border:1px solid #bdd8d0;border-radius:11px}
+.guided-speaking .ne-world-help>summary,.guided-speaking .ne-world-rescue>summary{cursor:pointer;font-size:13px;font-weight:790}
+.guided-speaking .ne-world-rescue-actions{margin-top:9px}
+.ne-world-optional[hidden]{display:none!important}
+.ne-world-optional{margin-top:12px}
+.ne-world-avatar-settings{margin:12px 0}
+.ne-world-avatar-settings .ne-world-avatar-picker{margin:0;background:transparent;padding:4px 0}
+@media(max-width:600px){.guided-speaking .ne-world{margin:6px -5px 10px;padding:11px}.guided-speaking .ne-world-stage{gap:9px}.guided-speaking .ne-world-portrait-wrap{width:42px;height:50px}.guided-speaking .ne-world-name{font-size:10px}}

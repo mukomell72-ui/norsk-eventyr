@@ -102,20 +102,19 @@
      '<div class="ne-world-character ne-world-self" data-ne-role="self"><div class="ne-world-portrait-wrap" data-ne-face="'+currentAvatar+'"><img id="neWorldSelfImage" src="'+portraits[currentAvatar]+'" alt="Твой учебный аватар" class="ne-world-portrait" loading="lazy">'+mouthSvg+'</div>'+
      '<div class="ne-world-name">Ты <span>отвечаешь</span></div></div>'+
    '</div>'+
-   '<div class="ne-world-stage-caption" aria-live="polite">Нора помогает · '+e(who)+' ждёт твоего ответа</div>'+
+   
    '<div class="ne-world-dialogue" aria-label="Текущий разговор">'+
      '<div class="ne-world-line ne-world-line-partner"><span>'+e(who)+'</span><p lang="nb" aria-label="Слова в реплике можно нажать для перевода">'+tapWords(last)+'</p></div>'+
-     '<div class="ne-world-line ne-world-line-self" aria-live="off"><span>Твой ответ</span><p id="neWorldOwnWords" lang="nb">'+e(progress.pending?.answer||'Твои слова появятся здесь…')+'</p></div>'+
-     '<div class="ne-world-next" id="neWorldReaction" aria-live="polite" hidden></div>'+
+     
    '</div>'+
    '<div class="ne-world-coaching"><div class="ne-world-coach-head">Нора · твоя задача сейчас</div>'+
       '<p id="neWorldTask">'+e(step.task)+'</p>'+
       '<div class="ne-world-actions">'+
-        '<button type="button" class="ne-world-audio" onclick="NEVisualWorld.speakPartner()">Слушать собеседника</button>'+
-        '<button type="button" class="ne-world-audio" onclick="NEVisualWorld.speakTask()">Нора объясняет вслух</button>'+
+        '<button type="button" class="ne-world-audio" onclick="NEVisualWorld.speakPartner()">🔊 Слушать</button>'+
+        '<button type="button" class="ne-world-audio" onclick="NEVisualWorld.speakTask()">🔊 Задание</button>'+
       '</div><p class="ne-world-voice-status" id="neWorldVoiceStatus" role="status"></p>'+
-      '<details class="ne-world-help"><summary>Спросить Нору · по-русски или по-норвежски</summary>'+
-       '<p>Забыл слово, не понял вопрос или хочешь узнать другую форму? Спроси здесь, даже смешивая языки. Исходная реплика и твой ответ останутся на месте.</p>'+
+      '<details class="ne-world-help"><summary>Спросить Нору</summary>'+
+       '<p>Не понял слово или правило? Спроси на русском или norsk.</p>'+
        '<div class="ne-world-help-log" id="neWorldHelpLog" role="log" aria-live="polite">'+
        (Array.isArray(progress.helpChat)?progress.helpChat.slice(-8).map(turn=>
         '<div class="ne-world-help-turn"><strong>'+(turn.role==='assistant'?'Нора':'Ты')+'</strong><p>'+e(String(turn.text||'').slice(0,1200))+'</p></div>').join(''):'')+
@@ -127,15 +126,23 @@
        '<button type="button" class="btn" id="neWorldHelpSend" onclick="NEVisualWorld.askHelp()">Спросить Нору</button></div>'+
        '<small id="neWorldHelpStatus" role="status" aria-live="polite">Подсказки не оцениваются. Для AI-ответа нужен интернет. Смешанная устная речь распознаётся не всегда точно — можно исправить текст перед отправкой.</small>'+
        '</details>'+
-      '<div class="ne-world-rescue" role="group" aria-label="Как выйти из затруднения в реальном разговоре">'+
+      '<details class="ne-world-rescue"><summary>Фразы, если не расслышал</summary>'+
       '<strong>Если не расслышал — попроси собеседника помочь.</strong>'+
       '<div class="ne-world-rescue-actions">'+
       '<button type="button" onclick="NEVisualWorld.practice(\'repeat\')">Повторить</button>'+
       '<button type="button" onclick="NEVisualWorld.practice(\'slow\')">Помедленнее</button>'+
       '<button type="button" onclick="NEVisualWorld.practice(\'think\')">Дать время</button>'+
       '</div><div id="neWorldPracticeFeedback" class="ne-world-practice" role="status" aria-live="polite" hidden></div>'+
-      '<small>Произнеси фразу вслух. Это практика без оценки и без продвижения урока.</small></div></div>'+
-   '<details class="ne-world-free"><summary>Свободный разговор · без оценки</summary>'+
+      '<small>Без оценки.</small></details></div>'+
+   '</section>';
+ }
+ 
+ function renderFree({lesson,scene,progress}){
+  if(!lesson||!scene||!progress||progress.index!==scene.steps.length-1)return '';
+  const who=personName(scene,progress.index,String(lesson?._adaptive?.moduleId||lesson?.id||''));
+  const replayEnabled=Array.isArray(progress.freeChat)&&progress.freeChat.some(x=>x?.role==='assistant'&&String(x.text||'').trim());
+  return '<section class="ne-world-optional" id="neWorldOptionalFree"'+(progress.pending?'':' hidden')+'>'+
+  '<details class="ne-world-free"><summary>Свободный разговор · без оценки</summary>'+
      '<p>Попробуй сказать что-то неожиданное: спросить, возразить, уточнить или начать новую тему в этой ситуации. Персонаж ответит сам.</p>'+
      '<div class="ne-world-free-log" id="neWorldFreeLog" aria-live="polite">'+
       (Array.isArray(progress.freeChat)?progress.freeChat.slice(-12).map(turn=>
@@ -149,17 +156,20 @@
      '<button type="button" class="btn secondary" id="neWorldFreeReplay" onclick="NEVisualWorld.speakLastFree()"'+(replayEnabled?'':' disabled')+'>Слушать последний ответ</button></div>'+
      '<small id="neWorldFreeStatus" role="status" aria-live="polite">До '+freeTurnLimit(lesson.level)+' свободных реплик за урок. Микрофон использует распознавание речи устройства: проверь текст перед отправкой. Для ответа AI необходим интернет.</small>'+
      '<small>Дополнительная практика: баллы и экзаменационный результат не начисляются.</small></details>'+
-   '<details class="ne-world-avatar-picker"><summary>Изменить свой аватар</summary>'+
+   '</section>';
+ }
+ function avatarSettings(){
+  const currentAvatar=preference();
+  return '<section class="card ne-world-avatar-settings"><h3>Персонаж в диалогах</h3>'+
+  '<details class="ne-world-avatar-picker"><summary>Изменить свой аватар</summary>'+
      '<div class="ne-world-avatar-options" role="group" aria-label="Учебный аватар">'+
      [['erik','Алекс'],['ingrid','Ингрид'],['mari','Мари']].map(([id,name])=>
        '<button type="button" aria-pressed="'+(currentAvatar===id)+'" onclick="NEVisualWorld.chooseAvatar(\''+id+'\')" data-ne-avatar="'+id+'"><img src="'+portraits[id]+'" alt="" loading="lazy"><span>'+e(name)+'</span></button>').join('')+
      '</div><button type="button" class="ne-world-lip-toggle" id="neWorldLipToggle" aria-pressed="'+lipPreference()+'" onclick="NEVisualWorld.toggleLipSync()">Движение губ: '+(lipPreference()?'включено':'выключено')+'</button>'+
      '<small>Можно отключить движение губ. Если в телефоне включено уменьшение движения, анимация отключается автоматически. Это вымышленный аватар.</small></details>'+
-   '<div class="ne-world-footnote">В реальной беседе допустимы разные ответы. Главное — передать смысл, спросить или уточнить по ситуации. '+
-   (total?'Ты уже сказал '+spoken+' из '+total+' реплик голосом.':'Попробуй сначала ответить голосом.')+'</div>'+
    '</section>';
  }
- function updateOwn(value){
+function updateOwn(value){
   const node=typeof document!=='undefined'&&document.getElementById('neWorldOwnWords');
   if(!node)return;
   node.textContent=String(value||'').trim()||'Твои слова появятся здесь…';
@@ -456,6 +466,9 @@
   if(el){el.hidden=false;el.textContent='Собеседник: '+String(reply||'').slice(0,320)}
   animate('self');
   reactPartner(reply);
+  const session=window.neLessonSession,scene=window.NEGuidedSpeaking?.definition?.(session?.lesson);
+  const optional=document.getElementById('neWorldOptionalFree');
+  if(optional&&scene&&session?.guidedSpeech?.index===scene.steps.length-1&&session.guidedSpeech.pending)optional.hidden=false;
  }
 
  // Optional contextual teacher assistance within a guided speaking turn.
@@ -769,5 +782,5 @@
   }).catch(()=>{if(generation===speechUiGeneration&&field?.isConnected)message('Инструкция доступна текстом.')})}
   catch{if(generation===speechUiGeneration)message('Голос недоступен. Инструкция написана на экране.')}
  }
- window.NEVisualWorld=Object.freeze({freeTurnLimit,tapWords,inspectWord,render,guide,toggleGuideStage,speakStage,onAudioStart,onAudioStop,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,askHelp,dictateHelp,helpFromGuidedAnswer,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
+ window.NEVisualWorld=Object.freeze({freeTurnLimit,tapWords,inspectWord,render,renderFree,avatarSettings,guide,toggleGuideStage,speakStage,onAudioStart,onAudioStop,updateOwn,chooseAvatar,animate,speakPartner,speakTask,practice,askHelp,dictateHelp,helpFromGuidedAnswer,dictateFree,sendFree,speakLastFree,bindSpeech,visemeAt,toggleLipSync,lipPreference,accepted,theme});
 })();
