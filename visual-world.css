@@ -301,3 +301,54 @@
 .ne-world-guide.ne-world-guide-talking .ne-world-guide-face{box-shadow:0 0 0 4px rgba(29,131,144,.28),0 8px 24px rgba(9,35,55,.18)}
 @keyframes ne-world-speaking-pose{from{transform:translateY(0) rotate(-1.2deg)}to{transform:translateY(-5px) rotate(1.2deg)}}
 @media(prefers-reduced-motion:reduce){.ne-world-character.ne-world-talking .ne-world-portrait-wrap{animation:none!important}}
+
+
+/* Character animation v2: entrance, turn-taking, attentive listening and
+   speech motion. Pure CSS, no microphone access or external service needed. */
+@keyframes ne-character-enter{
+  from{opacity:0;transform:translateY(20px) scale(.94)}
+  to{opacity:1;transform:translateY(0) scale(1)}
+}
+@keyframes ne-character-listen{
+  0%,100%{transform:translateY(0) rotate(0deg)}
+  35%{transform:translateY(-3px) rotate(-1.3deg)}
+  70%{transform:translateY(-1px) rotate(1deg)}
+}
+@keyframes ne-character-speaking{
+  0%,100%{transform:translateY(0) rotate(-1deg)}
+  25%{transform:translateY(-3px) rotate(.8deg)}
+  55%{transform:translateY(-5px) rotate(-.6deg)}
+  80%{transform:translateY(-2px) rotate(1deg)}
+}
+@keyframes ne-mouth-speaking{
+  0%,100%{transform:scaleY(.35)}
+  25%{transform:scaleY(1)}
+  50%{transform:scaleY(.55)}
+  75%{transform:scaleY(.9)}
+}
+.ne-world-stage .ne-world-character{
+  animation:ne-character-enter .65s both;
+}
+.ne-world-stage .ne-world-character:nth-child(2){animation-delay:.14s}
+.ne-world-stage .ne-world-character:nth-child(3){animation-delay:.28s}
+.ne-world-stage .ne-world-character:not(.ne-world-talking) .ne-world-portrait-wrap{
+  animation:ne-character-listen 5.2s ease-in-out infinite;
+}
+.ne-world-stage .ne-world-character.ne-world-talking .ne-world-portrait-wrap{
+  animation:ne-character-speaking .8s ease-in-out infinite;
+}
+.ne-world-character.ne-world-talking .ne-mouth-opening,
+.ne-world-guide-face.ne-world-guide-talking .ne-mouth-opening{
+  animation:ne-mouth-speaking .36s ease-in-out infinite;
+}
+.ne-world-character.ne-world-talking .ne-world-name{
+  box-shadow:0 0 0 3px rgba(30,139,154,.25);
+}
+@media(prefers-reduced-motion:reduce){
+  .ne-world-stage .ne-world-character,
+  .ne-world-stage .ne-world-character .ne-world-portrait-wrap,
+  .ne-world-character.ne-world-talking .ne-mouth-opening,
+  .ne-world-guide-face.ne-world-guide-talking .ne-mouth-opening{
+    animation:none!important;
+  }
+}
