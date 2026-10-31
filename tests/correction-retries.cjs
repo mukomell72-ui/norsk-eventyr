@@ -9,6 +9,7 @@ const api=fs.readFileSync(path.join(root,'api/evaluate.js'),'utf8');
 const src=fs.readFileSync(path.join(root,'access.js'),'utf8');
 const index=fs.readFileSync(path.join(root,'index.html'),'utf8');
 const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
+const release=require('./release-assets.cjs')();
 function extract(name,async=false){
  const signature=(async?'async ':'')+'function '+name+'(';
  const start=app.indexOf(signature);
@@ -105,7 +106,7 @@ assert(display.innerHTML.includes('Измени текст'));
  assert(app.includes('>Исправить ещё</button>'),'Accepted speaking or dialogue response must allow rewrites');
  assert(src.includes("LESSON_PATCH='-lesson24'"),'Fresh lesson assets must be selected');
  assert(index.includes('8.3.0-lesson24'),'Fresh bootstrap must load on mobile');
- assert(sw.includes('norsk-eventyr-v8-3-0-lesson24')&&sw.includes('-audit11-story2'),'Offline cache must represent the current story bundle');
+ assert(release.cache.startsWith('norsk-eventyr-v8-3-0-')&&release.cache.split('-').includes('lesson24')&&sw.includes('-audit11-story2'),'Offline cache must represent the current story bundle');
  assert(sw.includes('cache:"no-cache"'),'Updated PWA must request fresh app scripts on revisits');
  console.log('PASS AI correction retries: editable, first grade unchanged, latest score shown, refresh ready');
 })().catch(e=>{console.error(e);process.exitCode=1;});

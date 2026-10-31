@@ -79,7 +79,7 @@
   if(input.dataset)input.dataset.neFromSpeech='false';
   void askHelp();return true;
  }
- 
+
  // The opening stage of every lesson also participates in the same character-led UI.
  // This is presentation only; existing evaluation and checkpoint logic remains untouched.
  function renderIntro({lesson,turn,words=[]}={}){
@@ -96,8 +96,9 @@
    '<p class="ne-scene-context">'+e(turn.scene||'Знакомство')+'</p>'+
    '<div class="ne-scene-exchange">'+
     '<div class="ne-scene-intro-person"><img src="'+image+'" alt="'+e(who)+'" loading="lazy"><span>'+e(who)+' <small>→ тебе</small></span></div>'+
+    (turn.lead?'<p class="ne-scene-intro-lead" lang="nb">'+e(turn.lead)+'</p>':'')+
     '<div class="ne-scene-intro-quote" lang="nb">'+e(text)+'</div>'+
-    '<div class="ne-scene-intro-actions"><button type="button" data-ne-intro-phrase="'+e(text)+'" data-ne-intro-actor="'+e(actor)+'" onclick="NEVisualWorld.speakIntro(this)">🔊 Слушать '+e(who)+'</button>'+
+    '<div class="ne-scene-intro-actions"><button type="button" data-ne-intro-phrase="'+e(turn.lead?String(turn.lead)+' '+text:text)+'" data-ne-intro-actor="'+e(actor)+'" onclick="NEVisualWorld.speakIntro(this)">🔊 Слушать '+e(who)+'</button>'+
     '<button type="button" onclick="toggle(\'tr\')">Перевод</button></div>'+
     '<div id="tr" class="translation compact-translation-v6" style="display:none">'+e(turn.ru||'')+'</div>'+
    '</div>'+
@@ -152,14 +153,14 @@
      '<div class="ne-world-character ne-world-self" data-ne-role="self"><div class="ne-world-portrait-wrap" data-ne-face="'+currentAvatar+'"><img id="neWorldSelfImage" src="'+portraits[currentAvatar]+'" alt="Твой учебный аватар" class="ne-world-portrait" loading="lazy">'+mouthSvg+'</div>'+
      '<div class="ne-world-name">Ты <span>отвечаешь</span></div></div>'+
    '</div>'+
-   
+
    (teaching?.lead?.length?'<div class="ne-scene-group" aria-label="Разговор между участниками">'+teaching.lead.map((turn,i)=>
      '<div class="ne-scene-group-line" data-ne-role="aside-'+i+'">'+
       '<img src="'+portraits[turn.speaker.face]+'" alt="" loading="lazy"><div><small>'+e(turn.speaker.name)+' → '+e(turn.recipient)+'</small>'+
       '<p lang="nb">'+tapWords(turn.text)+'</p><button type="button" onclick="NEVisualWorld.speakAside('+i+')">🔊 Слушать</button></div></div>').join('')+'</div>':'')+
    '<div class="ne-world-dialogue" aria-label="Текущий разговор">'+
      '<div class="ne-world-line ne-world-line-partner"><span>'+e(who)+(teaching?' → тебе':'')+'</span><p lang="nb" aria-label="Слова в реплике можно нажать для перевода">'+tapWords(last)+'</p></div>'+
-     
+
    '</div>'+
    (teaching?'<div class="ne-scene-own" id="neSceneOwn" hidden><img id="neSceneOwnAvatar" src="'+portraits[currentAvatar]+'" alt="" loading="lazy"><div><b>Ты → '+e(who)+'</b><p id="neSceneOwnWords" lang="nb"></p></div></div>':'')+
    '<div class="ne-world-coaching"><div class="ne-world-coach-head">Нора · твоя задача сейчас</div>'+
@@ -196,7 +197,7 @@
       '<small>Без оценки.</small></details></div>'+
    '</section>';
  }
- 
+
  function renderFree({lesson,scene,progress}){
   if(!lesson||!scene||!progress||progress.index!==scene.steps.length-1)return '';
   const who=personName(scene,progress.index,String(lesson?._adaptive?.moduleId||lesson?.id||''));

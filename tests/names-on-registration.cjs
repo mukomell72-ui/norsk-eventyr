@@ -2,6 +2,7 @@
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const {PGlite}=require(process.env.NE_PGLITE_PATH||'@electric-sql/pglite');
 const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
+const release=require('./release-assets.cjs')();
 const migration=read('deferred/NAME_ON_REGISTRATION_2026-10-15.sql');
 const access=read('access.js'),handler=read('lib/access-handler.js'),html=read('index.html'),sw=read('sw.js');
 assert(access.includes('id="accessRegisterName"'),'New registration name field missing');
@@ -10,7 +11,7 @@ assert(handler.includes('ne_display_name:displayName'),'Sign-up must send name t
 assert(handler.includes("ne_owner_profile_names"),'Owner cannot see newly registered names');
 assert(handler.includes('ne_profile_self_name'),'Legacy name fallback missing');
 assert(html.includes('/access.js?v=8.3.0-lesson24')&&sw.includes('/access.js?v=8.3.0-lesson24'),'New name form must reach PWA users');
-assert(sw.includes('norsk-eventyr-v8-3-0-lesson24'),'New SW revision missing');
+assert(release.cache.startsWith('norsk-eventyr-v8-3-0-')&&release.cache.split('-').includes('lesson24'),'New SW revision missing');
 (async()=>{
  const db=new PGlite();
  const owner='11111111-1111-4111-8111-111111111111',old='22222222-2222-4222-8222-222222222222',newUser='33333333-3333-4333-8333-333333333333';

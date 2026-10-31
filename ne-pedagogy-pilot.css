@@ -1,0 +1,74 @@
+/* Isolated fullscreen lesson dialog, without changing the existing app's CSS. */
+.ne-pilot{--np-ink:#193a50;--np-soft:#eaf4fa;--np-accent:#176388;--np-line:#c9dce8;box-sizing:border-box;border:0;padding:0;margin:0;width:100vw;max-width:100vw;height:100dvh;max-height:100dvh;inset:0;border-radius:0;background:#f5faff;color:var(--np-ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;z-index:2147483600;overflow:hidden}
+.ne-pilot::backdrop{background:rgba(4,20,36,.75)}
+.ne-pilot *{box-sizing:border-box}
+.ne-pilot button{font:inherit;cursor:pointer;touch-action:manipulation}
+.ne-pilot button:focus-visible,.ne-pilot summary:focus-visible,.ne-pilot textarea:focus-visible{outline:3px solid #18bfe2;outline-offset:3px}
+.ne-pilot p{line-height:1.5}
+.ne-pilot .np-head{position:absolute;top:0;left:0;right:0;height:72px;padding:12px 17px;background:#0b3047;color:white;display:flex;justify-content:space-between;align-items:center;z-index:3}
+.ne-pilot .np-head strong{display:block;font-size:20px;letter-spacing:-.5px}
+.ne-pilot .np-head small{display:block;font-size:11px;color:#b6d5e7;margin-top:3px}
+.ne-pilot .np-head button{border:1px solid #47758d;color:white;background:#20485c;border-radius:12px;width:43px;height:43px;font-size:28px;line-height:1}
+.ne-pilot .np-scroll{position:absolute;top:72px;bottom:calc(72px + env(safe-area-inset-bottom));left:0;right:0;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:15px max(14px,calc((100vw - 750px)/2)) 24px;scrollbar-width:thin}
+.ne-pilot .np-content{max-width:760px;margin:auto}
+.ne-pilot .np-content h1{margin:4px 0 13px;font-size:clamp(22px,5vw,28px);line-height:1.2}
+.ne-pilot .np-progress{background:#fff;border:1px solid var(--np-line);border-radius:15px;padding:12px;margin-bottom:13px}
+.ne-pilot .np-progress>div:first-child{display:flex;justify-content:space-between;gap:12px;font-size:13px}
+.ne-pilot .np-progress span{color:#547182}
+.ne-pilot .np-bar{height:7px;background:#d7e8f1;border-radius:9px;overflow:hidden;margin-top:10px}.ne-pilot .np-bar i{display:block;background:#17a0c0;height:100%;border-radius:9px}
+.ne-pilot .np-stage{display:grid;gap:3px;background:#eaf7f2;border:1px solid #c0ded0;border-radius:15px;padding:12px 14px;margin:0 0 15px}
+.ne-pilot .np-stage b{font-size:15px}.ne-pilot .np-stage span{font-size:13px}.ne-pilot .np-stage small{font-size:12px;color:#55726c}
+.ne-pilot .np-line{display:grid;grid-template-columns:clamp(132px,36%,205px) minmax(0,1fr);gap:10px;margin:10px 0 14px;align-items:stretch}
+.ne-pilot .np-person{display:flex;flex-direction:column;gap:3px;align-items:center;text-align:center;border-radius:18px;background:#e6f2f8;padding:7px 7px 11px;border:1px solid #d0e3eb;min-width:0}
+.ne-pilot .np-person img{width:100%;height:clamp(122px,31vw,188px);object-fit:cover;object-position:center 24%;border-radius:13px}
+.ne-pilot .np-person b{font-size:15px;line-height:1.2;margin-top:4px}.ne-pilot .np-person small{font-size:12px;color:#467487}
+.ne-pilot .np-speech{background:#fff;border-radius:18px;border:1px solid #bfd8e7;padding:14px;min-width:0;display:flex;flex-direction:column;justify-content:space-between;gap:8px}
+.ne-pilot .np-speech p{font-weight:650;font-size:clamp(17px,4.2vw,22px);line-height:1.42;margin:4px 0;overflow-wrap:anywhere}
+.ne-pilot .np-speech button{align-self:start;border:0;background:#124a6d;color:white;border-radius:12px;padding:9px 12px;font-size:13px;font-weight:750}
+.ne-pilot .np-own .np-person{background:#e0f4ec}.ne-pilot .np-own .np-speech{background:#e8f9f0;border-color:#a8dfc2}
+.ne-pilot .np-group{background:#eaf2f8;border-radius:15px;padding:12px;margin-bottom:13px;border:1px solid #d0e1ed}
+.ne-pilot .np-group>b{font-size:12px;letter-spacing:.3px;color:#356179}
+.ne-pilot .np-group-line{display:flex;gap:9px;margin-top:8px;padding-top:8px;border-top:1px solid #cadee8}
+.ne-pilot .np-group-line img{width:52px;height:57px;object-fit:cover;border-radius:10px;flex:none}
+.ne-pilot .np-group-line small{font-size:12px;color:#396782;font-weight:800}
+.ne-pilot .np-group-line p{font-size:14px;margin:3px 0 5px}
+.ne-pilot .np-group-line button{border:1px solid #afc8d6;border-radius:9px;background:white;color:#135677;padding:5px 9px;font-size:12px}
+.ne-pilot .np-goal{background:#e6f5e9;border-radius:16px;padding:12px 15px;margin:12px 0;border:1px solid #c2dfcd}
+.ne-pilot .np-goal b{font-size:14px;color:#185a40}.ne-pilot .np-goal p{margin:5px 0 0;font-size:16px;line-height:1.45}
+.ne-pilot .np-advice{border:1px solid #c5ddcf;background:#fff;border-radius:13px;padding:11px 13px;margin:12px 0}
+.ne-pilot .np-advice summary{cursor:pointer;color:#235d4d;font-size:14px;font-weight:800}
+.ne-pilot .np-coach{display:flex;gap:9px;align-items:flex-start;margin:10px 0}.ne-pilot .np-coach img{width:52px;height:58px;object-fit:cover;border-radius:11px;flex:none}.ne-pilot .np-coach p{font-size:14px;margin:0}
+.ne-pilot .np-advice button{border:1px solid #bad7c8;border-radius:9px;background:#e9f5ec;padding:7px 10px;font-size:13px;color:#20523d}
+.ne-pilot .np-advice small{display:block;color:#617579;font-size:12px;margin-top:7px}
+.ne-pilot [data-pilot-hint]{font-size:13px;margin-top:9px;color:#245b50}
+.ne-pilot .np-input{display:grid;gap:9px;margin:13px 0}.ne-pilot .np-input label{font-size:14px;font-weight:800}
+.ne-pilot .np-input textarea{display:block;resize:vertical;width:100%;min-height:90px;padding:12px 13px;font:inherit;font-size:16px;line-height:1.5;border-radius:15px;border:2px solid #83aabd;background:white;color:#193950}
+.ne-pilot .np-actions{display:grid;grid-template-columns:1fr 1.3fr;gap:8px}.ne-pilot .np-actions button{border:0;border-radius:13px;background:#2a5275;color:white;min-height:48px;font-size:14px;font-weight:800;padding:9px}
+.ne-pilot .np-actions .np-primary{background:#1689d0}
+.ne-pilot .np-input small{font-size:11px;color:#567080;line-height:1.4}
+.ne-pilot .np-choices{display:grid;gap:8px;margin:12px 0}.ne-pilot .np-choices button{background:#fff;border:1px solid #c2dbe7;border-radius:12px;padding:12px 15px;text-align:left;min-height:49px;color:#234458}
+.ne-pilot .np-feedback{border-radius:14px;padding:14px;margin:12px 0;line-height:1.5}.ne-pilot .np-feedback b{font-size:17px}.ne-pilot .np-feedback span{float:right;font-size:11px;font-weight:750}.ne-pilot .np-feedback p{font-size:14px;margin:6px 0}.ne-pilot .np-good{background:#e5f8eb;border:1px solid #b3dec2;color:#20563f}.ne-pilot .np-bad{background:#fff0ed;border:1px solid #ebc0b8;color:#87393c}.ne-pilot .np-feedback button{display:block;background:#1778ac;color:white;border:0;border-radius:12px;padding:12px 13px;width:100%;font-weight:800;margin-top:10px}
+.ne-pilot .np-words{margin:13px 0 30px;background:#fff;border:1px solid #d8e5ec;border-radius:12px;padding:10px 12px}.ne-pilot .np-words summary{font-weight:700;font-size:13px}.ne-pilot .np-words span{display:block;font-size:12px;margin:8px 0}
+.ne-pilot .np-review{background:white;padding:13px;border-radius:14px;border:1px solid #c9dce7;margin:12px 0}.ne-pilot .np-review b{display:block;font-size:17px}.ne-pilot .np-review button{border:1px solid #b8d1e0;background:#e5f3fa;border-radius:10px;padding:8px 10px;margin:6px 7px 6px 0;font-size:12px}.ne-pilot .np-review p{margin:8px 0}
+.ne-pilot .np-report{background:#fff;padding:14px;border:1px solid #d2e1e8;border-radius:16px}.ne-pilot .np-report p{font-size:14px}.ne-pilot .np-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.ne-pilot .np-stats div{background:#edf7fb;border-radius:12px;padding:10px;text-align:center}.ne-pilot .np-stats strong{font-size:24px;display:block}.ne-pilot .np-stats small{display:block;font-size:11px}
+.ne-pilot .np-avatars{display:flex;gap:12px;margin:14px 0}.ne-pilot .np-avatars button{flex:1;display:flex;flex-direction:column;gap:7px;border:2px solid #d3e3e9;background:white;border-radius:14px;padding:8px;align-items:center;color:#173e53;font-weight:750}
+.ne-pilot .np-avatars button[aria-pressed="true"]{border-color:#1494b4;background:#e5f8fe}.ne-pilot .np-avatars img{width:100%;max-height:195px;object-fit:cover;border-radius:11px}
+.ne-pilot #npName{display:block;width:100%;padding:12px;margin:9px 0;border-radius:12px;border:1px solid #afced9;font:inherit}
+.ne-pilot [data-np="save-name"]{background:#176489;color:white;border:0;border-radius:12px;padding:11px}
+.ne-pilot .np-message,.ne-pilot .np-error{max-width:760px;margin:auto;color:#a44730;font-size:12px}
+.ne-pilot .np-nav{position:absolute;bottom:0;left:0;right:0;height:calc(72px + env(safe-area-inset-bottom));background:#092f46;display:flex;gap:4px;justify-content:space-around;align-items:flex-start;padding:9px 10px env(safe-area-inset-bottom);z-index:3;box-shadow:0 -4px 14px #07263833}
+.ne-pilot .np-nav button{flex:1;border:0;border-radius:12px;color:#d2e7f1;background:transparent;padding:10px 5px;font-size:13px;font-weight:800;min-height:48px}
+.ne-pilot .np-nav button[aria-current="true"]{background:#1a5973;color:white}
+@media(max-width:400px){.ne-pilot .np-line{grid-template-columns:128px minmax(0,1fr);gap:8px}.ne-pilot .np-person img{height:148px}.ne-pilot .np-speech{padding:10px}.ne-pilot .np-speech p{font-size:17px}.ne-pilot .np-nav button{font-size:12px}}
+@media(prefers-reduced-motion:reduce){.ne-pilot *{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+/* Pilot v3: active recall, listening provenance and meaningful controls. */
+.ne-pilot .np-review label{display:block;color:#355c72;margin:9px 0 7px;font-size:13px;font-weight:650}
+.ne-pilot .np-review input{display:block;width:100%;padding:12px 13px;border-radius:12px;border:2px solid #a4c4d4;background:#fff;color:#1a3b4f;font:inherit;font-size:16px}
+.ne-pilot .np-review input:focus-visible{outline:3px solid #18bfe2;outline-offset:2px}
+.ne-pilot .np-review>div{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.ne-pilot .np-review>div button{margin:0;min-height:41px;font-size:13px}
+.ne-pilot .np-review small{display:block;font-size:12px;line-height:1.4;color:#47677a;margin-top:6px}
+.ne-pilot .np-recall-notice{margin:10px 0 14px;background:#e8f6ed;border:1px solid #a9d9c1;border-radius:13px;padding:12px;color:#235c47}
+.ne-pilot .np-recall-notice p{font-size:14px;margin:5px 0 0}
+.ne-pilot [data-np="reading-fallback"]{background:#fff!important;color:#215670!important;border:1px solid #aac9d9!important}
+.ne-pilot .np-report p{overflow-wrap:anywhere}

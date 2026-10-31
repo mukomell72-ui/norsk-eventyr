@@ -204,13 +204,13 @@ const server=http.createServer(async(req,res)=>{
   const disclosure=taskHost.locator('details.a1-task-support');
   assert.equal(await disclosure.count(),1,'A1 key task must support on-demand translation');
   assert.equal(await disclosure.evaluate(el=>el.open),false,'Russian translation starts closed');
-  assert.equal(await taskHost.locator('.prompt').innerText(),'Spør hvor nøkkelen er. Si hvor du leter etter den.');
+  assert.equal(await taskHost.locator('.prompt').innerText(),'Hils og spør hvor nøkkelen er.');
   assert.equal(await taskHost.locator('.a1-task-support .notice').isVisible(),false,'No Russian task translation before request');
   assert.equal(await disclosure.locator('summary').innerText(),'Перевести задание');
   await disclosure.locator('summary').click();
   assert.equal(await disclosure.evaluate(el=>el.open),true,'Learner can request translation');
   assert.equal(await taskHost.locator('.a1-task-support .notice').isVisible(),true);
-  assert((await taskHost.locator('.a1-task-support .notice').innerText()).includes('Спроси, где находится ключ'));
+  assert((await taskHost.locator('.a1-task-support .notice').innerText()).includes('Поздоровайся и спроси, где находится ключ'));
   await taskHost.locator('#freeAnswer').fill('Jeg leter etter nøkkelen på kjøkkenet.');
   await disclosure.locator('summary').click();
   assert.equal(await taskHost.locator('#freeAnswer').inputValue(),'Jeg leter etter nøkkelen på kjøkkenet.','Toggling translation must not erase learner answer');
@@ -282,27 +282,27 @@ const server=http.createServer(async(req,res)=>{
   lessonSession={lesson:generated,step:0,locked:false};
   renderLesson();
   const root=document.querySelector('.lesson-intro-v6');
-  const words=[...root.querySelectorAll('.lesson-words-v6 b')].map(x=>x.innerText);
-  return {scene:root.querySelector('.dialogue-scene-v83')?.innerText,
-    task:root.querySelector('.dialogue-task-v83')?.innerText,
-    lead:root.querySelector('.dialogue-lead-v83')?.innerText,
+  const words=[...root.querySelectorAll('.ne-scene-study b')].map(x=>x.textContent);
+  return {scene:root.querySelector('.ne-scene-context')?.innerText,
+    task:root.querySelector('.ne-scene-turn-prompt')?.innerText,
+    lead:root.querySelector('.ne-scene-intro-lead')?.innerText,
     speaker:contextual.speaker,goal:contextual.goal,words,
     answerExists:!!root.querySelector('#dialogAnswer'),
-    audioButton:root.querySelector('.phrase-actions-v6 button')?.textContent};
+    audioButton:root.querySelector('.ne-scene-intro-actions button')?.textContent};
  });
  assert(caseQA.scene.includes('Ингрид')&&caseQA.scene.includes('Первый день'),
   'Greeting must have actual interlocutor and scene: '+JSON.stringify(caseQA));
  assert(caseQA.lead.includes('Jeg heter Ingrid')&&caseQA.task.includes('Ответь Ингрид'));
- assert(caseQA.goal.includes('представься')&&caseQA.words.includes('også')&&caseQA.words.includes('å møte'));
+ assert(caseQA.goal.includes('представься')&&caseQA.words.includes('også')&&caseQA.words.includes('å møte'),JSON.stringify(caseQA));
  assert(!caseQA.words.includes('adresse'),'Unrelated default vocabulary must not replace relevant greeting expressions');
- assert(caseQA.answerExists&&caseQA.audioButton.includes('Прослушать'));
+ assert(caseQA.answerExists&&caseQA.audioButton.includes('Слушать'));
  const fallbackQA=await dialogueQA.evaluate(()=>{
   const ordinary=COURSE.find(x=>x.id==='a1-2');
   lessonSession={lesson:ordinary,step:0,locked:false};
   renderLesson();
   return {
-    scene:document.querySelector('.dialogue-scene-v83')?.innerText,
-    task:document.querySelector('.dialogue-task-v83')?.innerText
+    scene:document.querySelector('.ne-scene-context')?.innerText+' '+document.querySelector('.ne-scene-intro-person span')?.innerText,
+    task:document.querySelector('.ne-scene-turn-prompt')?.innerText
   };
  });
  assert(fallbackQA.scene.includes('Нора')&&fallbackQA.scene.includes('Дом и семья'));
@@ -311,7 +311,7 @@ const server=http.createServer(async(req,res)=>{
   const l=window.NECurated.get('a1-home');
   lessonSession={lesson:{...l,_adaptive:{moduleId:'a1-home',kind:'learn'}},step:0,locked:false};
   renderLesson();
-  return document.querySelector('.dialogue-task-v83')?.textContent;
+  return document.querySelector('.ne-scene-turn-prompt')?.textContent;
  });
  assert(curatedQA.includes('Spør')||curatedQA.includes('ключ')||curatedQA.includes('попрос'),
   'Curated dialogue must give an actual task');
@@ -421,7 +421,7 @@ const server=http.createServer(async(req,res)=>{
     window.__speakWordOriginal=window.neSpeakWord;
     window.neSpeakWord=word=>{window.__spokenWords.push(word);return Promise.resolve({source:'device'})};
   });
-  await page.locator('.prompt .word-translate-v7').first().click();
+  await page.locator('.ne-scene-intro-quote .word-translate-v7').first().click();
   assert.equal(await page.locator('#wordTranslationV7').count(),1);
   const spokenOnce=await page.evaluate(()=>window.__spokenWords.slice());
   assert.equal(spokenOnce.length,1,'Word tap should start audio once');
