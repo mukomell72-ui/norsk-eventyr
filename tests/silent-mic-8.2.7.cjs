@@ -25,8 +25,8 @@ assert.equal(recordingProblem(2000,1400,true,"freeAnswer"),"SILENT","near-digita
 assert.equal(recordingProblem(2000,700,false,"pronText"),"","short isolated pronunciation may pass");
 assert.equal(recordingProblem(200,1500,false,"freeAnswer"),"TOO_SHORT");
 assert(js.indexOf("micRecordingProblem(blob.size,durationMs,silentAudio,target)")<js.indexOf('apiPost("/api/transcribe",{audioBase64:b64'),"early mic gate must precede network");
-async function test(amplitude,expected){
- let sampling=0,closed=0;
+function test(amplitude,expected){
+ let sampling=0,closed=0,sample=null;
  class Context{
    constructor(){this.state="running"}
    createMediaStreamSource(){return{connect(){},disconnect(){}}}
@@ -35,19 +35,21 @@ async function test(amplitude,expected){
    close(){closed++}
  }
  const sandbox={window:{AudioContext:Context},Float32Array,Promise,
-   setInterval:(fn,_ms)=>setInterval(fn,3),clearInterval,Math};
+   setInterval:fn=>{sample=fn;return 1},clearInterval:()=>{sample=null},Math};
  const make=vm.runInNewContext("("+js.slice(start,end).trim().replace(/^\s*function monitorMicActivity/,"function monitorMicActivity")+")",sandbox);
  const m=make({});
  assert(m,"mic monitoring must be available");
- await new Promise(resolve=>setTimeout(resolve,23));
- assert(sampling>=3,"must sample mic waveform");
+ assert.equal(typeof sample,"function","mic monitor must schedule sampling");
+ for(let i=0;i<4;i++)sample();
+ assert.equal(sampling,4,"must sample mic waveform");
  assert.equal(m.silent(),expected);
  m.close();
+ assert.equal(sample,null,"closing must cancel the sampling timer");
  assert.equal(closed,1);
 }
 (async()=>{
- await test(0,true);
- await test(0.007,false);
+ test(0,true);
+ test(0.007,false);
  const disabled=vm.runInNewContext("("+js.slice(start,end).trim().replace(/^\s*function monitorMicActivity/,"function monitorMicActivity")+")",{window:{}});
  assert.equal(disabled({}),null,"unsupported Web Audio should not block legitimate speech");
  console.log("PASS silent mic 8.2.7: reject actual silence, preserve quiet audible speech, ignore interim transcripts and autofill");
