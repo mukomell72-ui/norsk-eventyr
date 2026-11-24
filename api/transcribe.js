@@ -1,3 +1,4 @@
+import {STAGING_AUDIO_BYTES} from "./_staging.js";
 import {guard} from "./_guard.js";
 import {decodeAudioBase64} from "./_audio-input.js";
 
@@ -38,7 +39,7 @@ async function transcribe(bytes,type,name,model,prompt,language="no"){
   fd.append("file",new Blob([bytes],{type}),name);
   const r=await fetch("https://api.openai.com/v1/audio/transcriptions",{
     method:"POST",
-    headers:{"Authorization":"Bearer "+process.env.OPENAI_API_KEY},
+    headers:{"Authorization":"Bearer "+process.env.NE_STAGING_OPENAI_API_KEY},
     body:fd
   });
   const data=await r.json().catch(()=>({}));
@@ -47,11 +48,11 @@ async function transcribe(bytes,type,name,model,prompt,language="no"){
 
 export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY",code:"POST_ONLY"});
-  if(!await guard(req,res,{limit:50}))return;
-  if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED",code:"AI_NOT_CONFIGURED"});
+  if(!await guard(req,res,{route:"/api/transcribe",limit:50}))return;
+  if(!process.env.NE_STAGING_OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED",code:"AI_NOT_CONFIGURED"});
 
   const {audioBase64="",mime="audio/webm",expected="",context=""}=req.body||{};
-  const bytes=decodeAudioBase64(audioBase64,6750000,64);
+  const bytes=decodeAudioBase64(audioBase64,process.env.NE_SERVER_MODE==="isolated-staging"?STAGING_AUDIO_BYTES:6750000,64);
   const meta=audioMeta(mime);
   if(!bytes||!meta||typeof expected!=="string"||typeof context!=="string"){
     return res.status(400).json({error:"BAD_AUDIO",code:"BAD_AUDIO"});

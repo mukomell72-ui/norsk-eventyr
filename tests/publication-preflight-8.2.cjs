@@ -21,11 +21,12 @@ for(const endpoint of billable){
   assert(quota.includes("('"+route+"'"),'missing distributed SQL cap for '+route);
   assert(read('api/'+endpoint+'.js').includes('guard('),'unprotected AI endpoint '+route);
 }
-assert(guard.includes('process.env.VERCEL_ENV==="production"'),'production quota enforcement required');
+assert(guard.includes('ne_staging_ai_quota_check'),'staging quota enforcement required');
 assert(guard.includes('const dedicated=process.env.NE_SESSION_SECRET'),'standalone production session key required');
 assert(guard.includes("res.status(503).json({error:'AI_QUOTA_UNAVAILABLE'"),'quota outage must block paid AI');
-assert(cloud.includes('process.env.VERCEL_ENV==="production"'),'production must use v2 authenticated cloud RPC');
-assert(cloud.includes('"Authorization":"Bearer "+token'),'cloud RPC must use verified access token');
+assert(cloud.includes('stagingDatabase()'),'cloud must validate isolated configuration');
+assert(cloud.includes('req.neAccessIdentity?.token')&&cloud.includes('accessRpc(token,"ne_sync_v2"'),'cloud must always use the verified token for v2');
+assert(read('api/_access.js').includes("Authorization:'Bearer '+token"),'RPC must forward the verified learner token');
 assert(sync.includes('v_row.owner_user_id <> v_uid'),'sync must bind progress to the user');
 assert(sync.includes("grant execute on function public.ne_sync_v2")&&sync.includes('to authenticated'),'v2 only for authenticated account');
 for(const action of ['create','pull','push','delete']){

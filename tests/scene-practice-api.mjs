@@ -1,12 +1,14 @@
+import './staging-fixture.mjs';
 import assert from 'node:assert/strict';
 import chat from '../api/chat.js';
 import {createSession} from '../api/_guard.js';
-process.env.OPENAI_API_KEY='qa-scene-dummy-key';
+process.env.NE_STAGING_OPENAI_API_KEY='qa-scene-dummy-key';
 process.env.NE_SESSION_SECRET='qa-scene-test-very-long-signing-key-at-least-32';
 const body={message:'Jeg finner ikke riktig buss. Kan du hjelpe meg?',mode:'scene_practice',level:'A2',scenario:'Voksne på bussholdeplassen. Du er Lars, en forbipasserende.',history:[{role:'assistant',text:'Trenger du hjelp?'}],practiceWords:['billett','hjelp']};
 let lastPrompt='';
 async function run(output,options={}){
  globalThis.fetch=async(url,config)=>{
+ if(String(url).includes('/rpc/ne_staging_ai_quota_check'))return {ok:true,json:async()=>({allowed:true})};
   if(url.includes('/auth/v1/user'))return {ok:true,json:async()=>({email_confirmed_at:'2026-01-01'})};
   if(url.includes('/rpc/ne_access_status'))return {ok:true,json:async()=>({status:'free',access_granted:true})};
   if(url.includes('/rpc/ne_device_authorize'))return {ok:true,json:async()=>({allowed:true,max_devices:2})};

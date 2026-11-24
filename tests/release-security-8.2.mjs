@@ -1,3 +1,4 @@
+import './staging-fixture.mjs';
 // Security release regression: no production services, identities or secrets are used.
 import assert from 'node:assert/strict';
 import {createSession,verifySession,guard} from '../api/_guard.js';
@@ -9,6 +10,7 @@ import health from '../api/health.js';
 import {decodeAudioBase64,isWav} from '../api/_audio-input.js';
 process.env.NE_SESSION_SECRET='qa-standalone-session-signing-key-2026';
 process.env.OPENAI_API_KEY='qa-only-no-live-provider-key-2026';
+process.env.NE_STAGING_OPENAI_API_KEY='qa-only-no-live-provider-key-2026';
 const BASE_IP='198.51.100.';
 function req(url,ip,body,origin){
   const headers={host:'norsk-eventyr-mvp.vercel.app',cookie:'ne_access=qa',
@@ -60,13 +62,14 @@ globalThis.fetch=async (url,options)=>{
  if(u.includes('/auth/v1/user'))return {ok:true,status:200,json:async()=>({email_confirmed_at:'2026-01-01'})};
  if(u.includes('/rpc/ne_access_status_v2'))return {ok:true,status:200,json:async()=>({status:'trial',access_granted:true,owner:false})};
  if(u.includes('/rpc/ne_device_authorize'))return {ok:true,status:200,json:async()=>({allowed:true})};
- if(u.includes('/rpc/ne_ai_quota_check')){quotaCalls++;if(quotaMode==='offline')throw Error('quota storage unavailable');return {ok:true,status:200,json:async()=>({allowed:quotaMode==='allow',reason:'QUOTA'})}}
+ if(u.includes('/rpc/ne_staging_ai_quota_check')){quotaCalls++;if(quotaMode==='offline')throw Error('quota storage unavailable');return {ok:true,status:200,json:async()=>({allowed:quotaMode==='allow',reason:'QUOTA'})}}
 
- if(u.includes('/rest/v1/rpc/ne_sync_v2')){v2Calls++;lastV2Options=options;return {ok:true,status:200,json:async()=>({ok:true,revision:2,state:{xp:8}})}}
- if(u.includes('/rest/v1/rpc/norsk_eventyr_sync_')){
-   cloudCalls++;return remoteError?{ok:false,status:500,json:async()=>({message:'DATABASE INTERNAL SECRET'})}:
-     {ok:true,status:200,json:async()=>({ok:true,revision:1,state:{}})};
+ if(u.includes('/rest/v1/rpc/ne_sync_v2')){
+   v2Calls++;lastV2Options=options;
+   return remoteError?{ok:false,status:500,json:async()=>({message:'DATABASE_INTERNAL_SECRET'})}:
+     {ok:true,status:200,json:async()=>({ok:true,revision:2,state:{xp:8}})};
  }
+ if(u.includes('/rest/v1/rpc/norsk_eventyr_sync_')){cloudCalls++;throw Error('legacy database RPC reached')}
  throw new Error('Unexpected mocked URL '+u);
 };
 const id='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',secret='a'.repeat(43);
@@ -85,20 +88,19 @@ assert.equal((await invoke('norsk_eventyr_sync_push',{p_sync_id:id,p_secret:secr
 assert.equal((await invoke('norsk_eventyr_sync_create',{p_sync_id:id,p_secret:secret,p_state:{payload:'x'.repeat(760000)}})).code,400);
 assert.equal(cloudCalls,0,'invalid requests must never reach database');
 assert.equal((await invoke('norsk_eventyr_sync_pull',{p_sync_id:id,p_secret:secret})).code,200);
-assert.equal(cloudCalls,1);
+assert.equal(v2Calls,1);
+assert.equal(cloudCalls,0);
 remoteError=true;
 const failure=await invoke('norsk_eventyr_sync_pull',{p_sync_id:id,p_secret:secret});
 assert.equal(failure.code,503);
 assert(!JSON.stringify(failure.data).includes('SECRET'),'remote database error text must stay private');
-// Simulate the production adapter with an already-applied v2 migration. No live DB calls.
+// Verify the staging adapter always sends the authenticated v2 request.
 remoteError=false;
-process.env.NE_SYNC_V2_ENFORCE='enforce';
 const bound=await invoke('norsk_eventyr_sync_pull',{p_sync_id:id,p_secret:secret});
 assert.equal(bound.code,200);
-assert.equal(v2Calls,1);
+assert.equal(v2Calls,3);
 assert.equal(JSON.parse(lastV2Options.body).p_action,'pull');
 assert.equal(lastV2Options.headers.Authorization,'Bearer qa','v2 requires the authenticated learner token');
-delete process.env.NE_SYNC_V2_ENFORCE;
 
 // Unauthenticated status endpoints must not advertise secret/configured AI details.
 const healthRes=response();await health({method:'GET'},healthRes);
@@ -137,7 +139,7 @@ const badWav=response();
 await pronounce(req('/api/pronounce',BASE_IP+'54',{audioBase64:encodedAudio,expected:'God dag'}),badWav);
 assert.equal(badWav.code,400,'pronunciation requires a real WAV header');
 // Production AI operations require a shared quota, not only a process-local counter.
-process.env.NE_DISTRIBUTED_QUOTA='enforce';
+quotaCalls=0;
 const allowedAI=req('/api/chat',BASE_IP+'61',{message:'Hallo'});
 assert.equal(await guard(allowedAI,response()),true);
 assert.equal(quotaCalls,1);
@@ -150,7 +152,6 @@ quotaMode='offline';
 const quotaDown=response();
 assert.equal(await guard(req('/api/evaluate',BASE_IP+'63',{answer:'hei'}),quotaDown),false);
 assert.equal(quotaDown.code,503,'when shared quota is down, billable AI must fail closed');
-delete process.env.NE_DISTRIBUTED_QUOTA;
 quotaMode='allow';
 console.log('PASS release security guards: origin, session, resource limits and cloud parameter/error isolation, bounded media, API input sizes and diagnostic privacy');
 

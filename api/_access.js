@@ -1,5 +1,4 @@
-const URL='https://rskgbkgtrigtznnksbyp.supabase.co';
-const KEY='sb_publishable_Nxf788Y3FWMaDNSj0upOMA_aWtmL665';
+import {stagingDatabase} from './_staging.js';
 function cookies(req){const out={};for(const part of String(req.headers.cookie||'').split(';')){const i=part.indexOf('=');if(i>0)out[part.slice(0,i).trim()]=part.slice(i+1).trim()}return out}
 export function setTokens(res,data){
  const opts='; Path=/; HttpOnly; Secure; SameSite=Strict';
@@ -9,15 +8,15 @@ export function setTokens(res,data){
  ]);
 }
 export async function authCall(path,body,token,method){
- if(process.env.VERCEL === '1')throw new Error('Database disabled in the test branch');
+ const {url,key}=stagingDatabase();
  const verb=method||(body?'POST':'GET');
- const response=await fetch(URL+'/auth/v1/'+path,{method:verb,headers:{apikey:KEY,'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(10000)});
+ const response=await fetch(url+'/auth/v1/'+path,{method:verb,headers:{apikey:key,'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body?{body:JSON.stringify(body)}:{}),redirect:"error",signal:AbortSignal.timeout(10000)});
  const data=await response.json().catch(()=>({}));
  return {ok:response.ok,status:response.status,data};
 }
 export async function accessRpc(token,name,params={}){
- if(process.env.VERCEL === '1')throw new Error('Database disabled in the test branch');
- const response=await fetch(URL+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(params),signal:AbortSignal.timeout(10000)});
+ const {url,key}=stagingDatabase();
+ const response=await fetch(url+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:key,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(params),redirect:"error",signal:AbortSignal.timeout(10000)});
  if(!response.ok){
   const data=await response.json().catch(()=>({}));
   const code=String(data?.message||data?.code||'ACCESS_UNAVAILABLE').trim().split(/\s+/)[0].slice(0,80)||'ACCESS_UNAVAILABLE';
@@ -26,8 +25,8 @@ export async function accessRpc(token,name,params={}){
  return response.json();
 }
 export async function publicRpc(name,params={}){
- if(process.env.VERCEL === '1')throw new Error('Database disabled in the test branch');
- const response=await fetch(URL+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify(params),signal:AbortSignal.timeout(10000)});
+ const {url,key}=stagingDatabase();
+ const response=await fetch(url+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:key,'Content-Type':'application/json'},body:JSON.stringify(params),redirect:"error",signal:AbortSignal.timeout(10000)});
  if(!response.ok)throw new Error('ACCESS_UNAVAILABLE');return response.json();
 }
 export async function accessIdentity(req,res){

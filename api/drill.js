@@ -2,8 +2,8 @@ import {guard} from "./_guard.js";
 function parseJson(text){const s=String(text||"").replace(/^\x60\x60\x60json\s*/i,"").replace(/\x60\x60\x60\s*$/,"").trim();try{return JSON.parse(s)}catch{const a=s.indexOf("{"),b=s.lastIndexOf("}");if(a>=0&&b>a)return JSON.parse(s.slice(a,b+1));throw new Error("NO_JSON")}}
 export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY"});
-  if(!await guard(req,res,{limit:28}))return;
-  if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED"});
+  if(!await guard(req,res,{route:"/api/drill",limit:28}))return;
+  if(!process.env.NE_STAGING_OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED"});
   const {kind="dictation",level="A1",practiceWords=[],weakSkills=[]}=req.body||{};
   const words=Array.isArray(practiceWords)?practiceWords.slice(0,12).map(x=>String(x).slice(0,90)):[];
   const weak=Array.isArray(weakSkills)?weakSkills.slice(0,4).map(String):[];
@@ -15,7 +15,7 @@ export default async function handler(req,res){
     prompt=[...base,"Создай 6 предложений для диктанта. Смешивай старую и новую лексику; покрой настоящее, прошлое, perfektum и планы/будущее. Длина зависит от уровня.","JSON: {\"items\":[{\"audio_no\":\"...\",\"translation_ru\":\"...\",\"focus_words\":[\"...\"]}]}"].join("\n");
   }
   try{
-    const r=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.OPENAI_API_KEY},body:JSON.stringify({model:"gpt-6-luna",input:prompt,reasoning:{effort:"low"},max_output_tokens:1500})});
+    const r=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.NE_STAGING_OPENAI_API_KEY},body:JSON.stringify({model:"gpt-6-luna",input:prompt,reasoning:{effort:"low"},max_output_tokens:1500})});
     const data=await r.json().catch(()=>({}));if(!r.ok)return res.status(502).json({error:"AI_REQUEST_FAILED",code:data?.error?.code||("OPENAI_"+r.status)});
     const text=(data.output||[]).flatMap(x=>x.content||[]).find(x=>x.type==="output_text")?.text||"",out=parseJson(text);
     if(!Array.isArray(out.items)||out.items.length<4||!out.items.every(x=>x&& (kind==="grammar"?typeof x.q_ru==="string"&&Array.isArray(x.opts)&&x.opts.length===4&&x.opts.every(o=>typeof o==="string"&&o.trim())&&x.correct!==null&&x.correct!==""&&typeof x.correct!=="boolean"&&Number.isInteger(Number(x.correct))&&Number(x.correct)>=0&&Number(x.correct)<4:typeof x.audio_no==="string"&&x.audio_no.trim()&&typeof x.translation_ru==="string")))return res.status(502).json({error:"BAD_AI_OUTPUT"});

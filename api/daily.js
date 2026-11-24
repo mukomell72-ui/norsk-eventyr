@@ -10,7 +10,7 @@ function parseJson(text){
 }
 function cleanWord(x){return String(x||"").toLowerCase().normalize("NFKC").trim().replace(/^å\s+/,"").replace(/\s+/g," ")}
 async function ask(prompt,max=3900,effort="low"){
-  const r=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.OPENAI_API_KEY},body:JSON.stringify({model:"gpt-6-luna",input:prompt,reasoning:{effort},max_output_tokens:max})});
+  const r=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.NE_STAGING_OPENAI_API_KEY},body:JSON.stringify({model:"gpt-6-luna",input:prompt,reasoning:{effort},max_output_tokens:max})});
   const data=await r.json().catch(()=>({}));
   if(!r.ok)throw Object.assign(new Error("UPSTREAM"),{code:data?.error?.code||("OPENAI_"+r.status)});
   return (data.output||[]).flatMap(x=>x.content||[]).find(x=>x.type==="output_text")?.text||"";
@@ -18,8 +18,8 @@ async function ask(prompt,max=3900,effort="low"){
 
 export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY"});
-  if(!await guard(req,res,{limit:24}))return;
-  if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED"});
+  if(!await guard(req,res,{route:"/api/daily",limit:24}))return;
+  if(!process.env.NE_STAGING_OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED"});
 
   const {level="A1",date="",knownWords=[],reviewWords=[],candidateWords=[],weakSkills=[],dayNumber=1}=req.body||{};
   if(!["A1","A2","B1","B2"].includes(level))return res.status(400).json({error:"BAD_LEVEL"});

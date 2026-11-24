@@ -4,7 +4,7 @@ const read=p=>fs.readFileSync(path.join(__dirname,'..',p),'utf8');
 const source=read('api/speech.js').replace('import {guard} from "./_guard.js";','').replace('export default async function handler','async function handler');
 const calls=[];
 const response=()=>({status(n){this.code=n;return this},json(v){this.data=v;return this},setHeader(){},send(v){this.buffer=v;return this}});
-const ctx={guard:async()=>true,process:{env:{OPENAI_API_KEY:'mock'}},AbortController,Buffer,
+const ctx={guard:async()=>true,process:{env:{NE_STAGING_OPENAI_API_KEY:'mock'}},AbortController,Buffer,
  fetch:async(url,options)=>{calls.push(JSON.parse(options.body));return{ok:true,arrayBuffer:async()=>new Uint8Array([1,2,3]).buffer}},
  setTimeout,clearTimeout};
 vm.runInNewContext(source+'\nthis.handler=handler;',ctx);

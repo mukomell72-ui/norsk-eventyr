@@ -1,3 +1,4 @@
+import './staging-fixture.mjs';
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {normalizeAssessment} from "../api/_feedback.js";
@@ -27,11 +28,12 @@ assert.equal(unverified.feedback_status,"unverified");
 assert.equal(unverified.accepted,false);
 
 // Integration contract with fake upstream, no live requests or user data.
-process.env.OPENAI_API_KEY="qa-local-dummy";
+process.env.NE_STAGING_OPENAI_API_KEY="qa-local-dummy";
 process.env.NE_SESSION_SECRET="qa-session-signing-secret-32-characters";
 async function query(handler,pathname,body,llm){
  let upstreamPrompt="";
  globalThis.fetch=async (url,opts)=>{
+ if(String(url).includes('/rpc/ne_staging_ai_quota_check'))return {ok:true,json:async()=>({allowed:true})};
   if(url.includes("/auth/v1/user"))return {ok:true,json:async()=>({email_confirmed_at:"2026-01-01"})};
   if(url.includes("/rpc/ne_access_status"))return {ok:true,json:async()=>({status:"free",access_granted:true})};
   if(url.includes("/rpc/ne_device_authorize"))return {ok:true,json:async()=>({allowed:true,max_devices:2})};

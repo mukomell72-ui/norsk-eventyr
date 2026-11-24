@@ -1,5 +1,7 @@
+import './staging-fixture.mjs';
 import assert from 'node:assert/strict';
 import handler from '../api/session.js';import {guard,createSession} from '../api/_guard.js';
+process.env.NE_STAGING_OPENAI_API_KEY='qa-only-provider-token';
 process.env.NE_LEGAL_CONTROLLER_NAME='QA Controller';
 process.env.NE_SESSION_SECRET='qa-session-signing-secret-32-characters';
 let status='pending',owner=false,confirmed=true,down=false,deviceAllowed=true,rpcCalls=[],lastFetchUrl='';
@@ -7,7 +9,7 @@ globalThis.fetch=async(url,options)=>{
  lastFetchUrl=String(url);
  if(down)throw new Error('offline');
  if(url.endsWith('/user'))return {ok:true,status:200,json:async()=>({email:'student@example.com',email_confirmed_at:confirmed?'2026-01-01':null})};
- if(url.includes('/rpc/')){const name=url.split('/').pop();rpcCalls.push(name);return {ok:true,json:async()=>name==='ne_access_status_v2'?{status,owner,access_granted:owner||['trial','free','paid'].includes(status),user_id:'11111111-1111-4111-8111-111111111111'}:name==='ne_device_authorize'?{allowed:deviceAllowed,reason:deviceAllowed?null:'DEVICE_LIMIT',max_devices:2}:name==='ne_access_list'?[]:{ok:true}}}
+ if(url.includes('/rpc/')){const name=url.split('/').pop();rpcCalls.push(name);return {ok:true,json:async()=>name==='ne_staging_ai_quota_check'?{allowed:true}:name==='ne_access_status_v2'?{status,owner,access_granted:owner||['trial','free','paid'].includes(status),user_id:'11111111-1111-4111-8111-111111111111'}:name==='ne_device_authorize'?{allowed:deviceAllowed,reason:deviceAllowed?null:'DEVICE_LIMIT',max_devices:2}:name==='ne_access_list'?[]:{ok:true}}}
  if(url.includes('/token?'))return {ok:true,json:async()=>({access_token:'new-token',refresh_token:'new-refresh',expires_in:3600})};
  if(url.includes('/recover?'))return {ok:true,status:200,json:async()=>({})};
  throw Error('Unexpected '+url);
@@ -32,7 +34,7 @@ confirmed=false;assert.equal((await invoke({action:'status'})).code,401);confirm
 owner=true;assert.equal((await invoke({action:'feedback_list'})).code,200);assert(rpcCalls.includes('ne_feedback_list'));assert.equal((await invoke({action:'list'})).code,200);assert.equal((await invoke({action:'decide',user_id:'11111111-1111-4111-8111-111111111111',status:'approved'})).code,200);
 const req=request();req.headers.origin='https://other.example';const res=response();await handler(req,res);assert.equal(res.code,403);
 const refresh=await invoke({action:'status'},'ne_refresh=old');assert.equal(refresh.code,200);assert(refresh.headers['Set-Cookie'].every(c=>c.includes('HttpOnly')&&c.includes('Secure')&&c.includes('SameSite=Strict')));
-process.env.VERCEL_ENV='preview';process.env.VERCEL_URL='norsk-eventyr-previewtest-fffff19.vercel.app';const reset=await invoke({action:'password_reset_request',email:'student@example.com'},'');assert.equal(reset.code,200);assert(lastFetchUrl.includes(encodeURIComponent('https://norsk-eventyr-previewtest-fffff19.vercel.app/?password_recovery=1')));delete process.env.VERCEL_ENV;delete process.env.VERCEL_URL;
+process.env.VERCEL_ENV='preview';process.env.VERCEL_URL='norsk-eventyr-staging-previewtest.vercel.app';const reset=await invoke({action:'password_reset_request',email:'student@example.com'},'');assert.equal(reset.code,200);assert(lastFetchUrl.includes(encodeURIComponent('https://norsk-eventyr-staging-previewtest.vercel.app/?password_recovery=1')));delete process.env.VERCEL_ENV;delete process.env.VERCEL_URL;
 assert.equal(typeof (await invoke({})).data.token,'string');
 down=true;assert.equal((await invoke({action:'status'})).code,503);
 const logout=await invoke({action:'logout'});assert.equal(logout.code,200);assert(logout.headers['Set-Cookie'].every(c=>c.includes('Max-Age=0')));

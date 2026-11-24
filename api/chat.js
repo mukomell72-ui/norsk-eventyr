@@ -12,8 +12,8 @@ function parseJson(text){
 
 export default async function handler(req,res){
   if(req.method!=="POST") return res.status(405).json({error:"POST_ONLY",code:"POST_ONLY"});
-  if(!await guard(req,res,{limit:90})) return;
-  if(!process.env.OPENAI_API_KEY) return res.status(503).json({error:"AI_NOT_CONFIGURED",code:"AI_NOT_CONFIGURED"});
+  if(!await guard(req,res,{route:"/api/chat",limit:90})) return;
+  if(!process.env.NE_STAGING_OPENAI_API_KEY) return res.status(503).json({error:"AI_NOT_CONFIGURED",code:"AI_NOT_CONFIGURED"});
 
   const {message="",level="A1",mode="free",topic="",scenario="",history=[],start=false,practiceWords=[],context="",mastery={},errorPatterns=[],learnerContext={},teacherMode=false,inputSource="typed_text"}=req.body||{};
   if(!start&&(typeof message!=="string"||!message.trim())) return res.status(400).json({error:"MISSING_MESSAGE",code:"MISSING_MESSAGE"});
@@ -115,7 +115,7 @@ export default async function handler(req,res){
   try{
     const r=await fetch("https://api.openai.com/v1/responses",{
       method:"POST",
-      headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.OPENAI_API_KEY},
+      headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.NE_STAGING_OPENAI_API_KEY},
       body:JSON.stringify({model:"gpt-6-luna",input:prompt,reasoning:{effort:"low"},max_output_tokens:chatMode==="explain"?800:1100})
     });
     const data=await r.json().catch(()=>({}));

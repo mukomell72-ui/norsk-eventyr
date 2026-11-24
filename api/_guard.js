@@ -25,15 +25,8 @@ function sameOrigin(req){
   }catch{return false}
 }
 function signingKey(){
-  // A separate NE_SESSION_SECRET is preferred. Keep the old signing key
-  // as a compatibility fallback for existing 8.0 sessions during migration.
-  // Public production must use an independent, strong session-signing key.
-  // Never reuse an AI provider API key to sign authentication session tokens.
   const dedicated=process.env.NE_SESSION_SECRET;
-  if(process.env.VERCEL_ENV==="production")
-    return typeof dedicated==="string"&&dedicated.length>=32?dedicated:null;
-  const value=dedicated||process.env.OPENAI_API_KEY; // legacy preview/session compatibility
-  return typeof value==="string"&&value.length>=16?value:null;
+  return typeof dedicated==="string"&&dedicated.length>=32?dedicated:null;
 }
 function sign(payload){
   const key=signingKey();
@@ -80,12 +73,11 @@ export function rateLimit(req,key,limit=60,windowMs=3600000){
   b.count++;
   return true;
 }
-function payloadWithinLimit(req){
+function payloadWithinLimit(req,route){
   if(req.method!=="POST")return true;
-  const route=endpointKey(req.url);
   // Audio base64 (~9 MB WAV); cloud state (<750 kB); compact JSON everywhere else.
   const limit=route==="/api/cloud"?1048576:
-    (route==="/api/transcribe"||route==="/api/pronounce")?12582912:131072;
+    (route==="/api/transcribe"||route==="/api/pronounce")?(process.env.NE_SERVER_MODE==="isolated-staging"?4000000:12582912):131072;
   const declared=Number(req.headers?.["content-length"]);
   if(Number.isFinite(declared)&&declared>limit)return false;
   try{
@@ -93,17 +85,17 @@ function payloadWithinLimit(req){
     return Buffer.byteLength(JSON.stringify(req.body),"utf8")<=limit;
   }catch{return false}
 }
-// AI calls consume billable resources. In production a distributed DB quota
-// is mandatory and fails closed if the prepared SQL has not been applied.
+// The staging-specific database RPC fails closed if its budget migration is missing.
 const BILLABLE_ROUTES=new Set(['/api/chat','/api/evaluate','/api/generate','/api/speech','/api/transcribe','/api/pronounce','/api/drill','/api/daily','/api/listening-questions']);
-async function distributedQuota(req,res){
-  if(!BILLABLE_ROUTES.has(endpointKey(req.url)))return true;
-  const enforce=process.env.VERCEL_ENV==='production'||process.env.NE_DISTRIBUTED_QUOTA==='enforce';
-  if(!enforce)return true; // Preview remains usable before staging the migration.
+async function distributedQuota(req,res,route){
+  if(!BILLABLE_ROUTES.has(route))return true;
+  if(process.env.NE_STAGING_AI_ENABLED!=='1'||!process.env.NE_STAGING_OPENAI_API_KEY){
+    res.status(503).json({error:'AI_NOT_CONFIGURED',code:'AI_NOT_CONFIGURED'});return false;
+  }
   const token=req.neAccessIdentity?.token;
   if(!token){res.status(503).json({error:'AI_QUOTA_UNAVAILABLE',code:'AI_QUOTA_UNAVAILABLE'});return false}
   try{
-    const check=await accessRpc(token,'ne_ai_quota_check',{p_route:endpointKey(req.url)});
+    const check=await accessRpc(token,'ne_staging_ai_quota_check',{p_route:route});
     if(check?.allowed===true)return true;
     const status=check?.reason==='DENIED'?403:429;
     const code=status===403?'APPROVAL_REQUIRED':'AI_QUOTA_EXCEEDED';
@@ -113,12 +105,12 @@ async function distributedQuota(req,res){
     return false;
   }
 }
-export async function guard(req,res,{limit=60,requireSession=true,requireAccess=true}={}){
+export async function guard(req,res,{limit=60,requireSession=true,requireAccess=true,route=endpointKey(req.url)}={}){
   if(!sameOrigin(req)){res.status(403).json({error:"ORIGIN_DENIED",code:"ORIGIN_DENIED"});return false}
-  if(!payloadWithinLimit(req)){res.status(413).json({error:"BODY_TOO_LARGE",code:"BODY_TOO_LARGE"});return false}
-  if(!rateLimit(req,endpointKey(req.url),limit)){res.status(429).json({error:"RATE_LIMIT",code:"RATE_LIMIT"});return false}
+  if(!payloadWithinLimit(req,route)){res.status(413).json({error:"BODY_TOO_LARGE",code:"BODY_TOO_LARGE"});return false}
+  if(!rateLimit(req,route,limit)){res.status(429).json({error:"RATE_LIMIT",code:"RATE_LIMIT"});return false}
   if(requireSession&&!verifySession(req)){res.status(401).json({error:"SESSION_REQUIRED",code:"SESSION_REQUIRED"});return false}
   if(requireAccess&&!await requireApproved(req,res))return false;
-  if(requireAccess&&!await distributedQuota(req,res))return false;
+  if(requireAccess&&!await distributedQuota(req,res,route))return false;
   return true
 }

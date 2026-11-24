@@ -11,7 +11,7 @@ const old={dialogueScene:'В автобусе на дороге на работ�
  read:'I dag reiser jeg til jobben med buss i dag.',grammarQ:'Hva sier du til sjåføren på bussen?',
  writing:'Skriv tre setninger om hvordan du reiser til jobben.',
  speaking:'Fortell sjåføren hvordan du reiser til jobben.'};
-const sandbox={process:{env:{OPENAI_API_KEY:'test'}},JSON,console,Set,Number,String,Array,Object};
+const sandbox={process:{env:{NE_STAGING_OPENAI_API_KEY:'test'}},JSON,console,Set,Number,String,Array,Object};
 vm.runInNewContext(src+'\nthis.helpers={pastLessonSnippets,repeatsRecent};this.handler=handler;',sandbox,{filename:'api/generate.js'});
 const snippets=sandbox.helpers.pastLessonSnippets([old]);
 assert.equal(sandbox.helpers.repeatsRecent({...old},snippets),true,'Identical exercises must be identified');

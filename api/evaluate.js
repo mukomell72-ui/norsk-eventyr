@@ -14,7 +14,7 @@ function parseJson(text){
 async function ask(prompt,max=900,effort="none"){
   const r=await fetch("https://api.openai.com/v1/responses",{
     method:"POST",
-    headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.OPENAI_API_KEY},
+    headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.NE_STAGING_OPENAI_API_KEY},
     body:JSON.stringify({model:"gpt-6-luna",input:prompt,reasoning:{effort},max_output_tokens:max})
   });
   const data=await r.json().catch(()=>({}));
@@ -30,8 +30,8 @@ function normLemma(x){return clean(x,120).toLowerCase().replace(/^å\s+/,"").rep
 export default async function handler(req,res){
   if(req.method==="GET"){res.setHeader?.("Cache-Control","no-store");return res.status(200).json({ok:true,version:"4.1.0"});}
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY",code:"POST_ONLY"});
-  if(!await guard(req,res,{limit:85}))return;
-  if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED",code:"AI_NOT_CONFIGURED"});
+  if(!await guard(req,res,{route:"/api/evaluate",limit:85}))return;
+  if(!process.env.NE_STAGING_OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED",code:"AI_NOT_CONFIGURED"});
 
   const body=req.body||{};
 

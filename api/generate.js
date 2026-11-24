@@ -1,7 +1,7 @@
 import {guard} from "./_guard.js";
 function parseJson(text){const clean=String(text||"").replace(/^\x60\x60\x60json\s*/i,"").replace(/\x60\x60\x60\s*$/,"").trim();try{return JSON.parse(clean)}catch{const a=clean.indexOf("{"),b=clean.lastIndexOf("}");if(a>=0&&b>a)return JSON.parse(clean.slice(a,b+1));throw new Error("NO_JSON")}}
 async function ask(input,max=2600,effort="low"){
-  const r=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.OPENAI_API_KEY},body:JSON.stringify({model:"gpt-6-luna",input,reasoning:{effort},max_output_tokens:max})});
+  const r=await fetch("https://api.openai.com/v1/responses",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+process.env.NE_STAGING_OPENAI_API_KEY},body:JSON.stringify({model:"gpt-6-luna",input,reasoning:{effort},max_output_tokens:max})});
   const data=await r.json().catch(()=>({}));if(!r.ok){const e=data?.error||{};throw Object.assign(new Error("UPSTREAM"),{code:e.code||e.type||("OPENAI_"+r.status)})}
   return (data.output||[]).flatMap(x=>x.content||[]).find(x=>x.type==="output_text")?.text||"";
 }
@@ -41,8 +41,8 @@ function repeatsRecent(lesson,past){
 }
 export default async function handler(req,res){
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY"});
-  if(!await guard(req,res,{limit:24}))return;
-  if(!process.env.OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED"});
+  if(!await guard(req,res,{route:"/api/generate",limit:24}))return;
+  if(!process.env.NE_STAGING_OPENAI_API_KEY)return res.status(503).json({error:"AI_NOT_CONFIGURED"});
   const {kind="lesson",level="A1",storyFocus="everyday",topic="",goal="",weakSkills=[],reviewWords=[],bridgeLevelWords=[],moduleId="",skillFocus="",canDo=[],grammarFocus="",lexiconFocus="",mastery={},errorPatterns=[],targetErrorTag="",teacherMode=false,reviewMode=false,scenarioVariation="",recentLessons=[],bridgeLearned=[],bridgeDifficult=[],activeVocabulary=[],learningLoad="normal",courseStage="",courseStageTitle="",courseObjective="",courseInstruction=""}=req.body||{};
   if(!["A1","A2","B1","B2"].includes(level))return res.status(400).json({error:"BAD_LEVEL"});
   // Focus is a bounded preference, never a learner-authored prompt.
