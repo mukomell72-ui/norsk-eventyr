@@ -65,9 +65,16 @@
     return '<nav class="dock-v7">'+items.map(([r,i,t])=>'<button class="'+(g===r?"active":"")+'" onclick="navigate(\''+r+'\')"><b>'+iconV7(r)+'</b><span>'+t+'</span></button>').join("")+'</nav>';
   }
 
+  function currentStudyStreakV7(){
+    const now=Date.now();
+    const today=new Date(now).toISOString().slice(0,10);
+    const yesterday=new Date(now-86400000).toISOString().slice(0,10);
+    return state.lastStudy===today||state.lastStudy===yesterday?Math.max(0,Number(state.streak)||0):0;
+  }
+
   shell=window.shell=function(content,active="home"){
     window.neScreenRevision=(window.neScreenRevision||0)+1;
-    const level=h(state.level||"A1"),streak=Number(state.streak||0);
+    const level=h(state.level||"A1"),streak=currentStudyStreakV7();
     document.getElementById("app").innerHTML=
       '<div class="shell-v7">'+
         '<header class="topbar-v7">'+
@@ -407,11 +414,7 @@
     const rewards=window.xpRewardCatalog?.()||[];
     const xp=window.xpRewardStatus?.().xp||0;
     const best=Math.max(Number(state.gamification?.bestStreak)||0,Number(state.streak)||0);
-    const recent=state.lastStudy;
-    const today=Date.now();
-    const date=new Date(today).toISOString().slice(0,10);
-    const yesterday=new Date(today-86400000).toISOString().slice(0,10);
-    const streak=recent===date||recent===yesterday?Number(state.streak)||0:0;
+    const streak=currentStudyStreakV7();
     return '<details class="eventyr-treasure"><summary><span class="eventyr-chest" aria-hidden="true"></span><strong>Сундуки и достижения</strong>'+
       '<span>'+xp+' XP · серия '+streak+'</span></summary>'+
       '<ul class="eventyr-rewards">'+rewards.map(reward=>'<li><span class="eventyr-chest '+(xp>=reward.xp?'unlocked':'')+'" aria-hidden="true"></span>'+
@@ -625,7 +628,7 @@
     shell(
       '<section class="hub-v7">'+
         '<section class="hub-hero-v7"><div class="hub-shade-v7"></div><div><small>Твой путь · твои результаты</small><h1>Прогресс<br>и экзамен</h1><p>Всё важное без лишних экранов.</p></div></section>'+
-        '<section class="stats-v7"><article><small>Профиль '+h(state.level)+'</small><b>'+(gate?.pass?'Подтверждён':'В работе')+'</b><i><em style="width:'+mastery+'%"></em></i><span>'+mastery+'%</span></article><article><small>Серия занятий</small><b>'+daysLabelV7(state.streak)+'</b></article><article><small>Слова в словаре</small><b>'+dict+'</b></article><article><small>Маршрут курса</small><b>'+routeProgress+'%</b></article></section>'+
+        '<section class="stats-v7"><article><small>Профиль '+h(state.level)+'</small><b>'+(gate?.pass?'Подтверждён':'В работе')+'</b><i><em style="width:'+mastery+'%"></em></i><span>'+mastery+'%</span></article><article><small>Серия занятий</small><b>'+daysLabelV7(currentStudyStreakV7())+'</b></article><article><small>Слова в словаре</small><b>'+dict+'</b></article><article><small>Маршрут курса</small><b>'+routeProgress+'%</b></article></section>'+
         '<section class="exam-v7"><div class="exam-bg-v7"></div><div class="exam-copy-v7"><small>Подготовка к Norskprøven</small><h2>Пробный экзамен</h2><p>Четыре навыка в одном маршруте.</p><div class="exam-parts-v7"><span>▤ Чтение</span><span>◉ Аудирование</span><span>✎ Письмо</span><span>◌ Говорение</span></div><button class="cta-v7 small" onclick="navigate(\'exam\')">Начать экзамен →</button></div></section>'+
         '<section class="tools-grid-v7">'+
           hubTileV7("✦","Северный компас","Приключение и карта маршрута","adventure")+

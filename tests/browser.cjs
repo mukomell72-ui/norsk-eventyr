@@ -18,6 +18,17 @@ const server=http.createServer(async(req,res)=>{
  assert.equal(await map.locator('.eventyr-trail > li').count(),8);
  assert.equal(await map.locator('[aria-current="step"]').count(),1);
  assert.equal(await map.locator('.locked').count(),7);
+ for(const [days,expected] of [[null,0],[0,4],[1,4],[2,0]]){
+  await page.evaluate(days=>{
+   state.streak=4;
+   state.lastStudy=days===null?null:new Date(Date.now()-days*86400000).toISOString().slice(0,10);
+   navigate('course','A1');
+  },days);
+  assert.equal(await page.locator('.streak-v7 b').textContent(),String(expected));
+  assert.match(await map.locator('.eventyr-treasure summary').textContent(),new RegExp('серия '+expected+'$'));
+ }
+ await page.evaluate(()=>{state.streak=1;state.lastStudy=null;navigate('course','A1')});
+
  const turns=await map.locator('.eventyr-medallion').evaluateAll(nodes=>nodes.slice(0,4).map(node=>({
   x:node.getBoundingClientRect().x, width:node.offsetWidth, height:node.offsetHeight,
   radius:getComputedStyle(node).borderRadius
