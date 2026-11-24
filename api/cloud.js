@@ -25,6 +25,7 @@ function validInput(name,params){
   return true;
 }
 export default async function handler(req,res){
+  if(process.env.VERCEL === '1')return res.status(404).json({error:'PREVIEW_OFFLINE'});
   if(req.method!=="POST")return res.status(405).json({error:"POST_ONLY"});
   res.setHeader?.("Cache-Control","no-store");
   if(!await guard(req,res,{limit:90}))return;

@@ -12,3 +12,7 @@ tests/node_modules/
 *.sqlite
 *.sqlite3
 *.db
+
+# Local Vercel build output and project metadata
+.vercel/
+preview-dist/

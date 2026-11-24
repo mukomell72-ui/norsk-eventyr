@@ -9,12 +9,14 @@ export function setTokens(res,data){
  ]);
 }
 export async function authCall(path,body,token,method){
+ if(process.env.VERCEL === '1')throw new Error('Database disabled in the test branch');
  const verb=method||(body?'POST':'GET');
  const response=await fetch(URL+'/auth/v1/'+path,{method:verb,headers:{apikey:KEY,'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},...(body?{body:JSON.stringify(body)}:{}),signal:AbortSignal.timeout(10000)});
  const data=await response.json().catch(()=>({}));
  return {ok:response.ok,status:response.status,data};
 }
 export async function accessRpc(token,name,params={}){
+ if(process.env.VERCEL === '1')throw new Error('Database disabled in the test branch');
  const response=await fetch(URL+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:KEY,Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify(params),signal:AbortSignal.timeout(10000)});
  if(!response.ok){
   const data=await response.json().catch(()=>({}));
@@ -24,6 +26,7 @@ export async function accessRpc(token,name,params={}){
  return response.json();
 }
 export async function publicRpc(name,params={}){
+ if(process.env.VERCEL === '1')throw new Error('Database disabled in the test branch');
  const response=await fetch(URL+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify(params),signal:AbortSignal.timeout(10000)});
  if(!response.ok)throw new Error('ACCESS_UNAVAILABLE');return response.json();
 }

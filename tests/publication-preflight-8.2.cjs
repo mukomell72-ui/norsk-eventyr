@@ -13,7 +13,7 @@ const apkWorkflow=read('.github/workflows/android-private-apk.yml');
 const ui=read('elite.js');
 const imports=read('v3.js');
 const plan=read('SECURITY_RELEASE_PLAN_8_2.md');
-const headers=JSON.parse(read('vercel.json')).headers;
+const routes=JSON.parse(read('vercel.json')).routes;
 const billable=['chat','evaluate','generate','speech','transcribe','pronounce','drill','daily','listening-questions'];
 for(const endpoint of billable){
   const route='/api/'+endpoint;
@@ -41,6 +41,6 @@ assert(ui.includes('function deleteCloudData()'),'user-controlled cloud copy rem
 assert(ui.includes('Norsk Eventyr 8.3.0')&&!ui.includes('Norsk Eventyr 8.0 beta'),'learner settings must display current release version');
 assert(imports.includes('BACKUP_TOO_LARGE'),'backup import must enforce a size limit');
 assert(plan.includes('NO-GO'),'release plan must document stop conditions');
-const csp=headers.flatMap(h=>h.headers||[]).find(h=>h.key==='Content-Security-Policy');
-assert(csp?.value.includes("frame-ancestors 'none'"),'clickjacking CSP protection required');
+const csp=routes.find(route=>route.headers?.['Content-Security-Policy'])?.headers['Content-Security-Policy'];
+assert(csp?.includes("frame-ancestors 'none'"),'clickjacking CSP protection required');
 console.log('PASS offline release invariants across AI RPC quota, account-bound sync, private APK, backups and CSP');
