@@ -694,5 +694,5 @@ const server=http.createServer(async(req,res)=>{
   await page.screenshot({path:path.join(screenshotsDir,'norsk-eventyr-8.1-'+view+'-390.png'),fullPage:true});
  }
  console.log('PASS UI screenshots captured for manual mobile visual inspection');
- await page.evaluate(()=>{window.confirm=()=>true;resetProgress()});await page.waitForTimeout(700);assert(await page.evaluate(()=>state.xp===0&&!!state.elite&&!!state.skills&&!!state.story&&!localStorage.getItem('ne_cloud_link')&&!!localStorage.getItem('ne2_state_before_reset')));assert.deepEqual(errors,[]);console.log('PASS reset reinitializes modules; zero browser errors');await browser.close();server.close();
+ await Promise.all([page.waitForNavigation(),page.evaluate(()=>{window.confirm=()=>true;resetProgress()})]);await page.waitForFunction(()=>window.NEAccess?.ready()&&typeof state!=='undefined');assert(await page.evaluate(()=>state.xp===0&&!!state.elite&&!!state.skills&&!!state.story&&!localStorage.getItem('ne_cloud_link')&&!!localStorage.getItem('ne2_state_before_reset')));assert.deepEqual(errors,[]);console.log('PASS reset reinitializes modules; zero browser errors');await browser.close();server.close();
 })().catch(e=>{console.error(e);server.close();process.exit(1)});

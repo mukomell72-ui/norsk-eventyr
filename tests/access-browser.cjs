@@ -107,8 +107,13 @@ const server=http.createServer(async(req,res)=>{
  });
  const pendingCheck=admin.evaluate(()=>NEAccess.status());
  await heldCheckSeen;
- await admin.locator('.brand-v7').click();await admin.waitForSelector('.admin-shell');
- releaseHeldCheck();await pendingCheck;await admin.waitForTimeout(150);
+ try{
+  await admin.getByRole('button',{name:/панель владельца/i}).press('Enter');
+  await admin.waitForSelector('.admin-shell');
+ }finally{
+  releaseHeldCheck();
+  await pendingCheck;
+ }await admin.waitForTimeout(150);
  assert.equal(await admin.locator('.admin-shell').isVisible(),true);
  assert.equal(await admin.locator('#app').isVisible(),false);
  await admin.unroute('**/api/session');

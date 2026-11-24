@@ -26,7 +26,7 @@ const server=http.createServer(async(req,res)=>{
   const ctx=await browser.newContext({
    viewport:{width:393,height:873},deviceScaleFactor:3,isMobile:true,hasTouch:true,
    userAgent:'Mozilla/5.0 (Linux; Android 17; Pixel 9 Pro XL) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Mobile Safari/537.36',
-   serviceWorkers:'block'
+   serviceWorkers:'block',reducedMotion:'reduce'
   });
   const page=await ctx.newPage(),errors=[],dialogs=[];
   page.on('pageerror',e=>errors.push(e.message));
