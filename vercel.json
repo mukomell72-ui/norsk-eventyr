@@ -6,6 +6,8 @@
     }
   },
   "framework": null,
+  "buildCommand": "node tools/build-isolated-preview.cjs --git-build",
+  "outputDirectory": "preview-dist",
   "routes": [
     {
       "src": "/.*",

@@ -12,14 +12,38 @@ const mime = {'.html':'text/html', '.js':'text/javascript', '.css':'text/css', '
 const apiCalls = [];
 
 async function run() {
-  execFileSync(process.execPath, [path.resolve(__dirname, '../tools/build-isolated-preview.cjs'), tmp]);
-  const output = path.join(tmp, '.vercel/output');
-  const root = path.join(output, 'static');
+  const source = path.resolve(__dirname, '..');
+  const builder = 'tools/build-isolated-preview.cjs';
   assert.equal(config.git.deploymentEnabled['test/norsk-eventyr-9-1'], false);
-  assert.equal(config.buildCommand, undefined);
-  assert(config.routes.some(route => route.src === '/api(?:/.*)?' && route.status === 404));
+  assert.equal(config.buildCommand, 'node ' + builder + ' --git-build');
+  assert.equal(config.outputDirectory, 'preview-dist');
+  const apiBlock = config.routes.findIndex(route => route.src === '/api(?:/.*)?' && route.status === 404);
+  const filesystem = config.routes.findIndex(route => route.handle === 'filesystem');
+  assert(apiBlock >= 0 && filesystem > apiBlock, 'API must be blocked before filesystem routing');
+
+  // Reproduce a clean Git checkout so existing local build output cannot affect the test.
+  const checkout = path.join(tmp, 'checkout');
+  const files = execFileSync('git', ['ls-files', '-z'], {cwd: source, encoding: 'utf8'});
+  for (const name of files.split('\0').filter(Boolean)) {
+    const target = path.join(checkout, name);
+    fs.mkdirSync(path.dirname(target), {recursive: true});
+    fs.copyFileSync(path.join(source, name), target);
+  }
+  execFileSync(process.execPath, [builder, '--git-build'], {cwd: checkout});
+  const root = path.join(checkout, config.outputDirectory);
+
+  execFileSync(process.execPath, [builder, tmp], {cwd: checkout});
+  const output = path.join(tmp, '.vercel/output');
   assert(!fs.existsSync(path.join(output, 'functions')));
-  assert(!fs.existsSync(path.join(root, 'api')));
+  for (const directory of [root, path.join(output, 'static')]) {
+    assert(!fs.existsSync(path.join(directory, 'api')));
+    assert(!fs.existsSync(path.join(directory, 'functions')));
+    for (const name of fs.readdirSync(directory, {recursive: true})) {
+      if (!/\.(?:html|js|json)$/i.test(name)) continue;
+      assert(!/supabase\.co/i.test(fs.readFileSync(path.join(directory, name), 'utf8')),
+        'Static build must exclude Supabase endpoints: ' + name);
+    }
+  }
   const server = http.createServer((req,res) => {
     const url = new URL(req.url, 'http://localhost');
     if (url.pathname.startsWith('/api/')) apiCalls.push(url.pathname);
