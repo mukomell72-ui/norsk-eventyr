@@ -28,4 +28,22 @@ assert(ui.includes("(state.xp||0)<reward.xp"),'Locked XP missions cannot be star
 assert(ui.includes('Никаких фиктивных баллов'),'Roleplay cannot claim false XP or language proficiency');
 assert(app.includes('bestStreak=Math.max'),'Best-ever study streak must persist');
 assert(app.includes('firstGraded'),'XP expansion cannot replace first-attempt grade protection');
+const award=app.slice(app.indexOf('function awardLessonXp('),app.indexOf('function nav('));
+const game={lessonAwards:{}};
+Object.assign(ctx,{state:{xp:0},lessonSession:{xpScores:[],helpV8:{aidedSteps:{0:true}}},ensureGamification:()=>game});
+vm.runInNewContext(award,ctx);
+const lesson={id:'qa-lesson'};
+for(let i=0;i<2;i++){
+ const reward=ctx.awardLessonXp(lesson);
+ assert.deepEqual([reward.earned,reward.avg,reward.ungraded],[0,0,true]);
+}
+assert.equal(ctx.awardLessonXp(lesson).earned,0,'Missing grades must not produce a fallback score');
+ctx.lessonSession.xpScores=[100];
+assert.equal(ctx.awardLessonXp(lesson).earned,40,'Ungraded practice must not consume the first assessed award');
+ctx.lessonSession.xpScores=[];
+assert.equal(ctx.awardLessonXp(lesson).earned,0,'An ungraded repeat must not pay the minimum repeat bonus');
+ctx.lessonSession.xpScores=[100];
+assert.equal(ctx.awardLessonXp(lesson).earned,10);
+assert.equal(ctx.awardLessonXp(lesson).earned,0);
+assert.equal(ctx.state.xp,50);
 console.log('PASS XP missions: ten bilingual practical roleplays, saved streak achievements, no false grade');
