@@ -30,6 +30,16 @@
   shell=window.shell=function(content,active){
     if(content.includes('fsi-audio-list-v63'))content='<div class="listening-scene-v8"><h2>Слушай норвежскую речь</h2><p>Выбери запись, послушай и перескажи смысл своими словами.</p></div>'+content;
     baseShell(content,active);
+    const lessonMain=document.querySelector('.main-v7:has(.ne-world-stage)');
+    const guide=lessonMain?.querySelector('.ne-world-guide');
+    if(guide){
+      const disclosure=document.createElement('details');
+      disclosure.className='eventyr-scene-guide';
+      const summary=document.createElement('summary');
+      summary.textContent='Инструкция Норы к этапу';
+      guide.before(disclosure);
+      disclosure.append(summary,guide);
+    }
     const topbar=document.querySelector('.topbar-v7'),status=document.querySelector('.status-v7');
     if(topbar&&status&&!topbar.querySelector('.share-top-v8')){
       const share=document.createElement('button');

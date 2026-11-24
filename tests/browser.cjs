@@ -309,6 +309,11 @@ const server=http.createServer(async(req,res)=>{
     renderLesson();
     document.querySelector('.a1-task-support summary').click();
   });
+  const instruction=mobileSpeaking.locator('.eventyr-scene-guide');
+  assert.equal(await instruction.getAttribute('open'),null,'Speaking keeps the duplicate portrait folded');
+  await instruction.getByText('Инструкция Норы к этапу').click();
+  assert(await instruction.getByRole('button',{name:'Послушать инструкцию'}).isVisible());
+  await instruction.getByText('Инструкция Норы к этапу').click();
   const visual=await mobileSpeaking.evaluate(()=>{
     const help=document.querySelector('.lesson-exercise-v6 .a1-task-support .notice');
     const ink=help.querySelector('b'),hint=help.querySelector('small');

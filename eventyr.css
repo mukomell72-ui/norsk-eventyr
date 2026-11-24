@@ -313,6 +313,16 @@
 }
 .eventyr-onboarding-questions h3 { margin: 8px 0 0; }
 
+.eventyr-scene-guide {
+  margin-block: 8px;
+  border: 1px solid var(--eventyr-border);
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: var(--eventyr-ink);
+}
+.eventyr-scene-guide summary { cursor: pointer; font-weight: 750; }
+.eventyr-scene-guide summary:focus-visible { outline: 2px solid var(--eventyr-mint); }
+
 /* The lesson owns the viewport while the original exercise widgets remain in place. */
 .shell-v7:has(.lesson-progress-v6) {
   min-height: 100dvh;
