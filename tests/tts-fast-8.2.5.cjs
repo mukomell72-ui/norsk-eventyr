@@ -1,11 +1,11 @@
 const fs=require("node:fs"),path=require("node:path"),vm=require("node:vm"),assert=require("node:assert/strict");
 const source=fs.readFileSync(path.join(__dirname,"../v3.js"),"utf8");
-const start=source.indexOf("  // Shared speech engine for placement"),end=source.indexOf("  function normSpeech(",start);
+const start=source.indexOf("  // Universal speech engine"),end=source.indexOf("  function normSpeech(",start);
 assert(start>0&&end>start,"shared speech block missing");
 const block=source.slice(start,end);
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 
-function rig({norwegian=false,api}={}){
+function rig({norwegian=false,recorded=false,api}={}){
   let calls=0,played=0,aborts=0;
   const voice={name:"Norwegian",lang:"nb-NO"},synth={
     getVoices:()=>norwegian?[voice]:[],
@@ -19,11 +19,11 @@ function rig({norwegian=false,api}={}){
   }
   const TTS=class{constructor(t){this.text=t}};
   const context={
-    window:{speechSynthesis:synth,SpeechSynthesisUtterance:TTS,NEHumanVoice:{has:()=>false}},
+    window:{speechSynthesis:synth,SpeechSynthesisUtterance:TTS,NEHumanVoice:{has:()=>recorded,play:async()=>true}},
     speechSynthesis:synth,SpeechSynthesisUtterance:TTS,
     document:{activeElement:null,visibilityState:"visible"},Audio:AudioMock,AbortController,
     URL:{createObjectURL:()=>("blob:mock-"+Math.random()),revokeObjectURL:()=>{}},
-    setTimeout:(fn,ms)=>setTimeout(fn,ms===4000?120:ms===350?8:ms===1200?40:ms>=10000?90:ms),
+    setTimeout:(fn,ms)=>setTimeout(fn,ms===18500?120:ms===350?8:ms===1200?40:ms>=1500?15:ms),
     clearTimeout,Date,Map,console
   };
   context.apiPost=async (route,payload,opt)=>{
@@ -42,19 +42,19 @@ function rig({norwegian=false,api}={}){
 }
 (async()=>{
   {
-    const r=rig({norwegian:true}),b=r.button();
+    const r=rig({recorded:true}),b=r.button();
     const outcome=await r.engine.play("Jeg lærer norsk.",.9,b);
-    assert.equal(outcome.source,"device");
-    assert.equal(r.stats().calls,0,"native Norwegian must not use the API");
+    assert.equal(outcome.source,"human");
+    assert.equal(r.stats().calls,0,"recorded Norwegian must not use the API");
     await sleep(25);
-    assert.equal(b.disabled,false,"device completion must restore audio button");
+    assert.equal(b.disabled,false,"recording completion must restore audio button");
   }
   {
-    const r=rig({api:async(_route,_payload,options,onAbort)=>new Promise(resolve=>{
+    const r=rig({norwegian:true,api:async(_route,_payload,options,onAbort)=>new Promise(resolve=>{
       options.signal.addEventListener("abort",()=>{onAbort();resolve({ok:false,error:"NETWORK"})},{once:true});
     })}),b=r.button();
     const t=Date.now(),outcome=await r.engine.play("Norsk setning.",.9,b);
-    assert.equal(outcome.source,"browser","network timeout must activate browser TTS");
+    assert.equal(outcome.source,"device","network timeout must activate browser TTS");
     assert(Date.now()-t<500,"timeout exceeded accelerated test bound");
     assert.equal(r.stats().aborts,1,"timed out upstream request must be aborted");
     await sleep(25);
@@ -81,5 +81,5 @@ function rig({norwegian=false,api}={}){
     await sleep(25);
     assert.equal(b.disabled,false);
   }
-  console.log("PASS fast Norwegian TTS: device voice, aborted slow AI, prefetch cache, stale playback cancellation");
+  console.log("PASS fast Norwegian TTS: recorded voice, aborted slow AI, prefetch cache, stale playback cancellation");
 })().catch(e=>{console.error(e);process.exitCode=1});
