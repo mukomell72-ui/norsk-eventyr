@@ -303,6 +303,27 @@
       '<div class="xp-rewards-v8">'+rewardButtons+'</div>'+
       '<p class="muted">В миссии отвечай своими словами. Нора задаёт вопросы по очереди и помогает исправить ошибки; прохождение разговора само по себе не подтверждает уровень.</p></section>';
   }
+  function firstRunV9(){
+    if(state.onboardingV9||state.lastStudy||state.xp||state.placement||state.activeLesson||
+      state.noraMemory?.introduced||state.level!=='A1'||localStorage.getItem('ne_cloud_link')||
+      [state.completed,state.generatedLessons,state.srs,state.testHistory,state.examHistory,
+        state.chatHistory,state.learningV8?.attempts].some(records=>Object.keys(records||{}).length))return '';
+    return '<section class="eventyr-start" aria-labelledby="eventyr-first-title">'+
+      '<div><h2 id="eventyr-first-title">Твой первый шаг</h2>'+
+      '<p>Начни с A1 или пройди короткую диагностику, если уже знаешь норвежский.</p></div>'+
+      '<div class="eventyr-start-actions"><button type="button" class="eventyr-action" onclick="finishFirstRunV9(\'course\')">Начать с A1</button>'+
+      '<button type="button" class="btn secondary" onclick="finishFirstRunV9(\'placement\')">Проверить стартовый уровень</button>'+
+      '<button type="button" class="btn ghost" onclick="finishFirstRunV9(\'home\')">Пропустить</button></div></section>';
+  }
+  function finishFirstRunV9(view){
+    state.onboardingV9=true;
+    saveState();
+    navigate(view);
+    const heading=document.querySelector('.main-v7 h1');
+    if(heading){heading.tabIndex=-1;heading.focus()}
+  }
+  window.finishFirstRunV9=finishFirstRunV9;
+
   function renderHomeV7(){
     currentRouteV7="home";
     const j=guidedV7(),living=window.NELivingDay?.details?.()||null,wordStatus=window.NELivingWords?.progress?.()||null,story=j.story,words=dailyWordsV7(),district=story?.district||"Fjordvik",
@@ -349,10 +370,11 @@
       '</section>':null;
     shell(
       '<section class="home-v7">'+
+        firstRunV9()+
         '<section class="hero-v7">'+
           '<div class="hero-overlay-v7"></div><div class="nora-cutout-v7" aria-hidden="true"></div>'+
           '<div class="hero-copy-v7"><small>'+h(district)+' · '+daypart+'</small><h1>'+h(heroTitle)+'</h1><p>'+h(heroText)+'</p><div class="home-focus-v81"><span>Сегодня с Норой</span><strong>'+h(living?.title||j.steps[0]?.sub||"Практика норвежского")+'</strong></div>'+
-          '<button class="cta-v7" onclick="v7ContinueToday()">'+(living?.finished?'Урок завершён':'Урок с Норой · '+(living?.plannedMinutes||60)+' мин')+' <b>→</b></button></div>'+
+          '<button class="cta-v7" onclick="v7ContinueToday()">'+(living?.finished?'Итоги дня':pending?'Продолжить урок':'Урок с Норой · '+(living?.plannedMinutes||60)+' мин')+' <b>→</b></button></div>'+
           '<div class="hero-note-v7">Små steg<br>store eventyr ♡</div>'+
         '</section>'+
         (window.NEExperience?.homeChoice?.(state)||'')+
@@ -369,6 +391,11 @@
     "home");
   }
 
+  window.selectCourseLevelV9=function(level){
+    renderCourseV7(level);
+    document.querySelector('.level-tabs-v7 [aria-pressed="true"]')?.focus();
+  };
+
   function renderCourseV7(level=state.level){
     currentRouteV7="course";
     const courseLevel=level&&LEVELS_V7.includes(level)?level:state.level;
@@ -376,11 +403,25 @@
     const modules=window.NECurriculum?.modules(courseLevel)||[],gate=window.NEAdaptive?NEAdaptive.levelGate(state,courseLevel):null;
     if(!modules.length)return baseNavigateV7("course",courseLevel);
     const masteryOf=m=>window.NEAdaptive?NEAdaptive.moduleMastery(state,m.id):0,done=modules.filter(m=>masteryOf(m)>=78).length,next=modules.find(m=>masteryOf(m)<78)||modules.at(-1),routeProgress=Math.round(done/modules.length*100),profile=gate?.avg||0;
-    const nodePos=[[27,86],[66,77],[30,67],[68,57],[30,47],[67,37],[31,27],[65,17]];
+    const pendingId=state.activeLesson?.id;
+    const pending=state.generatedLessons?.[pendingId];
+    const canResume=pending||COURSE.some(lesson=>lesson.id===pendingId);
+    const pendingModule=pending?._adaptive?.moduleId;
+    const hasPendingModule=modules.some(module=>module.id===pendingModule);
+    const unlocked=window.NEAdaptive?.highestUnlockedLevel(state)||state.level;
+    const levelLocked=LEVELS_V7.indexOf(courseLevel)>LEVELS_V7.indexOf(unlocked);
     const nodes=modules.map((m,i)=>{
-      const mastery=masteryOf(m),isDone=mastery>=78,isNext=next?.id===m.id,p=nodePos[i]||[50,50],locked=!isDone&&!isNext;
-      return '<button class="map-node-v7 '+(isDone?"done ":"")+(isNext?"current ":"")+(locked?"locked":"")+'" style="left:'+p[0]+'%;top:'+p[1]+'%" onclick="teacherStartModule(\''+js(m.id)+'\')"><span>'+(isDone?"✓":i+1)+'</span><div><b>'+h(m.title)+'</b><small>'+h(isDone?"Освоено":isNext?"Текущий модуль":"После предыдущего")+'</small></div><em>'+mastery+'%</em></button>';
-    }).join("");
+      const isDone=masteryOf(m)>=78, isResume=pendingModule===m.id;
+      const locked=!isResume&&(levelLocked||window.NEAdaptive?.moduleMission(state,m.id)?.blocked);
+      const isNext=!locked&&!isDone&&next?.id===m.id;
+      const current=isResume||(!hasPendingModule&&isNext);
+      const status=isResume?'Продолжить урок':locked?'Закрыт':isDone?'Освоено · повторить':isNext?'Следующий модуль':'Открыть';
+      return '<li class="eventyr-stop '+(isDone?'done ':'')+(locked?'locked ':'')+(current?'current':'')+'">'+
+        '<button type="button" class="eventyr-node" '+(current?'aria-current="step" ':'')+
+        'onclick="teacherStartModule(\''+js(m.id)+'\')">'+
+        '<span class="eventyr-medallion" aria-hidden="true">'+(locked?'🔒':isDone?'✓':i+1)+'</span>'+
+        '<span><b>'+h(m.title)+'</b><small>'+status+'</small></span></button></li>';
+    }).join('');
     const list=modules.map((m,i)=>{
       const mastery=masteryOf(m),isDone=mastery>=78,isNext=next?.id===m.id,locked=!isDone&&!isNext;
       const syllabus=window.NECourseMethod?.modulePlan(m,state);
@@ -390,15 +431,17 @@
     const legacy=coreLessonsV7(courseLevel),topics=(typeof TOPIC_CATALOG!=="undefined"?TOPIC_CATALOG:[]).filter(x=>x.level===courseLevel).slice(0,8);
     shell(
       '<section class="course-v7">'+
-        '<section class="course-hero-v7"><div class="course-copy-v7"><small>Адаптивный путь Bokmål · A1–B2</small><h1>Курс '+h(courseLevel)+'</h1><p>Каждый модуль закрывается только после доказательств по навыкам, а не после просмотра урока.</p></div><div class="level-tabs-v7">'+LEVELS_V7.map(l=>'<button class="'+(l===courseLevel?"active":"")+'" onclick="renderCourse(\''+l+'\')">'+l+'</button>').join("")+'</div>'+
+        '<section class="course-hero-v7"><div class="course-copy-v7"><small>Адаптивный путь Bokmål · A1–B2</small><h1>Курс '+h(courseLevel)+'</h1><p>Каждый модуль закрывается только после доказательств по навыкам, а не после просмотра урока.</p></div><div class="level-tabs-v7">'+LEVELS_V7.map(l=>'<button type="button" class="'+(l===courseLevel?"active":"")+'" aria-pressed="'+(l===courseLevel)+'" onclick="selectCourseLevelV9(\''+l+'\')">'+l+'</button>').join("")+'</div>'+
         '<div class="progress-card-v7"><div><b>'+h(courseLevel)+'</b><small>'+done+' из '+modules.length+' модулей освоено</small></div><i><em style="width:'+routeProgress+'%"></em></i><strong>'+routeProgress+'%</strong></div>'+
         '<div class="notice" style="margin-top:12px"><b>Профиль навыков: '+profile+'%</b> · '+(gate?.pass?"уровень подтверждён внутренними критериями":"уровень ещё не подтверждён")+'. Маршрут и профиль — разные показатели.</div>'+
         (levelSchedule?'<div class="notice" style="margin-top:10px"><b>Учебная программа, не разрозненные уроки.</b> 8 модулей по порядку; каждый включает ситуацию, разбор, аудирование, речевую практику и перенос навыка. Программа рассчитана на последовательное освоение навыков. Занятия по 45 мин × 6 дней в неделю; сроки зависят от прогресса. Твой дневной план: '+daily.minutes+' минут. Сроки ориентировочные, переход только по навыкам.</div>':'')+'</section>'+
-        '<section class="course-map-v7"><div class="map-shade-v7"></div><div class="map-title-v7"><small>32-модульный маршрут</small><b>'+h(courseLevel)+' · '+h(next?.title||"Повторение")+'</b></div>'+nodes+
-          (next?'<button class="map-continue-v7" onclick="teacherStartModule(\''+js(next.id)+'\')">Продолжить с Норой →</button>':'')+
-        '</section>'+
+        '<section class="eventyr-map course-map-v7" aria-labelledby="eventyr-map-title"><header>'+
+          '<h2 id="eventyr-map-title">Карта уроков · '+h(courseLevel)+'</h2>'+
+          (levelLocked?'<p>Этот уровень откроется после подтверждения навыков '+h(unlocked)+'.</p>':'')+
+          (canResume?'<button type="button" class="eventyr-action" onclick="navigate(\'lesson\',\''+js(pendingId)+'\')">Продолжить сохранённый урок</button>':'')+
+        '</header><ol class="eventyr-trail">'+nodes+'</ol></section>'+
         '<section class="course-side-v7"><div class="nora-guide-v7"><span class="nora-avatar-v7"></span><div><small>Nora · преподаватель</small><b>'+(next?"Следующая цель: "+h(next.canDo?.[0]||next.title):"Повторение уровня")+'</b><p>Я меняю нагрузку по твоим ответам и возвращаю слабые места через интервалы.</p></div></div>'+
-        '<div class="section-head-v7"><div><small>Основной маршрут</small><h2>8 модулей '+h(courseLevel)+'</h2></div></div><div class="near-list-v7">'+list+'</div>'+
+        '<details class="eventyr-syllabus"><summary>Цели и грамматика модулей</summary><div class="near-list-v7">'+list+'</div></details>'+
         '<details class="ai-topics-v7"><summary>Дополнительная практика — не влияет сама по себе на прохождение уровня</summary><div>'+
           legacy.map(x=>'<button onclick="navigate(\'lesson\',\''+js(x.id)+'\')"><b>'+h(x.title)+'</b><small>'+h(x.grammar||"Закрепление")+'</small></button>').join("")+
           topics.map(t=>'<button onclick="navigate(\'topic\',\''+js(t.id)+'\')"><b>'+h(t.title)+'</b><small>'+h(t.goal||"")+'</small></button>').join("")+

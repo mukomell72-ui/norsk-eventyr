@@ -225,7 +225,7 @@ function freeExGuided(l){
  return '<article class="card guided-speaking"><div class="eyebrow">Устная речь · диалог с собеседником</div>'+
  (world?'<div class="guided-scene" hidden>'+esc(scene.scene)+'</div>':'<div class="guided-scene">'+esc(scene.scene)+'</div>')+
  world+
- (world?'':translation)+
+ translation+
  (world?'':'<div class="guided-progress">Реплика '+(progress.index+1)+' из '+scene.steps.length+'</div>')+
  (progress.flowNotice?'<div class="notice" role="status">Диалог обновлён: продолжим с вежливой фразы знакомства. Предыдущие реплики сохранены до этого шага.</div>':'')+
  (world?'':'<div class="guided-task"><b>Твой ход</b><p>'+esc(step.task)+'</p></div>')+
@@ -309,7 +309,7 @@ function guidedGradeFeedback(e,score,ok,firstScore,answer,aidedTurn=false){
   if(e.corrected&&String(e.corrected).trim()!==String(answer||'').trim())
    parts.push('<p><b>Естественный вариант:</b> <span lang="nb">'+esc(e.corrected)+'</span></p>');
  }
- return '<div class="feedback '+(ok?'good':'bad')+'" role="status">'+(aidedTurn?'<p><b>Ответ после подсказки:</b> тренировка, не самостоятельная проверка. XP не начисляются.</p>':'')+parts.join('')+'</div>';
+ return '<div class="feedback '+(ok?'good':'bad')+'" role="status">'+(aidedTurn?'<p><b>Ответ после подсказки Норы:</b> тренировка. Для самостоятельной проверки ответь без подсказки в следующей реплике. XP за этот ответ не начисляются.</p>':'')+parts.join('')+'</div>';
 }
 // Once a reply has been accepted, allow unlimited formative corrections of
 // THIS turn. Editing invalidates the accepted response and its outdated feedback,

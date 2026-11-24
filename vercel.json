@@ -1,4 +1,5 @@
 {
+  "git": { "deploymentEnabled": { "test/norsk-eventyr-9-0": false } },
   "headers": [
     {
       "source": "/(.*)",

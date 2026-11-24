@@ -7,6 +7,39 @@ const server=http.createServer(async(req,res)=>{
 });
 (async()=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch({...(process.env.NE_CHROMIUM_PATH?{executablePath:process.env.NE_CHROMIUM_PATH}:{}),args:['--no-sandbox','--disable-gpu','--disable-dev-shm-usage']});const page=await browser.newPage({viewport:{width:390,height:844},serviceWorkers:'block'});let errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.dismiss());await page.goto('http://127.0.0.1:'+server.address().port);await page.waitForFunction(()=>window.NEAccess?.ready());
+ const intro=page.getByRole('region',{name:'Твой первый шаг'});
+ await intro.waitFor();
+ await intro.getByRole('button',{name:'Начать с A1'}).click();
+ const map=page.locator('.eventyr-map'),tabs=page.locator('.level-tabs-v7');
+ await map.waitFor();
+ assert.equal(await map.locator('li').count(),8);
+ assert.equal(await map.locator('[aria-current="step"]').count(),1);
+ assert.equal(await map.locator('.locked').count(),7);
+ for(const level of ['A2','B1','B2']){
+  await tabs.getByRole('button',{name:level,exact:true}).click();
+  assert.equal(await map.locator('li').count(),8);
+  assert.equal(await map.locator('.locked').count(),8);
+  assert.equal(await tabs.locator('[aria-pressed="true"]').textContent(),level);
+  assert.equal(await page.evaluate(()=>document.activeElement.textContent),level);
+ }
+ assert.equal(await page.evaluate(()=>state.level),'A1','Browsing the map must not change learner level');
+ await page.emulateMedia({reducedMotion:'reduce'});
+ assert.equal(await map.evaluate(el=>getComputedStyle(el).animationName),'none');
+ assert(await map.locator('li').last().evaluate(el=>el.getBoundingClientRect().bottom<=el.closest('section').getBoundingClientRect().bottom));
+ await map.getByRole('button',{name:/Закрыт/}).first().click();
+ await page.getByRole('heading',{name:'Сначала подтверди A1'}).waitFor();
+ await page.reload();
+ await page.waitForFunction(()=>window.NEAccess?.ready());
+ assert.equal(await intro.count(),0,'Onboarding choice must survive reload on the same account');
+
+ const firstPlacement=await browser.newPage({viewport:{width:320,height:700},serviceWorkers:'block'});
+ await firstPlacement.goto('http://127.0.0.1:'+server.address().port);
+ await firstPlacement.getByRole('button',{name:'Проверить стартовый уровень'}).click();
+ await firstPlacement.getByRole('heading',{name:'С какого материала лучше начать?'}).waitFor();
+ assert(!await firstPlacement.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2));
+ await firstPlacement.close();
+ console.log('PASS 9.0 onboarding, 32 map nodes, real level gates, keyboard focus and reduced motion');
+
  for(const route of ['home','course','chat','story','hub','dictionary','daily','review','tests','exam','progress','plan','dictation','grammarlab','pronunciation','listeninglab','cloud','settings','storyjournal','storyside','teacher']){await page.evaluate(route=>navigate(route),route);await page.waitForTimeout(160);assert(await page.locator('#app main').innerText(),route);assert(!await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),route+' overflow')}
  console.log('PASS 21 routes including adaptive teacher');
 
@@ -53,8 +86,11 @@ const server=http.createServer(async(req,res)=>{
  await humanPage.locator('.ne-pause-button').click();
  assert.equal(await humanPage.evaluate(()=>state.activeLesson?.id),'nora-human-qa-lesson',
    'Pause must preserve the exact active lesson');
- await humanPage.evaluate(()=>startLesson('nora-human-qa-lesson'));
- assert.equal(await humanPage.locator('.ne-mission-head').count(),1,'Resume retains mission context');
+ await humanPage.evaluate(()=>navigate('home'));
+ assert.equal(await humanPage.locator('.eventyr-start').count(),0,'Users with a saved lesson skip onboarding');
+ await humanPage.evaluate(()=>navigate('course'));
+ await humanPage.getByRole('button',{name:'Продолжить сохранённый урок'}).click();
+ assert.equal(await humanPage.locator('.ne-mission-head').count(),1,'Map resume retains mission context');
  // This optional chat CTA appears only AFTER a lesson is finished. Do not
  // trigger it while a protected, pending lesson is still active.
  await humanPage.evaluate(()=>{
@@ -496,7 +532,7 @@ const server=http.createServer(async(req,res)=>{
     answerPlacement(choice);
   }return{level:state.level,placement:state.placement,b2:state.learningV8?.levelSkills?.B2,text:document.querySelector('#app main')?.innerText||''}});
   assert.equal(placementResult.level,'B2');assert.equal(placementResult.placement?.scope,'receptive_screening');assert.equal(placementResult.b2?.writing,35);assert.equal(placementResult.b2?.speaking,35);assert(placementResult.b2?.reading<=70);assert(placementResult.text.includes('не означает, что уровень B2 подтверждён'));console.log('PASS perfect placement recommends B2 material without certifying productive B2');
-  await page.evaluate(()=>navigate('course','A1'));const courseText=(await page.locator('#app main').innerText());assert(courseText.includes('8 модулей A1'));assert(courseText.includes('Старт и выживание'));assert(courseText.includes('A1: реальные ситуации'));console.log('PASS active course shows the A1 mastery curriculum');
+  await page.evaluate(()=>navigate('course','A1'));const courseText=(await page.locator('#app main').innerText());assert.equal(await page.locator('.eventyr-trail > li').count(),8);assert(courseText.includes('Старт и выживание'));assert(courseText.includes('A1: реальные ситуации'));console.log('PASS active course shows the A1 mastery curriculum');
   await page.evaluate(()=>teacherStartModule('a1-home'));await page.waitForTimeout(120);assert((await page.locator('#app main').innerText()).includes('Сначала закрепи предыдущий модуль'));console.log('PASS future curriculum module is gated by prior mastery');
   const crossLevelGate=await page.evaluate(()=>{state.level='A1';state.learningV8=state.learningV8||{};state.learningV8.startLevel='A1';saveState();navigate('course','B2');return{active:state.level,text:document.querySelector('#app main')?.innerText||''}});
   assert.equal(crossLevelGate.active,'A1');assert(crossLevelGate.text.includes('Курс B2'));await page.evaluate(()=>teacherStartModule('b2-argument'));await page.waitForTimeout(120);assert((await page.locator('#app main').innerText()).includes('Сначала подтверди A1'));console.log('PASS browsing B2 does not change A1 and direct B2 start is gated');

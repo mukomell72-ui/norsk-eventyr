@@ -1,0 +1,224 @@
+:root {
+  --eventyr-ink: #f0f8f8;
+  --eventyr-muted: #b6d0d2;
+  --eventyr-panel: #102932;
+  --eventyr-border: #32545c;
+  --eventyr-mint: #91efbd;
+}
+
+.eventyr-start,
+.eventyr-map {
+  margin-block: 12px;
+  padding: clamp(14px, 4vw, 30px);
+  color: var(--eventyr-ink);
+  background: var(--eventyr-panel);
+  border: 1px solid var(--eventyr-border);
+  border-radius: 24px;
+}
+
+.eventyr-start {
+  display: grid;
+  gap: 14px;
+  border-inline-start: 4px solid var(--eventyr-mint);
+}
+
+.eventyr-start h2,
+.eventyr-map h2 {
+  margin: 0;
+  font-size: clamp(21px, 4vw, 29px);
+}
+
+.eventyr-start p,
+.eventyr-map header p {
+  margin: 8px 0 0;
+  color: var(--eventyr-muted);
+}
+
+.eventyr-start-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.eventyr-action,
+.home-v7 .cta-v7 {
+  min-height: 46px;
+  padding: 10px 16px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: var(--eventyr-mint);
+  color: #092b25;
+  box-shadow: 0 4px #387458;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.home-v7 .cta-v7 {
+  background: var(--eventyr-mint) !important;
+}
+
+.dock-v7 button.active {
+  color: var(--eventyr-mint);
+  background: #21443d;
+  box-shadow: inset 0 0 0 1px #416658;
+}
+
+.dock-v7 button.active b {
+  filter: none;
+}
+
+.eventyr-map header .eventyr-action {
+  margin-top: 14px;
+}
+
+.eventyr-action:active,
+.home-v7 .cta-v7:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px #387458;
+}
+
+.eventyr-trail {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  max-width: 540px;
+  margin: 24px auto 0;
+  padding: 0;
+  list-style: none;
+}
+
+.eventyr-trail::before {
+  content: "";
+  position: absolute;
+  inset: 28px auto 28px 50%;
+  border-inline-start: 3px dotted #64888b;
+}
+
+.eventyr-stop {
+  position: relative;
+  width: min(90%, 380px);
+  justify-self: start;
+}
+
+.eventyr-stop:nth-child(even) {
+  justify-self: end;
+}
+
+.eventyr-node {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 68px;
+  padding: 9px 13px;
+  text-align: start;
+  color: var(--eventyr-ink);
+  background: #173943;
+  border: 1px solid #527a80;
+  border-radius: 18px;
+  box-shadow: 0 4px #091e25;
+  cursor: pointer;
+}
+
+.eventyr-node b,
+.eventyr-node small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+
+.eventyr-node small {
+  margin-top: 3px;
+  color: var(--eventyr-muted);
+}
+
+.eventyr-medallion {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #244853;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.eventyr-stop.done .eventyr-medallion {
+  background: #ffe1a0;
+  color: #4a340c;
+}
+
+.eventyr-stop.current .eventyr-node {
+  border-color: var(--eventyr-mint);
+  box-shadow: 0 4px #387458;
+}
+
+.eventyr-stop.current .eventyr-medallion {
+  background: var(--eventyr-mint);
+  color: #092b25;
+}
+
+.eventyr-stop.locked .eventyr-node {
+  background: #10272f;
+}
+
+.eventyr-node:focus-visible,
+.eventyr-action:focus-visible,
+.eventyr-syllabus summary:focus-visible {
+  outline: 3px solid #ffe1a0;
+  outline-offset: 4px;
+}
+
+.eventyr-syllabus summary {
+  width: fit-content;
+  padding: 9px 0;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .eventyr-start,
+  .eventyr-map {
+    animation: eventyr-arrive 280ms ease-out both;
+  }
+
+  .eventyr-node {
+    transition: background-color 150ms ease, transform 150ms ease;
+  }
+
+  .eventyr-node:hover {
+    background-color: #224650;
+  }
+
+  .eventyr-node:active {
+    transform: translateY(3px);
+  }
+
+  @keyframes eventyr-arrive {
+    from { opacity: 0; transform: translateY(7px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* The course route keeps its existing integration selector. */
+.course-map-v7.eventyr-map {
+  height: auto;
+  overflow: visible;
+  background-image: none;
+}
+
+.course-map-v7.eventyr-map::before {
+  content: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .course-map-v7.eventyr-map {
+    animation: none;
+  }
+
+  .eventyr-action:active,
+  .home-v7 .cta-v7:active {
+    transform: none;
+  }
+}
