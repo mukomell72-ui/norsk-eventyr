@@ -1,12 +1,11 @@
 {
   "git": {
     "deploymentEnabled": {
-      "test/norsk-eventyr-9-0": false
+      "test/norsk-eventyr-9-0": false,
+      "test/norsk-eventyr-9-1": false
     }
   },
   "framework": null,
-  "buildCommand": "node tools/build-isolated-preview.cjs --git-build",
-  "outputDirectory": "preview-dist",
   "routes": [
     {
       "src": "/.*",

@@ -20,9 +20,9 @@ const revision=(access.match(/const ASSET_REV='([^']+)'/)||[])[1];
 assert.equal(revision,v,'Access bootstrap must fetch the published revision');
 const baseCache='norsk-eventyr-v'+v.replaceAll('.','-');
 const actualCache=(sw.match(/^const CACHE="([^"]+)";/m)||[])[1];
-assert(actualCache?.startsWith(baseCache+'-')&&actualCache.endsWith('-eventyr9'),
+assert(actualCache?.startsWith(baseCache+'-')&&actualCache.endsWith('-eventyr91'),
  'PWA cache must match the current asset base and test build');
-assert(index.includes('<title>Norsk Eventyr 9.0'),'Page must show the test build version');
+assert(index.includes('<title>Norsk Eventyr 9.1'),'Page must show the test build version');
 assert(health.includes('version:"'+v+'"'),'Health endpoint must report the existing runtime version');
 const assets=JSON.parse(sw.match(/^const ASSETS=(\[[^\n]+\]);/m)[1]);
 const assetSet=new Set(assets);

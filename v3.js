@@ -585,7 +585,11 @@
     if(lessonSession?.lesson?._adaptive&&typeof adaptiveRenderLesson==="function")return adaptiveRenderLesson();
     const s=lessonSession,l=s.lesson,n=["Диалог","Грамматика","Словарь","Аудирование","Чтение","Письмо","Речь"];let b="";
     if(s.step===0)b=lessonIntro(l);if(s.step===1)b=grammarEx(l);if(s.step===2)b=vocabEx(l);if(s.step===3)b=listenExV3(l);if(s.step===4)b=readEx(l);if(s.step===5)b=freeEx(l,"writing");if(s.step===6)b=freeEx(l,"speaking");
-    shell('<div class="screen-head"><button class="back" onclick="navigate(\'course\',\''+l.level+'\')">←</button><div><div class="eyebrow">'+l.level+' · '+esc(l.title)+'</div><h2 style="margin:0">'+n[s.step]+' · '+(s.step+1)+'/7</h2></div></div><div class="progress"><i style="width:'+pct(s.step,7)+'%"></i></div>'+(window.NEExperience?.lessonHeader?.(l,s,7)||'')+'<section class="exercise">'+b+'</section>',"course");
+    shell('<div class="lesson-head-v6"><button class="back-v6" aria-label="Вернуться к карте курса" onclick="navigate(\'course\',\''+l.level+'\')">←</button>'+
+      '<div><small>'+l.level+' · '+esc(l.title)+'</small><b>'+n[s.step]+'</b></div><span>'+(s.step+1)+'/7</span></div>'+
+      '<div class="progress lesson-progress-v6" role="progressbar" aria-label="Продвижение по занятию" aria-valuemin="0" aria-valuenow="'+(s.step+1)+'" aria-valuemax="7">'+
+      '<i style="width:'+pct(s.step+1,7)+'%"></i></div>'+(window.NEExperience?.lessonHeader?.(l,s,7)||'')+
+      '<section class="exercise lesson-exercise-v6">'+b+'</section>',"course");
   };
   lessonNext=function(xp=0){if(lessonSession?.lesson?._adaptive&&typeof adaptiveLessonNext==="function")return adaptiveLessonNext(xp);lessonSession.step++;lessonSession.locked=false;lessonSession.choiceMiss=false;if(lessonSession.step>6)return finishLesson();persistLessonCheckpoint();renderLesson()};
   lessonChoice=function(btn,i,c,note,skillHint=""){

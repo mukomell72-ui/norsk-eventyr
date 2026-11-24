@@ -5,7 +5,7 @@ const fs=require('node:fs'),path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const {checkSource}=require('../tools/prepare-staging-release.cjs');
 assert.throws(checkSource,/Mismatched page version; staging aborted/,
- 'The 8.3.0 packager must reject the 9.0 test branch');
+ 'The 8.3.0 packager must reject the 9.1 test branch');
 const baseline=require('../tools/learning-quality-baseline.cjs').inspect();
 assert.equal(baseline.totalModules,32);
 assert.equal(baseline.authoredListeningClips,72);
@@ -28,4 +28,4 @@ for(const phrase of ['NO-GO','norsk_eventyr_sync_create','auth_leaked_password_p
  assert(actualSecurity.includes(phrase),'Live security audit missing blocker: '+phrase);
 assert(note.includes('LIVE_RELEASE_READINESS_2026-10-13.md')&&note.includes('ANDROID_8_3_0_ACCEPTANCE.md'),
  'Staging release plan must link real-device and security-readiness checks');
-console.log('PASS 8.3 release staging: 9.0 excluded from old packager, 32 modules, 72 authored scripts, documented scope and publication blockers');
+console.log('PASS 8.3 release staging: 9.1 excluded from old packager, 32 modules, 72 authored scripts, documented scope and publication blockers');

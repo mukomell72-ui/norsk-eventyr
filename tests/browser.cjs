@@ -9,23 +9,47 @@ const server=http.createServer(async(req,res)=>{
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch({...(process.env.NE_CHROMIUM_PATH?{executablePath:process.env.NE_CHROMIUM_PATH}:{}),args:['--no-sandbox','--disable-gpu','--disable-dev-shm-usage']});const page=await browser.newPage({viewport:{width:390,height:844},serviceWorkers:'block'});let errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('dialog',d=>d.dismiss());await page.goto('http://127.0.0.1:'+server.address().port);await page.waitForFunction(()=>window.NEAccess?.ready());
  const intro=page.getByRole('region',{name:'Твой первый шаг'});
  await intro.waitFor();
+ assert.equal(await page.locator('#placementEntryCard, .ne-focus-card').count(),0,'Onboarding must not repeat the same choices');
+ await intro.getByLabel('Где тебе пригодится норвежский?').selectOption('work');
  await intro.getByRole('button',{name:'Начать с A1'}).click();
+ assert.equal(await page.evaluate(()=>state.learningV8.noraExperience.focus),'work');
  const map=page.locator('.eventyr-map'),tabs=page.locator('.level-tabs-v7');
  await map.waitFor();
- assert.equal(await map.locator('li').count(),8);
+ assert.equal(await map.locator('.eventyr-trail > li').count(),8);
  assert.equal(await map.locator('[aria-current="step"]').count(),1);
  assert.equal(await map.locator('.locked').count(),7);
+ const turns=await map.locator('.eventyr-medallion').evaluateAll(nodes=>nodes.slice(0,4).map(node=>({
+  x:node.getBoundingClientRect().x, width:node.offsetWidth, height:node.offsetHeight,
+  radius:getComputedStyle(node).borderRadius
+ })));
+ assert(turns.every(node=>node.width===node.height&&node.radius==='50%'));
+ assert(turns[1].x<turns[0].x&&turns[0].x<turns[3].x,'Course trail must curve both ways');
+ await map.getByText('Сундуки и достижения').click();
+ assert(await map.locator('.eventyr-rewards li').count()>0);
+ const beforeRewards=await page.evaluate(()=>({xp:state.xp,level:state.level}));
+ assert.equal(await map.getByRole('button',{name:'Открыть миссию'}).count(),0);
+ await map.getByText('Сундуки и достижения').click();
+ assert.deepEqual(await page.evaluate(()=>({xp:state.xp,level:state.level})),beforeRewards);
+ await page.evaluate(()=>{
+  state.xp=xpRewardCatalog().at(-1).xp;
+  navigate('course','A1');
+ });
+ await map.getByText('Сундуки и достижения').click();
+ assert.equal(await map.getByRole('button',{name:'Открыть миссию'}).count(),await page.evaluate(()=>xpRewardCatalog().length));
+
+
  for(const level of ['A2','B1','B2']){
   await tabs.getByRole('button',{name:level,exact:true}).click();
-  assert.equal(await map.locator('li').count(),8);
+  assert.equal(await map.locator('.eventyr-trail > li').count(),8);
   assert.equal(await map.locator('.locked').count(),8);
   assert.equal(await tabs.locator('[aria-pressed="true"]').textContent(),level);
   assert.equal(await page.evaluate(()=>document.activeElement.textContent),level);
  }
  assert.equal(await page.evaluate(()=>state.level),'A1','Browsing the map must not change learner level');
+ await page.evaluate(xp=>{state.xp=xp;saveState()},beforeRewards.xp);
  await page.emulateMedia({reducedMotion:'reduce'});
  assert.equal(await map.evaluate(el=>getComputedStyle(el).animationName),'none');
- assert(await map.locator('li').last().evaluate(el=>el.getBoundingClientRect().bottom<=el.closest('section').getBoundingClientRect().bottom));
+ assert(await map.locator('.eventyr-trail > li').last().evaluate(el=>el.getBoundingClientRect().bottom<=el.closest('section').getBoundingClientRect().bottom));
  await map.getByRole('button',{name:/Закрыт/}).first().click();
  await page.getByRole('heading',{name:'Сначала подтверди A1'}).waitFor();
  await page.reload();
@@ -38,7 +62,7 @@ const server=http.createServer(async(req,res)=>{
  await firstPlacement.getByRole('heading',{name:'С какого материала лучше начать?'}).waitFor();
  assert(!await firstPlacement.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2));
  await firstPlacement.close();
- console.log('PASS 9.0 onboarding, 32 map nodes, real level gates, keyboard focus and reduced motion');
+ console.log('PASS 9.1 onboarding preferences, curved course map, rewards, real gates and reduced motion');
 
  for(const route of ['home','course','chat','story','hub','dictionary','daily','review','tests','exam','progress','plan','dictation','grammarlab','pronunciation','listeninglab','cloud','settings','storyjournal','storyside','teacher']){await page.evaluate(route=>navigate(route),route);await page.waitForTimeout(160);assert(await page.locator('#app main').innerText(),route);assert(!await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),route+' overflow')}
  console.log('PASS 21 routes including adaptive teacher');
@@ -49,6 +73,7 @@ const server=http.createServer(async(req,res)=>{
  await humanPage.goto('http://127.0.0.1:'+server.address().port);
  await humanPage.waitForFunction(()=>window.NEAccess?.ready()&&window.NEExperience?.homeChoice);
  await humanPage.evaluate(()=>navigate('home'));
+ await humanPage.getByRole('button',{name:'Пропустить',exact:true}).click();
  assert.equal(await humanPage.locator('.ne-focus-card').count(),1,'Current home must show personal real-world interests');
  assert.equal(await humanPage.locator('.ne-home-extras').count(),1,'Secondary features stay available');
  assert.equal(await humanPage.locator('.ne-home-extras').getAttribute('open'),null,
@@ -91,6 +116,12 @@ const server=http.createServer(async(req,res)=>{
  await humanPage.evaluate(()=>navigate('course'));
  await humanPage.getByRole('button',{name:'Продолжить сохранённый урок'}).click();
  assert.equal(await humanPage.locator('.ne-mission-head').count(),1,'Map resume retains mission context');
+ const lessonProgress=humanPage.getByRole('progressbar',{name:'Продвижение по занятию'});
+ assert(await lessonProgress.isVisible());
+ assert(Number(await lessonProgress.getAttribute('aria-valuemax'))>=6);
+ assert.equal(await humanPage.locator('.dock-v7').isVisible(),false,'Lesson navigation belongs to its full-screen header');
+ assert(await humanPage.getByRole('button',{name:'Вернуться к карте курса'}).isVisible());
+
  // This optional chat CTA appears only AFTER a lesson is finished. Do not
  // trigger it while a protected, pending lesson is still active.
  await humanPage.evaluate(()=>{
@@ -177,6 +208,7 @@ const server=http.createServer(async(req,res)=>{
  await calibrationPage.goto('http://127.0.0.1:'+server.address().port);
  await calibrationPage.waitForFunction(()=>window.NEAccess?.ready());
  await calibrationPage.evaluate(()=>navigate('home'));
+ await calibrationPage.getByRole('button',{name:'Пропустить',exact:true}).click();
  assert((await calibrationPage.locator('#placementEntryCard').innerText()).includes('С чего начать норвежский?'));
  assert(!await calibrationPage.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),'beginner calibration banner overflows on phone');
  await calibrationPage.evaluate(()=>{NECalibration.beginner()});
@@ -583,7 +615,7 @@ const server=http.createServer(async(req,res)=>{
   assert.equal(await page.evaluate(()=>Boolean(JSON.parse(localStorage.getItem('ne2_state')).wordFavorites.unconfirmedFromCloud)),false,'Rejected cloud push must not contaminate saved progress');
   pullOk=false;await page.evaluate(()=>{navigate('cloud');const e=document.createElement('textarea');e.id='cloudCode';e.value='bad.bad';document.body.appendChild(e)});await page.evaluate(()=>connectCloud());assert(await page.evaluate(()=>JSON.parse(localStorage.getItem('ne_cloud_link')).sync_id==='qa-existing'));await page.evaluate(()=>localStorage.removeItem('ne_cloud_link'));console.log('PASS cloud preservation, serialized requests and rejected connection');
  for(const level of ['A1','A2','B1','B2']){await page.evaluate(level=>navigate('course',level),level);assert.equal(await page.locator('.near-lesson-v7').count(),await page.evaluate(()=>lessons(state.level).length))}
- for(const width of [360,390,768]){await page.setViewportSize({width,height:844});for(const screen of ['welcome','home','course','chat','story','learnedwords','lesson','listeninglab','grammarlab','exam','progress','settings']){await page.evaluate(screen=>navigate(screen,screen==='lesson'?'a1-1':undefined),screen);assert(!await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),screen+' '+width)}}console.log('PASS every core lesson and 12 screens at three widths');
+ for(const width of [360,390,768,1280]){await page.setViewportSize({width,height:844});for(const screen of ['welcome','home','course','chat','story','learnedwords','lesson','listeninglab','grammarlab','exam','progress','settings']){await page.evaluate(screen=>navigate(screen,screen==='lesson'?'a1-1':undefined),screen);assert(!await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+2),screen+' '+width)}}console.log('PASS every core lesson and 12 screens at four mobile and desktop widths');
  await page.evaluate(()=>document.getElementById('cloudCode')?.remove());
  const staged=await page.evaluate(()=>{
     const data=NECurated.variant('b2-listening',0);

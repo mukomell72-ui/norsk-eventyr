@@ -32,7 +32,7 @@ fs.copyFileSync(path.join(__dirname, 'preview-demo.js'), path.join(staticDir, 'p
 writeEdited('index.html', '<head>', '<head>\n  <script src="/preview-demo.js?v=2"></script>');
 writeEdited('index.html', '  <script src="/study-activity.js?v=8.3.0-lesson24" defer></script>\n', '');
 writeEdited('sw.js', 'const ASSETS=[', 'const ASSETS=["/preview-demo.js?v=2",');
-writeEdited('sw.js', '-eventyr9";', '-eventyr9-isolated2";');
+writeEdited('sw.js', '-eventyr91";', '-eventyr91-isolated2";');
 if (!gitBuild) {
   const {routes} = require(path.join(root, 'vercel.json'));
   fs.writeFileSync(path.join(output, 'config.json'), JSON.stringify({version: 3, routes}, null, 2) + '\n');

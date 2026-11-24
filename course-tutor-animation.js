@@ -25,13 +25,12 @@
   scheduled=false;
   const app=document.getElementById('app');
   const session=window.neLessonSession;
-  const active=!!session?.lesson&&app&&app.children.length>0;
+  const exercise=app?.querySelector('.lesson-exercise-v6');
   const old=document.getElementById('neCourseTutor');
-  if(!active){old?.remove();return}
-  // Avoid duplication when the speaking activity already shows a full character stage.
-  if(app.querySelector('.ne-world-stage')){old?.remove();return}
-  const anchor=app.querySelector('.guided-speaking,.ne-world-guide,.card,main')||app.firstElementChild;
-  if(!anchor)return;
+  if(!session?.lesson||!exercise){old?.remove();return}
+  // The visual lesson guide and the dialogue stage already have an animated Nora.
+  if(app.querySelector('.ne-world-guide, .ne-world-stage')){old?.remove();return}
+  const anchor=exercise;
   if(old?.isConnected)return;
   const box=document.createElement('aside');
   box.id='neCourseTutor';box.className='ne-course-tutor';

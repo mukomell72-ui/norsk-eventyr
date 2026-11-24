@@ -15,8 +15,8 @@ async function run() {
   execFileSync(process.execPath, [path.resolve(__dirname, '../tools/build-isolated-preview.cjs'), tmp]);
   const output = path.join(tmp, '.vercel/output');
   const root = path.join(output, 'static');
-  assert.equal(config.buildCommand, 'node tools/build-isolated-preview.cjs --git-build');
-  assert.equal(config.outputDirectory, 'preview-dist');
+  assert.equal(config.git.deploymentEnabled['test/norsk-eventyr-9-1'], false);
+  assert.equal(config.buildCommand, undefined);
   assert(config.routes.some(route => route.src === '/api(?:/.*)?' && route.status === 404));
   assert(!fs.existsSync(path.join(output, 'functions')));
   assert(!fs.existsSync(path.join(root, 'api')));
@@ -54,7 +54,7 @@ async function run() {
         await page.getByRole('button',{name:'Начать с A1'}).click();
       }
       await page.locator('.level-tabs-v7').getByRole('button',{name:level,exact:true}).click();
-      assert.equal(await page.locator('.eventyr-map li').count(),8);
+      assert.equal(await page.locator('.eventyr-trail > li').count(),8);
       await page.emulateMedia({reducedMotion:'reduce'});
       assert.equal(await page.locator('.eventyr-map').evaluate(el=>getComputedStyle(el).animationName),'none');
       await page.getByRole('button',{name:'Демо '+level,exact:true}).click();

@@ -175,7 +175,7 @@
  }
  function mountEntry(){
   const home=document.querySelector('.home-v7'),hub=document.querySelector('.hub-v7');
-  const parent=home||hub;if(!parent||parent.querySelector('#placementEntryCard'))return;
+  const parent=home||hub;if(!parent||parent.querySelector('#placementEntryCard, #eventyr-first-title'))return;
   const markup=banner();if(!markup)return;
   const holder=document.createElement('div');holder.innerHTML=markup;
   const card=holder.firstElementChild;if(card)parent.insertBefore(card,parent.children[home?1:1]||null);
