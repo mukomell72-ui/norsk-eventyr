@@ -2,7 +2,8 @@
   "git": {
     "deploymentEnabled": {
       "test/norsk-eventyr-9-0": false,
-      "test/norsk-eventyr-9-1": false
+      "test/norsk-eventyr-9-1": false,
+      "test/norsk-eventyr-9-1-staging": false
     }
   },
   "framework": null,
