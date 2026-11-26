@@ -410,6 +410,10 @@
     m.noraMemory={...rm,...lm,introduced:rm.introduced===true||lm.introduced===true,
       conversationCount:Math.max(Number(rm.conversationCount)||0,Number(lm.conversationCount)||0),
       lastPracticeDate:[rm.lastPracticeDate,lm.lastPracticeDate].filter(Boolean).sort().at(-1)||""};
+    const localIntro=local.introductionsA1,remoteIntro=remote.introductionsA1;
+    if(remoteIntro&&(!localIntro||String(remoteIntro.updatedAt||'')>String(localIntro.updatedAt||''))){
+      m.introductionsA1=remoteIntro;
+    }
     const ra=remote.activeLesson,la=local.activeLesson;
     m.activeLesson=(ra&&la)?(String(ra.savedAt||"")>String(la.savedAt||"")?ra:la):(la||ra||null);
     m.elite={...(remote.elite||{}),...(local.elite||{})};
