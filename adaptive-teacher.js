@@ -369,6 +369,9 @@ async function teacherStartMission(){
  return runTeacherMission(mission);
 }
 async function teacherStartModule(moduleId){
+ if(moduleId==='a1-foundation'&&state.level==='A1'&&
+    !state.introductionsA1?.finished&&window.NEIntroductions&&
+    moduleMastery(state,moduleId)<78)return window.NEIntroductions.open();
  const mission=moduleMission(state,moduleId);if(!mission)return;
  const pending=state.activeLesson?.id&&state.generatedLessons?.[state.activeLesson.id];
  if(pending?._adaptive?.moduleId===moduleId)return startLesson(pending.id);

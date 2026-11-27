@@ -277,6 +277,10 @@
   }
   // One tap starts or resumes the lesson. Finished days show their result.
   function v7ContinueToday(){
+    if(typeof state!=='undefined'&&state.level==='A1'&&!state.introductionsA1?.finished&&
+       (window.NEAdaptive?.moduleMastery(state,'a1-foundation')||0)<78&&window.NEIntroductions){
+      return window.NEIntroductions.open();
+    }
     const engine=window.NELivingDay;
     if(!engine?.begin)return navigate('livingday');
     if(engine.details?.(false)?.finished)return navigate('livingday');
@@ -443,14 +447,15 @@
       const locked=!isResume&&(levelLocked||window.NEAdaptive?.moduleMission(state,m.id)?.blocked);
       const isNext=!locked&&!isDone&&next?.id===m.id;
       const current=isResume||(!hasPendingModule&&isNext);
-      const intro=m.id==='a1-foundation'&&!locked&&!isResume&&window.NEIntroductions;
+      const intro=m.id==='a1-foundation'&&!locked&&courseLevel==='A1'&&window.NEIntroductions;
       const action=intro?'NEIntroductions.open()':"teacherStartModule('"+js(m.id)+"')";
-      const status=intro?(window.NEIntroductions.started()?'Продолжить знакомство':'Игровой урок «Знакомство»'):isResume?'Продолжить урок':locked?'Закрыт':isDone?'Освоено · повторить':isNext?'Следующий модуль':'Открыть';
+      const nodeTitle=intro?'Знакомство · первый игровой урок':m.title;
+      const status=intro?(state.introductionsA1?.finished?'Игровой урок пройден · повторить':window.NEIntroductions.started()?'Продолжить знакомство':'Начать игровой урок «Знакомство»'):isResume?'Продолжить урок':locked?'Закрыт':isDone?'Освоено · повторить':isNext?'Следующий модуль':'Открыть';
       return '<li class="eventyr-stop '+(isDone?'done ':'')+(locked?'locked ':'')+(current?'current':'')+'">'+
         '<button type="button" class="eventyr-node" '+(current?'aria-current="step" ':'')+
         'onclick="'+action+'">'+
         '<span class="eventyr-medallion" aria-hidden="true">'+(locked?'🔒':isDone?'✓':i+1)+'</span>'+
-        '<span><b>'+h(m.title)+'</b><small>'+status+'</small></span></button></li>';
+        '<span><b>'+h(nodeTitle)+'</b><small>'+status+'</small></span></button></li>';
     }).join('');
     const list=modules.map((m,i)=>{
       const mastery=masteryOf(m),isDone=mastery>=78,isNext=next?.id===m.id,locked=!isDone&&!isNext;
@@ -468,10 +473,9 @@
         '<section class="eventyr-map course-map-v7" aria-labelledby="eventyr-map-title"><header>'+
           '<h2 id="eventyr-map-title">Карта уроков · '+h(courseLevel)+'</h2>'+
           (levelLocked?'<p>Этот уровень откроется после подтверждения навыков '+h(unlocked)+'.</p>':'')+
-          (canResume?'<button type="button" class="eventyr-action" onclick="navigate(\'lesson\',\''+js(pendingId)+'\')">Продолжить сохранённый урок</button>':'')+
+          (canResume&&!(courseLevel==='A1'&&pendingModule==='a1-foundation'&&!state.introductionsA1?.finished)?'<button type="button" class="eventyr-action" onclick="navigate(\'lesson\',\''+js(pendingId)+'\')">Продолжить сохранённый урок</button>':'')+
           (courseLevel==='A1'&&!levelLocked&&window.NEIntroductions?
-            (pendingModule==='a1-foundation'?'<button type="button" class="eventyr-action" onclick="NEIntroductions.open()">Игровой урок «Знакомство»</button>':
-              '<button type="button" class="eventyr-action" onclick="teacherStartModule(\'a1-foundation\')">Основная практика A1</button>'):'')+
+            '<button type="button" class="eventyr-action" onclick="NEIntroductions.open()">'+(state.introductionsA1?.finished?'Повторить игровое «Знакомство»':'Игровой урок «Знакомство»')+'</button>':'')+
         '</header>'+mapRewardsV91()+'<ol class="eventyr-trail">'+nodes+'</ol></section>'+
         '<section class="course-side-v7"><div class="nora-guide-v7"><span class="nora-avatar-v7"></span><div><small>Nora · преподаватель</small><b>'+(next?"Следующая цель: "+h(next.canDo?.[0]||next.title):"Повторение уровня")+'</b><p>Я меняю нагрузку по твоим ответам и возвращаю слабые места через интервалы.</p></div></div>'+
         '<details class="eventyr-syllabus"><summary>Цели и грамматика модулей</summary><div class="near-list-v7">'+list+'</div></details>'+

@@ -80,7 +80,7 @@
     return '<div class="screen-head"><button class="back" onclick="navigate(\'hub\')" aria-label="Назад">←</button><div><h2>'+safe(title)+'</h2><p class="muted">'+safe(subtitle)+'</p></div></div>';
   }
   async function v8ShareApp(){
-    let url='https://norsk-eventyr-mvp.vercel.app/';
+    let url=new URL('/',window.location.href).href;
     try{
       const info=await window.NEAccess.shareInfo();
       if(info?.referral_code)url+='?ref='+encodeURIComponent(info.referral_code);
